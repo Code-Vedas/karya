@@ -6,12 +6,17 @@
  */
 
 import { access, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const distIndex = join(process.cwd(), "dist", "index.html");
-const viteManifestPath = join(process.cwd(), "dist", ".vite", "manifest.json");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const baseDir = join(__dirname, "..");
+
+const distIndex = join(baseDir, "dist", "index.html");
+const viteManifestPath = join(baseDir, "dist", ".vite", "manifest.json");
 const dashboardManifestPath = join(
-  process.cwd(),
+  baseDir,
   "dist",
   "asset-manifest.json",
 );

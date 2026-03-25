@@ -35,6 +35,10 @@ module Karya
     rescue Errno::ENOENT
       raise AssetManifestMissingError,
             "Run yarn prepackage-build in #{ROOT} to generate #{asset_manifest_path}"
+    rescue JSON::ParserError
+      raise AssetManifestMissingError,
+            "The dashboard asset manifest at #{asset_manifest_path} is invalid. "\
+            "Run yarn prepackage-build in #{ROOT} to rebuild it."
     end
 
     def self.entrypoint(name = 'dashboard')
@@ -58,8 +62,9 @@ module Karya
       tags = stylesheet_paths(name).map do |stylesheet_path|
         %(<link rel="stylesheet" href="#{asset_url(stylesheet_path, prefix)}">)
       end
-      script_path = javascript_paths(name).fetch(0)
-      tags << %(<script type="module" src="#{asset_url(script_path, prefix)}"></script>)
+      javascript_paths(name).each do |script_path|
+        tags << %(<script type="module" src="#{asset_url(script_path, prefix)}"></script>)
+      end
       tags.join("\n")
     end
 
@@ -93,7 +98,11 @@ module Karya
       prefix = asset_prefix.to_s
       return '' if prefix.empty?
 
-      prefix.delete_suffix('/')
+      return prefix.delete_suffix('/') if prefix.match?(%r{\Ahttps?://}) || prefix.start_with?('//')
+
+      normalized = prefix.delete_suffix('/')
+      normalized = "/#{normalized}" unless normalized.start_with?('/')
+      normalized
     end
 
     def self.escape_html(value)

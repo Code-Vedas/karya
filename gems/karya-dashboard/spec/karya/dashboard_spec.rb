@@ -27,7 +27,10 @@ RSpec.describe Karya::Dashboard do
 
       expect(entrypoint.fetch('html')).to eq('/index.html')
       expect(entrypoint.fetch('mount_id')).to eq('karya-dashboard-root')
-      expect(described_class.javascript_paths).to all(start_with('/assets/'))
+      expect(described_class.javascript_paths).to contain_exactly(
+        '/assets/dashboard-runtime.js',
+        '/assets/dashboard-abc123.js'
+      )
       expect(described_class.stylesheet_paths).to all(start_with('/assets/'))
     end
   end
@@ -39,6 +42,8 @@ RSpec.describe Karya::Dashboard do
       tags = described_class.render_tags
 
       expect(tags).to include('<link rel="stylesheet" href="/assets/')
+      expect(tags.scan('<script type="module"').size).to eq(2)
+      expect(tags).to include('src="/assets/dashboard-runtime.js"')
       expect(tags).to include('<script type="module" src="/assets/')
     end
 
@@ -80,6 +85,24 @@ RSpec.describe Karya::Dashboard do
       expect(tags).to include('src="/dashboard/assets/')
       expect(tags).not_to include('/dashboard//assets/')
     end
+
+    it 'normalizes relative asset prefixes to absolute paths' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
+      tags = described_class.render_tags(asset_prefix: 'dashboard')
+
+      expect(tags).to include('href="/dashboard/assets/')
+      expect(tags).to include('src="/dashboard/assets/')
+    end
+
+    it 'preserves absolute asset prefixes' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
+      tags = described_class.render_tags(asset_prefix: 'https://cdn.example.com/dashboard/')
+
+      expect(tags).to include('href="https://cdn.example.com/dashboard/assets/')
+      expect(tags).to include('src="https://cdn.example.com/dashboard/assets/')
+    end
   end
 
   describe 'error handling' do
@@ -90,6 +113,19 @@ RSpec.describe Karya::Dashboard do
         Karya::Dashboard::AssetManifestMissingError,
         /Run yarn prepackage-build/
       )
+    end
+
+    it 'raises a useful error when the asset manifest is invalid JSON' do
+      Dir.mktmpdir('karya-dashboard-manifest') do |tmp_dir|
+        invalid_manifest = File.join(tmp_dir, 'asset-manifest.json')
+        File.write(invalid_manifest, '{invalid json')
+        allow(described_class).to receive(:asset_manifest_path).and_return(invalid_manifest)
+
+        expect { described_class.asset_manifest }.to raise_error(
+          Karya::Dashboard::AssetManifestMissingError,
+          /asset manifest .* is invalid/i
+        )
+      end
     end
   end
 end
