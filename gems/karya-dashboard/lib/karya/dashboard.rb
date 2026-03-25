@@ -37,7 +37,7 @@ module Karya
             "Run yarn prepackage-build in #{ROOT} to generate #{asset_manifest_path}"
     rescue JSON::ParserError
       raise AssetManifestMissingError,
-            "The dashboard asset manifest at #{asset_manifest_path} is invalid. "\
+            "The dashboard asset manifest at #{asset_manifest_path} is invalid. " \
             "Run yarn prepackage-build in #{ROOT} to rebuild it."
     end
 
