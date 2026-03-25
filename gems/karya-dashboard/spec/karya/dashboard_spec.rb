@@ -6,6 +6,12 @@
 # LICENSE file in the root directory of this source tree.
 
 RSpec.describe Karya::Dashboard do
+  let(:fixture_manifest_path) { File.expand_path('../fixtures/asset-manifest.json', __dir__) }
+
+  before do
+    allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+  end
+
   describe 'packaging metadata' do
     it 'has a version number' do
       expect(described_class::VERSION).to eq('0.1.0')
@@ -48,6 +54,17 @@ RSpec.describe Karya::Dashboard do
       expect(document).to include('data-karya-mount-path="/ops/karya"')
       expect(document).to include('href="/dashboard/assets/')
       expect(document).to include('src="/dashboard/assets/')
+    end
+
+    it 'escapes interpolated HTML values in rendered documents' do
+      document = described_class.render_document(
+        title: 'Ops <Dashboard>',
+        mount_path: %(/ops/"karya"&more)
+      )
+
+      expect(document).to include('<title>Ops &lt;Dashboard&gt;</title>')
+      expect(document).to include('data-karya-mount-path="/ops/&quot;karya&quot;&amp;more"')
+      expect(document).not_to include('<title>Ops <Dashboard></title>')
     end
 
     it 'normalizes trailing slashes in asset prefixes' do

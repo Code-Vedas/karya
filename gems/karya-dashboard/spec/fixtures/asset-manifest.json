@@ -1,0 +1,14 @@
+{
+  "entrypoints": {
+    "dashboard": {
+      "html": "/index.html",
+      "scripts": [
+        "/assets/dashboard-abc123.js"
+      ],
+      "styles": [
+        "/assets/dashboard-abc123.css"
+      ],
+      "mount_id": "karya-dashboard-root"
+    }
+  }
+}

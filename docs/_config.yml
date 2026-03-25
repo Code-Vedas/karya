@@ -5,7 +5,7 @@
 
 title: Karya
 description: >-
-  Karya is a powerful and flexible task runner built on top of Node.js, designed to simplify and automate your development workflow. With Karya, you can easily define and manage tasks, streamline your build process, and boost your productivity.
+  Karya is a Ruby-based background job and workflow system, composed of core and integration gems plus a dashboard frontend for development and operations.
 baseurl: ""
 domain: karya.codevedas.com
 repository: Code-Vedas/karya

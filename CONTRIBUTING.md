@@ -24,7 +24,7 @@ The table below provides an overview of all possible modules/components:
 
 | Module/Component | Description                         | Related Language/Framework |
 | ---------------- | ----------------------------------- | -------------------------- |
-| `karya/`         | Canonical gem package and CLI root | Ruby                       |
+| `core/karya/`    | Canonical gem package and CLI root | Ruby                       |
 
 ## Improve Documentation
 
@@ -60,10 +60,10 @@ Before creating a pull request, ensure the following:
 
 ### Gem development baseline
 
-The canonical package lives under `karya/`. Use Ruby `3.2+` and run gem-local commands from that directory unless a guide explicitly says otherwise.
+The canonical package lives under `core/karya/`. Use Ruby `3.2+` and run gem-local commands from that directory unless a guide explicitly says otherwise.
 
 ```bash
-cd karya
+cd core/karya
 bundle install
 bundle exec rspec
 bundle exec rubocop
@@ -72,7 +72,7 @@ gitleaks dir --no-banner .
 bundle exec exe/karya --help
 ```
 
-The `karya/spec/support/` directory is reserved for shared gem-level test helpers. Framework dummy-app helpers will be added separately.
+The `core/karya/spec/support/` directory is reserved for shared gem-level test helpers. Framework dummy-app helpers will be added separately.
 
 ### Issue
 
@@ -138,7 +138,7 @@ Pick the version number from draft release notes on the
    ```
 
 2. **Update the version**
-   Update the version in `karya/karya.gemspec` and `karya/lib/karya/version.rb` to `<version>`.
+   Update the version in `core/karya/karya.gemspec` and `core/karya/lib/karya/version.rb` to `<version>`.
 
 3. **Update CHANGELOG**
    Copy the draft release notes from the
@@ -147,7 +147,7 @@ Pick the version number from draft release notes on the
 
 4. **Docs sweep**
    Update all relevant docs to reflect this version (version number, features, fixes, usage):
-   - Root `README.md` and `karya/README.md`
+   - Root `README.md` and `core/karya/README.md`
    - `CONTRIBUTING.md` (if contributor process changed)
 
 5. **Verify release notes**
@@ -157,7 +157,7 @@ Pick the version number from draft release notes on the
    Run lint and tests locally (CI will run them again):
 
    ```bash
-   cd karya
+   cd core/karya
    bundle exec rubocop
    bundle exec rspec
    ```

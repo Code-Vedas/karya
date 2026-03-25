@@ -5,6 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require 'cgi'
 require 'json'
 
 require_relative 'dashboard/version'
@@ -74,11 +75,11 @@ module Karya
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>#{title}</title>
+            <title>#{escape_html(title)}</title>
             #{render_tags(name:, asset_prefix:)}
           </head>
           <body>
-            <div id="#{mount_id(name)}" data-karya-mount-path="#{mount_path}"></div>
+            <div id="#{escape_html(mount_id(name))}" data-karya-mount-path="#{escape_html(mount_path)}"></div>
           </body>
         </html>
       HTML
@@ -93,6 +94,10 @@ module Karya
       return '' if prefix.empty?
 
       prefix.delete_suffix('/')
+    end
+
+    def self.escape_html(value)
+      CGI.escapeHTML(value.to_s)
     end
   end
 end
