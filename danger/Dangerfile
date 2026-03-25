@@ -1,0 +1,2 @@
+warn('Changelog entry is missing') unless File.exist?('CHANGELOG.md')
+warn('Workspace file is missing') unless File.exist?('karya.code-workspace')

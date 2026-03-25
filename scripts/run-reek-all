@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ "${SCRIPT_DIR:-}" = "" ]; then
+  SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+fi
+. "${SCRIPT_DIR}/run-common"
+
+for suite_dir in $(ruby_suites); do
+  run_optional_ruby_bin "${suite_dir}" "reek"
+done

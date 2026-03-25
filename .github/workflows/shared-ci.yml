@@ -1,0 +1,263 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Shared CI
+permissions:
+  contents: read
+env:
+  BUNDLE_PATH: ${{ github.workspace }}/vendor/bundle
+  BUNDLE_JOBS: "4"
+  BUNDLE_RETRY: "3"
+  NODE_VERSION: "24"
+
+on:
+  workflow_call:
+    inputs:
+      upload_coverage:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      QLTY_COVERAGE_TOKEN:
+        required: false
+
+jobs:
+  rubocop:
+    name: RuboCop · Ruby ${{ matrix.ruby_version }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby_version:
+          - "3.2"
+          - "3.4"
+          - "4.0"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install apt packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential git libmysqlclient-dev libpq-dev libyaml-dev pkg-config
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby_version }}
+          bundler-cache: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Restore bundle cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BUNDLE_PATH }}
+          key: ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-${{ hashFiles('core/**/Gemfile.lock', 'core/**/gemfiles/*.gemfile.lock', 'gems/**/Gemfile.lock', 'gems/**/gemfiles/*.gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-
+      - name: Install bundles
+        run: scripts/ci-install-bundles
+        env:
+          CI_RUBY_VERSION: ${{ matrix.ruby_version }}
+      - name: Run node lint
+        if: matrix.ruby_version == '3.4'
+        run: scripts/run-node-lint-all
+      - name: Run RuboCop
+        run: scripts/run-rubocop-all
+
+  reek:
+    name: Reek · Ruby ${{ matrix.ruby_version }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: rubocop
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby_version:
+          - "3.2"
+          - "3.4"
+          - "4.0"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install apt packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential git libmysqlclient-dev libpq-dev libyaml-dev pkg-config
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby_version }}
+          bundler-cache: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Restore bundle cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BUNDLE_PATH }}
+          key: ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-${{ hashFiles('core/**/Gemfile.lock', 'core/**/gemfiles/*.gemfile.lock', 'gems/**/Gemfile.lock', 'gems/**/gemfiles/*.gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-
+      - name: Install bundles
+        run: scripts/ci-install-bundles
+        env:
+          CI_RUBY_VERSION: ${{ matrix.ruby_version }}
+      - name: Run Reek
+        run: scripts/run-reek-all
+
+  test:
+    name: Unit Tests · Ruby ${{ matrix.ruby_version }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: reek
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby_version:
+          - "3.2"
+          - "3.4"
+          - "4.0"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install apt packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential git libmysqlclient-dev libpq-dev libyaml-dev pkg-config
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby_version }}
+          bundler-cache: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Restore bundle cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BUNDLE_PATH }}
+          key: ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-${{ hashFiles('core/**/Gemfile.lock', 'core/**/gemfiles/*.gemfile.lock', 'gems/**/Gemfile.lock', 'gems/**/gemfiles/*.gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-
+      - name: Install bundles
+        run: scripts/ci-install-bundles
+        env:
+          CI_RUBY_VERSION: ${{ matrix.ruby_version }}
+      - name: Run unit tests
+        run: scripts/run-rspec-unit-all
+      - name: Run frontend build
+        if: matrix.ruby_version == '3.4'
+        run: scripts/run-build-all
+      - name: Publish coverage to Qlty
+        if: inputs.upload_coverage && matrix.ruby_version == '3.4'
+        uses: qltysh/qlty-action/coverage@v2
+        with:
+          token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
+          files: |
+            ${{ github.workspace }}/core/karya/coverage/.resultset.json
+            ${{ github.workspace }}/gems/karya-dashboard/coverage/.resultset.json
+
+  test_e2e:
+    name: E2E Tests · Ruby ${{ matrix.ruby_version }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby_version:
+          - "3.2"
+          - "3.4"
+          - "4.0"
+    env:
+      RAILS_ENV: test
+      REDIS_URL: redis://127.0.0.1:6379/0
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootROOT!1
+          MYSQL_DATABASE: karya_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -p$MYSQL_ROOT_PASSWORD"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install apt packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential git libmysqlclient-dev libpq-dev libyaml-dev pkg-config
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby_version }}
+          bundler-cache: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Restore bundle cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BUNDLE_PATH }}
+          key: ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-${{ hashFiles('core/**/Gemfile.lock', 'core/**/gemfiles/*.gemfile.lock', 'gems/**/Gemfile.lock', 'gems/**/gemfiles/*.gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-
+      - name: Install bundles
+        run: scripts/ci-install-bundles
+        env:
+          CI_RUBY_VERSION: ${{ matrix.ruby_version }}
+      - name: Run e2e tests
+        run: scripts/run-rspec-e2e-all
+      - name: Run Firefox e2e
+        if: matrix.ruby_version == '3.4'
+        run: scripts/run-firefox-e2e-all
+        env:
+          PLAYWRIGHT_BROWSER: firefox
+          PLAYWRIGHT_HEADLESS: "true"
+      - name: Run multi-node CLI checks
+        if: matrix.ruby_version == '3.4'
+        run: scripts/run-multi-node-cli-all

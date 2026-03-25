@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ "${SCRIPT_DIR:-}" = "" ]; then
+  SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+fi
+. "${SCRIPT_DIR}/run-common"
+
+for suite_dir in $(js_suites); do
+  run_optional_yarn_script "${suite_dir}" "firefox:e2e"
+done

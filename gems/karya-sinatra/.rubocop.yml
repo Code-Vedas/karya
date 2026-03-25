@@ -1,0 +1,67 @@
+plugins:
+  - rubocop-performance
+  - rubocop-rake
+  - rubocop-rspec
+
+AllCops:
+  NewCops: enable
+  SuggestExtensions: true
+  TargetRubyVersion: 3.2
+  Exclude:
+    - ".vscode/**/*"
+    - "vendor/**/*"
+    - "vendor/bundle/**/*"
+
+Layout/LineLength:
+  Max: 160
+
+Metrics/MethodLength:
+  Max: 40
+
+Metrics/ModuleLength:
+  Max: 350
+
+Metrics/BlockLength:
+  Max: 250
+
+Metrics/ParameterLists:
+  Max: 10
+
+Metrics/ClassLength:
+  Max: 220
+
+Metrics/AbcSize:
+  Max: 35
+
+Metrics/CyclomaticComplexity:
+  Max: 12
+
+Metrics/PerceivedComplexity:
+  Max: 16
+
+RSpec/MultipleExpectations:
+  Max: 40
+
+RSpec/ExampleLength:
+  Max: 80
+
+RSpec/MultipleMemoizedHelpers:
+  Max: 15
+
+RSpec/NestedGroups:
+  Max: 5
+
+Style/Documentation:
+  Enabled: false
+
+Style/MutableConstant:
+  Enabled: false
+
+Style/RedundantReturn:
+  Enabled: false
+
+Style/TrivialAccessors:
+  Enabled: false
+
+Style/OneClassPerFile:
+  Enabled: false

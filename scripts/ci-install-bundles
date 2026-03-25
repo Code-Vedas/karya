@@ -1,0 +1,42 @@
+#!/bin/sh
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)
+BUNDLE_PATH="${BUNDLE_PATH:-${REPO_ROOT}/vendor/bundle}"
+
+export BUNDLE_PATH
+
+install_bundle_if_present() {
+  suite_dir="$1"
+
+  [ -f "${REPO_ROOT}/${suite_dir}/Gemfile" ] || return 0
+
+  cd "${REPO_ROOT}/${suite_dir}"
+  ruby -S bundle check || ruby -S bundle install
+}
+
+install_yarn_if_present() {
+  suite_dir="$1"
+
+  [ -f "${REPO_ROOT}/${suite_dir}/package.json" ] || return 0
+
+  cd "${REPO_ROOT}/${suite_dir}"
+  corepack yarn install --immutable
+  corepack yarn playwright install firefox
+}
+
+for suite_dir in \
+  core/karya \
+  core/karya-activerecord \
+  core/karya-sequel \
+  gems/karya-dashboard \
+  gems/karya-hanami \
+  gems/karya-rails \
+  gems/karya-roda \
+  gems/karya-sinatra
+do
+  install_bundle_if_present "${suite_dir}"
+  install_yarn_if_present "${suite_dir}"
+done

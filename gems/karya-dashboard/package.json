@@ -1,0 +1,45 @@
+{
+  "name": "karya-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "yarn@4.9.1",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint . --ext .ts,.tsx && stylelint \"src/**/*.scss\"",
+    "build": "tsc -b && vite build",
+    "prepackage-build": "yarn build && node scripts/verify-dist.mjs",
+    "dev": "vite dev --host 0.0.0.0 --port 4173",
+    "preview": "vite preview --host 127.0.0.1 --port 4273",
+    "firefox:e2e": "yarn prepackage-build && playwright test --project=firefox"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0",
+    "@types/node": "^24.0.10",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@typescript-eslint/scope-manager": "^7.18.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.1",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-airbnb-typescript": "^18.0.0",
+    "eslint-import-resolver-typescript": "^4.3.5",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "postcss": "^8.5.3",
+    "sass": "^1.89.2",
+    "stylelint": "^16.23.1",
+    "stylelint-config-standard-scss": "^15.0.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}

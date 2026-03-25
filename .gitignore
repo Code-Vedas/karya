@@ -1,0 +1,17 @@
+.bundle/
+coverage/
+karya/.bundle/
+karya/vendor/bundle/
+vendor/bundle/
+node_modules/
+dist/
+playwright-report/
+test-results/
+.yarn/
+.pnp.*
+tmp/
+gems/karya-dashboard/node_modules/
+gems/karya-dashboard/dist/
+gems/karya-dashboard/playwright-report/
+gems/karya-dashboard/test-results/
+*.log
