@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative '../lib/karya/cli'
+require_relative '../lib/karya'
 
 Karya::CLI.start(ARGV)
