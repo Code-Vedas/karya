@@ -18,8 +18,8 @@ export default {
         tide: "#0f766e",
       },
       fontFamily: {
-        display: ['"Space Grotesk"', "sans-serif"],
-        body: ['"Plus Jakarta Sans"', "sans-serif"],
+        display: ["Space Grotesk", "sans-serif"],
+        body: ["Plus Jakarta Sans", "sans-serif"],
       },
       boxShadow: {
         panel: "0 20px 50px rgba(15, 23, 42, 0.12)",

@@ -8,10 +8,6 @@
 RSpec.describe Karya::Dashboard do
   let(:fixture_manifest_path) { File.expand_path('../fixtures/asset-manifest.json', __dir__) }
 
-  before do
-    allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
-  end
-
   describe 'packaging metadata' do
     it 'has a version number' do
       expect(described_class::VERSION).to eq('0.1.0')
@@ -25,6 +21,8 @@ RSpec.describe Karya::Dashboard do
     end
 
     it 'loads the dashboard entrypoint from the asset manifest' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
       entrypoint = described_class.entrypoint
 
       expect(entrypoint.fetch('html')).to eq('/index.html')
@@ -36,6 +34,8 @@ RSpec.describe Karya::Dashboard do
 
   describe 'HTML helpers' do
     it 'renders tags for the packaged assets' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
       tags = described_class.render_tags
 
       expect(tags).to include('<link rel="stylesheet" href="/assets/')
@@ -43,6 +43,8 @@ RSpec.describe Karya::Dashboard do
     end
 
     it 'renders dashboard documents with optional asset prefixes' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
       document = described_class.render_document(
         title: 'Fixture Host',
         mount_path: '/ops/karya',
@@ -57,6 +59,8 @@ RSpec.describe Karya::Dashboard do
     end
 
     it 'escapes interpolated HTML values in rendered documents' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
       document = described_class.render_document(
         title: 'Ops <Dashboard>',
         mount_path: %(/ops/"karya"&more)
@@ -68,6 +72,8 @@ RSpec.describe Karya::Dashboard do
     end
 
     it 'normalizes trailing slashes in asset prefixes' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
       tags = described_class.render_tags(asset_prefix: '/dashboard/')
 
       expect(tags).to include('href="/dashboard/assets/')

@@ -37,6 +37,7 @@ module.exports = {
         tsx: "never",
       },
     ],
+    "@typescript-eslint/quotes": ["error", "double"],
     "react/function-component-definition": [
       "error",
       {
@@ -50,6 +51,7 @@ module.exports = {
         extensions: [".tsx"],
       },
     ],
+    "react/jsx-wrap-multilines": "off",
     "react/react-in-jsx-scope": "off",
   },
   overrides: [
