@@ -16,6 +16,7 @@ unless ENV['NO_COVERAGE'] == '1'
   end
 end
 
+require 'tmpdir'
 require 'karya/dashboard'
 
 RSpec.configure do |config|
