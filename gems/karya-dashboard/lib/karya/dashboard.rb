@@ -98,7 +98,8 @@ module Karya
       prefix = asset_prefix.to_s
       return '' if prefix.empty?
 
-      normalized = prefix.gsub(%r{/+\z}, '')
+      normalized = prefix
+      normalized = normalized.delete_suffix('/') while normalized.end_with?('/')
       return normalized if prefix.match?(%r{\Ahttps?://}) || prefix.start_with?('//')
       return '' if normalized.empty?
 
