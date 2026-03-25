@@ -19,8 +19,14 @@ module Karya
     DEFAULT_TITLE = 'Karya Dashboard'
     DEFAULT_MOUNT_ID = 'karya-dashboard-root'
 
-    # Raised when the asset manifest is missing, likely because the dashboard frontend has not been built.
-    class AssetManifestMissingError < StandardError; end
+    # Raised when dashboard asset manifest loading fails.
+    class AssetManifestError < StandardError; end
+
+    # Raised when the dashboard asset manifest file is missing.
+    class AssetManifestMissingError < AssetManifestError; end
+
+    # Raised when the dashboard asset manifest contains invalid JSON.
+    class AssetManifestInvalidError < AssetManifestError; end
 
     def self.dist_path
       DIST_PATH
@@ -36,7 +42,7 @@ module Karya
       raise AssetManifestMissingError,
             "Run yarn prepackage-build in #{ROOT} to generate #{asset_manifest_path}"
     rescue JSON::ParserError
-      raise AssetManifestMissingError,
+      raise AssetManifestInvalidError,
             "The dashboard asset manifest at #{asset_manifest_path} is invalid. " \
             "Run yarn prepackage-build in #{ROOT} to rebuild it."
     end

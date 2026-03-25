@@ -1,6 +1,7 @@
 GIT
   remote: https://github.com/niteshpurohit/just-the-docs.git
   revision: 933dc227584741c30a343cec25a1f315a3153988
+  ref: 933dc227584741c30a343cec25a1f315a3153988
   specs:
     just-the-docs (0.12.0)
       jekyll (>= 3.8.5)

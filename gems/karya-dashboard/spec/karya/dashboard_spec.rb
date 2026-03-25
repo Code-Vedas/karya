@@ -151,7 +151,7 @@ RSpec.describe Karya::Dashboard do
         allow(described_class).to receive(:asset_manifest_path).and_return(invalid_manifest)
 
         expect { described_class.asset_manifest }.to raise_error(
-          Karya::Dashboard::AssetManifestMissingError,
+          Karya::Dashboard::AssetManifestInvalidError,
           /asset manifest .* is invalid/i
         )
       end
