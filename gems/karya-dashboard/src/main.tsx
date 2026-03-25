@@ -13,7 +13,7 @@ import "./styles/index.scss";
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error('Karya dashboard could not find the "#root" mount element.');
+  throw new Error("Karya dashboard could not find the \"#root\" mount element.");
 }
 
 ReactDOM.createRoot(rootElement).render(
