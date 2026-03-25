@@ -27,7 +27,7 @@ toc:
   max_heading_level: 3
 aux_links:
   - title: " 🌙 / ☀️ "
-    url: javascript:toggleTheme();
+    url: "#toggle-theme"
     new_tab: false
   - title: Repository
     url: https://github.com/Code-Vedas/karya

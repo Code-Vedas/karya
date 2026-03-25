@@ -37,14 +37,21 @@ module Karya
     end
 
     def self.asset_manifest
-      JSON.parse(File.read(asset_manifest_path))
+      return @asset_manifest if @asset_manifest_path == asset_manifest_path && @asset_manifest
+
+      reload_asset_manifest!
+    end
+
+    def self.reload_asset_manifest!
+      @asset_manifest_path = asset_manifest_path
+      @asset_manifest = JSON.parse(File.read(@asset_manifest_path))
     rescue Errno::ENOENT
       raise AssetManifestMissingError,
-            "Run yarn prepackage-build in #{ROOT} to generate #{asset_manifest_path}"
+            "Run corepack yarn prepackage-build in #{ROOT} to generate #{asset_manifest_path}"
     rescue JSON::ParserError
       raise AssetManifestInvalidError,
             "The dashboard asset manifest at #{asset_manifest_path} is invalid. " \
-            "Run yarn prepackage-build in #{ROOT} to rebuild it."
+            "Run corepack yarn prepackage-build in #{ROOT} to rebuild it."
     end
 
     def self.entrypoint(name = 'dashboard')

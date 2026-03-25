@@ -140,7 +140,7 @@ RSpec.describe Karya::Dashboard do
 
       expect { described_class.asset_manifest }.to raise_error(
         Karya::Dashboard::AssetManifestMissingError,
-        /Run yarn prepackage-build/
+        /Run corepack yarn prepackage-build/
       )
     end
 
