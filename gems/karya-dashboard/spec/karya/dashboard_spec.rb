@@ -86,6 +86,35 @@ RSpec.describe Karya::Dashboard do
       expect(tags).not_to include('/dashboard//assets/')
     end
 
+    it 'normalizes repeated trailing slashes in asset prefixes' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
+      tags = described_class.render_tags(asset_prefix: '/dashboard///')
+
+      expect(tags).to include('href="/dashboard/assets/')
+      expect(tags).to include('src="/dashboard/assets/')
+      expect(tags).not_to include('/dashboard//assets/')
+    end
+
+    it 'treats slash-only asset prefixes as the root path' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
+      tags = described_class.render_tags(asset_prefix: '/')
+
+      expect(tags).to include('href="/assets/')
+      expect(tags).to include('src="/assets/')
+      expect(tags).not_to include('//assets/')
+    end
+
+    it 'preserves protocol-relative asset prefixes' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
+      tags = described_class.render_tags(asset_prefix: '//cdn.example.com/dashboard///')
+
+      expect(tags).to include('href="//cdn.example.com/dashboard/assets/')
+      expect(tags).to include('src="//cdn.example.com/dashboard/assets/')
+    end
+
     it 'normalizes relative asset prefixes to absolute paths' do
       allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
 

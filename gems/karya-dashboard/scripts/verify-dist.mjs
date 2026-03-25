@@ -15,11 +15,7 @@ const baseDir = join(__dirname, "..");
 
 const distIndex = join(baseDir, "dist", "index.html");
 const viteManifestPath = join(baseDir, "dist", ".vite", "manifest.json");
-const dashboardManifestPath = join(
-  baseDir,
-  "dist",
-  "asset-manifest.json",
-);
+const dashboardManifestPath = join(baseDir, "dist", "asset-manifest.json");
 
 await access(distIndex);
 await access(viteManifestPath);
@@ -27,9 +23,39 @@ await access(viteManifestPath);
 const viteManifest = JSON.parse(await readFile(viteManifestPath, "utf8"));
 const dashboardEntry = viteManifest["index.html"];
 
-if (!dashboardEntry || !dashboardEntry.file) {
+if (!dashboardEntry?.file) {
   throw new Error("Missing Vite dashboard entry for index.html");
 }
+
+const collectEntryAssets = (entryName, seen = new Set()) => {
+  if (seen.has(entryName)) {
+    return { scripts: [], styles: [] };
+  }
+
+  const entry = viteManifest[entryName];
+
+  if (!entry?.file) {
+    throw new Error(`Missing Vite manifest entry for ${entryName}`);
+  }
+
+  seen.add(entryName);
+
+  const scripts = [entry.file];
+  const styles = [...(entry.css ?? [])];
+
+  for (const importedEntryName of entry.imports ?? []) {
+    const importedAssets = collectEntryAssets(importedEntryName, seen);
+    scripts.push(...importedAssets.scripts);
+    styles.push(...importedAssets.styles);
+  }
+
+  return {
+    scripts: [...new Set(scripts)],
+    styles: [...new Set(styles)],
+  };
+};
+
+const dashboardAssets = collectEntryAssets("index.html");
 
 const dashboardManifest = {
   version: 1,
@@ -37,8 +63,8 @@ const dashboardManifest = {
     dashboard: {
       source: dashboardEntry.src ?? "src/main.tsx",
       html: "/index.html",
-      scripts: [`/${dashboardEntry.file}`],
-      styles: (dashboardEntry.css ?? []).map((assetPath) => `/${assetPath}`),
+      scripts: dashboardAssets.scripts.map((assetPath) => `/${assetPath}`),
+      styles: dashboardAssets.styles.map((assetPath) => `/${assetPath}`),
       mount_id: "karya-dashboard-root",
     },
   },
