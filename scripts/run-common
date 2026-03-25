@@ -153,7 +153,7 @@ has_package_script() {
   script_name="$2"
 
   [ -f "${REPO_ROOT}/${suite_dir}/package.json" ] || return 1
-  grep -q "\"${script_name}\"" "${REPO_ROOT}/${suite_dir}/package.json"
+  grep -q "\"${script_name}\"[[:space:]]*:" "${REPO_ROOT}/${suite_dir}/package.json"
 }
 
 yarn_exec() {

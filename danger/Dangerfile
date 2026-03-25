@@ -51,7 +51,7 @@ unless modified_files.grep(/\.rb$/).empty?
   warn('⚠️ No tests/specs modified. Please ensure tests are updated for any Ruby code changes.') if test_files.empty?
 end
 
-if violation_report[:errors].any? || violation_report[:warnings].any?
+if defined?(violation_report) && (violation_report[:errors].any? || violation_report[:warnings].any?)
   message = <<~MSG
     ---
     ⚠️ You got #{violation_report[:errors].count} error(s) and #{violation_report[:warnings].count} warning(s) in your PR.
