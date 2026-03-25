@@ -75,8 +75,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Enable Corepack
+        run: corepack enable
       - name: Configure RubyGems Credentials
         uses: rubygems/configure-rubygems-credentials@c631c084989f8f5953cd1cdbfb04e4cf3dba10aa
       - name: Install frontend dependencies

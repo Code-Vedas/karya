@@ -52,8 +52,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Enable Corepack
+        run: corepack enable
       - name: Restore bundle cache
         uses: actions/cache@v4
         with:
@@ -100,8 +100,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Enable Corepack
+        run: corepack enable
       - name: Restore bundle cache
         uses: actions/cache@v4
         with:
@@ -145,8 +145,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Enable Corepack
+        run: corepack enable
       - name: Restore bundle cache
         uses: actions/cache@v4
         with:
@@ -237,8 +237,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-          cache-dependency-path: gems/karya-dashboard/yarn.lock
+      - name: Enable Corepack
+        run: corepack enable
       - name: Restore bundle cache
         uses: actions/cache@v4
         with:

@@ -51,6 +51,8 @@ GEM
       faraday (>= 0.8)
     faraday-net_http (3.4.2)
       net-http (~> 0.5)
+    faraday-retry (2.4.0)
+      faraday (~> 2.0)
     git (2.3.3)
       activesupport (>= 5.0)
       addressable (~> 2.8)
@@ -95,9 +97,11 @@ GEM
 
 PLATFORMS
   arm64-darwin-24
+  ruby
 
 DEPENDENCIES
   danger (~> 9.5)
+  faraday-retry (~> 2.4)
 
 BUNDLED WITH
    2.7.2
