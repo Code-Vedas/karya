@@ -5,12 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('renders the dashboard heading in Firefox', async ({ page }) => {
-  await page.goto('/');
+test("renders the dashboard heading in Firefox", async ({ page }) => {
+  await page.goto("/");
 
-  await expect(page.getByTestId('dashboard-heading')).toHaveText(
-    'Operational clarity for Karya workflows.',
+  await expect(page.getByTestId("dashboard-heading")).toHaveText(
+    "Operational clarity for Karya workflows.",
   );
 });

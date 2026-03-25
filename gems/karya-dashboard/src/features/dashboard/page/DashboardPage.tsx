@@ -5,35 +5,33 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import PageShell from '../../../components/layout/PageShell';
-import MetricCard from '../../../components/ui/MetricCard';
-import ReleaseCard from '../../../components/ui/ReleaseCard';
-import {
-  dashboardMetrics,
-  dashboardReleases,
-} from '../data/dashboardContent';
+import PageShell from "../../../components/layout/PageShell";
+import MetricCard from "../../../components/ui/MetricCard";
+import ReleaseCard from "../../../components/ui/ReleaseCard";
+import { dashboardMetrics, dashboardReleases } from "../data/dashboardContent";
 
 export default function DashboardPage() {
   return (
     <PageShell
-      accent={(
+      accent={
         <div className="hero-accent">
           <p className="hero-accent__eyebrow">Current mode</p>
           <p className="hero-accent__title">Build-ready UI package</p>
         </div>
-      )}
-      hero={(
+      }
+      hero={
         <>
           <p className="hero-badge">karya-dashboard</p>
           <h1 className="hero-title" data-testid="dashboard-heading">
             Operational clarity for Karya workflows.
           </h1>
           <p className="hero-summary">
-            The UI gem ships a focused control surface for queues, incidents, and
-            release readiness without coupling frontend assets to the core gem.
+            The UI gem ships a focused control surface for queues, incidents,
+            and release readiness without coupling frontend assets to the core
+            gem.
           </p>
         </>
-      )}
+      }
     >
       <div className="metric-grid">
         {dashboardMetrics.map((metric) => (

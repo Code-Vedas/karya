@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from "react";
 
 type PageShellProps = PropsWithChildren<{
   accent: ReactNode;

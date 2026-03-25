@@ -6,22 +6,22 @@
  */
 
 module.exports = {
-  extends: ['stylelint-config-standard-scss'],
+  extends: ["stylelint-config-standard-scss"],
   rules: {
-    'alpha-value-notation': null,
-    'at-rule-empty-line-before': null,
-    'color-function-alias-notation': null,
-    'color-function-notation': null,
-    'media-feature-range-notation': null,
-    'scss/at-rule-no-unknown': [
+    "alpha-value-notation": null,
+    "at-rule-empty-line-before": null,
+    "color-function-alias-notation": null,
+    "color-function-notation": null,
+    "media-feature-range-notation": null,
+    "scss/at-rule-no-unknown": [
       true,
       {
-        ignoreAtRules: ['tailwind']
-      }
+        ignoreAtRules: ["tailwind"],
+      },
     ],
-    'scss/dollar-variable-empty-line-before': null,
-    'scss/dollar-variable-pattern': null,
-    'selector-class-pattern': null,
-    'value-keyword-case': null
-  }
-}
+    "scss/dollar-variable-empty-line-before": null,
+    "scss/dollar-variable-pattern": null,
+    "selector-class-pattern": null,
+    "value-keyword-case": null,
+  },
+};

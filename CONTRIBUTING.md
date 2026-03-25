@@ -22,9 +22,18 @@ This project comprises various modules/components, each housed in its dedicated 
 
 The table below provides an overview of all possible modules/components:
 
-| Module/Component | Description                         | Related Language/Framework |
-| ---------------- | ----------------------------------- | -------------------------- |
-| `core/karya/`    | Canonical gem package and CLI root | Ruby                       |
+| Module/Component           | Description                           | Related Language/Framework |
+| -------------------------- | ------------------------------------- | -------------------------- |
+| `core/karya/`              | Canonical core gem and CLI root       | Ruby                       |
+| `core/karya-activerecord/` | Active Record adapter addon for Karya | Ruby / Active Record       |
+| `core/karya-sequel/`       | Sequel adapter addon for Karya        | Ruby / Sequel              |
+| `gems/karya-dashboard/`    | Dashboard UI package and Ruby wrapper | Ruby / React / TypeScript  |
+| `gems/karya-rails/`        | Rails integration scaffold            | Ruby / Rails               |
+| `gems/karya-sinatra/`      | Sinatra integration scaffold          | Ruby / Sinatra             |
+| `gems/karya-roda/`         | Roda integration scaffold             | Ruby / Roda                |
+| `gems/karya-hanami/`       | Hanami integration scaffold           | Ruby / Hanami              |
+| `docs/`                    | Documentation site                    | Jekyll / Markdown          |
+| `danger/`                  | Danger automation setup               | Ruby / Danger              |
 
 ## Improve Documentation
 
@@ -60,7 +69,7 @@ Before creating a pull request, ensure the following:
 
 ### Gem development baseline
 
-The canonical package lives under `core/karya/`. Use Ruby `3.2+` and run gem-local commands from that directory unless a guide explicitly says otherwise.
+The canonical core package lives under `core/karya/`. Other gems follow the same package-local workflow. Use Ruby `3.2+` and run gem-local commands from the package directory you are working in unless a guide explicitly says otherwise.
 
 ```bash
 cd core/karya

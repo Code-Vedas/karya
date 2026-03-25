@@ -10,64 +10,60 @@ module.exports = {
   env: {
     browser: true,
     es2022: true,
-    node: true
+    node: true,
   },
-  parser: '@typescript-eslint/parser',
+  parser: "@typescript-eslint/parser",
   parserOptions: {
-    project: ['./tsconfig.eslint.json'],
+    project: ["./tsconfig.eslint.json"],
     tsconfigRootDir: __dirname,
     ecmaFeatures: {
-      jsx: true
-    }
+      jsx: true,
+    },
   },
-  extends: [
-    'airbnb',
-    'airbnb/hooks',
-    'airbnb-typescript'
-  ],
+  extends: ["airbnb", "airbnb/hooks", "airbnb-typescript"],
   settings: {
-    'import/resolver': {
+    "import/resolver": {
       typescript: {
-        project: ['./tsconfig.eslint.json']
-      }
-    }
+        project: ["./tsconfig.eslint.json"],
+      },
+    },
   },
   rules: {
-    'import/extensions': [
-      'error',
-      'ignorePackages',
+    "import/extensions": [
+      "error",
+      "ignorePackages",
       {
-        ts: 'never',
-        tsx: 'never'
-      }
+        ts: "never",
+        tsx: "never",
+      },
     ],
-    'react/function-component-definition': [
-      'error',
+    "react/function-component-definition": [
+      "error",
       {
-        namedComponents: 'function-declaration',
-        unnamedComponents: 'arrow-function'
-      }
+        namedComponents: "function-declaration",
+        unnamedComponents: "arrow-function",
+      },
     ],
-    'react/jsx-filename-extension': [
-      'error',
+    "react/jsx-filename-extension": [
+      "error",
       {
-        extensions: ['.tsx']
-      }
+        extensions: [".tsx"],
+      },
     ],
-    'react/react-in-jsx-scope': 'off'
+    "react/react-in-jsx-scope": "off",
   },
   overrides: [
     {
-      files: ['vite.config.ts', 'playwright.config.ts', 'tailwind.config.ts'],
+      files: ["vite.config.ts", "playwright.config.ts", "tailwind.config.ts"],
       rules: {
-        'import/no-extraneous-dependencies': 'off'
-      }
+        "import/no-extraneous-dependencies": "off",
+      },
     },
     {
-      files: ['tests/**/*.ts'],
+      files: ["tests/**/*.ts"],
       rules: {
-        'import/no-extraneous-dependencies': 'off'
-      }
-    }
-  ]
-}
+        "import/no-extraneous-dependencies": "off",
+      },
+    },
+  ],
+};

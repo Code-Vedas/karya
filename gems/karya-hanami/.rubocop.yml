@@ -8,9 +8,9 @@ AllCops:
   SuggestExtensions: true
   TargetRubyVersion: 3.2
   Exclude:
-    - ".vscode/**/*"
-    - "vendor/**/*"
-    - "vendor/bundle/**/*"
+    - .vscode/**/*
+    - vendor/**/*
+    - vendor/bundle/**/*
 
 Layout/LineLength:
   Max: 160
