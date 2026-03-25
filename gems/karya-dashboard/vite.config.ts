@@ -13,6 +13,6 @@ export default defineConfig({
   build: {
     outDir: "dist",
     manifest: true,
-    sourcemap: true,
+    sourcemap: process.env.NODE_ENV !== "production",
   },
 });
