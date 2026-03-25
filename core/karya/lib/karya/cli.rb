@@ -15,7 +15,7 @@ module Karya
 
     def self.start(given_args = ARGV, config = {})
       puts header
-      super
+      super(given_args, config)
     end
 
     def self.header
