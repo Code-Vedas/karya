@@ -6,8 +6,8 @@ if [ "${SCRIPT_DIR:-}" = "" ]; then
 fi
 . "${SCRIPT_DIR}/run-common"
 
+js_suites > "${TMP_DIR}/js-suites.txt"
+
 while IFS= read -r suite_dir; do
   run_optional_yarn_script "${suite_dir}" "lint"
-done <<EOF
-$(js_suites)
-EOF
+done < "${TMP_DIR}/js-suites.txt"
