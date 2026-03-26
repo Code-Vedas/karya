@@ -13,7 +13,7 @@ Bundler.require(*Rails.groups)
 module KaryaRailsDummy
   class Application < Rails::Application
     config.load_defaults Rails::VERSION::STRING.to_f
-    config.api_only = true
+    config.api_only = false
     config.autoload_lib(ignore: %w[assets tasks])
     config.generators.system_tests = nil
   end

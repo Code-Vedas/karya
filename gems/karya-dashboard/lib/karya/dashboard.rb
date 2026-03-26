@@ -45,15 +45,15 @@ module Karya
       synchronized_asset_manifest(current_manifest_path)
     end
 
-    def self.reload_asset_manifest!
-      @asset_manifest_path = asset_manifest_path
-      @asset_manifest = deep_freeze(JSON.parse(File.read(@asset_manifest_path)))
+    def self.reload_asset_manifest!(manifest_path = asset_manifest_path)
+      @asset_manifest_path = manifest_path
+      @asset_manifest = deep_freeze(JSON.parse(File.read(manifest_path)))
     rescue Errno::ENOENT
       raise AssetManifestMissingError,
-            "Run corepack yarn prepackage-build in #{ROOT} to generate #{asset_manifest_path}"
+            "Run corepack yarn prepackage-build in #{ROOT} to generate #{manifest_path}"
     rescue JSON::ParserError
       raise AssetManifestInvalidError,
-            "The dashboard asset manifest at #{asset_manifest_path} is invalid. " \
+            "The dashboard asset manifest at #{manifest_path} is invalid. " \
             "Run corepack yarn prepackage-build in #{ROOT} to rebuild it."
     end
 
@@ -138,7 +138,7 @@ module Karya
         cached_manifest = cached_asset_manifest(current_manifest_path)
         return cached_manifest if cached_manifest
 
-        reload_asset_manifest!
+        reload_asset_manifest!(current_manifest_path)
       end
     end
 
