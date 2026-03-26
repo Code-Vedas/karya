@@ -1,6 +1,6 @@
 # Karya
 
-> Karya is in early development and is extremely unstable. Expect breaking changes and a lack of documentation until the 1.0 release.
+> Karya is in early development and is extremely unstable. Expect breaking changes and rapidly evolving documentation until the 1.0 release.
 
 Karya is a Ruby-first background job and workflow platform for teams that want
 one runtime model across application jobs, durable workflows, framework
