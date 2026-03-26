@@ -5,8 +5,12 @@
     var mediaQuery = "(prefers-color-scheme: dark)";
 
     function apply(theme) {
-      if (theme === "dark" || theme === "light") {
-        jtd.setTheme(theme);
+      if (
+        (theme === "dark" || theme === "light") &&
+        window.jtd &&
+        typeof window.jtd.setTheme === "function"
+      ) {
+        window.jtd.setTheme(theme);
       }
     }
     var saved = localStorage.getItem(STORAGE_KEY);
