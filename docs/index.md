@@ -6,6 +6,9 @@ description: Karya platform overview and documentation entrypoint.
 
 # Karya
 
+{: .note }
+> Karya is in early development and is extremely unstable. Expect breaking changes and a lack of documentation until the 1.0 release.
+
 Karya is a Ruby-first background job and workflow platform that combines
 durable execution, workflow orchestration, framework-native integration, and a
 shared operator experience.
