@@ -2,8 +2,8 @@
 
 set -eu
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-REPO_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)
+SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
+. "${SCRIPT_DIR}/run-common"
 BUNDLE_PATH="${BUNDLE_PATH:-${REPO_ROOT}/vendor/bundle}"
 
 export BUNDLE_PATH
@@ -25,21 +25,17 @@ install_yarn_if_present() {
   cd "${REPO_ROOT}/${suite_dir}"
   corepack yarn install --immutable
 
-  if [ "${suite_dir}" = "gems/karya-dashboard" ]; then
-    corepack yarn playwright install firefox
-  fi
+  [ "${suite_dir}" = "gems/karya-dashboard" ] && corepack yarn playwright install firefox
 }
 
-for suite_dir in \
-  core/karya \
-  core/karya-activerecord \
-  core/karya-sequel \
-  gems/karya-dashboard \
-  gems/karya-hanami \
-  gems/karya-rails \
-  gems/karya-roda \
-  gems/karya-sinatra
-do
+while IFS= read -r suite_dir; do
   install_bundle_if_present "${suite_dir}"
+done <<EOF
+$(ruby_suites)
+EOF
+
+while IFS= read -r suite_dir; do
   install_yarn_if_present "${suite_dir}"
-done
+done <<EOF
+$(js_suites)
+EOF
