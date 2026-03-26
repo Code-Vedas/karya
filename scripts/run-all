@@ -9,6 +9,5 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 "${SCRIPT_DIR}/run-node-lint-all"
 "${SCRIPT_DIR}/run-rspec-unit-all"
 "${SCRIPT_DIR}/run-rspec-e2e-all"
-"${SCRIPT_DIR}/run-build-all"
 "${SCRIPT_DIR}/run-prepackage-build-all"
 "${SCRIPT_DIR}/run-firefox-e2e-all"

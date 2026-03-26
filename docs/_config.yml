@@ -11,9 +11,9 @@ domain: karya.codevedas.com
 repository: Code-Vedas/karya
 # Build settings
 theme: just-the-docs
+markdown: kramdown
 plugins:
   - jekyll-feed
-  - kramdown
 mermaid:
   version: 10.1.0
 logo: /assets/images/logo.svg

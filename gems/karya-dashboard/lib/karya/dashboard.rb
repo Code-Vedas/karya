@@ -147,7 +147,10 @@ module Karya
       when Array
         deep_freeze_enumerable(value)
       when Hash
-        deep_freeze_enumerable(value.each_value)
+        value.each do |key, item|
+          deep_freeze(key)
+          deep_freeze(item)
+        end
       end
 
       value.freeze
