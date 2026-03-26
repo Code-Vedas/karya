@@ -45,7 +45,26 @@ module Karya
       synchronized_asset_manifest(current_manifest_path)
     end
 
+    # Reloads the dashboard asset manifest and updates the cached manifest
+    # used by {asset_manifest}. This is a convenience wrapper around
+    # {load_asset_manifest!} that defaults to {asset_manifest_path}.
+    #
+    # @param manifest_path [String] absolute or relative path to the
+    #   asset-manifest.json file to load. Defaults to {asset_manifest_path}.
+    # @see load_asset_manifest! for details on behavior and raised exceptions.
     def self.reload_asset_manifest!(manifest_path = asset_manifest_path)
+      load_asset_manifest!(manifest_path)
+    end
+
+    # Loads the dashboard asset manifest from the given path and updates the
+    # cached manifest used by {asset_manifest}. This is the lower-level
+    # implementation that {reload_asset_manifest!} delegates to.
+    #
+    # @param manifest_path [String] absolute or relative path to the
+    #   asset-manifest.json file to load.
+    # @raise [AssetManifestMissingError] if the manifest file does not exist.
+    # @raise [AssetManifestInvalidError] if the manifest file contains invalid JSON.
+    def self.load_asset_manifest!(manifest_path)
       @asset_manifest_path = manifest_path
       @asset_manifest = deep_freeze(JSON.parse(File.read(manifest_path)))
     rescue Errno::ENOENT
@@ -138,7 +157,7 @@ module Karya
         cached_manifest = cached_asset_manifest(current_manifest_path)
         return cached_manifest if cached_manifest
 
-        reload_asset_manifest!(current_manifest_path)
+        load_asset_manifest!(current_manifest_path)
       end
     end
 

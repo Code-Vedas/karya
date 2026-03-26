@@ -34,6 +34,14 @@ RSpec.describe Karya::Dashboard do
       expect(described_class.stylesheet_paths).to all(start_with('/assets/'))
     end
 
+    it 'reloads the manifest through the public wrapper' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
+      manifest = described_class.reload_asset_manifest!
+
+      expect(manifest.fetch('entrypoints')).to have_key('dashboard')
+    end
+
     it 'returns the cached manifest when it becomes available during synchronized reload' do
       allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
 
