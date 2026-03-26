@@ -24,7 +24,10 @@ install_yarn_if_present() {
 
   cd "${REPO_ROOT}/${suite_dir}"
   corepack yarn install --immutable
-  corepack yarn playwright install firefox
+
+  if [ "${suite_dir}" = "gems/karya-dashboard" ]; then
+    corepack yarn playwright install firefox
+  fi
 }
 
 for suite_dir in \

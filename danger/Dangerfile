@@ -35,7 +35,7 @@ modified_files.each do |f|
   diff = git.diff_for_file(f)
   debug_statements = ['binding.pry', 'binding.b', 'byebug', 'debugger']
   if f.end_with?('.rb') && diff && debug_statements.any? { |stmt| diff.patch.include?(stmt) }
-    fail("🚫 Do not commit debugging statements like binding.pry, binding.b, byebug, or debugger!. Found in #{f}")
+    fail("🚫 Do not commit debugging statements like binding.pry, binding.b, byebug, or debugger. Found in #{f}")
   end
 
   fail("🧹 Remove temporary or system files like #{f}.") if f.end_with?('.swp', '.DS_Store')

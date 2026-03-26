@@ -33,6 +33,22 @@ RSpec.describe Karya::Dashboard do
       )
       expect(described_class.stylesheet_paths).to all(start_with('/assets/'))
     end
+
+    it 'returns the cached manifest when it becomes available during synchronized reload' do
+      allow(described_class).to receive(:asset_manifest_path).and_return(fixture_manifest_path)
+
+      cached_manifest = { 'entrypoints' => {} }.freeze
+      lookup_count = 0
+
+      allow(described_class).to receive(:cached_asset_manifest) do |_current_manifest_path|
+        lookup_count += 1
+        lookup_count == 1 ? nil : cached_manifest
+      end
+      allow(described_class).to receive(:reload_asset_manifest!)
+
+      expect(described_class.asset_manifest).to eq(cached_manifest)
+      expect(described_class).not_to have_received(:reload_asset_manifest!)
+    end
   end
 
   describe 'HTML helpers' do

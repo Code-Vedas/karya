@@ -18,6 +18,7 @@ module Karya
     ASSET_MANIFEST_PATH = File.expand_path('asset-manifest.json', DIST_PATH)
     DEFAULT_TITLE = 'Karya Dashboard'
     DEFAULT_MOUNT_ID = 'karya-dashboard-root'
+    ASSET_MANIFEST_MUTEX = Mutex.new
 
     # Raised when dashboard asset manifest loading fails.
     class AssetManifestError < StandardError; end
@@ -37,14 +38,16 @@ module Karya
     end
 
     def self.asset_manifest
-      return @asset_manifest if @asset_manifest_path == asset_manifest_path && @asset_manifest
+      current_manifest_path = asset_manifest_path
+      cached_manifest = cached_asset_manifest(current_manifest_path)
+      return cached_manifest if cached_manifest
 
-      reload_asset_manifest!
+      synchronized_asset_manifest(current_manifest_path)
     end
 
     def self.reload_asset_manifest!
       @asset_manifest_path = asset_manifest_path
-      @asset_manifest = JSON.parse(File.read(@asset_manifest_path))
+      @asset_manifest = JSON.parse(File.read(@asset_manifest_path)).freeze
     rescue Errno::ENOENT
       raise AssetManifestMissingError,
             "Run corepack yarn prepackage-build in #{ROOT} to generate #{asset_manifest_path}"
@@ -122,6 +125,21 @@ module Karya
 
     def self.escape_html(value)
       CGI.escapeHTML(value.to_s)
+    end
+
+    def self.cached_asset_manifest(current_manifest_path)
+      return nil unless @asset_manifest_path == current_manifest_path
+
+      @asset_manifest
+    end
+
+    def self.synchronized_asset_manifest(current_manifest_path)
+      ASSET_MANIFEST_MUTEX.synchronize do
+        cached_manifest = cached_asset_manifest(current_manifest_path)
+        return cached_manifest if cached_manifest
+
+        reload_asset_manifest!
+      end
     end
   end
 end
