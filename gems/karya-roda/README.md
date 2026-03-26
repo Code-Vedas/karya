@@ -40,6 +40,7 @@ bin/rubocop
 bin/reek
 ```
 
-See [`../../docs/pages/frameworks/index.md`](../../docs/pages/frameworks/index.md) and
-[`../../docs/pages/operator/index.md`](../../docs/pages/operator/index.md)
+See [`../../docs/pages/frameworks/index.md`](../../docs/pages/frameworks/index.md),
+[`../../docs/pages/operator/index.md`](../../docs/pages/operator/index.md), and
+[`../../docs/pages/host-workflow.md`](../../docs/pages/host-workflow.md)
 for the full Roda operator and hosting guidance.
