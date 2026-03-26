@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+if [ "${SCRIPT_DIR:-}" = "" ]; then
+  SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+fi
+. "${SCRIPT_DIR}/run-common"
+
+ruby_suites > "${TMP_DIR}/ruby-suites.txt"
+
+while IFS= read -r suite_dir; do
+  run_optional_ruby_bin "${suite_dir}" "reek"
+done < "${TMP_DIR}/ruby-suites.txt"

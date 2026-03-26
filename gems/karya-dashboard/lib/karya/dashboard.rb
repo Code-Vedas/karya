@@ -1,0 +1,182 @@
+# frozen_string_literal: true
+
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+require 'cgi'
+require 'json'
+
+require_relative 'dashboard/version'
+
+module Karya
+  # Accessors for the packaged dashboard frontend assets.
+  module Dashboard
+    ROOT = File.expand_path('../..', __dir__)
+    DIST_PATH = File.expand_path('dist', ROOT)
+    ASSET_MANIFEST_PATH = File.expand_path('asset-manifest.json', DIST_PATH)
+    DEFAULT_TITLE = 'Karya Dashboard'
+    DEFAULT_MOUNT_ID = 'karya-dashboard-root'
+    ASSET_MANIFEST_MUTEX = Mutex.new
+
+    # Raised when dashboard asset manifest loading fails.
+    class AssetManifestError < StandardError; end
+
+    # Raised when the dashboard asset manifest file is missing.
+    class AssetManifestMissingError < AssetManifestError; end
+
+    # Raised when the dashboard asset manifest contains invalid JSON.
+    class AssetManifestInvalidError < AssetManifestError; end
+
+    def self.dist_path
+      DIST_PATH
+    end
+
+    def self.asset_manifest_path
+      ASSET_MANIFEST_PATH
+    end
+
+    def self.asset_manifest
+      current_manifest_path = asset_manifest_path
+      cached_manifest = cached_asset_manifest(current_manifest_path)
+      return cached_manifest if cached_manifest
+
+      synchronized_asset_manifest(current_manifest_path)
+    end
+
+    # Reloads the dashboard asset manifest and updates the cached manifest
+    # used by {asset_manifest}. This is a convenience wrapper around
+    # {load_asset_manifest!} that defaults to {asset_manifest_path}.
+    #
+    # @param manifest_path [String] absolute or relative path to the
+    #   asset-manifest.json file to load. Defaults to {asset_manifest_path}.
+    # @see load_asset_manifest! for details on behavior and raised exceptions.
+    def self.reload_asset_manifest!(manifest_path = asset_manifest_path)
+      load_asset_manifest!(manifest_path)
+    end
+
+    # Loads the dashboard asset manifest from the given path and updates the
+    # cached manifest used by {asset_manifest}. This is the lower-level
+    # implementation that {reload_asset_manifest!} delegates to.
+    #
+    # @param manifest_path [String] absolute or relative path to the
+    #   asset-manifest.json file to load.
+    # @raise [AssetManifestMissingError] if the manifest file does not exist.
+    # @raise [AssetManifestInvalidError] if the manifest file contains invalid JSON.
+    def self.load_asset_manifest!(manifest_path)
+      @asset_manifest_path = manifest_path
+      @asset_manifest = deep_freeze(JSON.parse(File.read(manifest_path)))
+    rescue Errno::ENOENT
+      raise AssetManifestMissingError,
+            "Run corepack yarn prepackage-build in #{ROOT} to generate #{manifest_path}"
+    rescue JSON::ParserError
+      raise AssetManifestInvalidError,
+            "The dashboard asset manifest at #{manifest_path} is invalid. " \
+            "Run corepack yarn prepackage-build in #{ROOT} to rebuild it."
+    end
+
+    def self.entrypoint(name = 'dashboard')
+      asset_manifest.fetch('entrypoints').fetch(name.to_s)
+    end
+
+    def self.javascript_paths(name = 'dashboard')
+      entrypoint(name).fetch('scripts')
+    end
+
+    def self.stylesheet_paths(name = 'dashboard')
+      entrypoint(name).fetch('styles')
+    end
+
+    def self.mount_id(name = 'dashboard')
+      entrypoint(name).fetch('mount_id', DEFAULT_MOUNT_ID)
+    end
+
+    def self.render_tags(name: 'dashboard', asset_prefix: nil)
+      prefix = normalize_asset_prefix(asset_prefix)
+      tags = stylesheet_paths(name).map do |stylesheet_path|
+        %(<link rel="stylesheet" href="#{escape_html(asset_url(stylesheet_path, prefix))}">)
+      end
+      javascript_paths(name).each do |script_path|
+        tags << %(<script type="module" src="#{escape_html(asset_url(script_path, prefix))}"></script>)
+      end
+      tags.join("\n")
+    end
+
+    def self.render_document(
+      title: DEFAULT_TITLE,
+      mount_path: '/karya',
+      asset_prefix: nil,
+      name: 'dashboard'
+    )
+      <<~HTML
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>#{escape_html(title)}</title>
+            #{render_tags(name:, asset_prefix:)}
+          </head>
+          <body>
+            <div id="#{escape_html(mount_id(name))}" data-karya-mount-path="#{escape_html(mount_path)}"></div>
+          </body>
+        </html>
+      HTML
+    end
+
+    def self.asset_url(asset_path, asset_prefix)
+      "#{asset_prefix}#{asset_path}"
+    end
+
+    def self.normalize_asset_prefix(asset_prefix)
+      prefix = asset_prefix.to_s
+      return '' if prefix.empty?
+
+      normalized = prefix
+      normalized = normalized.delete_suffix('/') while normalized.end_with?('/')
+      return normalized if prefix.match?(%r{\Ahttps?://}) || prefix.start_with?('//')
+      return '' if normalized.empty?
+
+      normalized = "/#{normalized}" unless normalized.start_with?('/')
+      normalized
+    end
+
+    def self.escape_html(value)
+      CGI.escapeHTML(value.to_s)
+    end
+
+    def self.cached_asset_manifest(current_manifest_path)
+      return nil unless @asset_manifest_path == current_manifest_path
+
+      @asset_manifest
+    end
+
+    def self.synchronized_asset_manifest(current_manifest_path)
+      ASSET_MANIFEST_MUTEX.synchronize do
+        cached_manifest = cached_asset_manifest(current_manifest_path)
+        return cached_manifest if cached_manifest
+
+        load_asset_manifest!(current_manifest_path)
+      end
+    end
+
+    def self.deep_freeze(value)
+      case value
+      when Array
+        deep_freeze_enumerable(value)
+      when Hash
+        value.each do |key, item|
+          deep_freeze(key)
+          deep_freeze(item)
+        end
+      end
+
+      value.freeze
+    end
+
+    def self.deep_freeze_enumerable(enum)
+      enum.each { |item| deep_freeze(item) }
+    end
+  end
+end

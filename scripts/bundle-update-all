@@ -1,0 +1,39 @@
+#!/bin/sh
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/run-common"
+TMP_DIR="${REPO_ROOT}/tmp/bundle-update-all"
+
+mkdir -p "${TMP_DIR}"
+
+update_bundle_dir() {
+  suite_dir="$1"
+
+  [ -f "${REPO_ROOT}/${suite_dir}/Gemfile" ] || return 0
+
+  cd "${REPO_ROOT}/${suite_dir}"
+  run_cmd "$(basename "${suite_dir}")-bundle-update" ruby -S bundle update
+}
+
+update_yarn_dir() {
+  suite_dir="$1"
+
+  [ -f "${REPO_ROOT}/${suite_dir}/package.json" ] || return 0
+
+  cd "${REPO_ROOT}/${suite_dir}"
+  run_cmd "$(basename "${suite_dir}")-yarn-upgrade" corepack yarn up --recursive
+}
+
+ruby_suites > "${TMP_DIR}/ruby-suites.txt"
+
+while IFS= read -r suite_dir; do
+  update_bundle_dir "${suite_dir}"
+done < "${TMP_DIR}/ruby-suites.txt"
+
+js_suites > "${TMP_DIR}/js-suites.txt"
+
+while IFS= read -r suite_dir; do
+  update_yarn_dir "${suite_dir}"
+done < "${TMP_DIR}/js-suites.txt"

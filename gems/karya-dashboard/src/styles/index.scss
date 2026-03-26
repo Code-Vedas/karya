@@ -1,0 +1,260 @@
+/*
+ * Copyright Codevedas Inc. 2025-present
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+@use "tokens" as *;
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: $color-ink;
+  background:
+    radial-gradient(circle at top, rgba(249, 115, 22, 0.22), transparent 35%),
+    linear-gradient(180deg, $color-sand 0%, $color-sand-soft 100%);
+  font-family: $font-body;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+.page-shell {
+  min-height: 100vh;
+  padding: 2.5rem 1.5rem;
+}
+
+.page-shell__inner {
+  margin: 0 auto;
+  max-width: 72rem;
+}
+
+.hero-panel {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 2rem;
+  padding: 2rem;
+  background: $color-panel;
+  box-shadow: $shadow-panel;
+  backdrop-filter: blur(16px);
+}
+
+.hero-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.hero-panel__copy {
+  max-width: 42rem;
+}
+
+.hero-badge {
+  display: inline-flex;
+  margin: 0 0 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.1);
+  color: $color-ember;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.hero-title {
+  margin: 0;
+  font-family: $font-display;
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.hero-summary {
+  margin: 1rem 0 0;
+  max-width: 36rem;
+  color: $color-muted;
+  font-size: 1.125rem;
+  line-height: 1.8;
+}
+
+.hero-accent {
+  padding: 1rem 1.25rem;
+  border-radius: 1.5rem;
+  background: $color-ink;
+  color: $color-sand;
+}
+
+.hero-accent__eyebrow {
+  margin: 0;
+  color: rgba(248, 245, 239, 0.7);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.hero-accent__title {
+  margin: 0.5rem 0 0;
+  font-family: $font-display;
+  font-size: 1.5rem;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.metric-card {
+  padding: 1.25rem;
+  border: 1px solid $color-border;
+  border-radius: 1.5rem;
+  background: #f8fafc;
+}
+
+.metric-card__label {
+  margin: 0;
+  color: $color-muted;
+  font-size: 0.875rem;
+}
+
+.metric-card__value-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.metric-card__value {
+  margin: 0;
+  font-family: $font-display;
+  font-size: 2.25rem;
+}
+
+.metric-card__trend {
+  margin: 0;
+  color: $color-tide;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.content-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.release-strip {
+  padding: 2rem;
+  border-radius: 2rem;
+  background: $color-ink;
+  color: $color-sand;
+  box-shadow: $shadow-panel;
+}
+
+.release-strip__stack {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.release-card {
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.release-card__title {
+  margin: 0;
+  font-family: $font-display;
+  font-size: 1.25rem;
+}
+
+.release-card__detail {
+  margin: 0.5rem 0 0;
+  color: rgba(248, 245, 239, 0.8);
+}
+
+.coverage-panel {
+  padding: 2rem;
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  border-radius: 2rem;
+  background: rgba(249, 115, 22, 0.1);
+  box-shadow: $shadow-panel;
+}
+
+.section-label {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.section-label--muted {
+  color: rgba(248, 245, 239, 0.6);
+}
+
+.section-label--accent {
+  color: $color-ember;
+}
+
+.coverage-panel__title {
+  margin: 1rem 0 0;
+  font-family: $font-display;
+  font-size: 1.875rem;
+}
+
+.coverage-panel__body {
+  margin: 0.75rem 0 0;
+  color: #334155;
+  line-height: 1.75;
+}
+
+.coverage-panel__stack {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 1.25rem;
+  background: #fff;
+}
+
+.coverage-panel__meta-label {
+  margin: 0;
+  color: $color-muted;
+  font-size: 0.875rem;
+}
+
+.coverage-panel__meta-value {
+  margin: 0.5rem 0 0;
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-panel__header {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .content-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 1fr);
+  }
+}

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+set -eu
+
+echo "No multi-node CLI checks are defined for this repository yet."

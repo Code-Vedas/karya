@@ -1,6 +1,6 @@
-# Contributing to karya
+# Contributing to Karya
 
-Thank you for contributing to karya. This repository contains the gem, documentation site, and supporting project assets. Review this guide before opening a change.
+Thank you for contributing to Karya. This repository contains the gem, documentation site, and supporting project assets. Review this guide before opening a change.
 
 Feel free to contribute through various avenues such as suggestions, comments, bug reports, or pull requests. To do so, please open an issue or a pull request directly in the repository.
 
@@ -22,9 +22,18 @@ This project comprises various modules/components, each housed in its dedicated 
 
 The table below provides an overview of all possible modules/components:
 
-| Module/Component | Description                | Related Language/Framework |
-| ---------------- | -------------------------- | -------------------------- |
-| karya             | Background job and workflow system  | Ruby               |
+| Module/Component           | Description                           | Related Language/Framework |
+| -------------------------- | ------------------------------------- | -------------------------- |
+| `core/karya/`              | Canonical core gem and CLI root       | Ruby                       |
+| `core/karya-activerecord/` | Active Record adapter addon for Karya | Ruby / Active Record       |
+| `core/karya-sequel/`       | Sequel adapter addon for Karya        | Ruby / Sequel              |
+| `gems/karya-dashboard/`    | Dashboard UI package and Ruby wrapper | Ruby / React / TypeScript  |
+| `gems/karya-rails/`        | Rails integration scaffold            | Ruby / Rails               |
+| `gems/karya-sinatra/`      | Sinatra integration scaffold          | Ruby / Sinatra             |
+| `gems/karya-roda/`         | Roda integration scaffold             | Ruby / Roda                |
+| `gems/karya-hanami/`       | Hanami integration scaffold           | Ruby / Hanami              |
+| `docs/`                    | Documentation site                    | Jekyll / Markdown          |
+| `danger/`                  | Danger automation setup               | Ruby / Danger              |
 
 ## Improve Documentation
 
@@ -57,6 +66,22 @@ Before creating a pull request, ensure the following:
 5. Ensure the code adheres to coding standards and best practices.
 6. Provide thorough documentation for the changes made.
 7. When creating a PR, select the correct template and complete all details. If the template is unavailable, create an issue in the repository for template addition. Failure to complete the template may result in the PR being closed without action.
+
+### Gem development baseline
+
+The canonical core package lives under `core/karya/`. Other gems follow the same package-local workflow. Use Ruby `3.2+` and run gem-local commands from the package directory you are working in unless a guide explicitly says otherwise.
+
+```bash
+cd core/karya
+bundle install
+bundle exec rspec
+bundle exec rubocop
+bundle exec bundle-audit check --update
+gitleaks dir --no-banner .
+bundle exec exe/karya --help
+```
+
+The `core/karya/spec/support/` directory is reserved for shared gem-level test helpers. Framework dummy-app helpers will be added separately.
 
 ### Issue
 
@@ -122,7 +147,7 @@ Pick the version number from draft release notes on the
    ```
 
 2. **Update the version**
-   Update the version in `karya.gemspec` to `<version>`.
+   Update the version in `core/karya/karya.gemspec` and `core/karya/lib/karya/version.rb` to `<version>`.
 
 3. **Update CHANGELOG**
    Copy the draft release notes from the
@@ -131,7 +156,7 @@ Pick the version number from draft release notes on the
 
 4. **Docs sweep**
    Update all relevant docs to reflect this version (version number, features, fixes, usage):
-   - Root `README.md` and `karya/README.md`
+   - Root `README.md` and `core/karya/README.md`
    - `CONTRIBUTING.md` (if contributor process changed)
 
 5. **Verify release notes**
@@ -141,6 +166,7 @@ Pick the version number from draft release notes on the
    Run lint and tests locally (CI will run them again):
 
    ```bash
+   cd core/karya
    bundle exec rubocop
    bundle exec rspec
    ```
