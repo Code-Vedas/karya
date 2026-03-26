@@ -6,6 +6,8 @@ if [ "${SCRIPT_DIR:-}" = "" ]; then
 fi
 . "${SCRIPT_DIR}/run-common"
 
-js_suites | while IFS= read -r suite_dir; do
+while IFS= read -r suite_dir; do
   run_optional_yarn_script "${suite_dir}" "build"
-done
+done <<EOF
+$(js_suites)
+EOF
