@@ -6,6 +6,8 @@ if [ "${SCRIPT_DIR:-}" = "" ]; then
 fi
 . "${SCRIPT_DIR}/run-common"
 
-ruby_suites | while IFS= read -r suite_dir; do
+ruby_suites > "${TMP_DIR}/ruby-suites.txt"
+
+while IFS= read -r suite_dir; do
   run_optional_ruby_bin "${suite_dir}" "reek"
-done
+done < "${TMP_DIR}/ruby-suites.txt"

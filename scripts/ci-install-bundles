@@ -25,7 +25,7 @@ install_yarn_if_present() {
   cd "${REPO_ROOT}/${suite_dir}"
   corepack yarn install --immutable
 
-  [ "${suite_dir}" = "gems/karya-dashboard" ] && corepack yarn playwright install firefox
+  [ "${suite_dir}" = "gems/karya-dashboard" ] && corepack yarn playwright install --with-deps firefox
 }
 
 while IFS= read -r suite_dir; do
