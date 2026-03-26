@@ -3,27 +3,10 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-REPO_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)
+. "${SCRIPT_DIR}/run-common"
 TMP_DIR="${REPO_ROOT}/tmp/bundle-update-all"
 
 mkdir -p "${TMP_DIR}"
-
-run_cmd() {
-  name="$1"
-  shift
-  log_file="${TMP_DIR}/${name}.log"
-
-  echo "==> ${name}"
-
-  if "$@" >"${log_file}" 2>&1; then
-    rm -f "${log_file}"
-    return 0
-  fi
-
-  echo "-- ${name} failed --"
-  cat "${log_file}"
-  return 1
-}
 
 update_bundle_dir() {
   suite_dir="$1"
@@ -43,12 +26,14 @@ update_yarn_dir() {
   run_cmd "$(basename "${suite_dir}")-yarn-upgrade" corepack yarn up --recursive
 }
 
-update_bundle_dir "core/karya"
-update_bundle_dir "core/karya-activerecord"
-update_bundle_dir "core/karya-sequel"
-update_bundle_dir "gems/karya-dashboard"
-update_bundle_dir "gems/karya-hanami"
-update_bundle_dir "gems/karya-rails"
-update_bundle_dir "gems/karya-roda"
-update_bundle_dir "gems/karya-sinatra"
-update_yarn_dir "gems/karya-dashboard"
+ruby_suites > "${TMP_DIR}/ruby-suites.txt"
+
+while IFS= read -r suite_dir; do
+  update_bundle_dir "${suite_dir}"
+done < "${TMP_DIR}/ruby-suites.txt"
+
+js_suites > "${TMP_DIR}/js-suites.txt"
+
+while IFS= read -r suite_dir; do
+  update_yarn_dir "${suite_dir}"
+done < "${TMP_DIR}/js-suites.txt"
