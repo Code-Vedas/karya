@@ -55,7 +55,7 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
       - name: Restore bundle cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.BUNDLE_PATH }}
           key: ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-${{ hashFiles('core/**/Gemfile.lock', 'core/**/gemfiles/*.gemfile.lock', 'gems/**/Gemfile.lock', 'gems/**/gemfiles/*.gemfile.lock') }}
@@ -103,7 +103,7 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
       - name: Restore bundle cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.BUNDLE_PATH }}
           key: ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-${{ hashFiles('core/**/Gemfile.lock', 'core/**/gemfiles/*.gemfile.lock', 'gems/**/Gemfile.lock', 'gems/**/gemfiles/*.gemfile.lock') }}
@@ -148,7 +148,7 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
       - name: Restore bundle cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.BUNDLE_PATH }}
           key: ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-${{ hashFiles('core/**/Gemfile.lock', 'core/**/gemfiles/*.gemfile.lock', 'gems/**/Gemfile.lock', 'gems/**/gemfiles/*.gemfile.lock') }}
@@ -240,7 +240,7 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
       - name: Restore bundle cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.BUNDLE_PATH }}
           key: ${{ runner.os }}-ruby-${{ matrix.ruby_version }}-bundle-${{ hashFiles('core/**/Gemfile.lock', 'core/**/gemfiles/*.gemfile.lock', 'gems/**/Gemfile.lock', 'gems/**/gemfiles/*.gemfile.lock') }}
