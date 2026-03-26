@@ -39,7 +39,7 @@ Subflows remain visible execution units with explicit relationships.
 
 ## Related Concepts
 
-- [Workflow Basics](basics.md): child workflows extend the orchestration model
-- [Replay](replay.md): parent-child recovery should stay understandable
-- [Search And Drilldowns](../operator/search-drilldowns.md): operators need to
+- [Workflow Basics](/workflows/basics/): child workflows extend the orchestration model
+- [Replay](/workflows/replay/): parent-child recovery should stay understandable
+- [Search And Drilldowns](/operator/search-drilldowns/): operators need to
   move between parent and child detail views

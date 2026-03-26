@@ -36,7 +36,7 @@ stored.
 
 ## Related Concepts
 
-- [Policies](policies.md): tenant boundaries often shape policy outcomes
-- [Search And Drilldowns](../operator/search-drilldowns.md): search must respect
+- [Policies](/governance/policies/): tenant boundaries often shape policy outcomes
+- [Search And Drilldowns](/operator/search-drilldowns/): search must respect
   tenant scope
-- [Backends](../backends.md): backend choice still has to preserve isolation
+- [Backends](/backends/): backend choice still has to preserve isolation

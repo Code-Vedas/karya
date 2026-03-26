@@ -136,13 +136,13 @@ This is for speed and simplicity, not as a production durability story.
 
 ## Related Concepts
 
-- [Frameworks](frameworks/index.md): choose the host integration that matches
+- [Frameworks](/frameworks/): choose the host integration that matches
   the backend path
-- [Reliability](reliability/index.md): understand how backend behavior shapes
+- [Reliability](/reliability/): understand how backend behavior shapes
   recovery and backpressure
-- [Workflows](workflows/index.md): see why durable orchestration changes the
+- [Workflows](/workflows/): see why durable orchestration changes the
   backend conversation
-- [Troubleshooting](troubleshooting.md): use backend-specific debugging guidance
+- [Troubleshooting](/troubleshooting/): use backend-specific debugging guidance
   when production behavior diverges
-- [Governance](governance/index.md): review retention, audit, and rollout needs
+- [Governance](/governance/): review retention, audit, and rollout needs
   before finalizing the backend choice

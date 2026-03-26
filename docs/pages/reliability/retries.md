@@ -43,10 +43,10 @@ Retry state needs to be visible, explainable, and bounded.
 
 ## Related Concepts
 
-- [Dead Letters](dead-letters.md): follow the path when retries stop being safe
-- [Controls](../runtime/controls.md): replay, retry, and intervention share one
+- [Dead Letters](/reliability/dead-letters/): follow the path when retries stop being safe
+- [Controls](/runtime/controls/): replay, retry, and intervention share one
   control model
-- [Workflow Replay](../workflows/replay.md): replay builds on the same recovery
+- [Workflow Replay](/workflows/replay/): replay builds on the same recovery
   expectations
-- [Troubleshooting](../troubleshooting.md): use retry state during incident
+- [Troubleshooting](/troubleshooting/): use retry state during incident
   triage

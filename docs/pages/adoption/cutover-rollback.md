@@ -34,9 +34,9 @@ step.
 
 ## Related Concepts
 
-- [Rollout](../governance/rollout.md): cutover planning depends on rollout
+- [Rollout](/governance/rollout/): cutover planning depends on rollout
   controls
-- [Versioning](../workflows/versioning.md): workflow evolution affects rollback
+- [Versioning](/workflows/versioning/): workflow evolution affects rollback
   safety
-- [Activity And Audit](../operator/activity-audit.md): operators need clear
+- [Activity And Audit](/operator/activity-audit/): operators need clear
   release history during transition

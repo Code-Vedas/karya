@@ -34,8 +34,8 @@ thinking into Karya’s workflow and operator surfaces.
 
 ## Related Concepts
 
-- [Backends](../backends.md): Postgres remains the default production path here
-- [Workflow Basics](../workflows/basics.md): this is usually the biggest product
+- [Backends](/backends/): Postgres remains the default production path here
+- [Workflow Basics](/workflows/basics/): this is usually the biggest product
   expansion
-- [Cutover And Rollback](cutover-rollback.md): backend continuity does not
+- [Cutover And Rollback](/adoption/cutover-rollback/): backend continuity does not
   remove rollout planning

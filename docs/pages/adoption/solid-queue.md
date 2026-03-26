@@ -32,8 +32,8 @@ This is a staged path, not a one-shot migration.
 
 ## Related Concepts
 
-- [Rails](../frameworks/rails.md): the host integration usually anchors this
+- [Rails](/frameworks/rails/): the host integration usually anchors this
   move
-- [ActiveJob](../frameworks/activejob.md): compatibility is part of the staged
+- [ActiveJob](/frameworks/activejob/): compatibility is part of the staged
   adoption story
-- [Rollout](../governance/rollout.md): production rollout still needs control
+- [Rollout](/governance/rollout/): production rollout still needs control

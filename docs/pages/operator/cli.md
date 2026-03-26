@@ -35,9 +35,9 @@ These examples show vocabulary alignment, not a finalized command reference.
 
 ## Related Concepts
 
-- [Controls](../runtime/controls.md): CLI commands express the same control
+- [Controls](/runtime/controls/): CLI commands express the same control
   model
-- [Replay](../workflows/replay.md): workflow recovery should look familiar in
+- [Replay](/workflows/replay/): workflow recovery should look familiar in
   CLI form
-- [Activity And Audit](activity-audit.md): CLI actions still need operator
+- [Activity And Audit](/operator/activity-audit/): CLI actions still need operator
   history

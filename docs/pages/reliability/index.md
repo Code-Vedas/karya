@@ -18,10 +18,10 @@ recovery paths are triggered.
 
 ## In This Section
 
-- [Retries](retries.md)
-- [Uniqueness](uniqueness.md)
-- [Dead Letters](dead-letters.md)
-- [Backpressure](backpressure.md)
+- [Retries](/reliability/retries/)
+- [Uniqueness](/reliability/uniqueness/)
+- [Dead Letters](/reliability/dead-letters/)
+- [Backpressure](/reliability/backpressure/)
 
 ## What This Section Covers
 

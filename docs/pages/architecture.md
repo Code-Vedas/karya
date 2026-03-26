@@ -77,10 +77,10 @@ external integrations, and governance workflows depend on them.
 
 ## Documentation Map
 
-- [Runtime](runtime/index.md)
-- [Reliability](reliability/index.md)
-- [Workflows](workflows/index.md)
-- [Frameworks](frameworks/index.md)
-- [Operator](operator/index.md)
-- [Governance](governance/index.md)
-- [Adoption](adoption/index.md)
+- [Runtime](/runtime/)
+- [Reliability](/reliability/)
+- [Workflows](/workflows/)
+- [Frameworks](/frameworks/)
+- [Operator](/operator/)
+- [Governance](/governance/)
+- [Adoption](/adoption/)

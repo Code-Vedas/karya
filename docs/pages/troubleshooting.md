@@ -124,16 +124,16 @@ next move: confirm whether the block is intentional before treating it as a bug
 
 ## Escalate By Area
 
-- [Dashboard Hosting](host-workflow.md): asset delivery, mount path, and host
+- [Dashboard Hosting](/dashboard-hosting/): asset delivery, mount path, and host
   rendering problems
-- [Backends](backends.md): backend fit, parity caveats, and persistence tradeoffs
-- [Runtime](runtime/index.md): job, worker, and control-surface behavior
-- [Reliability](reliability/index.md): retries, backpressure, uniqueness, and
+- [Backends](/backends/): backend fit, parity caveats, and persistence tradeoffs
+- [Runtime](/runtime/): job, worker, and control-surface behavior
+- [Reliability](/reliability/): retries, backpressure, uniqueness, and
   dead-letter flows
-- [Workflows](workflows/index.md): replay, signals, checkpoints, and workflow
+- [Workflows](/workflows/): replay, signals, checkpoints, and workflow
   recovery
-- [Operator](operator/index.md): drilldowns, search, audit, and internal API
+- [Operator](/operator/): drilldowns, search, audit, and internal API
   issues
-- [Governance](governance/index.md): identity, policy, tenant boundaries, and
+- [Governance](/governance/): identity, policy, tenant boundaries, and
   rollout controls
-- [Observability](observability.md): traces, logs, metrics, and health surfaces
+- [Observability](/observability/): traces, logs, metrics, and health surfaces

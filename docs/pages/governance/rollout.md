@@ -34,8 +34,8 @@ Rollout behavior stays intentional and operator-visible rather than ad hoc.
 
 ## Related Concepts
 
-- [Policies](policies.md): approvals and release controls must agree
-- [Versioning](../workflows/versioning.md): workflow evolution and rollout are
+- [Policies](/governance/policies/): approvals and release controls must agree
+- [Versioning](/workflows/versioning/): workflow evolution and rollout are
   tightly connected
-- [Cutover And Rollback](../adoption/cutover-rollback.md): rollout controls feed
+- [Cutover And Rollback](/adoption/cutover-rollback/): rollout controls feed
   directly into production adoption

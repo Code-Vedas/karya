@@ -15,11 +15,11 @@ This is where Karya moves from “it runs” to “it can be trusted in producti
 
 ## In This Section
 
-- [Identity](identity.md)
-- [Policies](policies.md)
-- [Tenant Isolation](tenant-isolation.md)
-- [Rollout](rollout.md)
-- [Retention And Export](retention-export.md)
+- [Identity](/governance/identity/)
+- [Policies](/governance/policies/)
+- [Tenant Isolation](/governance/tenant-isolation/)
+- [Rollout](/governance/rollout/)
+- [Retention And Export](/governance/retention-export/)
 
 ## What This Section Covers
 

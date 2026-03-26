@@ -45,6 +45,6 @@ owns the route and Karya renders the shared dashboard document.
 
 ## Related Concepts
 
-- [Dashboard Hosting](../host-workflow.md): host responsibilities stay the same
+- [Dashboard Hosting](/dashboard-hosting/): host responsibilities stay the same
   even in a minimal app
-- [Backends](../backends.md): Sinatra usually pairs with the Sequel path
+- [Backends](/backends/): Sinatra usually pairs with the Sequel path

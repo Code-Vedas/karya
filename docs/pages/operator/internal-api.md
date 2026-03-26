@@ -39,7 +39,7 @@ vocabulary as the rest of the product.
 
 ## Related Concepts
 
-- [Dashboard](dashboard.md): the UI is the main consumer of this API
-- [CLI](cli.md): keep the operator vocabulary aligned across surfaces
-- [Observability](../observability.md): internal API behavior still needs to be
+- [Dashboard](/operator/dashboard/): the UI is the main consumer of this API
+- [CLI](/operator/cli/): keep the operator vocabulary aligned across surfaces
+- [Observability](/observability/): internal API behavior still needs to be
   observable

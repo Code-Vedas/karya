@@ -39,8 +39,8 @@ Unrecoverable work is isolated, and the recovery options stay explicit.
 
 ## Related Concepts
 
-- [Retries](retries.md): dead-letter state starts where bounded retries end
-- [Activity And Audit](../operator/activity-audit.md): recovery actions need
+- [Retries](/reliability/retries/): dead-letter state starts where bounded retries end
+- [Activity And Audit](/operator/activity-audit/): recovery actions need
   clear history
-- [Troubleshooting](../troubleshooting.md): use dead-letter state during
+- [Troubleshooting](/troubleshooting/): use dead-letter state during
   incident response

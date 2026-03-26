@@ -31,13 +31,13 @@ workflows, framework hosts, operator tooling, and governed production rollout.
 
 ## Recommended Reading Path
 
-1. [Getting Started](pages/getting-started.md)
-2. [Architecture](pages/architecture.md)
-3. [Runtime](pages/runtime/index.md)
-4. [Backends](pages/backends.md)
-5. [Frameworks](pages/frameworks/index.md)
-6. [Dashboard Hosting](pages/host-workflow.md)
-7. [Adoption](pages/adoption/index.md)
+1. [Getting Started](/getting-started/)
+2. [Architecture](/architecture/)
+3. [Runtime](/runtime/)
+4. [Backends](/backends/)
+5. [Frameworks](/frameworks/)
+6. [Dashboard Hosting](/dashboard-hosting/)
+7. [Adoption](/adoption/)
 
 ## Support Snapshot
 
@@ -56,31 +56,31 @@ workflows, framework hosts, operator tooling, and governed production rollout.
 
 ## Explore The Docs
 
-- [Architecture](pages/architecture.md): package map, capability model, and how
+- [Architecture](/architecture/): package map, capability model, and how
   the platform fits together
-- [Getting Started](pages/getting-started.md): setup path for repository work
+- [Getting Started](/getting-started/): setup path for repository work
   and initial platform evaluation
-- [Runtime](pages/runtime/index.md): job model, workers, control surfaces, and
+- [Runtime](/runtime/): job model, workers, control surfaces, and
   execution semantics
-- [Reliability](pages/reliability/index.md): retries, uniqueness, dead letters,
+- [Reliability](/reliability/): retries, uniqueness, dead letters,
   and backpressure
-- [Workflows](pages/workflows/index.md): orchestration, replay, signals, child
+- [Workflows](/workflows/): orchestration, replay, signals, child
   workflows, and versioning
-- [Backends](pages/backends.md): selection guidance, tiers, and capability
+- [Backends](/backends/): selection guidance, tiers, and capability
   matrix
-- [Frameworks](pages/frameworks/index.md): host integrations, ActiveJob, and
+- [Frameworks](/frameworks/): host integrations, ActiveJob, and
   parity notes
-- [Dashboard Hosting](pages/host-workflow.md): packaged asset contract and host
+- [Dashboard Hosting](/dashboard-hosting/): packaged asset contract and host
   responsibilities
-- [Operator](pages/operator/index.md): dashboard, internal API, CLI, search,
+- [Operator](/operator/): dashboard, internal API, CLI, search,
   and audit workflows
-- [Observability](pages/observability.md): traces, metrics, logs, and health
+- [Observability](/observability/): traces, metrics, logs, and health
   surfaces
-- [Governance](pages/governance/index.md): identity, policies, tenant
+- [Governance](/governance/): identity, policies, tenant
   boundaries, rollout controls, and retention guidance
-- [Adoption](pages/adoption/index.md): Sidekiq, GoodJob, Solid Queue, and
+- [Adoption](/adoption/): Sidekiq, GoodJob, Solid Queue, and
   cutover guidance
-- [Troubleshooting](pages/troubleshooting.md): setup, runtime, hosting, and
+- [Troubleshooting](/troubleshooting/): setup, runtime, hosting, and
   operator problem-solving
-- [Development](pages/development.md): repository workflows and package-local
+- [Development](/development/): repository workflows and package-local
   development

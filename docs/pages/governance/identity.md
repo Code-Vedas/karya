@@ -35,6 +35,6 @@ Identity defines who gets into operator surfaces and under which session policy.
 
 ## Related Concepts
 
-- [Policies](policies.md): identity and authorization decisions work together
-- [Dashboard](../operator/dashboard.md): operator access starts here in practice
-- [Rollout](rollout.md): governed operations depend on the right identity model
+- [Policies](/governance/policies/): identity and authorization decisions work together
+- [Dashboard](/operator/dashboard/): operator access starts here in practice
+- [Rollout](/governance/rollout/): governed operations depend on the right identity model

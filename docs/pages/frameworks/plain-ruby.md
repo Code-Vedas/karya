@@ -44,8 +44,8 @@ end
 
 ## Related Concepts
 
-- [Backends](../backends.md): pick the backend before choosing the adapter path
-- [Job Model](../runtime/job-model.md): plain Ruby uses the same runtime
+- [Backends](/backends/): pick the backend before choosing the adapter path
+- [Job Model](/runtime/job-model/): plain Ruby uses the same runtime
   semantics as every other host
-- [Observability](../observability.md): service-style hosts still need the same
+- [Observability](/observability/): service-style hosts still need the same
   trace, log, and metric posture

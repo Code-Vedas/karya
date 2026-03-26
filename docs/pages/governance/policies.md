@@ -35,8 +35,8 @@ flows.
 
 ## Related Concepts
 
-- [Identity](identity.md): policy starts from authenticated operator identity
-- [Rollout](rollout.md): approvals and release controls often use the same
+- [Identity](/governance/identity/): policy starts from authenticated operator identity
+- [Rollout](/governance/rollout/): approvals and release controls often use the same
   policy model
-- [Activity And Audit](../operator/activity-audit.md): policy decisions should
+- [Activity And Audit](/operator/activity-audit/): policy decisions should
   remain visible later

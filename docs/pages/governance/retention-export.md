@@ -37,8 +37,8 @@ tries to act on protected data.
 
 ## Related Concepts
 
-- [Policies](policies.md): access controls and data-lifecycle rules intersect
-- [Activity And Audit](../operator/activity-audit.md): export and protection
+- [Policies](/governance/policies/): access controls and data-lifecycle rules intersect
+- [Activity And Audit](/operator/activity-audit/): export and protection
   actions need clear history
-- [Backends](../backends.md): persistence choices affect how these controls are
+- [Backends](/backends/): persistence choices affect how these controls are
   implemented and reasoned about

@@ -35,8 +35,8 @@ detail.
 
 ## Related Concepts
 
-- [Search And Drilldowns](search-drilldowns.md): drilldowns turn summary into
+- [Search And Drilldowns](/operator/search-drilldowns/): drilldowns turn summary into
   investigation
-- [Activity And Audit](activity-audit.md): actions taken from the dashboard must
+- [Activity And Audit](/operator/activity-audit/): actions taken from the dashboard must
   stay visible later
-- [Dashboard Hosting](../host-workflow.md): the UI depends on correct delivery
+- [Dashboard Hosting](/dashboard-hosting/): the UI depends on correct delivery

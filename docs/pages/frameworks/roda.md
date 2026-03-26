@@ -46,6 +46,6 @@ model used by the other frameworks.
 
 ## Related Concepts
 
-- [Dashboard Hosting](../host-workflow.md): shared asset delivery still applies
-- [Search And Drilldowns](../operator/search-drilldowns.md): Roda hosts expose
+- [Dashboard Hosting](/dashboard-hosting/): shared asset delivery still applies
+- [Search And Drilldowns](/operator/search-drilldowns/): Roda hosts expose
   the same operator flows as other frameworks

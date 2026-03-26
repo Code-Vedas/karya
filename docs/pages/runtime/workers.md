@@ -55,9 +55,9 @@ shutdown and control signals.
 
 ## Related Concepts
 
-- [Job Model](job-model.md): worker behavior starts from the job lifecycle
-- [Controls](controls.md): operators supervise workers through shared surfaces
-- [Backpressure](../reliability/backpressure.md): rate limits and queue pressure
+- [Job Model](/runtime/job-model/): worker behavior starts from the job lifecycle
+- [Controls](/runtime/controls/): operators supervise workers through shared surfaces
+- [Backpressure](/reliability/backpressure/): rate limits and queue pressure
   shape worker behavior
-- [Dashboard](../operator/dashboard.md): worker state must stay visible to
+- [Dashboard](/operator/dashboard/): worker state must stay visible to
   operators

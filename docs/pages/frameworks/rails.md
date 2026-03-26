@@ -46,7 +46,7 @@ compatibility path, and the robust operator UI in the same host.
 
 ## Related Concepts
 
-- [ActiveJob](activejob.md): Rails is the main compatibility path
-- [Dashboard Hosting](../host-workflow.md): mount and asset delivery details
+- [ActiveJob](/frameworks/activejob/): Rails is the main compatibility path
+- [Dashboard Hosting](/dashboard-hosting/): mount and asset delivery details
   live there
-- [Backends](../backends.md): Rails usually pairs with the Active Record path
+- [Backends](/backends/): Rails usually pairs with the Active Record path

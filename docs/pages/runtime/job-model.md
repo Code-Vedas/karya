@@ -51,9 +51,9 @@ lifecycle, and operator-visible state around it.
 
 ## Related Concepts
 
-- [Workers](workers.md): see how jobs are reserved and executed
-- [Controls](controls.md): inspect and intervene in runtime state
-- [Retries](../reliability/retries.md): understand how failed jobs re-enter the
+- [Workers](/runtime/workers/): see how jobs are reserved and executed
+- [Controls](/runtime/controls/): inspect and intervene in runtime state
+- [Retries](/reliability/retries/): understand how failed jobs re-enter the
   runtime
-- [Workflow Basics](../workflows/basics.md): see when a single job becomes a
+- [Workflow Basics](/workflows/basics/): see when a single job becomes a
   workflow

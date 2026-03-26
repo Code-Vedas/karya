@@ -39,8 +39,8 @@ execution.
 
 ## Related Concepts
 
-- [Job Model](../runtime/job-model.md): uniqueness is part of the job lifecycle
-- [Dead Letters](dead-letters.md): separate duplicate suppression from failure
+- [Job Model](/runtime/job-model/): uniqueness is part of the job lifecycle
+- [Dead Letters](/reliability/dead-letters/): separate duplicate suppression from failure
   isolation
-- [Workflow Basics](../workflows/basics.md): consider uniqueness at the workflow
+- [Workflow Basics](/workflows/basics/): consider uniqueness at the workflow
   entrypoint too

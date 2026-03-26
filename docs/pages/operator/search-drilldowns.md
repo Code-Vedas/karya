@@ -38,8 +38,8 @@ recovery.
 
 ## Related Concepts
 
-- [Dashboard](dashboard.md): search starts from the operator UI
-- [Activity And Audit](activity-audit.md): investigation often ends in action or
+- [Dashboard](/operator/dashboard/): search starts from the operator UI
+- [Activity And Audit](/operator/activity-audit/): investigation often ends in action or
   audit review
-- [Backpressure](../reliability/backpressure.md): queue pressure is a common
+- [Backpressure](/reliability/backpressure/): queue pressure is a common
   drilldown trigger

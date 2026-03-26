@@ -16,12 +16,12 @@ scheduling, and operator model stay recognizably Karya.
 
 ## In This Section
 
-- [Plain Ruby](plain-ruby.md)
-- [Rails](rails.md)
-- [Sinatra](sinatra.md)
-- [Roda](roda.md)
-- [Hanami](hanami.md)
-- [ActiveJob](activejob.md)
+- [Plain Ruby](/frameworks/plain-ruby/)
+- [Rails](/frameworks/rails/)
+- [Sinatra](/frameworks/sinatra/)
+- [Roda](/frameworks/roda/)
+- [Hanami](/frameworks/hanami/)
+- [ActiveJob](/frameworks/activejob/)
 
 ## Framework Parity
 

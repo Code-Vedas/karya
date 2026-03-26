@@ -52,6 +52,6 @@ rendering model.
 
 ## Related Concepts
 
-- [Dashboard Hosting](../host-workflow.md): Hanami still follows the shared
+- [Dashboard Hosting](/dashboard-hosting/): Hanami still follows the shared
   distribution contract
-- [Backends](../backends.md): Hanami usually pairs with the Sequel path
+- [Backends](/backends/): Hanami usually pairs with the Sequel path

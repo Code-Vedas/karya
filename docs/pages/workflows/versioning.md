@@ -37,8 +37,8 @@ when long-lived executions cross rollout windows.
 
 ## Related Concepts
 
-- [Rollout](../governance/rollout.md): workflow evolution and release controls
+- [Rollout](/governance/rollout/): workflow evolution and release controls
   must agree
-- [Replay](replay.md): recovery behavior changes when multiple versions coexist
-- [Cutover And Rollback](../adoption/cutover-rollback.md): versioning affects
+- [Replay](/workflows/replay/): recovery behavior changes when multiple versions coexist
+- [Cutover And Rollback](/adoption/cutover-rollback/): versioning affects
   rollout planning

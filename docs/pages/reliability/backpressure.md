@@ -42,8 +42,8 @@ path.
 
 ## Related Concepts
 
-- [Workers](../runtime/workers.md): worker throughput and drain behavior affect
+- [Workers](/runtime/workers/): worker throughput and drain behavior affect
   pressure directly
-- [Search And Drilldowns](../operator/search-drilldowns.md): operators need to
+- [Search And Drilldowns](/operator/search-drilldowns/): operators need to
   drill into the queues under pressure
-- [Backends](../backends.md): backend characteristics shape how pressure is felt
+- [Backends](/backends/): backend characteristics shape how pressure is felt

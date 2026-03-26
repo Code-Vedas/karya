@@ -36,9 +36,9 @@ broader Karya runtime and operator model.
 
 ## Related Concepts
 
-- [Retries](../reliability/retries.md): retry behavior is usually the first
+- [Retries](/reliability/retries/): retry behavior is usually the first
   migration concern
-- [Uniqueness](../reliability/uniqueness.md): duplicate suppression often needs
+- [Uniqueness](/reliability/uniqueness/): duplicate suppression often needs
   explicit review
-- [Cutover And Rollback](cutover-rollback.md): migration planning continues into
+- [Cutover And Rollback](/adoption/cutover-rollback/): migration planning continues into
   rollout

@@ -157,4 +157,4 @@ Common hosting failures include:
 - incorrect asset prefix leading to broken stylesheet or module loading
 - mismatch between the configured mount path and the served route
 
-See [Troubleshooting](troubleshooting.md) for recovery steps.
+See [Troubleshooting](/troubleshooting/) for recovery steps.

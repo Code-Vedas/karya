@@ -106,12 +106,12 @@ Karya also documents standards-aware integration around:
 
 ## Related Concepts
 
-- [Operator](operator/index.md): use dashboard, internal API, and CLI surfaces
+- [Operator](/operator/): use dashboard, internal API, and CLI surfaces
   alongside observability data
-- [Runtime](runtime/index.md): understand what the runtime emits and why
-- [Workflows](workflows/index.md): connect execution history to trace and log
+- [Runtime](/runtime/): understand what the runtime emits and why
+- [Workflows](/workflows/): connect execution history to trace and log
   analysis
-- [Governance](governance/index.md): keep operator actions, approvals, and
+- [Governance](/governance/): keep operator actions, approvals, and
   rollout behavior observable
-- [Troubleshooting](troubleshooting.md): use these signals to move from symptom
+- [Troubleshooting](/troubleshooting/): use these signals to move from symptom
   to root cause

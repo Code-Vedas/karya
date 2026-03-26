@@ -41,6 +41,6 @@ single cutover.
 
 ## Related Concepts
 
-- [Rails](rails.md): ActiveJob compatibility lives in the Rails story
-- [Adoption](../adoption/index.md): use the migration guides before planning
+- [Rails](/frameworks/rails/): ActiveJob compatibility lives in the Rails story
+- [Adoption](/adoption/): use the migration guides before planning
   cutover

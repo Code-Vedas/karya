@@ -48,8 +48,8 @@ control models.
 
 ## Related Concepts
 
-- [Workers](workers.md): runtime controls supervise active execution
-- [Retries](../reliability/retries.md): recovery actions extend the same control
+- [Workers](/runtime/workers/): runtime controls supervise active execution
+- [Retries](/reliability/retries/): recovery actions extend the same control
   model
-- [CLI](../operator/cli.md): command workflows mirror the runtime control model
-- [Troubleshooting](../troubleshooting.md): use control surfaces during triage
+- [CLI](/operator/cli/): command workflows mirror the runtime control model
+- [Troubleshooting](/troubleshooting/): use control surfaces during triage

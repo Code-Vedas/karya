@@ -17,11 +17,11 @@ same.
 
 ## In This Section
 
-- [Dashboard](dashboard.md)
-- [Internal API](internal-api.md)
-- [CLI](cli.md)
-- [Search And Drilldowns](search-drilldowns.md)
-- [Activity And Audit](activity-audit.md)
+- [Dashboard](/operator/dashboard/)
+- [Internal API](/operator/internal-api/)
+- [CLI](/operator/cli/)
+- [Search And Drilldowns](/operator/search-drilldowns/)
+- [Activity And Audit](/operator/activity-audit/)
 
 ## What This Section Covers
 

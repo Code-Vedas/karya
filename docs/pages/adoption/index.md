@@ -16,10 +16,10 @@ credible path from what they already run today to the broader Karya model.
 
 ## In This Section
 
-- [Sidekiq](sidekiq.md)
-- [GoodJob](goodjob.md)
-- [Solid Queue](solid-queue.md)
-- [Cutover And Rollback](cutover-rollback.md)
+- [Sidekiq](/adoption/sidekiq/)
+- [GoodJob](/adoption/goodjob/)
+- [Solid Queue](/adoption/solid-queue/)
+- [Cutover And Rollback](/adoption/cutover-rollback/)
 
 ## What This Section Covers
 

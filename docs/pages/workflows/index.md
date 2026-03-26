@@ -16,11 +16,11 @@ clear lifecycle, recovery model, and operator story.
 
 ## In This Section
 
-- [Basics](basics.md)
-- [Replay](replay.md)
-- [Signals](signals.md)
-- [Child Workflows](child-workflows.md)
-- [Versioning](versioning.md)
+- [Basics](/workflows/basics/)
+- [Replay](/workflows/replay/)
+- [Signals](/workflows/signals/)
+- [Child Workflows](/workflows/child-workflows/)
+- [Versioning](/workflows/versioning/)
 
 ## What This Section Covers
 

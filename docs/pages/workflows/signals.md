@@ -40,8 +40,8 @@ Running workflows stay interactive and inspectable through supported surfaces.
 
 ## Related Concepts
 
-- [Replay](replay.md): live interaction and recovery belong to the same
+- [Replay](/workflows/replay/): live interaction and recovery belong to the same
   operator story
-- [Child Workflows](child-workflows.md): signals often affect workflow
+- [Child Workflows](/workflows/child-workflows/): signals often affect workflow
   hierarchies
-- [Dashboard](../operator/dashboard.md): operators need these controls in the UI
+- [Dashboard](/operator/dashboard/): operators need these controls in the UI

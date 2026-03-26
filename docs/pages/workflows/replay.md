@@ -36,8 +36,8 @@ to operators.
 
 ## Related Concepts
 
-- [Signals](signals.md): interactive workflows need recovery and live control
-- [Child Workflows](child-workflows.md): replay often involves parent-child
+- [Signals](/workflows/signals/): interactive workflows need recovery and live control
+- [Child Workflows](/workflows/child-workflows/): replay often involves parent-child
   relationships
-- [Activity And Audit](../operator/activity-audit.md): replay needs audit-safe
+- [Activity And Audit](/operator/activity-audit/): replay needs audit-safe
   operator history

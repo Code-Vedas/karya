@@ -35,8 +35,8 @@ auditability.
 
 ## Related Concepts
 
-- [Replay](../workflows/replay.md): high-impact workflow actions belong in the
+- [Replay](/workflows/replay/): high-impact workflow actions belong in the
   audit trail
-- [Policies](../governance/policies.md): governed actions and policy decisions
+- [Policies](/governance/policies/): governed actions and policy decisions
   need history too
-- [Dashboard](dashboard.md): actions taken in the UI should remain visible later
+- [Dashboard](/operator/dashboard/): actions taken in the UI should remain visible later

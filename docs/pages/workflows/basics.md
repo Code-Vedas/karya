@@ -39,7 +39,7 @@ not a pile of unrelated background jobs.
 
 ## Related Concepts
 
-- [Job Model](../runtime/job-model.md): workflows build on the core job runtime
-- [Replay](replay.md): recovery depends on the same execution story
-- [Signals](signals.md): live interaction matters once the workflow is running
-- [Versioning](versioning.md): durable workflows eventually need evolution rules
+- [Job Model](/runtime/job-model/): workflows build on the core job runtime
+- [Replay](/workflows/replay/): recovery depends on the same execution story
+- [Signals](/workflows/signals/): live interaction matters once the workflow is running
+- [Versioning](/workflows/versioning/): durable workflows eventually need evolution rules

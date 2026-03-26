@@ -26,14 +26,14 @@ run the shared verification flow.
 
 ## Evaluation Path
 
-1. Read the [Architecture](architecture.md) page for the package map and
+1. Read the [Architecture](/architecture/) page for the package map and
    platform boundaries.
-2. Choose a backend using [Backends](backends.md). Postgres is the default
+2. Choose a backend using [Backends](/backends/). Postgres is the default
    production recommendation.
-3. Choose a host integration from [Frameworks](frameworks/index.md).
-4. Review [Dashboard Hosting](host-workflow.md) if you want a framework host to
+3. Choose a host integration from [Frameworks](/frameworks/).
+4. Review [Dashboard Hosting](/dashboard-hosting/) if you want a framework host to
    include the optional dashboard addon.
-5. Review [Adoption](adoption/index.md) if you are coming from Sidekiq,
+5. Review [Adoption](/adoption/) if you are coming from Sidekiq,
    GoodJob, Solid Queue, or ActiveJob.
 
 ## Local Dashboard Work
@@ -63,8 +63,8 @@ bin/prepackage-build
 
 Review these sections before adopting Karya in a production environment:
 
-- [Reliability](reliability/index.md)
-- [Workflows](workflows/index.md)
-- [Observability](observability.md)
-- [Governance](governance/index.md)
-- [Troubleshooting](troubleshooting.md)
+- [Reliability](/reliability/)
+- [Workflows](/workflows/)
+- [Observability](/observability/)
+- [Governance](/governance/)
+- [Troubleshooting](/troubleshooting/)

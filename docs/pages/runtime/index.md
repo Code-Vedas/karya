@@ -16,9 +16,9 @@ inspectable, and operationally predictable.
 
 ## In This Section
 
-- [Job Model](job-model.md): the executable unit, lifecycle, and state model
-- [Workers](workers.md): reservation, execution, drain, and supervision behavior
-- [Controls](controls.md): CLI, API, and operator control surfaces
+- [Job Model](/runtime/job-model/): the executable unit, lifecycle, and state model
+- [Workers](/runtime/workers/): reservation, execution, drain, and supervision behavior
+- [Controls](/runtime/controls/): CLI, API, and operator control surfaces
 
 ## What This Section Covers
 
