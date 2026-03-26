@@ -47,7 +47,7 @@ module Karya
 
     def self.reload_asset_manifest!
       @asset_manifest_path = asset_manifest_path
-      @asset_manifest = JSON.parse(File.read(@asset_manifest_path)).freeze
+      @asset_manifest = deep_freeze(JSON.parse(File.read(@asset_manifest_path)))
     rescue Errno::ENOENT
       raise AssetManifestMissingError,
             "Run corepack yarn prepackage-build in #{ROOT} to generate #{asset_manifest_path}"
@@ -76,10 +76,10 @@ module Karya
     def self.render_tags(name: 'dashboard', asset_prefix: nil)
       prefix = normalize_asset_prefix(asset_prefix)
       tags = stylesheet_paths(name).map do |stylesheet_path|
-        %(<link rel="stylesheet" href="#{asset_url(stylesheet_path, prefix)}">)
+        %(<link rel="stylesheet" href="#{escape_html(asset_url(stylesheet_path, prefix))}">)
       end
       javascript_paths(name).each do |script_path|
-        tags << %(<script type="module" src="#{asset_url(script_path, prefix)}"></script>)
+        tags << %(<script type="module" src="#{escape_html(asset_url(script_path, prefix))}"></script>)
       end
       tags.join("\n")
     end
@@ -140,6 +140,21 @@ module Karya
 
         reload_asset_manifest!
       end
+    end
+
+    def self.deep_freeze(value)
+      case value
+      when Array
+        deep_freeze_enumerable(value)
+      when Hash
+        deep_freeze_enumerable(value.each_value)
+      end
+
+      value.freeze
+    end
+
+    def self.deep_freeze_enumerable(enum)
+      enum.each { |item| deep_freeze(item) }
     end
   end
 end

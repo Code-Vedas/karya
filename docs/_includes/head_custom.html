@@ -30,13 +30,13 @@
     };
 
     document.addEventListener("click", function (event) {
-      if (
-        event.target instanceof HTMLAnchorElement &&
-        event.target.getAttribute("href") === "#toggle-theme"
-      ) {
-        event.preventDefault();
-        window.toggleTheme();
-      }
+      if (!(event.target instanceof Element)) return;
+
+      var themeLink = event.target.closest('a[href="#toggle-theme"]');
+      if (!themeLink) return;
+
+      event.preventDefault();
+      window.toggleTheme();
     });
   })();
 </script>
