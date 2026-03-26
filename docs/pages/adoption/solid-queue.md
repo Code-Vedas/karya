@@ -2,6 +2,7 @@
 title: Solid Queue
 parent: Adoption
 nav_order: 3
+permalink: /adoption/solid-queue/
 ---
 
 # Solid Queue

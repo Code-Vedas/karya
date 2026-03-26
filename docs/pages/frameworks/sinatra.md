@@ -2,6 +2,7 @@
 title: Sinatra
 parent: Frameworks
 nav_order: 3
+permalink: /frameworks/sinatra/
 ---
 
 # Sinatra

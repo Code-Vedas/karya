@@ -2,6 +2,7 @@
 title: Search And Drilldowns
 parent: Operator
 nav_order: 4
+permalink: /operator/search-drilldowns/
 ---
 
 # Search And Drilldowns

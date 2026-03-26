@@ -1,6 +1,7 @@
 ---
 title: Architecture
 nav_order: 2
+permalink: /architecture/
 ---
 
 # Architecture
@@ -55,10 +56,10 @@ workflows, schedules, activity, policies, approvals, and rollout state.
 
 ## Scheduling Model
 
-Recurring jobs and cron-style schedules are provided through the Kaal-backed
-scheduling subsystem. When the dashboard addon is included, it also surfaces
-Kaal-backed scheduling workflows through the operator UI and internal API
-contracts.
+Recurring jobs and cron-style schedules are provided through Kaal, the Karya
+scheduling subsystem layered onto the `core/karya` runtime. When the dashboard
+addon is included, it also surfaces Kaal scheduling workflows through the
+operator UI and internal API contracts.
 
 ## Standards-Facing Posture
 

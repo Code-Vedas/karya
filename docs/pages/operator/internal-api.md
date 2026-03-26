@@ -2,6 +2,7 @@
 title: Internal API
 parent: Operator
 nav_order: 2
+permalink: /operator/internal-api/
 ---
 
 # Internal API

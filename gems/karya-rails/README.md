@@ -39,7 +39,9 @@ bin/rubocop
 bin/reek
 ```
 
-See [`../../docs/pages/frameworks/index.md`](../../docs/pages/frameworks/index.md),
-[`../../docs/pages/host-workflow.md`](../../docs/pages/host-workflow.md), and
-[`../../docs/pages/adoption/index.md`](../../docs/pages/adoption/index.md)
+See the
+[framework guide](https://karya.codevedas.com/frameworks/),
+[dashboard hosting guide](https://karya.codevedas.com/dashboard-hosting/),
+and
+[adoption guide](https://karya.codevedas.com/adoption/)
 for full Rails guidance.

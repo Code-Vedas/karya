@@ -1,6 +1,7 @@
 ---
 title: Adoption
 nav_order: 13
+permalink: /adoption/
 has_children: true
 has_toc: false
 ---

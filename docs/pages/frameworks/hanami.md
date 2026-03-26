@@ -2,6 +2,7 @@
 title: Hanami
 parent: Frameworks
 nav_order: 5
+permalink: /frameworks/hanami/
 ---
 
 # Hanami

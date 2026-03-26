@@ -2,6 +2,7 @@
 title: Tenant Isolation
 parent: Governance
 nav_order: 3
+permalink: /governance/tenant-isolation/
 ---
 
 # Tenant Isolation

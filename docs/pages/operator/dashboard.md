@@ -2,6 +2,7 @@
 title: Dashboard
 parent: Operator
 nav_order: 1
+permalink: /operator/dashboard/
 ---
 
 # Dashboard

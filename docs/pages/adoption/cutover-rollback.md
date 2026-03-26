@@ -2,6 +2,7 @@
 title: Cutover And Rollback
 parent: Adoption
 nav_order: 4
+permalink: /adoption/cutover-rollback/
 ---
 
 # Cutover And Rollback

@@ -2,6 +2,7 @@
 title: Signals
 parent: Workflows
 nav_order: 3
+permalink: /workflows/signals/
 ---
 
 # Workflow Signals

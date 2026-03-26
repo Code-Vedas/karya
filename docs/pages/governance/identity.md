@@ -2,6 +2,7 @@
 title: Identity
 parent: Governance
 nav_order: 1
+permalink: /governance/identity/
 ---
 
 # Identity

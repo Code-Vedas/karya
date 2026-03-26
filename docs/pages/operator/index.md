@@ -1,6 +1,7 @@
 ---
 title: Operator
 nav_order: 10
+permalink: /operator/
 has_children: true
 has_toc: false
 ---

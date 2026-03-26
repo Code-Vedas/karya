@@ -39,6 +39,8 @@ bin/rubocop
 bin/reek
 ```
 
-See [`../../docs/pages/frameworks/index.md`](../../docs/pages/frameworks/index.md) and
-[`../../docs/pages/host-workflow.md`](../../docs/pages/host-workflow.md) for
-the full Hanami integration story.
+See the
+[framework guide](https://karya.codevedas.com/frameworks/)
+and
+[dashboard hosting guide](https://karya.codevedas.com/dashboard-hosting/)
+for the full Hanami integration story.

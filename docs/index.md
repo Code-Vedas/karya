@@ -1,6 +1,7 @@
 ---
 title: Karya
 nav_order: 1
+permalink: /
 description: Karya platform overview and documentation entrypoint.
 ---
 

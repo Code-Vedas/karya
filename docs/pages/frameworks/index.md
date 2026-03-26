@@ -1,6 +1,7 @@
 ---
 title: Frameworks
 nav_order: 8
+permalink: /frameworks/
 has_children: true
 has_toc: false
 ---

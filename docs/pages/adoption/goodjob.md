@@ -2,6 +2,7 @@
 title: GoodJob
 parent: Adoption
 nav_order: 2
+permalink: /adoption/goodjob/
 ---
 
 # GoodJob

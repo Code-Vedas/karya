@@ -2,6 +2,7 @@
 title: Child Workflows
 parent: Workflows
 nav_order: 4
+permalink: /workflows/child-workflows/
 ---
 
 # Child Workflows

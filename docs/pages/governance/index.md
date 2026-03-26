@@ -1,6 +1,7 @@
 ---
 title: Governance
 nav_order: 12
+permalink: /governance/
 has_children: true
 has_toc: false
 ---

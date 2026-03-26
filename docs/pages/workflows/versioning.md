@@ -2,6 +2,7 @@
 title: Versioning
 parent: Workflows
 nav_order: 5
+permalink: /workflows/versioning/
 ---
 
 # Workflow Versioning

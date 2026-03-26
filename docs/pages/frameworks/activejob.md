@@ -2,6 +2,7 @@
 title: ActiveJob
 parent: Frameworks
 nav_order: 6
+permalink: /frameworks/activejob/
 ---
 
 # ActiveJob

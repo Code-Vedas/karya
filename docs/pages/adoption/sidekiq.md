@@ -2,6 +2,7 @@
 title: Sidekiq
 parent: Adoption
 nav_order: 1
+permalink: /adoption/sidekiq/
 ---
 
 # Sidekiq

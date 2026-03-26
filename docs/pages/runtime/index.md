@@ -1,6 +1,7 @@
 ---
 title: Runtime
 nav_order: 4
+permalink: /runtime/
 has_children: true
 has_toc: false
 ---

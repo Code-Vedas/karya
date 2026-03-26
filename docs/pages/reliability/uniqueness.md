@@ -2,6 +2,7 @@
 title: Uniqueness
 parent: Reliability
 nav_order: 2
+permalink: /reliability/uniqueness/
 ---
 
 # Uniqueness

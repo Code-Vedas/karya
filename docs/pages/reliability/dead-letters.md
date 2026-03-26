@@ -2,6 +2,7 @@
 title: Dead Letters
 parent: Reliability
 nav_order: 3
+permalink: /reliability/dead-letters/
 ---
 
 # Dead Letters

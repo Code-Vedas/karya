@@ -1,6 +1,7 @@
 ---
 title: Development
 nav_order: 15
+permalink: /development/
 ---
 
 # Development

@@ -2,6 +2,7 @@
 title: CLI
 parent: Operator
 nav_order: 3
+permalink: /operator/cli/
 ---
 
 # CLI

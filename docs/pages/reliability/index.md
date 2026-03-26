@@ -1,6 +1,7 @@
 ---
 title: Reliability
 nav_order: 5
+permalink: /reliability/
 has_children: true
 has_toc: false
 ---

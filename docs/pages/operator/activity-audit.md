@@ -2,6 +2,7 @@
 title: Activity And Audit
 parent: Operator
 nav_order: 5
+permalink: /operator/activity-audit/
 ---
 
 # Activity And Audit

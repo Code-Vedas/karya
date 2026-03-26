@@ -43,5 +43,5 @@ bin/reek
 bundle exec exe/karya --version
 ```
 
-For platform-level setup, workflows, and operator guidance, use the central
-docs in [`../../docs/index.md`](../../docs/index.md).
+For platform-level setup, workflows, and operator guidance, use the
+[Karya documentation](https://karya.codevedas.com/).

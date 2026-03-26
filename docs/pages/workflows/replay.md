@@ -2,6 +2,7 @@
 title: Replay
 parent: Workflows
 nav_order: 2
+permalink: /workflows/replay/
 ---
 
 # Workflow Replay

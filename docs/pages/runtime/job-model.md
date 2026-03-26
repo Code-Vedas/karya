@@ -2,6 +2,7 @@
 title: Job Model
 parent: Runtime
 nav_order: 1
+permalink: /runtime/job-model/
 ---
 
 # Job Model

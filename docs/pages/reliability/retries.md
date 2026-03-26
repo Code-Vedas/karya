@@ -2,6 +2,7 @@
 title: Retries
 parent: Reliability
 nav_order: 1
+permalink: /reliability/retries/
 ---
 
 # Retries

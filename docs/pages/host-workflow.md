@@ -1,6 +1,7 @@
 ---
 title: Dashboard Hosting
 nav_order: 9
+permalink: /dashboard-hosting/
 ---
 
 # Dashboard Hosting

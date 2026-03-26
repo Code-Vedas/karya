@@ -1,6 +1,7 @@
 ---
 title: Backends
 nav_order: 7
+permalink: /backends/
 ---
 
 # Backends
@@ -119,7 +120,7 @@ that environment.
 
 ```text
 host: plain-ruby
-backend: in-memory
+backend: InMemory
 goal: fast setup, tests, examples
 recommendation: local/dev/test only
 ```

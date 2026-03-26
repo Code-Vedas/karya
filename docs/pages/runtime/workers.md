@@ -2,6 +2,7 @@
 title: Workers
 parent: Runtime
 nav_order: 2
+permalink: /runtime/workers/
 ---
 
 # Workers

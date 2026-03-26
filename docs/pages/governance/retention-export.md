@@ -2,6 +2,7 @@
 title: Retention And Export
 parent: Governance
 nav_order: 5
+permalink: /governance/retention-export/
 ---
 
 # Retention And Export

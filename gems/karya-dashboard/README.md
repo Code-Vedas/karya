@@ -64,6 +64,8 @@ bin/reek
 bin/firefox-e2e
 ```
 
-See [`../../docs/pages/host-workflow.md`](../../docs/pages/host-workflow.md) and
-[`../../docs/pages/operator/index.md`](../../docs/pages/operator/index.md)
+See the
+[dashboard hosting guide](https://karya.codevedas.com/dashboard-hosting/)
+and
+[operator documentation](https://karya.codevedas.com/operator/)
 for the platform-level dashboard contract.

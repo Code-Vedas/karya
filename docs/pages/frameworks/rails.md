@@ -2,6 +2,7 @@
 title: Rails
 parent: Frameworks
 nav_order: 2
+permalink: /frameworks/rails/
 ---
 
 # Rails

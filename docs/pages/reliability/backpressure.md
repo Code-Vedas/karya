@@ -2,6 +2,7 @@
 title: Backpressure
 parent: Reliability
 nav_order: 4
+permalink: /reliability/backpressure/
 ---
 
 # Backpressure

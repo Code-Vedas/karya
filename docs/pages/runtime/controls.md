@@ -2,6 +2,7 @@
 title: Controls
 parent: Runtime
 nav_order: 3
+permalink: /runtime/controls/
 ---
 
 # Controls

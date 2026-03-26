@@ -37,6 +37,7 @@ bin/rubocop
 bin/reek
 ```
 
-See [`../../docs/pages/backends.md`](../../docs/pages/backends.md) and
-[`../../docs/pages/frameworks/index.md`](../../docs/pages/frameworks/index.md) for the
-backend matrix and Rails integration guidance.
+See the
+[Karya backend matrix](https://karya.codevedas.com/backends/)
+and
+[Rails integration guidance](https://karya.codevedas.com/frameworks/).

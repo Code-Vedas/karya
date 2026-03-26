@@ -2,6 +2,7 @@
 title: Policies
 parent: Governance
 nav_order: 2
+permalink: /governance/policies/
 ---
 
 # Policies

@@ -1,6 +1,7 @@
 ---
 title: Observability
 nav_order: 11
+permalink: /observability/
 ---
 
 # Observability

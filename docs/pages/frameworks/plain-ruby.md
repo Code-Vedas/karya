@@ -2,6 +2,7 @@
 title: Plain Ruby
 parent: Frameworks
 nav_order: 1
+permalink: /frameworks/plain-ruby/
 ---
 
 # Plain Ruby

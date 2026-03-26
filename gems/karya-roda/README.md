@@ -10,7 +10,7 @@ dashboard-owned internal API surface, and Kaal-facing operator workflows.
 - you are embedding Karya in a Roda application
 - you want a lightweight Rack-oriented host with the shared Karya operator
   surface
-- you prefer the Sequel integration path for backend-backed deployments
+- you prefer the Sequel integration path for database-backed deployments
 
 ## Product Role
 
@@ -40,7 +40,9 @@ bin/rubocop
 bin/reek
 ```
 
-See [`../../docs/pages/frameworks/index.md`](../../docs/pages/frameworks/index.md),
-[`../../docs/pages/operator/index.md`](../../docs/pages/operator/index.md), and
-[`../../docs/pages/host-workflow.md`](../../docs/pages/host-workflow.md)
+See the
+[framework guide](https://karya.codevedas.com/frameworks/),
+[operator guide](https://karya.codevedas.com/operator/),
+and
+[dashboard hosting guide](https://karya.codevedas.com/dashboard-hosting/)
 for the full Roda operator and hosting guidance.

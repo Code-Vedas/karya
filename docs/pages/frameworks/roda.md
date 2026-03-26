@@ -2,6 +2,7 @@
 title: Roda
 parent: Frameworks
 nav_order: 4
+permalink: /frameworks/roda/
 ---
 
 # Roda

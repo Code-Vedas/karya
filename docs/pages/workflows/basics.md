@@ -2,6 +2,7 @@
 title: Basics
 parent: Workflows
 nav_order: 1
+permalink: /workflows/basics/
 ---
 
 # Workflow Basics

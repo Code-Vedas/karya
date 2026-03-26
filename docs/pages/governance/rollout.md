@@ -2,6 +2,7 @@
 title: Rollout
 parent: Governance
 nav_order: 4
+permalink: /governance/rollout/
 ---
 
 # Rollout

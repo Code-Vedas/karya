@@ -1,6 +1,7 @@
 ---
 title: Workflows
 nav_order: 6
+permalink: /workflows/
 has_children: true
 has_toc: false
 ---
