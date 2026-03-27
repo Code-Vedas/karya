@@ -25,6 +25,9 @@ RSpec.describe Karya::Job do
       expect(job.id).to eq('job123')
       expect(job.queue).to eq('billing')
       expect(job.handler).to eq('billing_sync')
+      expect(job.id).to be_frozen
+      expect(job.queue).to be_frozen
+      expect(job.handler).to be_frozen
       expect(job.arguments).to eq(account_id: 42, metadata: { source: 'sync' }, tags: ['vip'])
       expect(job.arguments).to be_frozen
       expect(job.arguments[:metadata]).to be_frozen
@@ -33,6 +36,8 @@ RSpec.describe Karya::Job do
       expect(job.attempt).to eq(2)
       expect(job.created_at).to eq(created_at)
       expect(job.updated_at).to eq(updated_at)
+      expect(job.created_at).to be_frozen
+      expect(job.updated_at).to be_frozen
       expect(job).to be_frozen
     end
 
@@ -46,6 +51,27 @@ RSpec.describe Karya::Job do
       )
 
       expect(job.updated_at).to eq(created_at)
+      expect(job.updated_at).to be_frozen
+    end
+
+    it 'duplicates and freezes timestamps without mutating caller-owned instances' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :queued,
+        created_at:,
+        updated_at:
+      )
+
+      expect(job.created_at).to eq(created_at)
+      expect(job.updated_at).to eq(updated_at)
+      expect(job.created_at).to be_frozen
+      expect(job.updated_at).to be_frozen
+      expect(created_at).not_to be_frozen
+      expect(updated_at).not_to be_frozen
+      expect(job.created_at).not_to equal(created_at)
+      expect(job.updated_at).not_to equal(updated_at)
     end
 
     it 'rejects missing required fields' do
@@ -127,6 +153,38 @@ RSpec.describe Karya::Job do
       expect(job.arguments).to eq(attempt_limit: 3)
     end
 
+    it 'accepts duplicated time argument values without freezing the caller-owned instance' do
+      scheduled_at = Time.utc(2026, 3, 26, 12, 30, 0)
+
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: { scheduled_at: },
+        state: :queued,
+        created_at:
+      )
+
+      expect(job.arguments[:scheduled_at]).to eq(scheduled_at)
+      expect(job.arguments[:scheduled_at]).to be_frozen
+      expect(scheduled_at).not_to be_frozen
+    end
+
+    it 'rejects nested mutable objects outside the supported argument types' do
+      payload_class = Struct.new(:items)
+
+      expect do
+        described_class.new(
+          id: 'job_123',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: { payload: payload_class.new([]) },
+          state: :queued,
+          created_at:
+        )
+      end.to raise_error(Karya::InvalidJobAttributeError, /argument values must be composed/)
+    end
+
     it 'rejects blank argument keys' do
       expect do
         described_class.new(
@@ -138,6 +196,19 @@ RSpec.describe Karya::Job do
           created_at:
         )
       end.to raise_error(Karya::InvalidJobAttributeError, /argument keys must be present/)
+    end
+
+    it 'rejects duplicate argument keys after normalization' do
+      expect do
+        described_class.new(
+          id: 'job_123',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: { 'account_id' => 1, account_id: 2 },
+          state: :queued,
+          created_at:
+        )
+      end.to raise_error(Karya::InvalidJobAttributeError, /duplicate argument key after normalization: :account_id/)
     end
 
     it 'rejects invalid attempts' do

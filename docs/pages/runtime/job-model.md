@@ -126,6 +126,41 @@ end
 Application code defines executable work, and Karya owns the routing,
 lifecycle, reservation, and operator-visible state around it.
 
+### Working With The Canonical Job API
+
+`Karya::Job` is the immutable value object for a queued job instance. It
+normalizes identifiers, deeply freezes arguments, and enforces the canonical
+lifecycle through `Karya::JobLifecycle`.
+
+```ruby
+created_at = Time.utc(2026, 3, 26, 12, 0, 0)
+
+job = Karya::Job.new(
+  id: 'billing-123',
+  queue: 'billing',
+  handler: 'billing_sync',
+  arguments: { account_id: 42, source: 'dashboard' },
+  state: :queued,
+  created_at:
+)
+
+job.can_transition_to?(:reserved)
+# => true
+
+reserved_job = job.transition_to(:reserved, updated_at: Time.utc(2026, 3, 26, 12, 0, 5))
+reserved_job.state
+# => :reserved
+```
+
+Lifecycle extensions are also explicit. Follow-on runtime work can register a
+new state and link it to the base lifecycle without redefining the canonical
+states:
+
+```ruby
+Karya::JobLifecycle.register_state(:dead_letter, terminal: true)
+Karya::JobLifecycle.register_transition(from: :retry_pending, to: :dead_letter)
+```
+
 ## Related Concepts
 
 - [Workers](/runtime/workers/): see how jobs are reserved and executed
