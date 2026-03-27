@@ -141,7 +141,7 @@ job = Karya::Job.new(
   handler: 'billing_sync',
   arguments: { account_id: 42, source: 'dashboard' },
   state: :queued,
-  created_at:
+  created_at: created_at
 )
 
 job.can_transition_to?(:reserved)
