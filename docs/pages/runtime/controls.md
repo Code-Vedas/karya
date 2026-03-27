@@ -15,7 +15,8 @@ CLI surfaces.
 - minimal runtime inspection APIs
 - queue and worker lifecycle control
 - bulk enqueue, retry, cancel, and pause/resume operations
-- operator-visible state used for safe intervention
+- operator-visible state used for safe intervention across `queued`,
+  `reserved`, `running`, `failed`, `retry-pending`, and `cancelled` job states
 
 ## Surface Model
 
@@ -28,6 +29,9 @@ CLI surfaces.
 Runtime controls define the safe entrypoints. Reliability, workflow, and
 governance features extend those same control boundaries rather than creating
 separate operational models.
+
+The control surface uses the same canonical lifecycle vocabulary defined in the
+job model rather than redefining job state per interface.
 
 ## Common Scenarios
 

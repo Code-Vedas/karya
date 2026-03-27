@@ -25,6 +25,7 @@ inspectable, and operationally predictable.
 The runtime section is the source of truth for:
 
 - canonical job and queue execution semantics
+- canonical job lifecycle states and transition boundaries
 - worker bootstrap and coordinated execution flow
 - graceful shutdown and drain behavior
 - lifecycle controls that later reliability and workflow features build on
@@ -33,4 +34,4 @@ The runtime section is the source of truth for:
 
 The examples in this section are intentionally simple. They show how the
 runtime is meant to feel without pretending every bootstrap or submission
-detail is already frozen.
+detail is already frozen beyond the canonical lifecycle and control vocabulary.
