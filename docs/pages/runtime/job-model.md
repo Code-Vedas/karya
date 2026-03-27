@@ -108,6 +108,18 @@ runtime work:
 Follow-on work may add detail, but it should not redefine the base lifecycle
 states or their core meanings.
 
+## Queueing And Reservation Contract
+
+The first runtime queueing layer keeps the lifecycle explicit:
+
+- `enqueue` accepts only jobs in `submission` and persists them as `queued`
+- `reserve` returns a separate reservation lease token rather than embedding
+  lease metadata into the job itself
+- reservation leases expire back to `queued` if they are not released or
+  consumed before `expires_at`
+- worker execution from a valid reservation remains follow-on work rather than
+  part of the queueing contract itself
+
 ## Why This Matters
 
 Downstream features such as uniqueness, bulk operations, workflow steps,
