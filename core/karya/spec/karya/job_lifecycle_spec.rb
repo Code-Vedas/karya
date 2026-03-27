@@ -17,6 +17,13 @@ RSpec.describe Karya::JobLifecycle do
       expect { described_class.normalize_state(:unknown) }
         .to raise_error(Karya::InvalidJobStateError, /Unknown job state/)
     end
+
+    it 'rejects blank states with a presence error' do
+      expect { described_class.normalize_state(nil) }
+        .to raise_error(Karya::InvalidJobStateError, /state must be present/)
+      expect { described_class.normalize_state('   ') }
+        .to raise_error(Karya::InvalidJobStateError, /state must be present/)
+    end
   end
 
   describe '.valid_transition?' do

@@ -109,9 +109,9 @@ module Karya
       end
 
       def normalize
+        raise InvalidJobAttributeError, 'arguments must be a Hash' unless arguments.is_a?(Hash)
+
         freeze_hash(arguments)
-      rescue NoMethodError
-        raise InvalidJobAttributeError, 'arguments must be a Hash'
       end
 
       private
@@ -120,7 +120,10 @@ module Karya
 
       def freeze_hash(value)
         value.each_with_object({}) do |(key, item), normalized|
-          normalized[key.to_sym] = freeze_value(item)
+          normalized_key = key.to_s.strip
+          raise InvalidJobAttributeError, 'argument keys must be present' if normalized_key.empty?
+
+          normalized[normalized_key.to_sym] = freeze_value(item)
         end.freeze
       end
 

@@ -48,7 +48,7 @@ The base lifecycle vocabulary for queued job instances is:
 | `reserved`      | one worker has an exclusive, temporary claim on the job                                       | `running`, `queued`, `cancelled`            |
 | `running`       | execution has started from a valid reservation                                                | `succeeded`, `failed`, `cancelled`          |
 | `succeeded`     | execution completed successfully                                                              | terminal state                              |
-| `failed`        | execution ended unsuccessfully for the current attempt                                        | `retry_pending`, terminal state             |
+| `failed`        | execution ended unsuccessfully for the current attempt                                        | `retry_pending`                             |
 | `retry_pending` | the job remains in the lifecycle and is waiting to re-enter queue execution under retry rules | `queued`, `cancelled`, dead-letter boundary |
 | `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                              |
 
@@ -66,7 +66,7 @@ but its detailed recovery semantics are defined elsewhere.
   keeps the same job instance in the lifecycle for later requeue
 - retries, uniqueness, and operator controls extend this lifecycle instead of
   inventing parallel state models
-- terminal completion and failure outcomes remain operator-visible and
+- completed executions and failed attempts remain operator-visible and
   historically meaningful
 
 ## Lifecycle Boundaries

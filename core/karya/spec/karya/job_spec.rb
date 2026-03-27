@@ -84,6 +84,32 @@ RSpec.describe Karya::Job do
       end.to raise_error(Karya::InvalidJobAttributeError, /arguments must be a Hash/)
     end
 
+    it 'normalizes argument keys through string conversion' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: { 123 => 'value' },
+        state: :queued,
+        created_at:
+      )
+
+      expect(job.arguments).to eq('123': 'value')
+    end
+
+    it 'rejects blank argument keys' do
+      expect do
+        described_class.new(
+          id: 'job_123',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: { '   ' => 'value' },
+          state: :queued,
+          created_at:
+        )
+      end.to raise_error(Karya::InvalidJobAttributeError, /argument keys must be present/)
+    end
+
     it 'rejects invalid attempts' do
       expect do
         described_class.new(

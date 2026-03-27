@@ -50,7 +50,10 @@ module Karya
     TERMINAL_STATES = [SUCCEEDED, CANCELLED].freeze
 
     def normalize_state(state)
-      normalized_state = state.to_s.strip.downcase.tr('-', '_').to_sym
+      normalized_value = state.to_s.strip.downcase.tr('-', '_')
+      raise InvalidJobStateError, 'state must be present' if normalized_value.empty?
+
+      normalized_state = normalized_value.to_sym
       validate_state!(normalized_state)
     end
 
