@@ -5,15 +5,21 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./app/App";
 import "./styles/index.scss";
 
-const rootElement = document.getElementById("root")!;
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 
-ReactDOM.createRoot(rootElement).render(
-  <React.StrictMode>
+import App from "./app/App";
+
+const rootElement = document.getElementById("root");
+
+if (rootElement === null) {
+  throw new Error("Dashboard root element #root was not found.");
+}
+
+createRoot(rootElement).render(
+  <StrictMode>
     <App />
-  </React.StrictMode>,
+  </StrictMode>,
 );

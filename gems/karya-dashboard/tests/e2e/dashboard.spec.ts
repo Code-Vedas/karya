@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test("renders the dashboard heading in Firefox", async ({ page }) => {
   await page.goto("/");
