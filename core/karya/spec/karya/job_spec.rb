@@ -97,6 +97,36 @@ RSpec.describe Karya::Job do
       expect(job.arguments).to eq('123': 'value')
     end
 
+    it 'does not freeze caller-owned scalar argument values' do
+      message = +'hello'
+
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: { message: },
+        state: :queued,
+        created_at:
+      )
+
+      expect(job.arguments[:message]).to eq('hello')
+      expect(job.arguments[:message]).to be_frozen
+      expect(message).not_to be_frozen
+    end
+
+    it 'accepts non-duplicable scalar argument values' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: { attempt_limit: 3 },
+        state: :queued,
+        created_at:
+      )
+
+      expect(job.arguments).to eq(attempt_limit: 3)
+    end
+
     it 'rejects blank argument keys' do
       expect do
         described_class.new(

@@ -104,6 +104,9 @@ module Karya
 
     # Normalizes and deeply freezes job arguments so job instances remain immutable.
     class ImmutableArguments
+      IMMUTABLE_SCALAR_CLASSES = [NilClass, Numeric, Symbol, TrueClass, FalseClass].freeze
+      private_constant :IMMUTABLE_SCALAR_CLASSES
+
       def initialize(arguments)
         @arguments = arguments
       end
@@ -134,8 +137,30 @@ module Karya
         when Array
           value.map { |item| freeze_value(item) }.freeze
         else
-          value.freeze
+          duplicate_value(value).freeze
         end
+      end
+
+      def duplicate_value(value)
+        return value if immutable_value?(value)
+
+        value.dup
+      end
+
+      def immutable_value?(value)
+        return true if value.frozen?
+
+        immutable_scalar?(value)
+      end
+
+      def self.immutable_scalar?(value)
+        IMMUTABLE_SCALAR_CLASSES.any? { |klass| value.is_a?(klass) }
+      end
+
+      private_class_method :immutable_scalar?
+
+      def immutable_scalar?(value)
+        self.class.send(:immutable_scalar?, value)
       end
     end
 

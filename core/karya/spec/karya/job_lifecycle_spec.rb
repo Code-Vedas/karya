@@ -6,6 +6,12 @@
 # LICENSE file in the root directory of this source tree.
 
 RSpec.describe Karya::JobLifecycle do
+  around do |example|
+    described_class.clear_extensions!
+    example.run
+    described_class.clear_extensions!
+  end
+
   describe '.normalize_state' do
     it 'normalizes string and symbol states to canonical snake_case symbols' do
       expect(described_class.normalize_state('retry-pending')).to eq(:retry_pending)
@@ -55,6 +61,24 @@ RSpec.describe Karya::JobLifecycle do
     it 'rejects invalid transitions' do
       expect { described_class.validate_transition!(from: :cancelled, to: :running) }
         .to raise_error(Karya::InvalidJobTransitionError, /Cannot transition/)
+    end
+  end
+
+  describe 'extensions' do
+    it 'allows later lifecycle states to be registered and linked to canonical states' do
+      described_class.register_state(:dead_letter, terminal: true)
+      described_class.register_transition(from: :retry_pending, to: :dead_letter)
+
+      expect(described_class.normalize_state('dead-letter')).to eq(:dead_letter)
+      expect(described_class.valid_transition?(from: :retry_pending, to: :dead_letter)).to be(true)
+      expect(described_class.terminal?(:dead_letter)).to be(true)
+    end
+
+    it 'rejects duplicate extension state registration' do
+      described_class.register_state(:dead_letter)
+
+      expect { described_class.register_state(:dead_letter) }
+        .to raise_error(Karya::InvalidJobStateError, /state must be new/)
     end
   end
 
