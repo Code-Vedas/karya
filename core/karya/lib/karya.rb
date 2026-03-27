@@ -13,3 +13,6 @@ module Karya
   # Error is the base class for all exceptions raised by Karya.
   class Error < StandardError; end
 end
+
+require_relative 'karya/job_lifecycle'
+require_relative 'karya/job'

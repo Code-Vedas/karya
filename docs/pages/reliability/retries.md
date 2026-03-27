@@ -22,6 +22,7 @@ individual jobs.
 Operators need to distinguish:
 
 - normal retryable failures
+- failed attempts that transition into `retry_pending`
 - escalated failure states
 - conditions that should move work into dead-letter or governed recovery flows
 
@@ -34,7 +35,7 @@ Retry behavior should be understandable from an operator point of view:
 ```text
 job: billing-123
 attempt: 3
-status: retrying
+status: retry_pending
 next_retry_at: 2026-03-26T14:05:00Z
 reason: upstream timeout
 ```
