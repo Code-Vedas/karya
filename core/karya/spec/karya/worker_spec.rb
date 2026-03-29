@@ -707,5 +707,15 @@ RSpec.describe Karya::Worker do
 
       expect(message).to eq('handler received unexpected argument keys: extra')
     end
+
+    it 'rejects mixed positional and keyword signatures from keyword dispatch' do
+      dispatcher = described_class.const_get(:MethodDispatcher, false).new(
+        parameters: [%i[req job], %i[keyreq account_id]]
+      )
+
+      expect do
+        dispatcher.call(arguments: { 'account_id' => 42 }) { |_mode, _payload| nil }
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /handler methods must accept no arguments/)
+    end
   end
 end

@@ -474,6 +474,7 @@ module Karya
       def keyword_dispatch?
         has_keyrest = any_parameter_matches?(:keyrest)
         return false if has_keyrest
+        return false if any_parameter_matches?(:req, :opt, :rest)
 
         any_parameter_matches?(*KEYWORD_PARAMETER_TYPES)
       end
