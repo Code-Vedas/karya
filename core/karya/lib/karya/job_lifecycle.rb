@@ -57,7 +57,8 @@ module Karya
       next_states.map(&:to_s).freeze
     end.freeze
     MAX_STATE_NAME_LENGTH = 64
-    private_constant :EMPTY_TRANSITIONS, :CANONICAL_STATE_NAMES, :CANONICAL_TERMINAL_STATE_NAMES, :CANONICAL_TRANSITION_NAMES
+    private_constant :EMPTY_TRANSITIONS, :CANONICAL_STATE_NAMES, :CANONICAL_TERMINAL_STATE_NAMES,
+                     :CANONICAL_TRANSITION_NAMES, :MAX_STATE_NAME_LENGTH
 
     @mutex = Mutex.new
     @extension_state_names = []
@@ -69,13 +70,13 @@ module Karya
 
     def normalize_state(state)
       @mutex.synchronize do
-        state_name_to_symbol(normalize_state_locked(state))
+        public_state(normalize_state_locked(state))
       end
     end
 
     def validate_state!(state)
       @mutex.synchronize do
-        state_name_to_symbol(validate_state_locked!(normalize_state_name(state)))
+        public_state(validate_state_locked!(normalize_state_name(state)))
       end
     end
 
@@ -92,11 +93,11 @@ module Karya
       @mutex.synchronize do
         normalized_from = normalize_state_locked(from)
         normalized_to = normalize_state_locked(to)
-        target_state = state_name_to_symbol(normalized_to)
+        target_state = public_state(normalized_to)
         return target_state if transition_names_locked.fetch(normalized_from, EMPTY_TRANSITIONS).include?(normalized_to)
 
         raise InvalidJobTransitionError,
-              "Cannot transition job state from #{state_name_to_symbol(normalized_from).inspect} to #{target_state.inspect}"
+              "Cannot transition job state from #{public_state(normalized_from).inspect} to #{target_state.inspect}"
       end
     end
 
@@ -119,7 +120,7 @@ module Karya
         invalidate_caches!
       end
 
-      state_name_to_symbol(normalized_state_name)
+      normalized_state_name
     end
 
     def register_transition(from:, to:)
@@ -134,27 +135,27 @@ module Karya
         @extension_transitions[normalized_from] |= [normalized_to]
         invalidate_caches!
 
-        state_name_to_symbol(normalized_to)
+        public_state(normalized_to)
       end
     end
 
     def states
       @mutex.synchronize do
-        state_names_locked.map { |state_name| state_name_to_symbol(state_name) }.freeze
+        state_names_locked.map { |state_name| public_state(state_name) }.freeze
       end
     end
 
     def transitions
       @mutex.synchronize do
         transition_names_locked.each_with_object({}) do |(state_name, next_state_names), transition_map|
-          transition_map[state_name_to_symbol(state_name)] = transition_symbols(next_state_names)
+          transition_map[public_state(state_name)] = transition_values(next_state_names)
         end.freeze
       end
     end
 
     def terminal_states
       @mutex.synchronize do
-        terminal_state_names_locked.map { |state_name| state_name_to_symbol(state_name) }.freeze
+        terminal_state_names_locked.map { |state_name| public_state(state_name) }.freeze
       end
     end
 
@@ -213,12 +214,33 @@ module Karya
     private_class_method :invalidate_caches!
 
     def normalize_state_name(state)
-      normalized_value = state.to_s.strip.downcase.tr('-', '_')
-      normalized_value = normalized_value.gsub(/[^a-z0-9_]+/, '_')
-      normalized_value = normalized_value.gsub(/_{2,}/, '_')
-      normalized_value = normalized_value.gsub(/\A_+|_+\z/, '')
-      raise InvalidJobStateError, 'state must be present' if normalized_value.empty?
-      raise InvalidJobStateError, "Invalid job state name format: #{state.inspect}" if normalized_value.length > MAX_STATE_NAME_LENGTH
+      source = state.to_s.strip.downcase
+      raise_blank_state_error! if source.empty?
+
+      normalized_value = +''
+      has_content = false
+      previous_was_separator = false
+
+      source.each_char do |character|
+        if lowercase_letter?(character) || digit?(character)
+          normalized_value << character
+          has_content = true
+          previous_was_separator = false
+          next
+        end
+
+        next if !has_content || previous_was_separator
+
+        normalized_value << '_'
+        previous_was_separator = true
+      end
+
+      normalized_value.chomp!('_')
+      raise_blank_state_error! unless has_content
+      if normalized_value.length > MAX_STATE_NAME_LENGTH
+        raise InvalidJobStateError,
+              "Invalid job state name format: #{state.inspect} exceeds #{MAX_STATE_NAME_LENGTH} characters"
+      end
 
       normalized_value
     end
@@ -239,16 +261,36 @@ module Karya
     module_function :extension_state_name?
     private_class_method :extension_state_name?
 
-    def state_name_to_symbol(state_name)
-      state_name.to_sym
-    end
-    module_function :state_name_to_symbol
-    private_class_method :state_name_to_symbol
+    def public_state(state_name)
+      return state_name.to_sym if CANONICAL_STATE_NAMES.include?(state_name)
 
-    def transition_symbols(next_state_names)
-      next_state_names.map { |next_state_name| state_name_to_symbol(next_state_name) }.freeze
+      state_name
     end
-    module_function :transition_symbols
-    private_class_method :transition_symbols
+    module_function :public_state
+    private_class_method :public_state
+
+    def transition_values(next_state_names)
+      next_state_names.map { |next_state_name| public_state(next_state_name) }.freeze
+    end
+    module_function :transition_values
+    private_class_method :transition_values
+
+    def lowercase_letter?(character)
+      character.between?('a', 'z')
+    end
+    module_function :lowercase_letter?
+    private_class_method :lowercase_letter?
+
+    def digit?(character)
+      character.between?('0', '9')
+    end
+    module_function :digit?
+    private_class_method :digit?
+
+    def raise_blank_state_error!
+      raise InvalidJobStateError, 'state must be present'
+    end
+    module_function :raise_blank_state_error!
+    private_class_method :raise_blank_state_error!
   end
 end

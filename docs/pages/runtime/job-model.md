@@ -158,7 +158,8 @@ reserved_job.state
 
 Lifecycle extensions are also explicit. Follow-on runtime work can register a
 new state and link it to the base lifecycle without redefining the canonical
-states:
+states. Extension state names are normalized to lowercase snake case and must
+fit within 64 characters:
 
 ```ruby
 Karya::JobLifecycle.register_state(:dead_letter, terminal: true)

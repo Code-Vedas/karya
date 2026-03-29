@@ -211,6 +211,41 @@ RSpec.describe Karya::Job do
       end.to raise_error(Karya::InvalidJobAttributeError, /duplicate argument key after normalization: "account_id"/)
     end
 
+    it 'normalizes frozen argument hashes with untrimmed keys instead of accepting them as pre-normalized' do
+      raw_arguments = { '  foo  ' => 'bar' }.transform_keys(&:freeze).transform_values(&:freeze).freeze
+
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: raw_arguments,
+        state: :queued,
+        created_at:
+      )
+
+      expect(job.arguments).not_to equal(raw_arguments)
+      expect(job.arguments['foo']).to eq('bar')
+      expect(job.arguments['  foo  ']).to be_nil
+    end
+
+    it 'normalizes frozen argument hashes whose keys are not normalized strings' do
+      raw_arguments = { foo: 'bar' }.freeze
+
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: raw_arguments,
+        state: :queued,
+        created_at:
+      )
+
+      expect(job.arguments).not_to equal(raw_arguments)
+      expect(job.arguments['foo']).to eq('bar')
+      expect(job.arguments.keys).to contain_exactly('foo')
+      expect(job.arguments.keys.first).to be_frozen
+    end
+
     it 'rejects invalid attempts' do
       expect do
         described_class.new(

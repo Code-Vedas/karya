@@ -266,7 +266,10 @@ module Karya
           end
 
           def valid?
-            key.is_a?(String) && key.frozen? && !key.empty?
+            return false unless key.is_a?(String) && key.frozen?
+
+            stripped = key.strip
+            !stripped.empty? && stripped == key
           end
 
           private

@@ -29,12 +29,14 @@ RSpec.describe Karya::JobLifecycle do
         .to raise_error(Karya::InvalidJobStateError, /state must be present/)
       expect { described_class.normalize_state('   ') }
         .to raise_error(Karya::InvalidJobStateError, /state must be present/)
+      expect { described_class.normalize_state('___') }
+        .to raise_error(Karya::InvalidJobStateError, /state must be present/)
     end
 
     it 'normalizes punctuation and spacing to snake_case names' do
       described_class.register_state('dead letter!')
 
-      expect(described_class.normalize_state(' dead letter! ')).to eq(:dead_letter)
+      expect(described_class.normalize_state(' dead letter! ')).to eq('dead_letter')
     end
   end
 
@@ -96,8 +98,8 @@ RSpec.describe Karya::JobLifecycle do
 
       transition_map = described_class.transitions
 
-      expect(transition_map).to include(dead_letter: [])
-      expect(transition_map[:dead_letter]).to be_frozen
+      expect(transition_map).to include('dead_letter' => [])
+      expect(transition_map['dead_letter']).to be_frozen
     end
   end
 
@@ -107,7 +109,7 @@ RSpec.describe Karya::JobLifecycle do
 
       described_class.register_state(:dead_letter)
 
-      expect(described_class.states).to include(:dead_letter)
+      expect(described_class.states).to include('dead_letter')
     end
   end
 
@@ -117,7 +119,7 @@ RSpec.describe Karya::JobLifecycle do
 
       described_class.register_state(:dead_letter, terminal: true)
 
-      expect(described_class.terminal_states).to include(:dead_letter)
+      expect(described_class.terminal_states).to include('dead_letter')
     end
   end
 
@@ -152,12 +154,12 @@ RSpec.describe Karya::JobLifecycle do
 
   describe 'extensions' do
     it 'allows later lifecycle states to be registered and linked to canonical states' do
-      described_class.register_state(:dead_letter, terminal: true)
-      described_class.register_transition(from: :retry_pending, to: :dead_letter)
+      expect(described_class.register_state(:dead_letter, terminal: true)).to eq('dead_letter')
+      described_class.register_transition(from: :retry_pending, to: 'dead_letter')
 
-      expect(described_class.normalize_state('dead-letter')).to eq(:dead_letter)
-      expect(described_class.valid_transition?(from: :retry_pending, to: :dead_letter)).to be(true)
-      expect(described_class.terminal?(:dead_letter)).to be(true)
+      expect(described_class.normalize_state('dead-letter')).to eq('dead_letter')
+      expect(described_class.valid_transition?(from: :retry_pending, to: 'dead_letter')).to be(true)
+      expect(described_class.terminal?('dead_letter')).to be(true)
     end
 
     it 'does not allow extension transitions that redefine canonical states only' do
@@ -172,7 +174,7 @@ RSpec.describe Karya::JobLifecycle do
       described_class.register_state(:dead_letter, terminal: true)
 
       expect do
-        described_class.register_transition(from: :dead_letter, to: :queued)
+        described_class.register_transition(from: 'dead_letter', to: :queued)
       end.to raise_error(Karya::InvalidJobTransitionError, /terminal states cannot define outgoing transitions/)
     end
 
@@ -183,11 +185,17 @@ RSpec.describe Karya::JobLifecycle do
         .to raise_error(Karya::InvalidJobStateError, /dead_letter.*already registered/)
     end
 
-    it 'rejects invalid extension state name formats' do
+    it 'accepts extension state names up to the maximum length' do
+      long_name = 'a' * 64
+
+      expect(described_class.register_state(long_name)).to eq(long_name)
+    end
+
+    it 'rejects extension state names longer than the maximum length' do
       long_name = 'a' * 65
 
       expect { described_class.register_state(long_name) }
-        .to raise_error(Karya::InvalidJobStateError, /Invalid job state name format/)
+        .to raise_error(Karya::InvalidJobStateError, /exceeds 64 characters/)
     end
 
     it 'stores extension state names internally without symbolizing them' do
@@ -198,11 +206,20 @@ RSpec.describe Karya::JobLifecycle do
       expect(extension_state_names.first).to be_a(String)
     end
 
+    it 'does not materialize extension states as symbols in public lifecycle views' do
+      described_class.register_state(:dead_letter, terminal: true)
+      described_class.register_transition(from: :retry_pending, to: 'dead_letter')
+
+      expect(described_class.states).to include('dead_letter')
+      expect(described_class.transitions[:retry_pending]).to include('dead_letter')
+      expect(described_class.terminal_states).to include('dead_letter')
+    end
+
     it 'does not allow transition registration to a state cleared from the extension registry' do
       described_class.register_state(:dead_letter)
       described_class.send(:clear_extensions!)
 
-      expect { described_class.register_transition(from: :retry_pending, to: :dead_letter) }
+      expect { described_class.register_transition(from: :retry_pending, to: 'dead_letter') }
         .to raise_error(Karya::InvalidJobStateError, /Unknown job state: "dead_letter"/)
     end
   end
