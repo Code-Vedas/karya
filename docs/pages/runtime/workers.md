@@ -14,6 +14,8 @@ coordinated runtime lifecycle behavior.
 
 - subscribe to the correct queues
 - reserve jobs without violating routing and fairness rules
+- move jobs from `queued` to `reserved` and then into `running` only through
+  valid lifecycle transitions
 - execute work while respecting timeouts, expirations, and cancellation
 - participate in graceful shutdown and drain behavior
 
@@ -25,6 +27,9 @@ Karya documents worker behavior around:
 - drain-safe shutdown
 - pause and resume interactions with queue state
 - runtime supervision hooks used by operators and automation
+
+Workers extend the canonical job lifecycle; they do not introduce a separate
+execution state model.
 
 ## Operator View
 
