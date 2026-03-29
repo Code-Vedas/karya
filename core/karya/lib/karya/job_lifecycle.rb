@@ -50,6 +50,7 @@ module Karya
     }.freeze
 
     TERMINAL_STATES = [SUCCEEDED, CANCELLED].freeze
+    EMPTY_TRANSITIONS = [].freeze
 
     @mutex = Mutex.new
     @extension_states = []
@@ -179,6 +180,9 @@ module Karya
         @extension_transitions.each do |state, next_states|
           base_transitions[state] = (base_transitions.fetch(state, []) + next_states).uniq.freeze
         end
+        states_locked.each do |state|
+          base_transitions[state] ||= EMPTY_TRANSITIONS
+        end
         base_transitions.freeze
       end
     end
@@ -206,5 +210,6 @@ module Karya
       normalized_value.to_sym
     end
     module_function :normalize_state_value
+    private_class_method :normalize_state_value
   end
 end

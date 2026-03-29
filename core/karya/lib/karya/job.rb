@@ -157,7 +157,7 @@ module Karya
           normalized_key = key.to_s.strip
           raise InvalidJobAttributeError, 'argument keys must be present' if normalized_key.empty?
 
-          normalized_key = normalized_key.to_sym
+          normalized_key = normalized_key.freeze
           if normalized.key?(normalized_key)
             raise InvalidJobAttributeError,
                   "duplicate argument key after normalization: #{normalized_key.inspect}"

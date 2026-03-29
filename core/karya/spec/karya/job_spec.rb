@@ -28,10 +28,10 @@ RSpec.describe Karya::Job do
       expect(job.id).to be_frozen
       expect(job.queue).to be_frozen
       expect(job.handler).to be_frozen
-      expect(job.arguments).to eq(account_id: 42, metadata: { source: 'sync' }, tags: ['vip'])
+      expect(job.arguments).to eq('account_id' => 42, 'metadata' => { 'source' => 'sync' }, 'tags' => ['vip'])
       expect(job.arguments).to be_frozen
-      expect(job.arguments[:metadata]).to be_frozen
-      expect(job.arguments[:tags]).to be_frozen
+      expect(job.arguments['metadata']).to be_frozen
+      expect(job.arguments['tags']).to be_frozen
       expect(job.state).to eq(:retry_pending)
       expect(job.attempt).to eq(2)
       expect(job.created_at).to eq(created_at)
@@ -120,7 +120,7 @@ RSpec.describe Karya::Job do
         created_at:
       )
 
-      expect(job.arguments).to eq('123': 'value')
+      expect(job.arguments).to eq('123' => 'value')
     end
 
     it 'does not freeze caller-owned scalar argument values' do
@@ -135,8 +135,8 @@ RSpec.describe Karya::Job do
         created_at:
       )
 
-      expect(job.arguments[:message]).to eq('hello')
-      expect(job.arguments[:message]).to be_frozen
+      expect(job.arguments['message']).to eq('hello')
+      expect(job.arguments['message']).to be_frozen
       expect(message).not_to be_frozen
     end
 
@@ -150,7 +150,7 @@ RSpec.describe Karya::Job do
         created_at:
       )
 
-      expect(job.arguments).to eq(attempt_limit: 3)
+      expect(job.arguments).to eq('attempt_limit' => 3)
     end
 
     it 'accepts duplicated time argument values without freezing the caller-owned instance' do
@@ -165,8 +165,8 @@ RSpec.describe Karya::Job do
         created_at:
       )
 
-      expect(job.arguments[:scheduled_at]).to eq(scheduled_at)
-      expect(job.arguments[:scheduled_at]).to be_frozen
+      expect(job.arguments['scheduled_at']).to eq(scheduled_at)
+      expect(job.arguments['scheduled_at']).to be_frozen
       expect(scheduled_at).not_to be_frozen
     end
 
@@ -208,7 +208,7 @@ RSpec.describe Karya::Job do
           state: :queued,
           created_at:
         )
-      end.to raise_error(Karya::InvalidJobAttributeError, /duplicate argument key after normalization: :account_id/)
+      end.to raise_error(Karya::InvalidJobAttributeError, /duplicate argument key after normalization: "account_id"/)
     end
 
     it 'rejects invalid attempts' do

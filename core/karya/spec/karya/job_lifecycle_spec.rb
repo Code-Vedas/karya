@@ -84,6 +84,15 @@ RSpec.describe Karya::JobLifecycle do
 
       expect(described_class.transitions).not_to equal(initial_transitions)
     end
+
+    it 'includes empty transition arrays for extension states without outgoing transitions' do
+      described_class.register_state(:dead_letter)
+
+      transition_map = described_class.transitions
+
+      expect(transition_map).to include(dead_letter: described_class::EMPTY_TRANSITIONS)
+      expect(transition_map[:dead_letter]).to be_frozen
+    end
   end
 
   describe '.states' do
@@ -110,6 +119,11 @@ RSpec.describe Karya::JobLifecycle do
     it 'does not expose cache invalidation as a public module API' do
       expect(described_class.respond_to?(:invalidate_caches!)).to be(false)
       expect(described_class.respond_to?(:invalidate_caches!, true)).to be(true)
+    end
+
+    it 'does not expose raw state normalization as a public module API' do
+      expect(described_class.respond_to?(:normalize_state_value)).to be(false)
+      expect(described_class.respond_to?(:normalize_state_value, true)).to be(true)
     end
   end
 
