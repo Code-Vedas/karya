@@ -286,6 +286,14 @@ RSpec.describe Karya::InMemoryQueueStore do
       expect(reservation.job_id).to eq('job-1')
     end
 
+    it 'rejects unsupported numeric lease durations' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+
+      expect do
+        store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: Complex(1, 0), now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /lease_duration must be a positive number/)
+    end
+
     it 'rejects blank identifiers for reserve input' do
       expect do
         store.reserve(queue: ' ', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)

@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require 'securerandom'
+require 'bigdecimal'
 
 require_relative 'job'
 require_relative 'queue_store'
@@ -58,11 +59,7 @@ module Karya
       normalized_queue = normalize_identifier(:queue, queue, error_class: InvalidQueueStoreOperationError)
       normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
       normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
-      normalized_lease_duration = lease_duration
-      invalid_lease_duration = !normalized_lease_duration.is_a?(Numeric) ||
-                               !normalized_lease_duration.positive? ||
-                               !normalized_lease_duration.finite?
-      raise InvalidQueueStoreOperationError, 'lease_duration must be a positive number' if invalid_lease_duration
+      normalized_lease_duration = LeaseDuration.new(lease_duration).normalize
 
       @mutex.synchronize do
         expire_reservations_locked(normalized_now)
@@ -128,6 +125,37 @@ module Karya
     private
 
     attr_reader :token_generator
+
+    # Validates and normalizes lease durations accepted by the queue store.
+    class LeaseDuration
+      def initialize(value)
+        @value = value
+      end
+
+      def normalize
+        raise InvalidQueueStoreOperationError, 'lease_duration must be a positive number' unless valid?
+
+        value
+      end
+
+      private
+
+      attr_reader :value
+
+      def valid?
+        case value
+        when Integer, Float, Rational, BigDecimal
+          positive = value.positive?
+          return false unless positive
+
+          value.is_a?(Integer) || value.finite?
+        else
+          false
+        end
+      end
+    end
+
+    private_constant :LeaseDuration
 
     def validate_enqueue(job)
       raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)
