@@ -323,6 +323,26 @@ RSpec.describe Karya::Job do
       expect(transitioned_job.arguments['message']).to equal(job.arguments['message'])
       expect(transitioned_job.arguments['scheduled_at']).to equal(job.arguments['scheduled_at'])
     end
+
+    it 'reuses an already-normalized frozen argument graph on transition' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: {
+          metadata: { source: 'sync' },
+          tags: ['vip']
+        },
+        state: :reserved,
+        created_at:
+      )
+
+      transitioned_job = job.transition_to(:running, updated_at:)
+
+      expect(transitioned_job.arguments).to equal(job.arguments)
+      expect(transitioned_job.arguments['metadata']).to equal(job.arguments['metadata'])
+      expect(transitioned_job.arguments['tags']).to equal(job.arguments['tags'])
+    end
   end
 
   describe '#terminal?' do

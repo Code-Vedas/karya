@@ -41,20 +41,24 @@ lifecycle, reservation, execution, and operator-visible state around that work.
 
 The base lifecycle vocabulary for queued job instances is:
 
-| State           | Meaning                                                                                       | Allowed next transitions                    |
-| --------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `submission`    | the runtime is accepting or validating enqueue intent                                         | `queued`                                    |
-| `queued`        | the job is durably available for reservation on its assigned queue                            | `reserved`, `cancelled`                     |
-| `reserved`      | one worker has an exclusive, temporary claim on the job                                       | `running`, `queued`, `cancelled`            |
-| `running`       | execution has started from a valid reservation                                                | `succeeded`, `failed`, `cancelled`          |
-| `succeeded`     | execution completed successfully                                                              | terminal state                              |
-| `failed`        | execution ended unsuccessfully for the current attempt                                        | `retry_pending`                             |
-| `retry_pending` | the job remains in the lifecycle and is waiting to re-enter queue execution under retry rules | `queued`, `cancelled`, dead-letter boundary |
-| `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                              |
+| State           | Meaning                                                                                       | Allowed next transitions           |
+| --------------- | --------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `submission`    | the runtime is accepting or validating enqueue intent                                         | `queued`                           |
+| `queued`        | the job is durably available for reservation on its assigned queue                            | `reserved`, `cancelled`            |
+| `reserved`      | one worker has an exclusive, temporary claim on the job                                       | `running`, `queued`, `cancelled`   |
+| `running`       | execution has started from a valid reservation                                                | `succeeded`, `failed`, `cancelled` |
+| `succeeded`     | execution completed successfully                                                              | terminal state                     |
+| `failed`        | execution ended unsuccessfully for the current attempt                                        | `retry_pending`                    |
+| `retry_pending` | the job remains in the lifecycle and is waiting to re-enter queue execution under retry rules | `queued`, `cancelled`              |
+| `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                     |
 
 `dead-letter` is not defined here as a base lifecycle state. It is treated as a
 later extension boundary that may be reached from failure or retry exhaustion,
 but its detailed recovery semantics are defined elsewhere.
+
+`retry_pending` is the base-lifecycle extension point where later dead-letter
+behavior can attach. The table above lists only concrete base-state transitions
+implemented by the canonical lifecycle.
 
 ## Lifecycle Invariants
 

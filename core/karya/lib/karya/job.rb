@@ -146,6 +146,11 @@ module Karya
 
       def normalize
         raise InvalidJobAttributeError, 'arguments must be a Hash' unless arguments.is_a?(Hash)
+        return arguments if NormalizedGraph.new(
+          arguments,
+          immutable_scalar_checker: method(:immutable_scalar?),
+          duplicable_scalar_checker: method(:duplicable_scalar?)
+        ).normalized?
 
         freeze_hash(arguments)
       end
@@ -209,6 +214,70 @@ module Karya
       def duplicable_scalar?(value)
         self.class.send(:duplicable_scalar?, value)
       end
+
+      # Detects whether a value graph is already in the canonical immutable form.
+      class NormalizedGraph
+        def initialize(value, immutable_scalar_checker:, duplicable_scalar_checker:)
+          @value = value
+          @immutable_scalar_checker = immutable_scalar_checker
+          @duplicable_scalar_checker = duplicable_scalar_checker
+        end
+
+        def normalized?
+          normalized_value?(value)
+        end
+
+        private
+
+        attr_reader :duplicable_scalar_checker, :immutable_scalar_checker, :value
+
+        def normalized_value?(candidate)
+          frozen_candidate = candidate.frozen?
+
+          case candidate
+          when Hash
+            normalized_hash?(candidate, frozen_candidate:)
+          when Array
+            frozen_candidate && candidate.all? { |item| normalized_value?(item) }
+          else
+            immutable_scalar?(candidate) || (duplicable_scalar?(candidate) && frozen_candidate)
+          end
+        end
+
+        def normalized_hash?(candidate, frozen_candidate:)
+          frozen_candidate &&
+            candidate.all? do |key, item|
+              NormalizedKey.new(key).valid? && normalized_value?(item)
+            end
+        end
+
+        def immutable_scalar?(candidate)
+          immutable_scalar_checker.call(candidate)
+        end
+
+        def duplicable_scalar?(candidate)
+          duplicable_scalar_checker.call(candidate)
+        end
+
+        # Validates that normalized argument keys are frozen, non-empty strings.
+        class NormalizedKey
+          def initialize(key)
+            @key = key
+          end
+
+          def valid?
+            key.is_a?(String) && key.frozen? && !key.empty?
+          end
+
+          private
+
+          attr_reader :key
+        end
+
+        private_constant :NormalizedKey
+      end
+
+      private_constant :NormalizedGraph
     end
 
     private_constant :Attributes, :ImmutableArguments

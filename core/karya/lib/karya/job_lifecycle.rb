@@ -51,24 +51,31 @@ module Karya
 
     TERMINAL_STATES = [SUCCEEDED, CANCELLED].freeze
     EMPTY_TRANSITIONS = [].freeze
+    CANONICAL_STATE_NAMES = STATES.map(&:to_s).freeze
+    CANONICAL_TERMINAL_STATE_NAMES = TERMINAL_STATES.map(&:to_s).freeze
+    CANONICAL_TRANSITION_NAMES = TRANSITIONS.transform_keys(&:to_s).transform_values do |next_states|
+      next_states.map(&:to_s).freeze
+    end.freeze
+    MAX_STATE_NAME_LENGTH = 64
+    private_constant :EMPTY_TRANSITIONS, :CANONICAL_STATE_NAMES, :CANONICAL_TERMINAL_STATE_NAMES, :CANONICAL_TRANSITION_NAMES
 
     @mutex = Mutex.new
-    @extension_states = []
-    @extension_terminal_states = []
+    @extension_state_names = []
+    @extension_terminal_state_names = []
     @extension_transitions = Hash.new { |hash, key| hash[key] = [] }
-    @states_locked = nil
-    @terminal_states_locked = nil
-    @transitions_locked = nil
+    @state_names_locked = nil
+    @terminal_state_names_locked = nil
+    @transition_names_locked = nil
 
     def normalize_state(state)
       @mutex.synchronize do
-        normalize_state_locked(state)
+        state_name_to_symbol(normalize_state_locked(state))
       end
     end
 
     def validate_state!(state)
       @mutex.synchronize do
-        validate_state_locked!(normalize_state_name(state))
+        state_name_to_symbol(validate_state_locked!(normalize_state_name(state)))
       end
     end
 
@@ -77,7 +84,7 @@ module Karya
         normalized_from = normalize_state_locked(from)
         normalized_to = normalize_state_locked(to)
 
-        transitions_locked.fetch(normalized_from, []).include?(normalized_to)
+        transition_names_locked.fetch(normalized_from, EMPTY_TRANSITIONS).include?(normalized_to)
       end
     end
 
@@ -85,72 +92,82 @@ module Karya
       @mutex.synchronize do
         normalized_from = normalize_state_locked(from)
         normalized_to = normalize_state_locked(to)
-        return normalized_to if transitions_locked.fetch(normalized_from, []).include?(normalized_to)
+        target_state = state_name_to_symbol(normalized_to)
+        return target_state if transition_names_locked.fetch(normalized_from, EMPTY_TRANSITIONS).include?(normalized_to)
 
         raise InvalidJobTransitionError,
-              "Cannot transition job state from #{normalized_from.inspect} to #{normalized_to.inspect}"
+              "Cannot transition job state from #{state_name_to_symbol(normalized_from).inspect} to #{target_state.inspect}"
       end
     end
 
     def terminal?(state)
       @mutex.synchronize do
-        terminal_states_locked.include?(normalize_state_locked(state))
+        terminal_state_names_locked.include?(normalize_state_locked(state))
       end
     end
 
     def register_state(state, terminal: false)
-      normalized_state = normalize_state_name(state).to_sym
+      normalized_state_name = normalize_state_name(state).freeze
 
       @mutex.synchronize do
-        if (STATES + @extension_states).include?(normalized_state)
-          raise InvalidJobStateError, "state must be new; #{normalized_state.inspect} is already registered"
+        if state_names_locked.include?(normalized_state_name)
+          raise InvalidJobStateError, "state must be new; #{normalized_state_name.inspect} is already registered"
         end
 
-        @extension_states << normalized_state
-        @extension_terminal_states << normalized_state if terminal
+        @extension_state_names << normalized_state_name
+        @extension_terminal_state_names << normalized_state_name if terminal
         invalidate_caches!
       end
 
-      normalized_state
+      state_name_to_symbol(normalized_state_name)
     end
 
     def register_transition(from:, to:)
       @mutex.synchronize do
         normalized_from = normalize_state_locked(from)
         normalized_to = normalize_state_locked(to)
+        unless extension_state_name?(normalized_from) || extension_state_name?(normalized_to)
+          raise InvalidJobTransitionError, 'extension transitions must involve at least one registered extension state'
+        end
+        raise InvalidJobTransitionError, 'terminal states cannot define outgoing transitions' if terminal_state_names_locked.include?(normalized_from)
+
         @extension_transitions[normalized_from] |= [normalized_to]
         invalidate_caches!
 
-        normalized_to
+        state_name_to_symbol(normalized_to)
       end
     end
 
     def states
       @mutex.synchronize do
-        states_locked
+        state_names_locked.map { |state_name| state_name_to_symbol(state_name) }.freeze
       end
     end
 
     def transitions
       @mutex.synchronize do
-        transitions_locked
+        transition_names_locked.each_with_object({}) do |(state_name, next_state_names), transition_map|
+          transition_map[state_name_to_symbol(state_name)] = transition_symbols(next_state_names)
+        end.freeze
       end
     end
 
     def terminal_states
       @mutex.synchronize do
-        terminal_states_locked
+        terminal_state_names_locked.map { |state_name| state_name_to_symbol(state_name) }.freeze
       end
     end
 
     def clear_extensions!
       @mutex.synchronize do
-        @extension_states.clear
-        @extension_terminal_states.clear
+        @extension_state_names.clear
+        @extension_terminal_state_names.clear
         @extension_transitions.clear
         invalidate_caches!
       end
     end
+    module_function :clear_extensions!
+    private_class_method :clear_extensions!
 
     private
 
@@ -160,44 +177,48 @@ module Karya
     module_function :normalize_state_locked
     private_class_method :normalize_state_locked
 
-    def states_locked
-      @states_locked ||= (STATES + @extension_states).freeze
+    def state_names_locked
+      @state_names_locked ||= (CANONICAL_STATE_NAMES + @extension_state_names).freeze
     end
-    module_function :states_locked
-    private_class_method :states_locked
+    module_function :state_names_locked
+    private_class_method :state_names_locked
 
-    def transitions_locked
-      @transitions_locked ||= begin
-        base_transitions = TRANSITIONS.transform_values { |next_states| next_states.dup.freeze }
+    def transition_names_locked
+      @transition_names_locked ||= begin
+        base_transitions = CANONICAL_TRANSITION_NAMES.transform_values { |next_state_names| next_state_names.dup.freeze }
         @extension_transitions.each do |state, next_states|
           base_transitions[state] = (base_transitions.fetch(state, []) + next_states).uniq.freeze
         end
-        states_locked.each do |state|
-          base_transitions[state] ||= EMPTY_TRANSITIONS
+        state_names_locked.each do |state_name|
+          base_transitions[state_name] ||= EMPTY_TRANSITIONS
         end
         base_transitions.freeze
       end
     end
-    module_function :transitions_locked
-    private_class_method :transitions_locked
+    module_function :transition_names_locked
+    private_class_method :transition_names_locked
 
-    def terminal_states_locked
-      @terminal_states_locked ||= (TERMINAL_STATES + @extension_terminal_states).freeze
+    def terminal_state_names_locked
+      @terminal_state_names_locked ||= (CANONICAL_TERMINAL_STATE_NAMES + @extension_terminal_state_names).freeze
     end
-    module_function :terminal_states_locked
-    private_class_method :terminal_states_locked
+    module_function :terminal_state_names_locked
+    private_class_method :terminal_state_names_locked
 
     def invalidate_caches!
-      @states_locked = nil
-      @terminal_states_locked = nil
-      @transitions_locked = nil
+      @state_names_locked = nil
+      @terminal_state_names_locked = nil
+      @transition_names_locked = nil
     end
     module_function :invalidate_caches!
     private_class_method :invalidate_caches!
 
     def normalize_state_name(state)
       normalized_value = state.to_s.strip.downcase.tr('-', '_')
+      normalized_value = normalized_value.gsub(/[^a-z0-9_]+/, '_')
+      normalized_value = normalized_value.gsub(/_{2,}/, '_')
+      normalized_value = normalized_value.gsub(/\A_+|_+\z/, '')
       raise InvalidJobStateError, 'state must be present' if normalized_value.empty?
+      raise InvalidJobStateError, "Invalid job state name format: #{state.inspect}" if normalized_value.length > MAX_STATE_NAME_LENGTH
 
       normalized_value
     end
@@ -205,12 +226,29 @@ module Karya
     private_class_method :normalize_state_name
 
     def validate_state_locked!(state_name)
-      matched_state = states_locked.find { |known_state| known_state.to_s == state_name }
-      return matched_state if matched_state
+      return state_name if state_names_locked.include?(state_name)
 
       raise InvalidJobStateError, "Unknown job state: #{state_name.inspect}"
     end
     module_function :validate_state_locked!
     private_class_method :validate_state_locked!
+
+    def extension_state_name?(state_name)
+      @extension_state_names.include?(state_name)
+    end
+    module_function :extension_state_name?
+    private_class_method :extension_state_name?
+
+    def state_name_to_symbol(state_name)
+      state_name.to_sym
+    end
+    module_function :state_name_to_symbol
+    private_class_method :state_name_to_symbol
+
+    def transition_symbols(next_state_names)
+      next_state_names.map { |next_state_name| state_name_to_symbol(next_state_name) }.freeze
+    end
+    module_function :transition_symbols
+    private_class_method :transition_symbols
   end
 end

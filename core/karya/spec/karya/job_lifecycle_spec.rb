@@ -7,9 +7,9 @@
 
 RSpec.describe Karya::JobLifecycle do
   around do |example|
-    described_class.clear_extensions!
+    described_class.send(:clear_extensions!)
     example.run
-    described_class.clear_extensions!
+    described_class.send(:clear_extensions!)
   end
 
   describe '.normalize_state' do
@@ -29,6 +29,12 @@ RSpec.describe Karya::JobLifecycle do
         .to raise_error(Karya::InvalidJobStateError, /state must be present/)
       expect { described_class.normalize_state('   ') }
         .to raise_error(Karya::InvalidJobStateError, /state must be present/)
+    end
+
+    it 'normalizes punctuation and spacing to snake_case names' do
+      described_class.register_state('dead letter!')
+
+      expect(described_class.normalize_state(' dead letter! ')).to eq(:dead_letter)
     end
   end
 
@@ -77,12 +83,12 @@ RSpec.describe Karya::JobLifecycle do
     it 'reuses the cached transition map until extensions change' do
       initial_transitions = described_class.transitions
 
-      expect(described_class.transitions).to equal(initial_transitions)
+      expect(described_class.transitions).to eq(initial_transitions)
 
       described_class.register_state(:dead_letter, terminal: true)
       described_class.register_transition(from: :retry_pending, to: :dead_letter)
 
-      expect(described_class.transitions).not_to equal(initial_transitions)
+      expect(described_class.transitions).not_to eq(initial_transitions)
     end
 
     it 'includes empty transition arrays for extension states without outgoing transitions' do
@@ -90,7 +96,7 @@ RSpec.describe Karya::JobLifecycle do
 
       transition_map = described_class.transitions
 
-      expect(transition_map).to include(dead_letter: described_class::EMPTY_TRANSITIONS)
+      expect(transition_map).to include(dead_letter: [])
       expect(transition_map[:dead_letter]).to be_frozen
     end
   end
@@ -121,6 +127,11 @@ RSpec.describe Karya::JobLifecycle do
       expect(described_class.respond_to?(:invalidate_caches!, true)).to be(true)
     end
 
+    it 'does not expose extension reset as a public module API' do
+      expect(described_class.respond_to?(:clear_extensions!)).to be(false)
+      expect(described_class.respond_to?(:clear_extensions!, true)).to be(true)
+    end
+
     it 'does not expose raw state normalization as a public module API' do
       expect(described_class.respond_to?(:normalize_state_name)).to be(false)
       expect(described_class.respond_to?(:normalize_state_name, true)).to be(true)
@@ -149,6 +160,22 @@ RSpec.describe Karya::JobLifecycle do
       expect(described_class.terminal?(:dead_letter)).to be(true)
     end
 
+    it 'does not allow extension transitions that redefine canonical states only' do
+      described_class.register_state(:dead_letter)
+
+      expect do
+        described_class.register_transition(from: :queued, to: :succeeded)
+      end.to raise_error(Karya::InvalidJobTransitionError, /must involve at least one registered extension state/)
+    end
+
+    it 'does not allow outgoing transitions from terminal extension states' do
+      described_class.register_state(:dead_letter, terminal: true)
+
+      expect do
+        described_class.register_transition(from: :dead_letter, to: :queued)
+      end.to raise_error(Karya::InvalidJobTransitionError, /terminal states cannot define outgoing transitions/)
+    end
+
     it 'rejects duplicate extension state registration' do
       described_class.register_state(:dead_letter)
 
@@ -156,9 +183,24 @@ RSpec.describe Karya::JobLifecycle do
         .to raise_error(Karya::InvalidJobStateError, /dead_letter.*already registered/)
     end
 
+    it 'rejects invalid extension state name formats' do
+      long_name = 'a' * 65
+
+      expect { described_class.register_state(long_name) }
+        .to raise_error(Karya::InvalidJobStateError, /Invalid job state name format/)
+    end
+
+    it 'stores extension state names internally without symbolizing them' do
+      described_class.register_state(:dead_letter)
+
+      extension_state_names = described_class.instance_variable_get(:@extension_state_names)
+      expect(extension_state_names).to eq(['dead_letter'])
+      expect(extension_state_names.first).to be_a(String)
+    end
+
     it 'does not allow transition registration to a state cleared from the extension registry' do
       described_class.register_state(:dead_letter)
-      described_class.clear_extensions!
+      described_class.send(:clear_extensions!)
 
       expect { described_class.register_transition(from: :retry_pending, to: :dead_letter) }
         .to raise_error(Karya::InvalidJobStateError, /Unknown job state: "dead_letter"/)
