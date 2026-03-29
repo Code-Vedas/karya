@@ -37,7 +37,7 @@ module Karya
       false
     end
 
-    def transition_to(next_state, updated_at:)
+    def transition_to(next_state, updated_at:, attempt: self.attempt)
       normalized_next_state = JobLifecycle.validate_transition!(from: state, to: next_state)
 
       self.class.new(

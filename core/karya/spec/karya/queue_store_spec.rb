@@ -32,6 +32,24 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #release/)
   end
 
+  it 'requires start_execution to be implemented' do
+    expect do
+      store.start_execution(reservation_token: 'lease-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #start_execution/)
+  end
+
+  it 'requires complete_execution to be implemented' do
+    expect do
+      store.complete_execution(reservation_token: 'lease-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #complete_execution/)
+  end
+
+  it 'requires fail_execution to be implemented' do
+    expect do
+      store.fail_execution(reservation_token: 'lease-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #fail_execution/)
+  end
+
   it 'requires expire_reservations to be implemented' do
     expect do
       store.expire_reservations(now: Time.utc(2026, 3, 27, 12, 0, 0))

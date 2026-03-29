@@ -7,10 +7,12 @@
 
 require_relative 'karya/base'
 require_relative 'karya/version'
-require_relative 'karya/cli'
 
 require_relative 'karya/job_lifecycle'
 require_relative 'karya/job'
 require_relative 'karya/reservation'
 require_relative 'karya/queue_store'
 require_relative 'karya/in_memory_queue_store'
+require_relative 'karya/constant_resolver'
+require_relative 'karya/worker'
+require_relative 'karya/cli'
