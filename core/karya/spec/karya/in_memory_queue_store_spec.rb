@@ -567,6 +567,17 @@ RSpec.describe Karya::InMemoryQueueStore do
       expect(reclaimed_reservation.job_id).to eq('job-1')
     end
 
+    it 'requeues recovered running jobs through a valid lifecycle transition' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 2.5)
+
+      recovered_jobs = store.expire_reservations(now: created_at + 5)
+
+      expect(recovered_jobs.map(&:state)).to eq([:queued])
+      expect(stored_job('job-1').can_transition_to?(:reserved)).to be(true)
+    end
+
     it 'does not let a stale token release a new reservation after tombstone pruning' do
       repeating_token_store = described_class.new(
         token_generator: -> { 'repeat' },

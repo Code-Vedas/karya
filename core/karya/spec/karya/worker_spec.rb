@@ -115,6 +115,34 @@ RSpec.describe Karya::Worker do
       expect(result.state).to eq(:succeeded)
     end
 
+    it 'passes a mutable copy to positional-hash handlers' do
+      received_arguments = nil
+      queue_store.enqueue(
+        job: submission_job(id: 'job-1', arguments: { metadata: { account_id: 42 }, tags: ['vip'] }),
+        now:
+      )
+      positional_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers: {
+          'billing_sync' => lambda do |arguments|
+            arguments['metadata']['account_id'] = 99
+            arguments['tags'] << 'priority'
+            received_arguments = arguments
+          end
+        },
+        lease_duration: 30,
+        clock: -> { now }
+      )
+
+      result = positional_worker.work_once
+
+      expect(received_arguments).to eq('metadata' => { 'account_id' => 99 }, 'tags' => %w[vip priority])
+      expect(stored_job('job-1').arguments).to eq('metadata' => { 'account_id' => 42 }, 'tags' => ['vip'])
+      expect(result.state).to eq(:succeeded)
+    end
+
     it 'executes class-based call handlers' do
       callable_handler = Class.new do
         class << self

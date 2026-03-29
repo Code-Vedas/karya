@@ -42,7 +42,7 @@ module Karya
       SUBMISSION => [QUEUED].freeze,
       QUEUED => [RESERVED, CANCELLED].freeze,
       RESERVED => [RUNNING, QUEUED, CANCELLED].freeze,
-      RUNNING => [SUCCEEDED, FAILED, CANCELLED].freeze,
+      RUNNING => [QUEUED, SUCCEEDED, FAILED, CANCELLED].freeze,
       SUCCEEDED => [].freeze,
       FAILED => [RETRY_PENDING].freeze,
       RETRY_PENDING => [QUEUED, CANCELLED].freeze,

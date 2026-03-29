@@ -395,16 +395,7 @@ module Karya
       end
 
       def to_queued_job
-        Job.new(
-          id: running_job.id,
-          queue: running_job.queue,
-          handler: running_job.handler,
-          arguments: running_job.arguments,
-          attempt: running_job.attempt,
-          state: :queued,
-          created_at: running_job.created_at,
-          updated_at: now
-        )
+        running_job.transition_to(:queued, updated_at: now)
       end
 
       private

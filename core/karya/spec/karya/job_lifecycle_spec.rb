@@ -143,6 +143,7 @@ RSpec.describe Karya::JobLifecycle do
   describe '.validate_transition!' do
     it 'returns the normalized target state for valid transitions' do
       expect(described_class.validate_transition!(from: :running, to: 'cancelled')).to eq(:cancelled)
+      expect(described_class.validate_transition!(from: :running, to: :queued)).to eq(:queued)
       expect(described_class.validate_transition!(from: :failed, to: 'retry-pending')).to eq(:retry_pending)
     end
 

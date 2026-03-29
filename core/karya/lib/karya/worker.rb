@@ -449,7 +449,7 @@ module Karya
 
       def call(arguments:)
         if positional_hash_dispatch?
-          yield(:positional_hash, arguments)
+          yield(:positional_hash, MutableGraphCopy.call(arguments))
         elsif keyword_dispatch?
           yield(:keywords, keyword_arguments(arguments))
         elsif arguments.empty?
@@ -488,7 +488,7 @@ module Karya
 
         allowed_names.each_with_object({}) do |name, normalized|
           key = name.to_s
-          normalized[name] = arguments.fetch(key) if arguments.key?(key)
+          normalized[name] = MutableGraphCopy.call(arguments.fetch(key)) if arguments.key?(key)
         end
       end
 
@@ -507,6 +507,35 @@ module Karya
       private_class_method :unexpected_arguments_message
     end
 
+    # Produces mutable copies of normalized immutable argument graphs for handler dispatch.
+    class MutableGraphCopy
+      def self.call(value)
+        case value
+        when Hash
+          duplicate_hash(value)
+        when Array
+          duplicate_array(value)
+        when String, Time
+          value.dup
+        else
+          value
+        end
+      end
+
+      def self.duplicate_hash(value)
+        value.each_with_object({}) do |(key, nested_value), duplicated|
+          duplicated[key.dup] = call(nested_value)
+        end
+      end
+
+      def self.duplicate_array(value)
+        value.map { |nested_value| call(nested_value) }
+      end
+
+      private_class_method :new
+      private_class_method :duplicate_array, :duplicate_hash
+    end
+
     private_constant :Callable,
                      :CallableExecution,
                      :Configuration,
@@ -516,6 +545,7 @@ module Karya
                      :IterationLimit,
                      :LEASE_LOST,
                      :MethodDispatcher,
+                     :MutableGraphCopy,
                      :NO_WORK_AVAILABLE,
                      :NonNegativeFiniteNumber,
                      :PerformExecution,
