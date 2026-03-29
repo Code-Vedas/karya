@@ -158,12 +158,35 @@ reserved_job.state
 
 Lifecycle extensions are also explicit. Follow-on runtime work can register a
 new state and link it to the base lifecycle without redefining the canonical
-states. Extension state names are normalized to lowercase snake case and must
-fit within 64 characters:
+states. Extension state names are normalized to lowercase snake case, stored on
+`Karya::Job` instances as `String`s, and must fit within 64 characters.
+Canonical lifecycle states remain `Symbol`s. When comparing states, normalize
+both values through `Karya::JobLifecycle.normalize_state` so string-backed
+extension states and symbol-backed canonical states follow the same rules:
 
 ```ruby
-Karya::JobLifecycle.register_state(:dead_letter, terminal: true)
-Karya::JobLifecycle.register_transition(from: :retry_pending, to: :dead_letter)
+dead_letter_state = Karya::JobLifecycle.register_state(:dead_letter, terminal: true)
+Karya::JobLifecycle.register_transition(from: :retry_pending, to: dead_letter_state)
+
+job = Karya::Job.new(
+  id: 'billing-123',
+  queue: 'billing',
+  handler: 'billing_sync',
+  arguments: { account_id: 42, source: 'dashboard' },
+  state: :retry_pending,
+  created_at: Time.utc(2026, 3, 26, 12, 0, 0)
+)
+
+dead_letter_job = job.transition_to(dead_letter_state, updated_at: Time.utc(2026, 3, 26, 12, 5, 0))
+dead_letter_job.state
+# => "dead_letter"
+
+Karya::JobLifecycle.normalize_state(dead_letter_job.state) ==
+  Karya::JobLifecycle.normalize_state(dead_letter_state)
+# => true
+
+Karya::JobLifecycle.validate_state!(dead_letter_job.state)
+# => "dead_letter"
 ```
 
 ## Related Concepts

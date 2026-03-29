@@ -152,36 +152,44 @@ module Karya
           duplicable_scalar_checker: method(:duplicable_scalar?)
         ).normalized?
 
-        freeze_hash(arguments)
+        freeze_hash(arguments, tracker: TraversalTracker.new)
       end
 
       private
 
       attr_reader :arguments
 
-      def freeze_hash(value)
-        value.each_with_object({}) do |(key, item), normalized|
-          normalized_key = key.to_s.strip
-          raise InvalidJobAttributeError, 'argument keys must be present' if normalized_key.empty?
+      def freeze_hash(value, tracker:)
+        tracker.around(value) do
+          value.each_with_object({}) do |(key, item), normalized|
+            normalized_key = key.to_s.strip
+            raise InvalidJobAttributeError, 'argument keys must be present' if normalized_key.empty?
 
-          normalized_key = normalized_key.freeze
-          if normalized.key?(normalized_key)
-            raise InvalidJobAttributeError,
-                  "duplicate argument key after normalization: #{normalized_key.inspect}"
-          end
+            normalized_key = normalized_key.freeze
+            if normalized.key?(normalized_key)
+              raise InvalidJobAttributeError,
+                    "duplicate argument key after normalization: #{normalized_key.inspect}"
+            end
 
-          normalized[normalized_key] = freeze_value(item)
-        end.freeze
+            normalized[normalized_key] = freeze_value(item, tracker:)
+          end.freeze
+        end
       end
 
-      def freeze_value(value)
+      def freeze_value(value, tracker:)
         case value
         when Hash
-          freeze_hash(value)
+          freeze_hash(value, tracker:)
         when Array
-          value.map { |item| freeze_value(item) }.freeze
+          freeze_array(value, tracker:)
         else
           freeze_scalar(value)
+        end
+      end
+
+      def freeze_array(value, tracker:)
+        tracker.around(value) do
+          value.map { |item| freeze_value(item, tracker:) }.freeze
         end
       end
 
@@ -215,6 +223,38 @@ module Karya
         self.class.send(:duplicable_scalar?, value)
       end
 
+      # Tracks container objects during traversal so recursive argument graphs
+      # can be rejected before they blow the Ruby stack.
+      class TraversalTracker
+        def initialize
+          @entered_object_ids = {}
+        end
+
+        def track(value)
+          object_id = value.object_id
+          raise InvalidJobAttributeError, 'arguments must not contain recursive structures' if entered_object_ids.key?(object_id)
+
+          entered_object_ids[object_id] = true
+        end
+
+        def around(value)
+          track(value)
+          yield
+        ensure
+          leave(value)
+        end
+
+        def leave(value)
+          entered_object_ids.delete(value.object_id)
+        end
+
+        private
+
+        attr_reader :entered_object_ids
+      end
+
+      private_constant :TraversalTracker
+
       # Detects whether a value graph is already in the canonical immutable form.
       class NormalizedGraph
         def initialize(value, immutable_scalar_checker:, duplicable_scalar_checker:)
@@ -224,31 +264,39 @@ module Karya
         end
 
         def normalized?
-          normalized_value?(value)
+          normalized_value?(value, tracker: TraversalTracker.new)
         end
 
         private
 
         attr_reader :duplicable_scalar_checker, :immutable_scalar_checker, :value
 
-        def normalized_value?(candidate)
+        def normalized_value?(candidate, tracker:)
           frozen_candidate = candidate.frozen?
 
           case candidate
           when Hash
-            normalized_hash?(candidate, frozen_candidate:)
+            normalized_hash?(candidate, frozen_candidate:, tracker:)
           when Array
-            frozen_candidate && candidate.all? { |item| normalized_value?(item) }
+            normalized_array?(candidate, frozen_candidate:, tracker:)
           else
             immutable_scalar?(candidate) || (duplicable_scalar?(candidate) && frozen_candidate)
           end
         end
 
-        def normalized_hash?(candidate, frozen_candidate:)
-          frozen_candidate &&
-            candidate.all? do |key, item|
-              NormalizedKey.new(key).valid? && normalized_value?(item)
-            end
+        def normalized_hash?(candidate, frozen_candidate:, tracker:)
+          tracker.around(candidate) do
+            frozen_candidate &&
+              candidate.all? do |key, item|
+                NormalizedKey.new(key).valid? && normalized_value?(item, tracker:)
+              end
+          end
+        end
+
+        def normalized_array?(candidate, frozen_candidate:, tracker:)
+          tracker.around(candidate) do
+            frozen_candidate && candidate.all? { |item| normalized_value?(item, tracker:) }
+          end
         end
 
         def immutable_scalar?(candidate)

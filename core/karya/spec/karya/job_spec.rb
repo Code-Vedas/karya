@@ -185,6 +185,55 @@ RSpec.describe Karya::Job do
       end.to raise_error(Karya::InvalidJobAttributeError, /argument values must be composed/)
     end
 
+    it 'rejects recursive hash argument graphs' do
+      recursive_hash = {}
+      recursive_hash['self'] = recursive_hash
+
+      expect do
+        described_class.new(
+          id: 'job_123',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: recursive_hash,
+          state: :queued,
+          created_at:
+        )
+      end.to raise_error(Karya::InvalidJobAttributeError, /arguments must not contain recursive structures/)
+    end
+
+    it 'rejects recursive array argument graphs' do
+      recursive_array = []
+      recursive_array << recursive_array
+
+      expect do
+        described_class.new(
+          id: 'job_123',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: { items: recursive_array },
+          state: :queued,
+          created_at:
+        )
+      end.to raise_error(Karya::InvalidJobAttributeError, /arguments must not contain recursive structures/)
+    end
+
+    it 'rejects recursive frozen argument graphs during normalized fast-path checks' do
+      recursive_hash = {}
+      recursive_hash['self'] = recursive_hash
+      recursive_hash.freeze
+
+      expect do
+        described_class.new(
+          id: 'job_123',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: recursive_hash,
+          state: :queued,
+          created_at:
+        )
+      end.to raise_error(Karya::InvalidJobAttributeError, /arguments must not contain recursive structures/)
+    end
+
     it 'rejects blank argument keys' do
       expect do
         described_class.new(
