@@ -50,6 +50,16 @@ RSpec.describe Karya::InMemoryQueueStore do
     end
   end
 
+  describe 'internal state helpers' do
+    it 'ignores execution tokens that are not present' do
+      store_state.execution_tokens_in_order << 'lease-1'
+
+      store_state.delete_execution_token('missing-token')
+
+      expect(store_state.execution_tokens_in_order).to eq(['lease-1'])
+    end
+  end
+
   describe '#enqueue' do
     it 'transitions submission jobs to queued with the provided timestamp' do
       queued_job = store.enqueue(
@@ -436,6 +446,19 @@ RSpec.describe Karya::InMemoryQueueStore do
         store.complete_execution(reservation_token: 'missing-token', now: created_at + 1)
       end.to raise_error(Karya::UnknownReservationError, /was not found/)
     end
+
+    it 'rejects expired execution leases and requeues the running job' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 2.5)
+
+      expect do
+        store.complete_execution(reservation_token: reservation.token, now: created_at + 5)
+      end.to raise_error(Karya::ExpiredReservationError, /#{reservation.token}/)
+
+      expect(stored_job('job-1').state).to eq(:queued)
+      expect(store_state.executions_by_token).to eq({})
+    end
   end
 
   describe '#fail_execution' do
@@ -458,6 +481,19 @@ RSpec.describe Karya::InMemoryQueueStore do
       expect do
         store.fail_execution(reservation_token: reservation.token, now: created_at + 3)
       end.to raise_error(Karya::UnknownReservationError, /was not found/)
+    end
+
+    it 'rejects expired execution leases and requeues the running job' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 2.5)
+
+      expect do
+        store.fail_execution(reservation_token: reservation.token, now: created_at + 5)
+      end.to raise_error(Karya::ExpiredReservationError, /#{reservation.token}/)
+
+      expect(stored_job('job-1').state).to eq(:queued)
+      expect(store_state.executions_by_token).to eq({})
     end
   end
 
@@ -516,6 +552,19 @@ RSpec.describe Karya::InMemoryQueueStore do
 
       expired_tokens = bounded_store.instance_variable_get(:@state).expired_reservation_tokens
       expect(expired_tokens.keys).to eq(%w[token-2:2 token-3:3])
+    end
+
+    it 'requeues running jobs whose execution lease expires' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 5, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      expired_jobs = store.expire_reservations(now: created_at + 10)
+      reclaimed_reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 11)
+
+      expect(expired_jobs.map(&:id)).to eq(['job-1'])
+      expect(stored_job('job-1').state).to eq(:reserved)
+      expect(reclaimed_reservation.job_id).to eq('job-1')
     end
 
     it 'does not let a stale token release a new reservation after tombstone pruning' do

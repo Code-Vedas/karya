@@ -130,6 +130,7 @@ module Karya
     # Internal mutable state for the single-process queue store.
     class StoreState
       attr_reader :executions_by_token,
+                  :execution_tokens_in_order,
                   :expired_reservation_tokens,
                   :expired_reservation_tokens_in_order,
                   :jobs_by_id,
@@ -139,6 +140,7 @@ module Karya
 
       def initialize(expired_tombstone_limit:)
         @executions_by_token = {}
+        @execution_tokens_in_order = []
         @expired_reservation_tokens = {}
         @expired_reservation_tokens_in_order = []
         @expired_tombstone_limit = expired_tombstone_limit
@@ -166,11 +168,17 @@ module Karya
         reservations_by_token.delete(reservation_token)
         delete_reservation_token(reservation_token)
         executions_by_token[reservation_token] = reservation
+        execution_tokens_in_order << reservation_token
       end
 
       def delete_reservation_token(reservation_token)
         reservation_index = reservation_tokens_in_order.index(reservation_token)
         reservation_tokens_in_order.delete_at(reservation_index) if reservation_index
+      end
+
+      def delete_execution_token(reservation_token)
+        execution_index = execution_tokens_in_order.index(reservation_token)
+        execution_tokens_in_order.delete_at(execution_index) if execution_index
       end
 
       def mark_expired(reservation_token)
@@ -237,14 +245,12 @@ module Karya
     end
 
     def expire_reservations_locked(now)
-      expired_reservations = state.reservation_tokens_in_order.filter_map do |token|
-        reservation = state.reservations_by_token.fetch(token)
-        reservation if reservation.expired?(now)
-      end
+      expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now)
+      expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
 
-      expired_reservations.map do |reservation|
-        requeue_expired_reservation(reservation, now)
-      end
+      expired_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
+      expired_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
+      expired_reserved_jobs + expired_running_jobs
     end
 
     def requeue_reservation(reservation, now)
@@ -264,6 +270,21 @@ module Karya
     def requeue_expired_reservation(reservation, now)
       queued_job = requeue_reservation(reservation, now)
       state.mark_expired(reservation.token)
+      queued_job
+    end
+
+    def requeue_expired_execution(reservation, now)
+      reservation_token = reservation.token
+      jobs_by_id = state.jobs_by_id
+      state.executions_by_token.delete(reservation_token)
+      state.delete_execution_token(reservation_token)
+
+      running_job = jobs_by_id.fetch(reservation.job_id)
+      queued_job = ExecutionRecovery.new(running_job, now).to_queued_job
+      queued_job_id = queued_job.id
+      jobs_by_id[queued_job_id] = queued_job
+      state.queue_job_ids_for(queued_job.queue) << queued_job_id
+      state.mark_expired(reservation_token)
       queued_job
     end
 
@@ -306,7 +327,8 @@ module Karya
       normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
       @mutex.synchronize do
-        reservation = state.executions_by_token.delete(normalized_token)
+        executions_by_token = state.executions_by_token
+        reservation = executions_by_token[normalized_token]
         reservation_label = normalized_token.inspect
 
         unless reservation
@@ -314,10 +336,17 @@ module Karya
           raise UnknownReservationError, "reservation #{reservation_label} was not found"
         end
 
+        if reservation.expired?(normalized_now)
+          requeue_expired_execution(reservation, normalized_now)
+          raise ExpiredReservationError, "reservation #{reservation_label} has expired"
+        end
+
         jobs_by_id = state.jobs_by_id
         running_job = jobs_by_id.fetch(reservation.job_id)
         finalized_job = running_job.transition_to(next_state, updated_at: normalized_now)
         jobs_by_id[finalized_job.id] = finalized_job
+        executions_by_token.delete(normalized_token)
+        state.delete_execution_token(normalized_token)
         finalized_job
       end
     end
@@ -339,10 +368,50 @@ module Karya
       reservation
     end
 
+    def collect_expired_leases(leases_by_token, tokens_in_order, now)
+      self.class.send(:collect_expired_leases, leases_by_token, tokens_in_order, now)
+    end
+
+    def self.collect_expired_leases(leases_by_token, tokens_in_order, now)
+      tokens_in_order.filter_map do |token|
+        reservation = leases_by_token.fetch(token)
+        reservation if reservation.expired?(now)
+      end
+    end
+
+    private_class_method :collect_expired_leases
+
     def raise_expired_reservation_error(reservation_token, reservation_label)
       return unless state.expired_reservation_tokens.key?(reservation_token)
 
       raise ExpiredReservationError, "reservation #{reservation_label} has expired"
     end
+
+    # Rebuilds a running job as queued when execution lease recovery is required.
+    class ExecutionRecovery
+      def initialize(running_job, now)
+        @running_job = running_job
+        @now = now
+      end
+
+      def to_queued_job
+        Job.new(
+          id: running_job.id,
+          queue: running_job.queue,
+          handler: running_job.handler,
+          arguments: running_job.arguments,
+          attempt: running_job.attempt,
+          state: :queued,
+          created_at: running_job.created_at,
+          updated_at: now
+        )
+      end
+
+      private
+
+      attr_reader :now, :running_job
+    end
+
+    private_constant :ExecutionRecovery, :StoreState
   end
 end

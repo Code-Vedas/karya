@@ -9,4 +9,19 @@
 module Karya
   # Error is the base class for all exceptions raised by Karya.
   class Error < StandardError; end
+
+  # Raised when runtime code requires a configured queue store but none has been set.
+  class MissingQueueStoreConfigurationError < Error; end
+
+  class << self
+    def configure_queue_store(queue_store)
+      @queue_store = queue_store
+    end
+
+    def queue_store
+      return @queue_store if defined?(@queue_store) && @queue_store
+
+      raise MissingQueueStoreConfigurationError, 'Karya.queue_store must be configured before starting a worker'
+    end
+  end
 end

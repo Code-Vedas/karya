@@ -15,6 +15,8 @@ module Karya
   # Single-process worker that reserves jobs, dispatches handlers, and persists outcomes.
   class Worker
     DEFAULT_POLL_INTERVAL = 1
+    LEASE_LOST = Object.new
+    NO_WORK_AVAILABLE = Object.new
 
     def initialize(queue_store:, configuration: nil, runtime: nil, **options)
       extracted_options = options.dup
@@ -41,17 +43,12 @@ module Karya
     end
 
     def work_once
-      reservation = reserve_next
-      return nil unless reservation
-
-      reservation_token = reservation.token
-      running_job = queue_store.start_execution(reservation_token:, now: current_time)
-
-      begin
-        handlers.fetch(running_job.handler).call(arguments: running_job.arguments)
-        queue_store.complete_execution(reservation_token:, now: current_time)
-      rescue StandardError
-        queue_store.fail_execution(reservation_token:, now: current_time)
+      result = work_once_result
+      case result
+      when NO_WORK_AVAILABLE, LEASE_LOST
+        nil
+      else
+        result
       end
     end
 
@@ -61,20 +58,41 @@ module Karya
       iterations = 0
 
       loop do
-        result = work_once
+        result = work_once_result
         iterations += 1
-        idle = !result
+        idle = result.equal?(NO_WORK_AVAILABLE)
+        lease_lost = result.equal?(LEASE_LOST)
+        iteration_limit_reached = iteration_limit.reached?(iterations)
+        transient_result = idle || lease_lost
 
-        return result if stop_when_idle && idle
-        return result if iteration_limit.reached?(iterations)
+        return nil if stop_when_idle && idle
+        return nil if iteration_limit_reached && transient_result
+        return result if iteration_limit_reached
 
-        runtime.sleep(normalized_poll_interval) if idle && normalized_poll_interval.positive?
+        runtime.sleep(normalized_poll_interval) if (idle || lease_lost) && normalized_poll_interval.positive?
       end
     end
 
     private
 
     attr_reader :configuration, :queue_store, :runtime
+
+    def work_once_result
+      reservation = reserve_next
+      return NO_WORK_AVAILABLE unless reservation
+
+      reservation_token = reservation.token
+      running_job = start_execution_job(reservation_token)
+      return LEASE_LOST if running_job.equal?(LEASE_LOST)
+
+      begin
+        handlers.fetch(running_job.handler).call(arguments: running_job.arguments)
+      rescue StandardError
+        return fail_execution_job(reservation_token)
+      end
+
+      complete_execution_job(reservation_token)
+    end
 
     def reserve_next
       queues.each do |queue|
@@ -92,6 +110,24 @@ module Karya
 
     def current_time
       runtime.current_time
+    end
+
+    def complete_execution_job(reservation_token)
+      queue_store.complete_execution(reservation_token:, now: current_time)
+    rescue ExpiredReservationError, UnknownReservationError
+      LEASE_LOST
+    end
+
+    def fail_execution_job(reservation_token)
+      queue_store.fail_execution(reservation_token:, now: current_time)
+    rescue ExpiredReservationError, UnknownReservationError
+      LEASE_LOST
+    end
+
+    def start_execution_job(reservation_token)
+      queue_store.start_execution(reservation_token:, now: current_time)
+    rescue ExpiredReservationError, UnknownReservationError
+      LEASE_LOST
     end
 
     def raise_unknown_option_error(options)
@@ -114,7 +150,7 @@ module Karya
       def initialize(worker_id:, queues:, handlers:, lease_duration:)
         @worker_id = Identifier.new(:worker_id, worker_id).normalize
         @queues = QueueList.new(queues).normalize
-        @handlers = HandlerRegistry.new(handlers).normalize
+        @handlers = HandlerRegistry.new(handlers)
         @lease_duration = PositiveFiniteNumber.new(:lease_duration, lease_duration).normalize
       end
     end
@@ -132,7 +168,7 @@ module Karya
 
       def initialize(clock: -> { Time.now.utc }, sleeper: nil)
         @clock = Callable.new(:clock, clock).normalize
-        @sleeper = sleeper || ->(duration) { Kernel.sleep(duration) }
+        @sleeper = Callable.new(:sleeper, sleeper || ->(duration) { Kernel.sleep(duration) }).normalize
       end
 
       def current_time
@@ -187,21 +223,28 @@ module Karya
     # Normalizes handler mappings into executable handler entries.
     class HandlerRegistry
       def initialize(value)
+        raise InvalidWorkerConfigurationError, 'handlers must be a Hash' unless value.is_a?(Hash)
+
         @value = value
+        @normalized_handlers = normalize
       end
 
       def normalize
-        raise InvalidWorkerConfigurationError, 'handlers must be a Hash' unless value.is_a?(Hash)
-
         value.each_with_object({}) do |(name, handler), normalized|
           normalized_name = Identifier.new(:handler, name).normalize
           normalized[normalized_name] = HandlerExecution.build(handler:, handler_name: normalized_name)
         end.freeze
       end
 
+      def fetch(handler_name)
+        normalized_handlers.fetch(handler_name)
+      rescue KeyError
+        raise MissingHandlerError, "handler #{handler_name.inspect} is not registered"
+      end
+
       private
 
-      attr_reader :value
+      attr_reader :normalized_handlers, :value
     end
 
     # Validates positive, finite numeric values.
@@ -300,17 +343,6 @@ module Karya
       end
     end
 
-    # Converts normalized job arguments into Ruby keyword arguments for handler dispatch.
-    class KeywordArguments
-      def self.normalize(arguments)
-        arguments.each_with_object({}) do |(key, value), normalized|
-          normalized[key.to_sym] = value
-        end
-      end
-
-      private_class_method :new
-    end
-
     # Builds executable handler entries from registered runtime handlers.
     class HandlerExecution
       def self.build(handler:, handler_name:)
@@ -338,22 +370,60 @@ module Karya
     # Executes handlers that respond to `call`.
     class CallableExecution
       def initialize(handler)
+        parameter_source = case handler
+                           when Proc, Method, UnboundMethod
+                             handler
+                           else
+                             handler.method(:call)
+                           end
+        @dispatcher = MethodDispatcher.new(parameters: parameter_source.parameters)
         @handler = handler
       end
 
       def call(arguments:)
-        @handler.call(**KeywordArguments.normalize(arguments))
+        @dispatcher.call(arguments:) do |mode, payload|
+          dispatch(mode, payload)
+        end
+      end
+
+      private
+
+      def dispatch(mode, payload)
+        case mode
+        when :none
+          @handler.call
+        when :positional_hash
+          @handler.call(payload)
+        else
+          @handler.call(**payload)
+        end
       end
     end
 
     # Executes handlers that respond to `perform`.
     class PerformExecution
       def initialize(handler)
+        @dispatcher = MethodDispatcher.new(parameters: handler.method(:perform).parameters)
         @handler = handler
       end
 
       def call(arguments:)
-        @handler.perform(**KeywordArguments.normalize(arguments))
+        @dispatcher.call(arguments:) do |mode, payload|
+          dispatch(mode, payload)
+        end
+      end
+
+      private
+
+      def dispatch(mode, payload)
+        case mode
+        when :none
+          @handler.perform
+        when :positional_hash
+          @handler.perform(payload)
+        else
+          @handler.perform(**payload)
+        end
       end
     end
 
@@ -368,5 +438,89 @@ module Karya
         raise InvalidWorkerConfigurationError, "handler #{@handler_name.inspect} must respond to #call or #perform"
       end
     end
+
+    # Safely dispatches job arguments into supported Ruby method signatures.
+    class MethodDispatcher
+      KEYWORD_PARAMETER_TYPES = %i[key keyreq].freeze
+
+      def initialize(parameters:)
+        @parameters = parameters
+      end
+
+      def call(arguments:)
+        if positional_hash_dispatch?
+          yield(:positional_hash, arguments)
+        elsif keyword_dispatch?
+          yield(:keywords, keyword_arguments(arguments))
+        elsif arguments.empty?
+          yield(:none, nil)
+        else
+          raise InvalidWorkerConfigurationError, unsupported_signature_message
+        end
+      end
+
+      private
+
+      attr_reader :parameters
+
+      def positional_hash_dispatch?
+        parameters.length == 1 && %i[req opt].include?(parameters.first.fetch(0))
+      end
+
+      def any_parameter_matches?(*types)
+        parameters.any? { |type, _name| types.include?(type) }
+      end
+
+      def keyword_dispatch?
+        has_keyrest = any_parameter_matches?(:keyrest)
+        return false if has_keyrest
+
+        any_parameter_matches?(*KEYWORD_PARAMETER_TYPES)
+      end
+
+      def keyword_arguments(arguments)
+        allowed_names = parameters.filter_map do |type, name|
+          name if KEYWORD_PARAMETER_TYPES.include?(type)
+        end
+        unexpected_keys = arguments.keys - allowed_names.map(&:to_s)
+        raise InvalidWorkerConfigurationError, unexpected_arguments_message(unexpected_keys) unless unexpected_keys.empty?
+
+        allowed_names.each_with_object({}) do |name, normalized|
+          key = name.to_s
+          normalized[name] = arguments.fetch(key) if arguments.key?(key)
+        end
+      end
+
+      def unsupported_signature_message
+        'handler methods must accept no arguments, one Hash argument, or explicit keyword arguments without keyrest'
+      end
+
+      def unexpected_arguments_message(unexpected_keys)
+        self.class.send(:unexpected_arguments_message, unexpected_keys)
+      end
+
+      def self.unexpected_arguments_message(unexpected_keys)
+        "handler received unexpected argument keys: #{unexpected_keys.join(', ')}"
+      end
+
+      private_class_method :unexpected_arguments_message
+    end
+
+    private_constant :Callable,
+                     :CallableExecution,
+                     :Configuration,
+                     :HandlerExecution,
+                     :HandlerRegistry,
+                     :Identifier,
+                     :IterationLimit,
+                     :LEASE_LOST,
+                     :MethodDispatcher,
+                     :NO_WORK_AVAILABLE,
+                     :NonNegativeFiniteNumber,
+                     :PerformExecution,
+                     :PositiveFiniteNumber,
+                     :QueueList,
+                     :Runtime,
+                     :UnsupportedExecution
   end
 end

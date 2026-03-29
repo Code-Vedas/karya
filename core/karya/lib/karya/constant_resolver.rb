@@ -6,6 +6,9 @@
 # LICENSE file in the root directory of this source tree.
 
 module Karya
+  # Raised when a requested constant path cannot be resolved.
+  class ConstantResolutionError < Error; end
+
   # Resolves Ruby constants from explicit string paths such as "BillingJob".
   class ConstantResolver
     def initialize(name)
@@ -13,9 +16,9 @@ module Karya
     end
 
     def resolve
-      constant_names.reduce(Object) { |scope, constant_name| scope.const_get(constant_name) }
+      constant_names.reduce(Object) { |scope, constant_name| scope.const_get(constant_name, false) }
     rescue NameError => e
-      raise Thor::Error, "could not resolve handler constant #{name.inspect}: #{e.message}"
+      raise ConstantResolutionError, "could not resolve handler constant #{name.inspect}: #{e.message}"
     end
 
     private
@@ -23,7 +26,13 @@ module Karya
     attr_reader :name
 
     def constant_names
-      name.split('::').reject(&:empty?)
+      segments = name.to_s.split('::', -1)
+      raise NameError, 'constant path must not be blank' if segments.empty?
+      raise NameError, 'constant path must not start with ::' if segments.first.empty?
+      raise NameError, 'constant path must not end with ::' if segments.last.empty?
+      raise NameError, 'constant path must not contain empty segments' if segments.any?(&:empty?)
+
+      segments
     end
   end
 end

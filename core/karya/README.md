@@ -52,8 +52,17 @@ store execution flow.
 
 The CLI exposes a minimal bootstrap command:
 
+```ruby
+# config/worker_boot.rb
+require 'karya'
+
+Karya.configure_queue_store(Karya::InMemoryQueueStore.new)
+```
+
 ```bash
-bundle exec exe/karya worker billing --worker-id worker-1 --handler billing_sync=BillingJob
+bundle exec ruby -r./config/worker_boot -Ilib exe/karya worker billing \
+  --worker-id worker-1 \
+  --handler billing_sync=BillingJob
 ```
 
 For platform-level setup, workflows, and operator guidance, use the

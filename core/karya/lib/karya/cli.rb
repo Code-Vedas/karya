@@ -56,7 +56,7 @@ module Karya
       load_required_files(options.fetch(:require))
 
       worker = Karya::Worker.new(
-        queue_store: Karya::InMemoryQueueStore.new,
+        queue_store: Karya.queue_store,
         worker_id: options.fetch(:worker_id),
         queues:,
         handlers: HandlerParser.parse(options.fetch(:handler)),
@@ -115,6 +115,8 @@ module Karya
 
       def merge_into(handlers)
         handlers[name] = Karya::ConstantResolver.new(constant_name).resolve
+      rescue Karya::ConstantResolutionError => e
+        raise Thor::Error, e.message
       end
 
       private
@@ -130,5 +132,7 @@ module Karya
         end
       end
     end
+
+    private_constant :HandlerParser, :MappingEntry
   end
 end

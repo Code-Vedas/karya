@@ -9,6 +9,19 @@ require 'tmpdir'
 
 RSpec.describe Karya::CLI do
   describe '.start' do
+    around do |example|
+      original_queue_store = Karya.instance_variable_get(:@queue_store)
+      original_queue_store_defined = Karya.instance_variable_defined?(:@queue_store)
+
+      example.run
+    ensure
+      if original_queue_store_defined
+        Karya.configure_queue_store(original_queue_store)
+      elsif Karya.instance_variable_defined?(:@queue_store)
+        Karya.remove_instance_variable(:@queue_store)
+      end
+    end
+
     it 'prints help by default' do
       expected_output = /
         _  __.*Background\ job\ and\ workflow\ system\ ·\ v0\.1\.0
@@ -32,13 +45,15 @@ RSpec.describe Karya::CLI do
 
     it 'builds and starts a worker from CLI options' do
       worker_instance = instance_spy(Karya::Worker)
+      configured_queue_store = Karya::InMemoryQueueStore.new
       handler_file = nil
       handler_directory = Dir.mktmpdir('karya-cli-handler')
       handler_file = File.join(handler_directory, 'cli_worker_handler.rb')
       File.write(handler_file, "class CliWorkerHandler\nend\n")
+      Karya.configure_queue_store(configured_queue_store)
 
       allow(Karya::Worker).to receive(:new) do |queue_store:, worker_id:, queues:, handlers:, lease_duration:|
-        expect(queue_store).to be_a(Karya::InMemoryQueueStore)
+        expect(queue_store).to be(configured_queue_store)
         expect(worker_id).to eq('worker-cli')
         expect(queues).to eq(%w[billing email])
         expect(lease_duration).to eq(45)
@@ -77,18 +92,24 @@ RSpec.describe Karya::CLI do
       File.delete(handler_file) if handler_file && File.exist?(handler_file)
       Dir.rmdir(handler_directory) if handler_directory && Dir.exist?(handler_directory)
     end
+
+    it 'fails fast when no shared queue store is configured' do
+      expect do
+        described_class.start(%w[worker billing])
+      end.to raise_error(Karya::MissingQueueStoreConfigurationError, /Karya.queue_store must be configured/)
+    end
   end
 
   describe 'private helpers' do
     it 'rejects handler entries without NAME=CONSTANT format' do
       expect do
-        described_class::HandlerParser.parse(['billing_sync'])
+        described_class.const_get(:HandlerParser, false).parse(['billing_sync'])
       end.to raise_error(Thor::Error, /NAME=CONSTANT/)
     end
 
     it 'rejects handler constants that cannot be resolved' do
       expect do
-        described_class::HandlerParser.parse(['billing_sync=MissingCliWorkerHandler'])
+        described_class.const_get(:HandlerParser, false).parse(['billing_sync=MissingCliWorkerHandler'])
       end.to raise_error(Thor::Error, /could not resolve handler constant/)
     end
   end
