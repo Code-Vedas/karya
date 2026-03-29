@@ -10,11 +10,28 @@ mkdir -p "${TMP_DIR}"
 
 update_bundle_dir() {
   suite_dir="$1"
+  gemfile_path="${2:-}"
 
   [ -f "${REPO_ROOT}/${suite_dir}/Gemfile" ] || return 0
 
   cd "${REPO_ROOT}/${suite_dir}"
-  run_cmd "$(basename "${suite_dir}")-bundle-update" ruby -S bundle update
+
+  if [ "${gemfile_path}" = "" ]; then
+    if suite_uses_rails "${suite_dir}"; then
+      RUN_ALL_EXPECT_RAILS=1 run_cmd "$(basename "${suite_dir}")-bundle-update" ruby -S bundle update
+      return 0
+    end
+
+    run_cmd "$(basename "${suite_dir}")-bundle-update" ruby -S bundle update
+    return 0
+  fi
+
+  RUN_ALL_EXPECT_RAILS=1 \
+  RUN_ALL_BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile_path}" \
+  run_cmd_env \
+    "$(basename "${suite_dir}")-$(gemfile_label "${gemfile_path}")-bundle-update" \
+    BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile_path}" \
+    ruby -S bundle update
 }
 
 update_yarn_dir() {
@@ -30,6 +47,12 @@ ruby_suites > "${TMP_DIR}/ruby-suites.txt"
 
 while IFS= read -r suite_dir; do
   update_bundle_dir "${suite_dir}"
+  gemfiles=$(suite_gemfiles "${suite_dir}" || true)
+  if [ "${gemfiles}" != "" ]; then
+    for gemfile in ${gemfiles}; do
+      update_bundle_dir "${suite_dir}" "${gemfile}"
+    done
+  fi
 done < "${TMP_DIR}/ruby-suites.txt"
 
 js_suites > "${TMP_DIR}/js-suites.txt"

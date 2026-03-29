@@ -10,11 +10,19 @@ export BUNDLE_PATH
 
 install_bundle_if_present() {
   suite_dir="$1"
+  gemfile_path="${2:-}"
 
   [ -f "${REPO_ROOT}/${suite_dir}/Gemfile" ] || return 0
 
   cd "${REPO_ROOT}/${suite_dir}"
-  ruby -S bundle check || ruby -S bundle install
+
+  if [ "${gemfile_path}" = "" ]; then
+    ruby -S bundle check || ruby -S bundle install
+    return 0
+  fi
+
+  absolute_gemfile="${REPO_ROOT}/${suite_dir}/${gemfile_path}"
+  BUNDLE_GEMFILE="${absolute_gemfile}" ruby -S bundle check || BUNDLE_GEMFILE="${absolute_gemfile}" ruby -S bundle install
 }
 
 install_yarn_if_present() {
@@ -30,6 +38,12 @@ install_yarn_if_present() {
 
 while IFS= read -r suite_dir; do
   install_bundle_if_present "${suite_dir}"
+  gemfiles=$(suite_gemfiles "${suite_dir}" || true)
+  if [ "${gemfiles}" != "" ]; then
+    for gemfile in ${gemfiles}; do
+      install_bundle_if_present "${suite_dir}" "${gemfile}"
+    done
+  fi
 done <<EOF
 $(ruby_suites)
 EOF

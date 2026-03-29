@@ -1,23 +1,23 @@
 PATH
-  remote: ../../core/karya-activerecord
+  remote: ../../../core/karya-activerecord
   specs:
     karya-activerecord (0.1.0)
       activerecord (>= 7.1, < 9.0)
       karya (= 0.1.0)
 
 PATH
-  remote: ../../core/karya
+  remote: ../../../core/karya
   specs:
     karya (0.1.0)
       thor (~> 1.3)
 
 PATH
-  remote: ../karya-dashboard
+  remote: ../../karya-dashboard
   specs:
     karya-dashboard (0.1.0)
 
 PATH
-  remote: .
+  remote: ..
   specs:
     karya-rails (0.1.0)
       karya (= 0.1.0)
@@ -182,7 +182,21 @@ GEM
     net-smtp (0.5.1)
       net-protocol
     nio4r (2.7.5)
+    nokogiri (1.19.2-aarch64-linux-gnu)
+      racc (~> 1.4)
+    nokogiri (1.19.2-aarch64-linux-musl)
+      racc (~> 1.4)
+    nokogiri (1.19.2-arm-linux-gnu)
+      racc (~> 1.4)
+    nokogiri (1.19.2-arm-linux-musl)
+      racc (~> 1.4)
     nokogiri (1.19.2-arm64-darwin)
+      racc (~> 1.4)
+    nokogiri (1.19.2-x86_64-darwin)
+      racc (~> 1.4)
+    nokogiri (1.19.2-x86_64-linux-gnu)
+      racc (~> 1.4)
+    nokogiri (1.19.2-x86_64-linux-musl)
       racc (~> 1.4)
     parallel (1.27.0)
     parser (3.3.11.1)
@@ -316,7 +330,14 @@ GEM
       simplecov_json_formatter (~> 0.1)
     simplecov-html (0.13.2)
     simplecov_json_formatter (0.1.4)
+    sqlite3 (2.9.2-aarch64-linux-gnu)
+    sqlite3 (2.9.2-aarch64-linux-musl)
+    sqlite3 (2.9.2-arm-linux-gnu)
+    sqlite3 (2.9.2-arm-linux-musl)
     sqlite3 (2.9.2-arm64-darwin)
+    sqlite3 (2.9.2-x86_64-darwin)
+    sqlite3 (2.9.2-x86_64-linux-gnu)
+    sqlite3 (2.9.2-x86_64-linux-musl)
     stringio (3.2.0)
     thor (1.5.0)
     timeout (0.6.1)
@@ -335,7 +356,14 @@ GEM
     zeitwerk (2.7.5)
 
 PLATFORMS
-  arm64-darwin-24
+  aarch64-linux-gnu
+  aarch64-linux-musl
+  arm-linux-gnu
+  arm-linux-musl
+  arm64-darwin
+  x86_64-darwin
+  x86_64-linux-gnu
+  x86_64-linux-musl
 
 DEPENDENCIES
   karya!
@@ -343,6 +371,7 @@ DEPENDENCIES
   karya-dashboard!
   karya-rails!
   rack-test
+  rails (~> 8.1.0)
   rake
   reek
   rspec (~> 3.13)

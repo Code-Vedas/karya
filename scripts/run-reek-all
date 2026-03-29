@@ -6,8 +6,28 @@ if [ "${SCRIPT_DIR:-}" = "" ]; then
 fi
 . "${SCRIPT_DIR}/run-common"
 
+run_suite() {
+  suite_dir="$1"
+  suite_label="$(suite_name "${suite_dir}")"
+
+  gemfiles=$(suite_gemfiles "${suite_dir}" || true)
+  if [ "${gemfiles}" != "" ]; then
+    for gemfile in ${gemfiles}; do
+      RUN_ALL_EXPECT_RAILS=1 \
+      RUN_ALL_BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
+      run_cmd_env \
+        "${suite_label}-$(gemfile_label "${gemfile}")-reek" \
+        BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
+        "${REPO_ROOT}/${suite_dir}/bin/reek"
+    done
+    return 0
+  fi
+
+  run_optional_ruby_bin "${suite_dir}" "reek"
+}
+
 ruby_suites > "${TMP_DIR}/ruby-suites.txt"
 
 while IFS= read -r suite_dir; do
-  run_optional_ruby_bin "${suite_dir}" "reek"
+  run_suite "${suite_dir}"
 done < "${TMP_DIR}/ruby-suites.txt"

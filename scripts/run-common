@@ -30,15 +30,50 @@ runtime_yarn_version() {
   corepack yarn --version 2>/dev/null || true
 }
 
+runtime_rails_version() {
+  bundle_gemfile="${RUN_ALL_BUNDLE_GEMFILE:-${BUNDLE_GEMFILE:-}}"
+
+  if [ "${bundle_gemfile}" != "" ]; then
+    BUNDLE_GEMFILE="${bundle_gemfile}" bundle exec ruby -e 'require "rails"; puts "rails: #{Rails.version}"' 2>/dev/null || true
+    return 0
+  fi
+
+  bundle exec ruby -e 'require "rails"; puts "rails: #{Rails.version}"' 2>/dev/null || true
+}
+
 print_runtime_context() {
   ruby_version=$(runtime_ruby_version)
-  node_version=$(runtime_node_version)
-  yarn_version=$(runtime_yarn_version)
 
-  [ "${ruby_version}" != "" ] && echo "ruby: ${ruby_version}"
-  [ "${node_version}" != "" ] && echo "node: ${node_version}"
-  [ "${yarn_version}" != "" ] && echo "yarn: ${yarn_version}"
+  if [ "${ruby_version}" != "" ]; then
+    echo "ruby: ${ruby_version}"
+  fi
+
+  if [ "${RUN_ALL_EXPECT_NODE:-0}" = "1" ]; then
+    node_version=$(runtime_node_version)
+    yarn_version=$(runtime_yarn_version)
+
+    if [ "${node_version}" != "" ]; then
+      echo "node: ${node_version}"
+    fi
+
+    if [ "${yarn_version}" != "" ]; then
+      echo "yarn: ${yarn_version}"
+    fi
+  fi
+
+  if [ "${RUN_ALL_EXPECT_RAILS:-0}" = "1" ]; then
+    rails_version=$(runtime_rails_version)
+
+    if [ "${rails_version}" != "" ]; then
+      echo "${rails_version}"
+    fi
+  fi
+
   echo "pwd: $(pwd)"
+
+  if [ "${RUN_ALL_BUNDLE_GEMFILE:-}" != "" ]; then
+    echo "gemfile: $(basename "${RUN_ALL_BUNDLE_GEMFILE}")"
+  fi
 }
 
 print_run_summary() {
@@ -135,6 +170,43 @@ suite_name() {
   basename "$1"
 }
 
+suite_uses_rails() {
+  case "$1" in
+    core/karya-activerecord|gems/karya-rails)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+current_ruby_series() {
+  ruby -e 'print RUBY_VERSION.split(".").first(2).join(".")'
+}
+
+gemfile_label() {
+  basename "$1" .gemfile | tr '_' '-'
+}
+
+suite_gemfiles() {
+  suite_dir="$1"
+
+  case "${suite_dir}" in
+    core/karya-activerecord|gems/karya-rails)
+      printf '%s\n' "gemfiles/rails_7_2.gemfile"
+      printf '%s\n' "gemfiles/rails_8_0.gemfile"
+      printf '%s\n' "gemfiles/rails_8_1.gemfile"
+      if [ "$(current_ruby_series)" != "3.2" ]; then
+        printf '%s\n' "gemfiles/rails_edge.gemfile"
+      fi
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 with_repo_dir() {
   suite_dir="$1"
   shift
@@ -156,25 +228,28 @@ has_package_script() {
   grep -q "\"${script_name}\"[[:space:]]*:" "${REPO_ROOT}/${suite_dir}/package.json"
 }
 
-yarn_exec() {
-  corepack yarn "$@"
-}
-
 run_yarn_script() {
   suite_dir="$1"
   script_name="$2"
   label="${3:-$(suite_name "${suite_dir}")-${script_name}}"
 
   cd "${REPO_ROOT}/${suite_dir}"
-  run_cmd "${label}" yarn_exec "${script_name}"
+  RUN_ALL_EXPECT_NODE=1 run_cmd "${label}" corepack yarn "${script_name}"
 }
 
 run_optional_ruby_bin() {
   suite_dir="$1"
   bin_name="$2"
+  label="$(suite_name "${suite_dir}")-${bin_name}"
 
   if has_executable "${suite_dir}" "bin/${bin_name}"; then
-    with_repo_dir "${suite_dir}" run_cmd "$(suite_name "${suite_dir}")-${bin_name}" "bin/${bin_name}"
+    if suite_uses_rails "${suite_dir}"; then
+      cd "${REPO_ROOT}/${suite_dir}"
+      RUN_ALL_EXPECT_RAILS=1 run_cmd "${label}" "bin/${bin_name}"
+      return 0
+    fi
+
+    with_repo_dir "${suite_dir}" run_cmd "${label}" "bin/${bin_name}"
     return 0
   fi
 
