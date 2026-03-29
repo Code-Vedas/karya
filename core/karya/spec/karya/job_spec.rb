@@ -250,6 +250,18 @@ RSpec.describe Karya::Job do
       expect(job.can_transition_to?(:reserved)).to be(true)
       expect(job.can_transition_to?(:running)).to be(false)
     end
+
+    it 'returns false for unknown target states instead of raising' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :queued,
+        created_at:
+      )
+
+      expect(job.can_transition_to?(:unknown)).to be(false)
+    end
   end
 
   describe '#transition_to' do
@@ -294,6 +306,22 @@ RSpec.describe Karya::Job do
 
       expect { job.transition_to(:cancelled, updated_at: 'later') }
         .to raise_error(Karya::InvalidJobAttributeError, /updated_at must be a Time/)
+    end
+
+    it 'reuses already-normalized frozen scalar arguments on transition' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: { message: 'hello', scheduled_at: Time.utc(2026, 3, 26, 12, 30, 0) },
+        state: :reserved,
+        created_at:
+      )
+
+      transitioned_job = job.transition_to(:running, updated_at:)
+
+      expect(transitioned_job.arguments['message']).to equal(job.arguments['message'])
+      expect(transitioned_job.arguments['scheduled_at']).to equal(job.arguments['scheduled_at'])
     end
   end
 

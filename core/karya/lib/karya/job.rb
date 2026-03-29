@@ -33,6 +33,8 @@ module Karya
 
     def can_transition_to?(next_state)
       JobLifecycle.valid_transition?(from: state, to: next_state)
+    rescue InvalidJobStateError
+      false
     end
 
     def transition_to(next_state, updated_at:)
@@ -179,8 +181,10 @@ module Karya
       end
 
       def freeze_scalar(value)
+        duplicable = duplicable_scalar?(value)
         return value if immutable_scalar?(value)
-        return value.dup.freeze if duplicable_scalar?(value)
+        return value if value.frozen? && duplicable
+        return value.dup.freeze if duplicable
 
         raise InvalidJobAttributeError,
               'argument values must be composed of Hash, Array, String, Time, Symbol, Numeric, boolean, or nil'

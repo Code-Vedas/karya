@@ -41,7 +41,7 @@ RSpec.describe Karya::JobLifecycle do
 
     it 'rejects unknown states' do
       expect { described_class.validate_state!(:unknown) }
-        .to raise_error(Karya::InvalidJobStateError, /Unknown job state: :unknown/)
+        .to raise_error(Karya::InvalidJobStateError, /Unknown job state: "unknown"/)
     end
   end
 
@@ -122,8 +122,8 @@ RSpec.describe Karya::JobLifecycle do
     end
 
     it 'does not expose raw state normalization as a public module API' do
-      expect(described_class.respond_to?(:normalize_state_value)).to be(false)
-      expect(described_class.respond_to?(:normalize_state_value, true)).to be(true)
+      expect(described_class.respond_to?(:normalize_state_name)).to be(false)
+      expect(described_class.respond_to?(:normalize_state_name, true)).to be(true)
     end
   end
 
@@ -161,7 +161,7 @@ RSpec.describe Karya::JobLifecycle do
       described_class.clear_extensions!
 
       expect { described_class.register_transition(from: :retry_pending, to: :dead_letter) }
-        .to raise_error(Karya::InvalidJobStateError, /Unknown job state: :dead_letter/)
+        .to raise_error(Karya::InvalidJobStateError, /Unknown job state: "dead_letter"/)
     end
   end
 

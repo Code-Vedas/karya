@@ -68,7 +68,7 @@ module Karya
 
     def validate_state!(state)
       @mutex.synchronize do
-        validate_state_locked!(normalize_state_value(state))
+        validate_state_locked!(normalize_state_name(state))
       end
     end
 
@@ -99,7 +99,7 @@ module Karya
     end
 
     def register_state(state, terminal: false)
-      normalized_state = normalize_state_value(state)
+      normalized_state = normalize_state_name(state).to_sym
 
       @mutex.synchronize do
         if (STATES + @extension_states).include?(normalized_state)
@@ -155,18 +155,10 @@ module Karya
     private
 
     def normalize_state_locked(state)
-      validate_state_locked!(normalize_state_value(state))
+      validate_state_locked!(normalize_state_name(state))
     end
     module_function :normalize_state_locked
     private_class_method :normalize_state_locked
-
-    def validate_state_locked!(state)
-      return state if states_locked.include?(state)
-
-      raise InvalidJobStateError, "Unknown job state: #{state.inspect}"
-    end
-    module_function :validate_state_locked!
-    private_class_method :validate_state_locked!
 
     def states_locked
       @states_locked ||= (STATES + @extension_states).freeze
@@ -203,13 +195,22 @@ module Karya
     module_function :invalidate_caches!
     private_class_method :invalidate_caches!
 
-    def normalize_state_value(state)
+    def normalize_state_name(state)
       normalized_value = state.to_s.strip.downcase.tr('-', '_')
       raise InvalidJobStateError, 'state must be present' if normalized_value.empty?
 
-      normalized_value.to_sym
+      normalized_value
     end
-    module_function :normalize_state_value
-    private_class_method :normalize_state_value
+    module_function :normalize_state_name
+    private_class_method :normalize_state_name
+
+    def validate_state_locked!(state_name)
+      matched_state = states_locked.find { |known_state| known_state.to_s == state_name }
+      return matched_state if matched_state
+
+      raise InvalidJobStateError, "Unknown job state: #{state_name.inspect}"
+    end
+    module_function :validate_state_locked!
+    private_class_method :validate_state_locked!
   end
 end
