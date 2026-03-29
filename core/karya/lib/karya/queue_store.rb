@@ -13,7 +13,11 @@ module Karya
 
   # Raised when a queue store operation receives invalid input or violates
   # queue store expectations.
-  class InvalidEnqueueError < Error; end
+  class InvalidQueueStoreOperationError < Error; end
+
+  # Raised when an enqueue operation receives invalid input or violates
+  # queue store expectations.
+  class InvalidEnqueueError < InvalidQueueStoreOperationError; end
 
   # Raised when a reservation token is unknown to the queue store.
   class UnknownReservationError < Error; end

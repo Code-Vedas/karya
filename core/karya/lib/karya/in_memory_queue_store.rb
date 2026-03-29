@@ -35,14 +35,15 @@ module Karya
     end
 
     def enqueue(job:, now:)
-      normalized_now = normalize_time(:now, now)
+      normalized_now = normalize_time(:now, now, error_class: InvalidEnqueueError)
 
       @mutex.synchronize do
-        expire_reservations_locked(normalized_now)
         validate_enqueue(job)
 
         job_id = job.id
         raise DuplicateJobError, "job #{job_id.inspect} is already present in the queue store" if @jobs_by_id.key?(job_id)
+
+        expire_reservations_locked(normalized_now)
 
         queued_job = job.transition_to(:queued, updated_at: normalized_now)
         queued_job_id = queued_job.id
@@ -54,14 +55,14 @@ module Karya
     end
 
     def reserve(queue:, worker_id:, lease_duration:, now:)
-      normalized_queue = normalize_identifier(:queue, queue)
-      normalized_worker_id = normalize_identifier(:worker_id, worker_id)
-      normalized_now = normalize_time(:now, now)
+      normalized_queue = normalize_identifier(:queue, queue, error_class: InvalidQueueStoreOperationError)
+      normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
+      normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
       normalized_lease_duration = lease_duration
       invalid_lease_duration = !normalized_lease_duration.is_a?(Numeric) ||
                                !normalized_lease_duration.positive? ||
                                !normalized_lease_duration.finite?
-      raise InvalidEnqueueError, 'lease_duration must be a positive number' if invalid_lease_duration
+      raise InvalidQueueStoreOperationError, 'lease_duration must be a positive number' if invalid_lease_duration
 
       @mutex.synchronize do
         expire_reservations_locked(normalized_now)
@@ -91,8 +92,12 @@ module Karya
     end
 
     def release(reservation_token:, now:)
-      normalized_token = normalize_identifier(:reservation_token, reservation_token)
-      normalized_now = normalize_time(:now, now)
+      normalized_token = normalize_identifier(
+        :reservation_token,
+        reservation_token,
+        error_class: InvalidQueueStoreOperationError
+      )
+      normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
       @mutex.synchronize do
         reservation = @reservations_by_token[normalized_token]
@@ -110,7 +115,7 @@ module Karya
     end
 
     def expire_reservations(now:)
-      normalized_now = normalize_time(:now, now)
+      normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
       @mutex.synchronize do
         expire_reservations_locked(normalized_now)
@@ -127,7 +132,7 @@ module Karya
     end
 
     def next_token
-      base_token = normalize_identifier(:token, token_generator.call)
+      base_token = normalize_identifier(:token, token_generator.call, error_class: InvalidQueueStoreOperationError)
       @reservation_token_sequence += 1
       "#{base_token}:#{@reservation_token_sequence}"
     end
@@ -164,17 +169,17 @@ module Karya
       queued_job
     end
 
-    def normalize_identifier(name, value)
+    def normalize_identifier(name, value, error_class:)
       normalized_value = value.to_s.strip
-      raise InvalidEnqueueError, "#{name} must be present" if normalized_value.empty?
+      raise error_class, "#{name} must be present" if normalized_value.empty?
 
       normalized_value
     end
 
-    def normalize_time(name, value)
+    def normalize_time(name, value, error_class:)
       return value if value.is_a?(Time)
 
-      raise InvalidEnqueueError, "#{name} must be a Time"
+      raise error_class, "#{name} must be a Time"
     end
 
     def remove_reservation_token(reservation_token)

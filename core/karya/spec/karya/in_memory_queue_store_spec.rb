@@ -107,6 +107,40 @@ RSpec.describe Karya::InMemoryQueueStore do
 
       expect(next_reservation.job_id).to eq(reservation.job_id)
     end
+
+    it 'does not expire reservations when enqueue input is invalid' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(
+        queue: 'billing',
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 2
+      )
+      invalid_job = Karya::Job.new(
+        id: 'job-2',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :queued,
+        created_at:
+      )
+
+      expect do
+        store.enqueue(job: invalid_job, now: created_at + 40)
+      end.to raise_error(Karya::InvalidEnqueueError, /submission/)
+
+      expect do
+        store.release(reservation_token: reservation.token, now: created_at + 41)
+      end.to raise_error(Karya::ExpiredReservationError, /#{reservation.token}/)
+
+      reclaimed_reservation = store.reserve(
+        queue: 'billing',
+        worker_id: 'worker-2',
+        lease_duration: 30,
+        now: created_at + 42
+      )
+
+      expect(reclaimed_reservation.job_id).to eq('job-1')
+    end
   end
 
   describe '#reserve' do
@@ -238,7 +272,7 @@ RSpec.describe Karya::InMemoryQueueStore do
 
       expect do
         store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 0, now: created_at + 2)
-      end.to raise_error(Karya::InvalidEnqueueError, /lease_duration must be a positive number/)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /lease_duration must be a positive number/)
     end
 
     it 'rejects non-finite lease durations without removing the queued job' do
@@ -246,7 +280,7 @@ RSpec.describe Karya::InMemoryQueueStore do
 
       expect do
         store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: Float::INFINITY, now: created_at + 2)
-      end.to raise_error(Karya::InvalidEnqueueError, /lease_duration must be a positive number/)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /lease_duration must be a positive number/)
 
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 3)
       expect(reservation.job_id).to eq('job-1')
@@ -255,7 +289,13 @@ RSpec.describe Karya::InMemoryQueueStore do
     it 'rejects blank identifiers for reserve input' do
       expect do
         store.reserve(queue: ' ', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
-      end.to raise_error(Karya::InvalidEnqueueError, /queue must be present/)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /queue must be present/)
+    end
+
+    it 'rejects invalid timestamps for reserve input' do
+      expect do
+        store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: '2026-03-27T12:00:02Z')
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /now must be a Time/)
     end
   end
 
@@ -276,6 +316,18 @@ RSpec.describe Karya::InMemoryQueueStore do
       expect do
         store.release(reservation_token: 'missing-token', now: created_at + 1)
       end.to raise_error(Karya::UnknownReservationError, /missing-token/)
+    end
+
+    it 'rejects blank reservation tokens as invalid release input' do
+      expect do
+        store.release(reservation_token: ' ', now: created_at + 1)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /reservation_token must be present/)
+    end
+
+    it 'rejects invalid timestamps for release input' do
+      expect do
+        store.release(reservation_token: 'missing-token', now: '2026-03-27T12:00:01Z')
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /now must be a Time/)
     end
 
     it 'rejects expired reservation tokens and requeues the job' do
@@ -327,6 +379,12 @@ RSpec.describe Karya::InMemoryQueueStore do
 
       expect(store.expire_reservations(now: created_at + 10)).to eq([])
       expect(store.expire_reservations(now: created_at + 10)).to eq([])
+    end
+
+    it 'rejects invalid timestamps for expiration input' do
+      expect do
+        store.expire_reservations(now: '2026-03-27T12:00:10Z')
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /now must be a Time/)
     end
 
     it 'bounds expired reservation tombstones' do
