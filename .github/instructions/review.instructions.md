@@ -19,8 +19,9 @@ high-signal semantic review over generic style feedback.
 - Run performance and security review checks.
 - Run semantic and logic-error review checks.
 - Run spelling and grammar checks.
-- Do not spend review effort on lint-only feedback in this workflow. Linting is
-  already handled elsewhere.
+- Do not spend review effort on automated linter feedback (rubocop, reek, etc.)
+  since those tools run in CI. Do review code clarity, logic simplification,
+  error message quality, and test coverage completeness.
 
 ## Review Priorities
 
@@ -102,10 +103,13 @@ high-signal semantic review over generic style feedback.
 - adapter/framework assumptions not supported by the canonical core
 - stale or contradictory docs
 - examples that do not match actual supported APIs
+- ambiguous error messages that hinder debugging
+- duplicate or redundant logic that reduces clarity
+- incomplete test coverage for validation paths
 
 ## Low-Value Review Targets
 
-- generic nitpicks already covered by `rubocop`, `reek`, or CI
+- formatting issues already covered by `rubocop`, `reek`, or other automated CI tools
 - speculative product objections when the change is internally consistent
 - complaints that future-state docs are not yet fully implemented unless they
   contradict explicit support boundaries
