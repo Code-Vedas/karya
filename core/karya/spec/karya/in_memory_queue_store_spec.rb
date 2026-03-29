@@ -292,6 +292,18 @@ RSpec.describe Karya::InMemoryQueueStore do
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /queue must be present/)
     end
 
+    it 'rejects blank worker_id for reserve input' do
+      expect do
+        store.reserve(queue: 'billing', worker_id: ' ', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /worker_id must be present/)
+    end
+
+    it 'rejects nil worker_id for reserve input' do
+      expect do
+        store.reserve(queue: 'billing', worker_id: nil, lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /worker_id must be present/)
+    end
+
     it 'rejects invalid timestamps for reserve input' do
       expect do
         store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: '2026-03-27T12:00:02Z')
@@ -315,7 +327,7 @@ RSpec.describe Karya::InMemoryQueueStore do
     it 'rejects unknown reservation tokens' do
       expect do
         store.release(reservation_token: 'missing-token', now: created_at + 1)
-      end.to raise_error(Karya::UnknownReservationError, /missing-token/)
+      end.to raise_error(Karya::UnknownReservationError, /was not found/)
     end
 
     it 'rejects blank reservation tokens as invalid release input' do

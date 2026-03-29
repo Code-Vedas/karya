@@ -102,8 +102,11 @@ module Karya
       @mutex.synchronize do
         reservation = @reservations_by_token[normalized_token]
         reservation_label = normalized_token.inspect
-        raise_expired_reservation_error(normalized_token, reservation_label) unless reservation
-        raise UnknownReservationError, "reservation #{reservation_label} is not active" unless reservation
+
+        unless reservation
+          raise_expired_reservation_error(normalized_token, reservation_label)
+          raise UnknownReservationError, "reservation #{reservation_label} was not found"
+        end
 
         if reservation.expired?(normalized_now)
           requeue_expired_reservation(reservation, normalized_now)
