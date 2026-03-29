@@ -19,6 +19,9 @@ module Karya
     DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
 
     def initialize(token_generator: -> { SecureRandom.uuid }, expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
+      valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
+      raise ArgumentError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
+
       @token_generator = token_generator
       @expired_tombstone_limit = expired_tombstone_limit
       @reservation_token_sequence = 0
@@ -196,7 +199,8 @@ module Karya
     def ensure_unique_reservation_token(reservation_token)
       return unless @reservations_by_token.key?(reservation_token) || @expired_reservation_tokens.key?(reservation_token)
 
-      raise DuplicateReservationTokenError, "reservation token #{reservation_token.inspect} is already active"
+      raise DuplicateReservationTokenError,
+            "reservation token #{reservation_token.inspect} is already in use (active or expired)"
     end
 
     def raise_expired_reservation_error(reservation_token, reservation_label)

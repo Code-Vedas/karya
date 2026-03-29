@@ -11,7 +11,8 @@ module Karya
   # Raised when enqueue intent conflicts with existing job identity.
   class DuplicateJobError < Error; end
 
-  # Raised when an enqueue operation violates queue store expectations.
+  # Raised when a queue store operation receives invalid input or violates
+  # queue store expectations.
   class InvalidEnqueueError < Error; end
 
   # Raised when a reservation token is unknown to the queue store.
