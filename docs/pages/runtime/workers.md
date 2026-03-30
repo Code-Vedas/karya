@@ -46,13 +46,16 @@ Worker state is surfaced consistently through:
 Workers are the runtime-side executors for queued work:
 
 ```ruby
-class BillingWorker
-  def run
-    loop do
-      # Reserve work, execute it, and honor shutdown/drain signals.
-    end
-  end
-end
+store = Karya::InMemoryQueueStore.new
+worker = Karya::Worker.new(
+  queue_store: store,
+  worker_id: 'worker-1',
+  queues: ['billing'],
+  handlers: { 'billing_sync' => BillingJob },
+  lease_duration: 30
+)
+
+worker.run
 ```
 
 Workers reserve work, execute it, and respond cleanly to

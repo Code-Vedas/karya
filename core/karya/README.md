@@ -43,5 +43,27 @@ bin/reek
 bundle exec exe/karya --version
 ```
 
+## Worker Bootstrap
+
+The core package now includes a single-process worker runtime. Workers subscribe
+to queues, reserve jobs, resolve handlers from an explicit registry keyed by
+`job.handler`, and persist `succeeded` or `failed` outcomes through the queue
+store execution flow.
+
+The CLI exposes a minimal bootstrap command:
+
+```ruby
+# config/worker_boot.rb
+require 'karya'
+
+Karya.configure_queue_store(Karya::InMemoryQueueStore.new)
+```
+
+```bash
+bundle exec ruby -r./config/worker_boot -Ilib exe/karya worker billing \
+  --worker-id worker-1 \
+  --handler billing_sync=BillingJob
+```
+
 For platform-level setup, workflows, and operator guidance, use the
 [Karya documentation](https://karya.codevedas.com/).
