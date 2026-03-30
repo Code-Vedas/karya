@@ -424,6 +424,19 @@ RSpec.describe Karya::InMemoryQueueStore do
       reclaimed_reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 33)
       expect(reclaimed_reservation.job_id).to eq('job-1')
     end
+
+    it 'does not activate execution when the running-job transition cannot be persisted' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store_state.jobs_by_id.delete('job-1')
+
+      expect do
+        store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      end.to raise_error(KeyError)
+
+      expect(store_state.executions_by_token).to eq({})
+      expect(store_state.reservations_by_token.keys).to eq([reservation.token])
+    end
   end
 
   describe '#complete_execution' do

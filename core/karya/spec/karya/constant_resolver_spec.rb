@@ -30,7 +30,7 @@ RSpec.describe Karya::ConstantResolver do
     it 'rejects empty string constant paths' do
       expect do
         described_class.new('').resolve
-      end.to raise_error(Karya::ConstantResolutionError, /""/)
+      end.to raise_error(Karya::ConstantResolutionError, /must not be blank/)
     end
 
     it 'rejects constant paths that end with ::' do

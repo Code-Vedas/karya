@@ -26,8 +26,10 @@ module Karya
     attr_reader :name
 
     def constant_names
-      segments = name.to_s.split('::', -1)
-      raise NameError, 'constant path must not be blank' if segments.empty?
+      string = name.to_s
+      raise NameError, 'constant path must not be blank' if string.strip.empty?
+
+      segments = string.split('::', -1)
       raise NameError, 'constant path must not start with ::' if segments.first.empty?
       raise NameError, 'constant path must not end with ::' if segments.last.empty?
       raise NameError, 'constant path must not contain empty segments' if segments.any?(&:empty?)

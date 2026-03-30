@@ -97,12 +97,11 @@ module Karya
 
       @mutex.synchronize do
         reservation = fetch_active_reservation(normalized_token, normalized_now)
-        state.activate_execution(normalized_token, reservation)
-
         jobs_by_id = state.jobs_by_id
         reserved_job = jobs_by_id.fetch(reservation.job_id)
         running_job = reserved_job.transition_to(:running, updated_at: normalized_now, attempt: reserved_job.attempt + 1)
         jobs_by_id[running_job.id] = running_job
+        state.activate_execution(normalized_token, reservation)
         running_job
       end
     end
