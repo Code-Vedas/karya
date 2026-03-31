@@ -26,6 +26,17 @@ detectors:
     max_instance_variables: 10
   DataClump:
     enabled: false
+  FeatureEnvy:
+    enabled: true
+    exclude:
+      - Karya::WorkerSupervisor#reap_tracked_children
+      - Karya::JobLifecycle::StateManager#merge_extension_transitions
+  UtilityFunction:
+    enabled: true
+    exclude:
+      - Karya::WorkerSupervisor::Configuration#normalize_max_iterations
+      - Karya::JobLifecycle::StateManager#initialize_base_transitions
+      - Karya::JobLifecycle::StateManager#canonical_state?
 exclude_paths:
   - spec/**/*
   - db/**/*

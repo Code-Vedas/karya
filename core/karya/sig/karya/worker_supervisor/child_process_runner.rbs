@@ -1,0 +1,48 @@
+module Karya
+  class WorkerSupervisor
+    # Runs the child-process thread pool using a shared shutdown controller.
+    class ChildProcessRunner
+      @child_worker_class: singleton(Worker)
+
+      @configuration: WorkerSupervisor::Configuration
+
+      @queue_store: QueueStore::Base
+
+      @signal_subscriber: (Method | Proc)
+
+      NOOP_SUBSCRIPTION: Karya::signal_restorer
+
+      SIGNALS: ::Array["INT" | "TERM"]
+
+      def initialize: (child_worker_class: singleton(Worker), configuration: WorkerSupervisor::Configuration, queue_store: QueueStore::Base, signal_subscriber: (Method | Proc)) -> void
+
+      def run: () -> nil
+
+      private
+
+      attr_reader child_worker_class: singleton(Worker)
+
+      attr_reader configuration: WorkerSupervisor::Configuration
+
+      attr_reader queue_store: QueueStore::Base
+
+      attr_reader signal_subscriber: (Method | Proc)
+
+      def build_threads: (WorkerSupervisor::ShutdownController shutdown_controller, Thread::Queue[StandardError] failures) -> Array[Thread]
+
+      def run_thread_worker: (Integer thread_index, WorkerSupervisor::ShutdownController shutdown_controller) -> Job?
+
+      def child_worker_id: (Integer thread_index) -> String
+
+      def child_max_iterations: () -> Integer?
+
+      def with_signal_handlers: (WorkerSupervisor::ShutdownController shutdown_controller) { () -> nil } -> nil
+
+      def collect_signal_restorers: (WorkerSupervisor::ShutdownController shutdown_controller) -> Array[Karya::signal_restorer]
+
+      def append_signal_restorers: (Array[Karya::signal_restorer] restorers, WorkerSupervisor::ShutdownController shutdown_controller) -> Array["INT" | "TERM"]
+
+      def subscribe_signal: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
+    end
+  end
+end

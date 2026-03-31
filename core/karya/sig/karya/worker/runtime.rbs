@@ -1,0 +1,40 @@
+module Karya
+  class Worker
+    # Worker runtime dependencies that provide clock and sleep behavior.
+    class Runtime
+      @clock: ^() -> Time
+
+      @instrumenter: instrumenter?
+
+      @logger: logger
+
+      @sleeper: ^(Numeric) -> Numeric
+
+      @signal_subscriber: (nil | ^(String, Karya::signal_handler) -> Karya::signal_restorer?)
+
+      OPTION_KEYS: ::Array[:clock | :instrumenter | :logger | :signal_subscriber | :sleeper]
+
+      attr_reader instrumenter: instrumenter?
+
+      attr_reader logger: logger
+
+      def self.from_options: (symbol_options options) -> Runtime
+
+      def initialize: (
+        ?clock: ^() -> Time,
+        ?instrumenter: instrumenter?,
+        ?logger: logger?,
+        ?sleeper: (^(Numeric) -> Numeric)?,
+        ?signal_subscriber: (^(String, Karya::signal_handler) -> Karya::signal_restorer?)?
+      ) -> void
+
+      def current_time: () -> Time
+
+      def sleep: (Numeric duration) -> Numeric
+
+      def subscribe_signal: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
+
+      def instrument: (String event, context_payload payload) -> nil
+    end
+  end
+end

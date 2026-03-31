@@ -115,6 +115,8 @@ jobs:
           CI_RUBY_VERSION: ${{ matrix.ruby_version }}
       - name: Run Reek
         run: scripts/run-reek-all
+      - name: Validate RBS
+        run: scripts/run-rbs-all
 
   test:
     name: Unit Tests · Ruby ${{ matrix.ruby_version }}

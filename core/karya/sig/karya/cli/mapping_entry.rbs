@@ -1,0 +1,24 @@
+module Karya
+  class CLI < Thor
+    # Parses one CLI handler mapping in `NAME=CONSTANT` format.
+    class MappingEntry
+      @entry: String
+
+      @split_entry: Array[String]?
+
+      def initialize: (String entry) -> void
+
+      def name: () -> String
+
+      def constant_name: () -> String
+
+      def merge_into: (Karya::handler_mapping handlers) -> Karya::handler_mapping
+
+      private
+
+      attr_reader entry: String
+
+      def split_entry: () -> Array[String]
+    end
+  end
+end

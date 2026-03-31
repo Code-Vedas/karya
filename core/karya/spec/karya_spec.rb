@@ -9,8 +9,45 @@ require 'open3'
 require 'rbconfig'
 
 RSpec.describe Karya do
+  around do |example|
+    original_logger_defined = described_class.instance_variable_defined?(:@logger)
+    original_logger = described_class.instance_variable_get(:@logger)
+    original_instrumenter_defined = described_class.instance_variable_defined?(:@instrumenter)
+    original_instrumenter = described_class.instance_variable_get(:@instrumenter)
+
+    example.run
+  ensure
+    if original_logger_defined
+      described_class.configure_logger(original_logger)
+    elsif described_class.instance_variable_defined?(:@logger)
+      described_class.remove_instance_variable(:@logger)
+    end
+
+    if original_instrumenter_defined
+      described_class.configure_instrumenter(original_instrumenter)
+    elsif described_class.instance_variable_defined?(:@instrumenter)
+      described_class.remove_instance_variable(:@instrumenter)
+    end
+  end
+
   it 'loads the canonical entrypoint' do
     expect(described_class::VERSION).to eq('0.1.0')
+  end
+
+  it 'provides a null logger by default' do
+    expect(described_class.logger).to be_a(Karya::Internal::NullLogger)
+    expect(described_class.logger.info('hello')).to be_nil
+  end
+
+  it 'allows configuring global logger and instrumenter defaults' do
+    logger = Object.new
+    instrumenter = ->(_event, _payload) {}
+
+    described_class.configure_logger(logger)
+    described_class.configure_instrumenter(instrumenter)
+
+    expect(described_class.logger).to be(logger)
+    expect(described_class.instrumenter).to be(instrumenter)
   end
 
   it 'allows direct requires for job model subfiles' do

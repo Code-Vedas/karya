@@ -1,0 +1,22 @@
+module Karya
+  class Worker
+    # Normalizes handler mappings into executable handler entries.
+    class HandlerRegistry
+      @value: handler_mapping
+
+      @normalized_handlers: handler_mapping
+
+      def initialize: (handler_mapping value) -> void
+
+      def normalize: () -> handler_mapping
+
+      def fetch: (state_name handler_name) -> Worker::_Handler
+
+      private
+
+      attr_reader normalized_handlers: handler_mapping
+
+      attr_reader value: handler_mapping
+    end
+  end
+end

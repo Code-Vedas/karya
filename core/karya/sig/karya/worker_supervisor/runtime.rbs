@@ -1,0 +1,57 @@
+module Karya
+  class WorkerSupervisor
+    # Supervisor runtime hooks for process management and signal handling.
+    class Runtime
+      @forker: (Method | Proc)
+
+      @instrumenter: instrumenter?
+
+      @killer: ^(String, Integer) -> Integer
+
+      @logger: logger
+
+      @poll_waiter: ^() -> [Integer, Process::Status]?
+
+      @signal_subscriber: (nil | ^(String, Karya::signal_handler) -> Karya::signal_restorer?)
+
+      @waiter: ^() -> [Integer, Process::Status]?
+
+      OPTION_KEYS: ::Array[:forker | :instrumenter | :killer | :logger | :poll_waiter | :signal_subscriber | :waiter]
+
+      attr_reader instrumenter: instrumenter?
+
+      attr_reader logger: logger
+
+      attr_reader signal_subscriber: (nil | ^(String, Karya::signal_handler) -> Karya::signal_restorer?)
+
+      def self.from_options: (symbol_options options) -> Runtime
+
+      def self.default_killer: () -> ^(String, Integer) -> Integer
+
+      def self.normalize_callable: (Symbol name, (Method | Proc) value) -> (Method | Proc)
+
+      def self.normalize_optional_callable: (Symbol name, (Method | Proc | nil) value) -> (Method | Proc | nil)
+
+      def initialize: (?symbol_options attributes) -> void
+
+      def fork_child: [A] () { () -> A } -> Integer
+
+      def kill_process: (String signal, Integer pid) -> Integer
+
+      def subscribe_signal: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
+
+      def wait_for_child: () -> [Integer, Process::Status]?
+
+      def poll_for_child_exit: () -> [Integer, Process::Status]?
+
+      def instrument: (String event, context_payload payload) -> nil
+
+      # :nocov:
+      def default_forker: [A] () { () -> A } -> Integer
+
+      def default_poll_waiter: () -> ^() -> [Integer, Process::Status]?
+
+      def default_waiter: () -> ^() -> [Integer, Process::Status]?
+    end
+  end
+end

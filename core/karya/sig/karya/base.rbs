@@ -1,0 +1,38 @@
+# Karya module serves as the namespace for all classes and modules related to the Karya gem.
+module Karya
+  self.@instrumenter: instrumenter?
+
+  self.@logger: logger
+
+  self.@queue_store: QueueStore::Base
+
+  # Internal implementation namespace. Constants here are not part of the supported public API.
+  module Internal
+    interface _Logger
+      def debug: (?String message, **String context) -> nil
+      def info: (?String message, **String context) -> nil
+      def warn: (?String message, **String context) -> nil
+      def error: (?String message, **String context) -> nil
+    end
+  end
+
+  # Error is the base class for all exceptions raised by Karya.
+  class Error < StandardError
+  end
+
+  # Raised when runtime code requires a configured queue store but none has been set.
+  class MissingQueueStoreConfigurationError < Error
+  end
+
+  attr_reader self.instrumenter: instrumenter?
+
+  def self.configure_instrumenter: (instrumenter? instrumenter) -> instrumenter?
+
+  def self.configure_logger: (logger logger) -> logger
+
+  def self.configure_queue_store: (QueueStore::Base queue_store) -> QueueStore::Base
+
+  def self.logger: () -> logger
+
+  def self.queue_store: () -> QueueStore::Base
+end

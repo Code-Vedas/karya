@@ -1,0 +1,98 @@
+module Karya
+  class Job
+    # Normalizes and deeply freezes job arguments so job instances remain immutable.
+    class ImmutableArguments
+      @arguments: Hash[Karya::state_name, Karya::job_argument]
+
+      IMMUTABLE_SCALAR_CLASSES: Array[singleton(NilClass) | singleton(Numeric) | singleton(Symbol) | singleton(TrueClass) | singleton(FalseClass)]
+
+      DUPLICABLE_SCALAR_CLASSES: Array[singleton(String) | singleton(Time)]
+
+      def initialize: (Hash[Karya::state_name, Karya::job_argument] arguments) -> void
+
+      def normalize: () -> Karya::job_arguments
+
+      private
+
+      attr_reader arguments: Hash[Karya::state_name, Karya::job_argument]
+
+      def freeze_hash: (Hash[Karya::state_name, Karya::job_argument] value, tracker: TraversalTracker) -> Karya::job_arguments
+
+      def freeze_value: (Karya::job_argument value, tracker: TraversalTracker) -> Karya::job_argument
+
+      def freeze_array: (Array[Karya::job_argument] value, tracker: TraversalTracker) -> Array[Karya::job_argument]
+
+      def freeze_scalar: (Karya::job_argument value) -> Karya::job_argument
+
+      def self.immutable_scalar?: (Karya::job_argument value) -> bool
+
+      def self.duplicable_scalar?: (Karya::job_argument value) -> bool
+
+      def immutable_scalar?: (Karya::job_argument value) -> bool
+
+      def duplicable_scalar?: (Karya::job_argument value) -> bool
+
+      # Tracks container objects during traversal so recursive argument graphs
+      # can be rejected before they blow the Ruby stack.
+      class TraversalTracker
+        @entered_object_ids: Hash[Integer, bool]
+
+        def initialize: () -> void
+
+        def track: (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) -> bool
+
+        def around: [A] (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) { () -> A } -> A
+
+        def leave: (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) -> bool?
+
+      private
+
+        attr_reader entered_object_ids: Hash[Integer, bool]
+      end
+
+      # Detects whether a value graph is already in the canonical immutable form.
+      class NormalizedGraph
+        @value: Karya::job_argument_graph
+
+        @immutable_scalar_checker: ^(Karya::job_argument) -> bool
+
+        @duplicable_scalar_checker: ^(Karya::job_argument) -> bool
+
+        def initialize: (Karya::job_argument_graph value, immutable_scalar_checker: ^(Karya::job_argument) -> bool, duplicable_scalar_checker: ^(Karya::job_argument) -> bool) -> void
+
+        def normalized?: () -> bool
+
+      private
+
+        attr_reader duplicable_scalar_checker: ^(Karya::job_argument) -> bool
+
+        attr_reader immutable_scalar_checker: ^(Karya::job_argument) -> bool
+
+        attr_reader value: Karya::job_argument_graph
+
+        def normalized_value?: (Karya::job_argument_graph candidate, tracker: TraversalTracker) -> bool
+
+        def normalized_hash?: (Hash[Karya::state_name, Karya::job_argument] candidate, frozen_candidate: bool, tracker: TraversalTracker) -> bool
+
+        def normalized_array?: (Array[Karya::job_argument] candidate, frozen_candidate: bool, tracker: TraversalTracker) -> bool
+
+        def immutable_scalar?: (Karya::job_argument candidate) -> bool
+
+        def duplicable_scalar?: (Karya::job_argument candidate) -> bool
+
+        # Validates that normalized argument keys are frozen, non-empty strings.
+        class NormalizedKey
+          @key: Karya::state_name
+
+          def initialize: (Karya::state_name key) -> void
+
+          def valid?: () -> bool
+
+          private
+
+          attr_reader key: Karya::state_name
+        end
+      end
+    end
+  end
+end

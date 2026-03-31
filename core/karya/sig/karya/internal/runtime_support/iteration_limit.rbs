@@ -1,0 +1,36 @@
+module Karya
+  module Internal
+    module RuntimeSupport
+      # Shared max-iteration normalization used by worker and supervisor runtime support.
+      class IterationLimit
+        @error_class: Karya::error_class
+
+        @unlimited_sentinel: Symbol
+
+        @value: Integer?
+
+        @normalized_value: (Integer | Symbol)
+
+        def initialize: (Integer? value, error_class: Karya::error_class, ?unlimited_sentinel: Symbol) -> void
+
+        def normalize: () -> (Integer | Symbol)
+
+        def reached?: (Integer iterations) -> bool
+
+        private
+
+        attr_reader error_class: Karya::error_class
+
+        attr_reader normalized_value: (Integer | Symbol)
+
+        attr_reader unlimited_sentinel: Symbol
+
+        attr_reader value: Integer?
+
+        def normalize_value: () -> (Integer | Symbol)
+
+        def raise_invalid_iteration_limit: () -> void
+      end
+    end
+  end
+end

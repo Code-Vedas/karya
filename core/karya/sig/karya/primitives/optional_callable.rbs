@@ -1,0 +1,24 @@
+module Karya
+  module Primitives
+    # Validates optional callable dependencies while allowing nil.
+    class OptionalCallable
+      @name: Symbol
+
+      @value: (Method | Proc | nil)
+
+      @error_class: Karya::error_class
+
+      def initialize: (Symbol name, (Method | Proc | nil) value, error_class: Karya::error_class) -> void
+
+      def normalize: () -> (Method | Proc | nil)
+
+      private
+
+      attr_reader name: Symbol
+
+      attr_reader value: (Method | Proc | nil)
+
+      attr_reader error_class: Karya::error_class
+    end
+  end
+end

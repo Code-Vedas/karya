@@ -1,0 +1,14 @@
+module Karya
+  module JobLifecycle
+    # State normalization helpers
+    module Normalization
+      def self?.normalize_state_name: (Karya::state_name state) -> String
+
+      def self?.lowercase_letter?: (String character) -> bool
+
+      def self?.digit?: (String character) -> bool
+
+      def self?.raise_blank_state_error!: () -> void
+    end
+  end
+end

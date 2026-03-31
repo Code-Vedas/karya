@@ -1,0 +1,38 @@
+module Karya
+  module JobLifecycle
+    # Canonical lifecycle constants
+    module Constants
+      SUBMISSION: :submission
+
+      QUEUED: :queued
+
+      RESERVED: :reserved
+
+      RUNNING: :running
+
+      SUCCEEDED: :succeeded
+
+      FAILED: :failed
+
+      RETRY_PENDING: :retry_pending
+
+      CANCELLED: :cancelled
+
+      STATES: Array[Symbol]
+
+      TRANSITIONS: Hash[Symbol, Array[Symbol]]
+
+      TERMINAL_STATES: Array[Symbol]
+
+      EMPTY_TRANSITIONS: Array[String]
+
+      CANONICAL_STATE_NAMES: Array[String]
+
+      CANONICAL_TERMINAL_STATE_NAMES: Array[String]
+
+      CANONICAL_TRANSITION_NAMES: Hash[String, Array[String]]
+
+      MAX_STATE_NAME_LENGTH: 64
+    end
+  end
+end

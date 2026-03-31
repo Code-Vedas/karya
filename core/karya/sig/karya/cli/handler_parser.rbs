@@ -1,0 +1,18 @@
+module Karya
+  class CLI < Thor
+    # Parses explicit handler mapping entries passed through the CLI.
+    class HandlerParser
+      @entries: Array[String]
+
+      def self.parse: (Array[String] entries) -> Karya::handler_mapping
+
+      def initialize: (Array[String] entries) -> void
+
+      def parse: () -> Karya::handler_mapping
+
+      private
+
+      attr_reader entries: Array[String]
+    end
+  end
+end

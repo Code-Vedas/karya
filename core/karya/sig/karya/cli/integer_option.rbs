@@ -1,0 +1,28 @@
+module Karya
+  class CLI < Thor
+    # Coerces CLI option values into positive Integers with consistent errors.
+    class IntegerOption
+      @name: Symbol
+
+      @value: String | Numeric
+
+      def initialize: (Symbol name, String | Numeric value) -> void
+
+      def normalize: () -> Integer
+
+      private
+
+      attr_reader name: Symbol
+
+      attr_reader value: String | Numeric
+
+      def coerce: () -> Integer
+
+      def error_message: () -> ::String
+
+      def float_to_integer: () -> Integer
+
+      def raise_invalid_value: () -> void
+    end
+  end
+end

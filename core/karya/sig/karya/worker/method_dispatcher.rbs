@@ -1,0 +1,32 @@
+module Karya
+  class Worker
+    # Safely dispatches job arguments into supported Ruby method signatures.
+    class MethodDispatcher
+      @parameters: Karya::handler_parameters
+
+      KEYWORD_PARAMETER_TYPES: ::Array[:key | :keyreq]
+
+      def initialize: (parameters: Karya::handler_parameters) -> void
+
+      def call: [A] (arguments: Karya::job_arguments) { (Karya::handler_dispatch_mode, Karya::job_arguments?) -> A } -> A
+
+      private
+
+      attr_reader parameters: Karya::handler_parameters
+
+      def positional_hash_dispatch?: () -> bool
+
+      def any_parameter_matches?: (*Symbol types) -> bool
+
+      def keyword_dispatch?: () -> bool
+
+      def keyword_arguments: (Karya::job_arguments arguments) -> Hash[Symbol, Karya::job_argument]
+
+      def unsupported_signature_message: () -> "handler methods must accept no arguments, one Hash argument, or explicit keyword arguments without keyrest"
+
+      def unexpected_arguments_message: (Array[String] unexpected_keys) -> String
+
+      def self.unexpected_arguments_message: (Array[String] unexpected_keys) -> String
+    end
+  end
+end

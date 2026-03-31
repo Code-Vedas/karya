@@ -31,6 +31,17 @@ Karya documents worker behavior around:
 Workers extend the canonical job lifecycle; they do not introduce a separate
 execution state model.
 
+The runtime uses a supervisor-owned process model. `karya worker` starts a
+master process that maintains the configured number of child worker processes,
+and each child process executes the queue loop through a thread pool.
+
+When the supervisor receives `SIGINT` or `SIGTERM`, it enters drain mode: it
+stops replacing child workers, signals active children to stop polling, and
+waits for in-flight execution to finish. If a child has reserved a job but has
+not started execution yet, that reservation is released back to `queued`. A
+repeated shutdown signal escalates to forced termination of any remaining
+children.
+
 ## Operator View
 
 Worker state is surfaced consistently through:
@@ -46,20 +57,37 @@ Worker state is surfaced consistently through:
 Workers are the runtime-side executors for queued work:
 
 ```ruby
-store = Karya::InMemoryQueueStore.new
-worker = Karya::Worker.new(
-  queue_store: store,
-  worker_id: 'worker-1',
-  queues: ['billing'],
-  handlers: { 'billing_sync' => BillingJob },
-  lease_duration: 30
-)
+store = Karya::QueueStore::InMemory.new
+Karya.configure_queue_store(store)
 
-worker.run
+class BillingJob
+  def self.call(**)
+  end
+end
+
+Karya::CLI.start([
+  'worker',
+  'billing',
+  '--processes',
+  '1',
+  '--threads',
+  '1',
+  '--env-prefix',
+  'billing_worker',
+  '--worker-id',
+  'worker-1',
+  '--handler',
+  'billing_sync=BillingJob'
+])
 ```
 
-Workers reserve work, execute it, and respond cleanly to
-shutdown and control signals.
+The supervisor coordinates shutdown and control signals, while child worker
+threads reserve work, execute it, and drain in-flight jobs when shutdown
+begins. Per-worker env overrides use `KARYA_<PREFIX>_PROCESSES` and
+`KARYA_<PREFIX>_THREADS`. Use multiple processes or threads only with a queue
+store that is safe to share across processes and thread-safe handlers.
+`Karya::QueueStore::InMemory` is single-process and is shown here only for local
+examples.
 
 ## Related Concepts
 

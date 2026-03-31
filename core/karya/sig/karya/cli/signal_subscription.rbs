@@ -1,0 +1,8 @@
+module Karya
+  class CLI < Thor
+    # Encapsulates process signal trap registration for CLI-owned runtimes.
+    module SignalSubscription
+      def self?.subscribe: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
+    end
+  end
+end

@@ -1,0 +1,33 @@
+module Karya
+  type state_name = Symbol | String
+  type state_name_array = Array[state_name]
+  type normalized_state_name = String
+  type normalized_state_name_array = Array[normalized_state_name]
+  type normalized_transition_map = Hash[normalized_state_name, normalized_state_name_array]
+  type handler_parameter = [Symbol, Symbol?]
+  type handler_parameters = Array[handler_parameter]
+  type handler_dispatch_mode = :none | :positional_hash | :keywords
+  type job_argument = nil | Numeric | String | Symbol | bool | Time | Array[job_argument] | Hash[String, job_argument]
+  type job_argument_graph = job_argument | Hash[state_name, job_argument]
+  type lease_duration_value = Integer | Float | Rational | BigDecimal
+  type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
+  type handler_mapping = ::Hash[String, Worker::_Handler]
+  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | JobLifecycle::Registry | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | Method | Proc | singleton(Worker)
+  type symbol_options = ::Hash[Symbol, option_value]
+  type mixed_options = ::Hash[Symbol | String, option_value]
+  type job_arguments = ::Hash[String, job_argument]
+  type error_class = singleton(StandardError)
+  type logger = Internal::_Logger
+  type instrumenter = ^(String, context_payload) -> nil
+  type signal_handler = ^() -> nil
+  type signal_restorer = ^() -> nil
+  type cli_defaults = Hash[Symbol, Integer]
+  type cli_option_scalar = nil | bool | Numeric | String | Symbol
+  type cli_option_value = cli_option_scalar | Array[String]
+  type cli_options = Hash[Symbol | String, cli_option_value]
+  type cli_env_prefix_normalizer = ^(Symbol) -> String?
+  type cli_optional_integer_coercer = ^(Symbol) -> Integer?
+  type cli_positive_integer_resolver = ^(Symbol, env_prefix: String?, defaults: cli_defaults) -> Integer
+  type job_attribute_value = job_argument | Integer | Time | JobLifecycle::Registry | state_name
+  type reservation_attribute_value = state_name | Integer | Time
+end

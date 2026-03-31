@@ -1,0 +1,12 @@
+module Karya
+  class WorkerSupervisor
+    # Normalizes child pids returned by the configured forker.
+    class Pid
+      @value: Integer
+
+      def initialize: (Integer value) -> void
+
+      def normalize: () -> Integer
+    end
+  end
+end

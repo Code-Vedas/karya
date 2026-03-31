@@ -1,0 +1,150 @@
+# frozen_string_literal: true
+
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+RSpec.describe Karya::QueueStore::InMemory do
+  subject(:store) { described_class.new(token_generator: token_generator) }
+
+  let(:token_sequence) { %w[lease-1 lease-2 lease-3 lease-4].each }
+  let(:token_generator) { -> { token_sequence.next } }
+  let(:created_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
+
+  def submission_job(id:, queue:, created_at:, handler: 'billing_sync')
+    Karya::Job.new(
+      id:,
+      queue:,
+      handler:,
+      state: :submission,
+      created_at:
+    )
+  end
+
+  def stored_job(id)
+    store_state.jobs_by_id.fetch(id)
+  end
+
+  def store_state
+    store.instance_variable_get(:@state)
+  end
+
+  describe '#start_execution' do
+    it 'transitions a reserved job to running and increments the attempt count' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      running_job = store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      expect(running_job.state).to eq(:running)
+      expect(running_job.attempt).to eq(1)
+      expect(running_job.updated_at).to eq(created_at + 3)
+      expect(store_state.reservations_by_token).to eq({})
+      expect(store_state.executions_by_token.keys).to eq([reservation.token])
+      expect(stored_job('job-1').state).to eq(:running)
+    end
+
+    it 'rejects unknown reservation tokens' do
+      expect do
+        store.start_execution(reservation_token: 'missing-token', now: created_at + 1)
+      end.to raise_error(Karya::UnknownReservationError, /was not found/)
+    end
+
+    it 'rejects expired reservation tokens and requeues the job' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect do
+        store.start_execution(reservation_token: reservation.token, now: created_at + 32)
+      end.to raise_error(Karya::ExpiredReservationError, /#{reservation.token}/)
+
+      reclaimed_reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 33)
+      expect(reclaimed_reservation.job_id).to eq('job-1')
+    end
+
+    it 'does not activate execution when the running-job transition cannot be persisted' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store_state.jobs_by_id.delete('job-1')
+
+      expect do
+        store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      end.to raise_error(KeyError)
+
+      expect(store_state.executions_by_token).to eq({})
+      expect(store_state.reservations_by_token.keys).to eq([reservation.token])
+    end
+  end
+
+  describe '#complete_execution' do
+    it 'finalizes a running job as succeeded and removes the active execution token' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      succeeded_job = store.complete_execution(reservation_token: reservation.token, now: created_at + 4)
+
+      expect(succeeded_job.state).to eq(:succeeded)
+      expect(succeeded_job.attempt).to eq(1)
+      expect(succeeded_job.updated_at).to eq(created_at + 4)
+      expect(store_state.executions_by_token).to eq({})
+      expect(stored_job('job-1').state).to eq(:succeeded)
+    end
+
+    it 'rejects unknown execution tokens' do
+      expect do
+        store.complete_execution(reservation_token: 'missing-token', now: created_at + 1)
+      end.to raise_error(Karya::UnknownReservationError, /was not found/)
+    end
+
+    it 'rejects expired execution leases and requeues the running job' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 2.5)
+
+      expect do
+        store.complete_execution(reservation_token: reservation.token, now: created_at + 5)
+      end.to raise_error(Karya::ExpiredReservationError, /#{reservation.token}/)
+
+      expect(stored_job('job-1').state).to eq(:queued)
+      expect(store_state.executions_by_token).to eq({})
+    end
+  end
+
+  describe '#fail_execution' do
+    it 'finalizes a running job as failed and preserves the incremented attempt count' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      failed_job = store.fail_execution(reservation_token: reservation.token, now: created_at + 4)
+
+      expect(failed_job.state).to eq(:failed)
+      expect(failed_job.attempt).to eq(1)
+      expect(stored_job('job-1').state).to eq(:failed)
+    end
+
+    it 'rejects tokens that never entered execution' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect do
+        store.fail_execution(reservation_token: reservation.token, now: created_at + 3)
+      end.to raise_error(Karya::UnknownReservationError, /was not found/)
+    end
+
+    it 'rejects expired execution leases and requeues the running job' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 2.5)
+
+      expect do
+        store.fail_execution(reservation_token: reservation.token, now: created_at + 5)
+      end.to raise_error(Karya::ExpiredReservationError, /#{reservation.token}/)
+
+      expect(stored_job('job-1').state).to eq(:queued)
+      expect(store_state.executions_by_token).to eq({})
+    end
+  end
+end

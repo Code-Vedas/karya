@@ -1,0 +1,12 @@
+module Karya
+  class Worker
+    # Raises a configuration error when the registered handler is not executable.
+    class UnsupportedExecution
+      @handler_name: Karya::state_name
+
+      def initialize: (Karya::state_name handler_name) -> void
+
+      def call: (arguments: Karya::job_arguments) -> nil
+    end
+  end
+end

@@ -1,0 +1,13 @@
+class Thor
+  def self.package_name: (String name) -> void
+  def self.default_task: (Symbol | String task_name) -> void
+  def self.map: (Hash[Array[String], Symbol] mapping) -> void
+  def self.desc: (String usage, String description) -> void
+  def self.method_option: (Symbol | String name, ?Hash[Symbol | String, Karya::cli_option_value] options) -> void
+  def self.no_commands: () { () -> nil } -> void
+  def self.start: (?Array[String] given_args, ?Hash[Symbol | String, Karya::cli_option_value] config) -> nil
+  def self.help: (*String args) -> nil
+
+  def options: () -> Karya::cli_options
+  def help: (?String command) -> nil
+end

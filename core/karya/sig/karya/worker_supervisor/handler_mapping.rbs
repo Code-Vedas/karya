@@ -1,0 +1,16 @@
+module Karya
+  class WorkerSupervisor
+    # Normalizes handler mappings into a string-keyed frozen Hash.
+    class HandlerMapping
+      @value: Hash[Karya::state_name, Worker::_Handler]
+
+      def initialize: (Hash[Karya::state_name, Worker::_Handler] value) -> void
+
+      def normalize: () -> Karya::handler_mapping
+
+      private
+
+      attr_reader value: Hash[Karya::state_name, Worker::_Handler]
+    end
+  end
+end

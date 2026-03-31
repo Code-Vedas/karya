@@ -5,8 +5,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require_relative 'base'
-
 module Karya
   # Raised when enqueue intent conflicts with existing job identity.
   class DuplicateJobError < Error; end
@@ -28,49 +26,9 @@ module Karya
   # Raised when a generated reservation token collides with an active lease.
   class DuplicateReservationTokenError < Error; end
 
-  # Backend-facing contract for queue persistence and reservation behavior.
+  # Namespace for queue store implementations.
   module QueueStore
-    def enqueue(job:, now:)
-      _job = job
-      _now = now
-      raise NotImplementedError, "#{self.class} must implement ##{__method__}"
-    end
-
-    def reserve(queue:, worker_id:, lease_duration:, now:)
-      _queue = queue
-      _worker_id = worker_id
-      _lease_duration = lease_duration
-      _now = now
-      raise NotImplementedError, "#{self.class} must implement ##{__method__}"
-    end
-
-    def release(reservation_token:, now:)
-      _reservation_token = reservation_token
-      _now = now
-      raise NotImplementedError, "#{self.class} must implement ##{__method__}"
-    end
-
-    def start_execution(reservation_token:, now:)
-      _reservation_token = reservation_token
-      _now = now
-      raise NotImplementedError, "#{self.class} must implement ##{__method__}"
-    end
-
-    def complete_execution(reservation_token:, now:)
-      _reservation_token = reservation_token
-      _now = now
-      raise NotImplementedError, "#{self.class} must implement ##{__method__}"
-    end
-
-    def fail_execution(reservation_token:, now:)
-      _reservation_token = reservation_token
-      _now = now
-      raise NotImplementedError, "#{self.class} must implement ##{__method__}"
-    end
-
-    def expire_reservations(now:)
-      _now = now
-      raise NotImplementedError, "#{self.class} must implement ##{__method__}"
-    end
+    autoload :Base, 'karya/queue_store/base'
+    autoload :InMemory, 'karya/queue_store/in_memory'
   end
 end

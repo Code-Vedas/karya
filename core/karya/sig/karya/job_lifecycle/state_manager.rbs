@@ -1,0 +1,84 @@
+module Karya
+  module JobLifecycle
+    # Thread-safe state management and caching
+    class StateManager
+      @mutex: Thread::Mutex
+
+      @extension_state_names: Array[String]
+
+      @extension_terminal_state_names: Array[String]
+
+      @extension_transitions: Hash[String, Array[String]]
+
+      @state_names_locked: Array[String]?
+
+      @terminal_state_names_locked: Array[String]?
+
+      @transition_names_locked: Hash[String, Array[String]]?
+
+      attr_reader mutex: Thread::Mutex
+
+      attr_reader extension_state_names: Array[String]
+
+      attr_reader extension_terminal_state_names: Array[String]
+
+      attr_reader extension_transitions: Hash[String, Array[String]]
+
+      def initialize: () -> void
+
+      def synchronize: [A] () { () -> A } -> A
+
+      def normalize_state: (Karya::state_name state) -> Karya::state_name
+
+      def validate_state!: (Karya::state_name state) -> Karya::state_name
+
+      def valid_transition?: (from: Karya::state_name, to: Karya::state_name) -> bool
+
+      def validate_transition!: (from: Karya::state_name, to: Karya::state_name) -> Karya::state_name
+
+      def terminal?: (Karya::state_name state) -> bool
+
+      def states: () -> Array[Karya::state_name]
+
+      def transitions: () -> Hash[Karya::state_name, Array[Karya::state_name]]
+
+      def terminal_states: () -> Array[Karya::state_name]
+
+      def normalize_state_locked: (Karya::state_name state) -> String
+
+      def state_names_locked: () -> Array[String]
+
+      def transition_names_locked: () -> Hash[String, Array[String]]
+
+      def terminal_state_names_locked: () -> Array[String]
+
+      def invalidate_caches: () -> nil
+
+      def validate_state_locked!: (String state_name) -> String
+
+      def validate_state_locked: (String state_name) -> String?
+
+      def validate_state: (Karya::state_name state) -> String?
+
+      def validate_transition: (from: Karya::state_name, to: Karya::state_name) -> Karya::state_name?
+
+      def extension_state_name?: (String state_name) -> bool
+
+      def public_state: (String state_name) -> Karya::state_name
+
+      def transition_values: (Array[String] next_state_names) -> Array[Karya::state_name]
+
+      private
+
+      def build_transition_names: () -> Hash[String, Array[String]]
+
+      def initialize_base_transitions: () -> Hash[String, Array[String]]
+
+      def merge_extension_transitions: (Hash[String, Array[String]] base_transitions) -> Hash[String, Array[String]]
+
+      def ensure_all_states_have_transitions: (Hash[String, Array[String]] base_transitions) -> Array[String]
+
+      def canonical_state?: (String state_name) -> bool
+    end
+  end
+end

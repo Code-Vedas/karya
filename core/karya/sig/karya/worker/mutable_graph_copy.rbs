@@ -1,0 +1,12 @@
+module Karya
+  class Worker
+    # Produces mutable copies of normalized immutable argument graphs for handler dispatch.
+    class MutableGraphCopy
+      def self.call: (Karya::job_argument value) -> Karya::job_argument
+
+      def self.duplicate_hash: (Hash[String, Karya::job_argument] value) -> Hash[String, Karya::job_argument]
+
+      def self.duplicate_array: (Array[Karya::job_argument] value) -> Array[Karya::job_argument]
+    end
+  end
+end

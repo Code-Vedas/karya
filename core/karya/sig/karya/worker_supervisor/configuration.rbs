@@ -1,0 +1,68 @@
+module Karya
+  class WorkerSupervisor
+    # Validated supervisor bootstrap configuration.
+    class Configuration
+      @worker_id: String
+
+      @queues: Array[String]
+
+      @handlers: Karya::handler_mapping
+
+      @lease_duration: Numeric
+
+      @lifecycle: JobLifecycle::Registry
+
+      @poll_interval: Numeric
+
+      @max_iterations: Integer | :unlimited
+
+      @stop_when_idle: bool
+
+      @processes: Integer
+
+      @threads: Integer
+
+      OPTION_KEYS: ::Array[:handlers | :lease_duration | :lifecycle | :max_iterations | :poll_interval | :processes | :queues | :stop_when_idle | :threads | :worker_id]
+
+      def self.from_options: (Karya::symbol_options options) -> Configuration
+
+      def self.normalize_poll_interval: (Numeric value) -> Numeric
+
+      def self.normalize_positive_integer: (Symbol name, Integer value) -> Integer
+
+      attr_reader handlers: Karya::handler_mapping
+
+      attr_reader lease_duration: Numeric
+
+      attr_reader max_iterations: Integer | :unlimited
+
+      attr_reader lifecycle: JobLifecycle::Registry
+
+      attr_reader poll_interval: Numeric
+
+      attr_reader processes: Integer
+
+      attr_reader queues: Array[String]
+
+      attr_reader stop_when_idle: bool
+
+      attr_reader threads: Integer
+
+      attr_reader worker_id: String
+
+      def initialize: (Karya::symbol_options attributes) -> void
+
+      def bounded_run?: () -> bool
+
+      def validate_stop_when_idle: () -> nil
+
+      def assign_attributes: (Karya::symbol_options attributes) -> nil
+
+      def required_values_from: (Karya::symbol_options attributes) -> { worker_id: Karya::option_value, queues: Karya::option_value, handlers: Karya::option_value, lease_duration: Karya::option_value }
+
+      def assign_required_attributes: ({ worker_id: Karya::option_value, queues: Karya::option_value, handlers: Karya::option_value, lease_duration: Karya::option_value } required_values) -> nil
+
+      def assign_optional_attributes: (Karya::symbol_options attributes) -> nil
+    end
+  end
+end

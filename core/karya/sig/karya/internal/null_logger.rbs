@@ -1,0 +1,7 @@
+module Karya
+  module Internal
+    # Default no-op logger used when the runtime has not been configured with a logger.
+    class NullLogger
+    end
+  end
+end

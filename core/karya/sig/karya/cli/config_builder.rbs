@@ -1,0 +1,58 @@
+module Karya
+  class CLI < Thor
+    # Normalizes CLI worker boot options into a supervisor configuration hash.
+    class ConfigBuilder
+      @options: Karya::cli_options
+
+      @queues: Array[String]
+
+      @queue_store: QueueStore::Base
+
+      @defaults: Karya::cli_defaults
+
+      @helpers: { coerce_optional_positive_integer_option: Karya::cli_optional_integer_coercer, normalize_env_prefix_option: Karya::cli_env_prefix_normalizer, resolve_positive_integer_option: Karya::cli_positive_integer_resolver }
+
+      def self.build: (
+        options: Karya::cli_options,
+        queues: Array[String],
+        queue_store: QueueStore::Base,
+        defaults: Karya::cli_defaults,
+        helpers: { coerce_optional_positive_integer_option: Karya::cli_optional_integer_coercer, normalize_env_prefix_option: Karya::cli_env_prefix_normalizer, resolve_positive_integer_option: Karya::cli_positive_integer_resolver }
+      ) -> { queue_store: QueueStore::Base, processes: Integer, threads: Integer, worker_id: String, queues: Array[String], handlers: Karya::handler_mapping, lease_duration: Numeric, poll_interval: Numeric, max_iterations: Integer?, stop_when_idle: bool, signal_subscriber: Method }
+
+      def initialize: (
+        options: Karya::cli_options,
+        queues: Array[String],
+        queue_store: QueueStore::Base,
+        defaults: Karya::cli_defaults,
+        helpers: { coerce_optional_positive_integer_option: Karya::cli_optional_integer_coercer, normalize_env_prefix_option: Karya::cli_env_prefix_normalizer, resolve_positive_integer_option: Karya::cli_positive_integer_resolver }
+      ) -> void
+
+      def build: () -> {
+        queue_store: QueueStore::Base,
+        processes: Integer,
+        threads: Integer,
+        worker_id: String,
+        queues: Array[String],
+        handlers: Karya::handler_mapping,
+        lease_duration: Numeric,
+        poll_interval: Numeric,
+        max_iterations: Integer?,
+        stop_when_idle: bool,
+        signal_subscriber: Method
+      }
+
+      private
+
+      attr_reader defaults: Karya::cli_defaults
+
+      attr_reader helpers: { coerce_optional_positive_integer_option: Karya::cli_optional_integer_coercer, normalize_env_prefix_option: Karya::cli_env_prefix_normalizer, resolve_positive_integer_option: Karya::cli_positive_integer_resolver }
+
+      attr_reader options: Karya::cli_options
+
+      attr_reader queue_store: QueueStore::Base
+
+      attr_reader queues: Array[String]
+    end
+  end
+end

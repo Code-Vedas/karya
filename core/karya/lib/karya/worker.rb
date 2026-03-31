@@ -5,6 +5,28 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require 'monitor'
+require_relative 'internal/runtime_support/iteration_limit'
+require_relative 'internal/runtime_support/signal_restorer'
+require_relative 'primitives/identifier'
+require_relative 'primitives/queue_list'
+require_relative 'primitives/positive_finite_number'
+require_relative 'primitives/non_negative_finite_number'
+require_relative 'primitives/callable'
+require_relative 'primitives/optional_callable'
+require_relative 'worker/callable_execution'
+require_relative 'worker/configuration'
+require_relative 'worker/handler_execution'
+require_relative 'worker/handler_registry'
+require_relative 'worker/inactive_shutdown_controller'
+require_relative 'worker/method_dispatcher'
+require_relative 'worker/mutable_graph_copy'
+require_relative 'worker/perform_execution'
+require_relative 'worker/run_loop_decision'
+require_relative 'worker/runtime'
+require_relative 'worker/shutdown_controller'
+require_relative 'worker/unsupported_execution'
+
 module Karya
   # Raised when worker bootstrap input is invalid.
   class InvalidWorkerConfigurationError < Error; end
@@ -15,8 +37,11 @@ module Karya
   # Single-process worker that reserves jobs, dispatches handlers, and persists outcomes.
   class Worker
     DEFAULT_POLL_INTERVAL = 1
+    CONTINUE_RUNNING = Object.new
     LEASE_LOST = Object.new
     NO_WORK_AVAILABLE = Object.new
+    NOOP_SUBSCRIPTION = -> {}.freeze
+    SIGNALS = %w[INT TERM].freeze
 
     def initialize(queue_store:, configuration: nil, runtime: nil, **options)
       extracted_options = options.dup
@@ -42,8 +67,12 @@ module Karya
       configuration.lease_duration
     end
 
+    def lifecycle
+      configuration.lifecycle
+    end
+
     def work_once
-      result = work_once_result
+      result = work_once_result(ShutdownController.inactive)
       case result
       when NO_WORK_AVAILABLE, LEASE_LOST
         nil
@@ -52,37 +81,61 @@ module Karya
       end
     end
 
-    def run(poll_interval: DEFAULT_POLL_INTERVAL, max_iterations: nil, stop_when_idle: false)
-      normalized_poll_interval = NonNegativeFiniteNumber.new(:poll_interval, poll_interval).normalize
-      iteration_limit = IterationLimit.new(max_iterations)
+    def run(poll_interval: DEFAULT_POLL_INTERVAL, max_iterations: nil, stop_when_idle: false, shutdown_controller: nil)
+      normalized_poll_interval = Primitives::NonNegativeFiniteNumber.new(:poll_interval, poll_interval, error_class: InvalidWorkerConfigurationError).normalize
+      iteration_limit = Internal::RuntimeSupport::IterationLimit.new(
+        max_iterations,
+        error_class: InvalidWorkerConfigurationError
+      )
       iterations = 0
+      shutdown_controller ||= ShutdownController.new
 
-      loop do
-        result = work_once_result
-        iterations += 1
-        idle = result.equal?(NO_WORK_AVAILABLE)
-        lease_lost = result.equal?(LEASE_LOST)
-        iteration_limit_reached = iteration_limit.reached?(iterations)
-        transient_result = idle || lease_lost
+      run_loop = lambda do
+        loop do
+          return nil if shutdown_controller.force_stop?
 
-        return nil if stop_when_idle && idle
-        return nil if iteration_limit_reached && transient_result
-        return result if iteration_limit_reached
+          instrument('worker.poll', queues:, stop_when_idle:, max_iterations: iteration_limit.normalize)
+          result = work_once_result(shutdown_controller)
+          iterations += 1
+          idle = result.equal?(NO_WORK_AVAILABLE)
+          lease_lost = result.equal?(LEASE_LOST)
+          loop_result = RunLoopDecision.new(
+            result:,
+            state: {
+              idle:,
+              iterations:,
+              iteration_limit:,
+              lease_lost:,
+              shutdown_controller:,
+              stop_when_idle:
+            }
+          ).resolve
+          return loop_result unless loop_result.equal?(CONTINUE_RUNNING)
 
-        runtime.sleep(normalized_poll_interval) if (idle || lease_lost) && normalized_poll_interval.positive?
+          runtime.sleep(normalized_poll_interval) if (idle || lease_lost) && normalized_poll_interval.positive?
+        end
       end
+
+      return run_loop.call unless shutdown_controller.is_a?(ShutdownController)
+
+      with_shutdown_handlers(shutdown_controller, &run_loop)
     end
 
     private
 
     attr_reader :configuration, :queue_store, :runtime
 
-    def work_once_result
-      reservation = reserve_next
-      return NO_WORK_AVAILABLE unless reservation
+    def work_once_result(shutdown_controller)
+      return NO_WORK_AVAILABLE if shutdown_controller.stop_before_reserve?
+
+      reservation = reserve_next or return NO_WORK_AVAILABLE
 
       reservation_token = reservation.token
-      running_job = start_execution_job(reservation_token)
+      release_result = release_reserved_job_if_stopping_after_reserve(shutdown_controller, reservation_token)
+      return release_result if release_result
+
+      running_job = acquire_running_job(shutdown_controller, reservation_token)
+      return running_job if running_job.equal?(NO_WORK_AVAILABLE)
       return LEASE_LOST if running_job.equal?(LEASE_LOST)
 
       begin
@@ -102,7 +155,10 @@ module Karya
           lease_duration:,
           now: current_time
         )
-        return reservation if reservation
+        next unless reservation
+
+        instrument('worker.job.reserved', reservation_token: reservation.token, job_id: reservation.job_id, queue:)
+        return reservation
       end
 
       nil
@@ -112,446 +168,102 @@ module Karya
       runtime.current_time
     end
 
+    def with_shutdown_handlers(shutdown_controller)
+      restorers = []
+      register_shutdown_restorers(restorers, shutdown_controller)
+      yield
+    ensure
+      restorers ||= []
+      restorers.reverse_each(&:call)
+    end
+
+    def register_shutdown_restorers(restorers, shutdown_controller)
+      SIGNALS.each do |signal|
+        restorers << runtime.subscribe_signal(signal, -> { shutdown_controller.advance })
+      end
+    end
+
+    def release_reserved_job(reservation_token)
+      queue_store.release(reservation_token:, now: current_time)
+      instrument('worker.job.released', reservation_token:)
+      NO_WORK_AVAILABLE
+    rescue ExpiredReservationError, UnknownReservationError
+      LEASE_LOST
+    end
+
+    def release_reserved_job_if_stopping_after_reserve(shutdown_controller, reservation_token)
+      release_reserved_job_if_stopping(shutdown_controller, reservation_token)
+    end
+
+    def release_reserved_job_if_stopping_before_execution(shutdown_controller, reservation_token)
+      # Re-check the same shutdown predicate at the last safe checkpoint before execution starts.
+      release_reserved_job_if_stopping(shutdown_controller, reservation_token)
+    end
+
+    def acquire_running_job(shutdown_controller, reservation_token)
+      pre_execution_transition(shutdown_controller, reservation_token)
+    end
+
+    def pre_execution_transition(shutdown_controller, reservation_token)
+      shutdown_controller.synchronize_pre_execution do
+        release_reserved_job_if_stopping_before_execution(shutdown_controller, reservation_token) || start_execution_job(reservation_token)
+      end
+    end
+
+    def release_reserved_job_if_stopping(shutdown_controller, reservation_token)
+      return unless shutdown_controller.stop_after_reserve?
+
+      release_reserved_job(reservation_token)
+    end
+
     def complete_execution_job(reservation_token)
-      queue_store.complete_execution(reservation_token:, now: current_time)
+      job = queue_store.complete_execution(reservation_token:, now: current_time)
+      instrument('worker.job.succeeded', reservation_token:, job_id: job.id, handler: job.handler, queue: job.queue)
+      job
     rescue ExpiredReservationError, UnknownReservationError
       LEASE_LOST
     end
 
     def fail_execution_job(reservation_token)
-      queue_store.fail_execution(reservation_token:, now: current_time)
+      job = queue_store.fail_execution(reservation_token:, now: current_time)
+      instrument('worker.job.failed', reservation_token:, job_id: job.id, handler: job.handler, queue: job.queue)
+      job
     rescue ExpiredReservationError, UnknownReservationError
       LEASE_LOST
     end
 
     def start_execution_job(reservation_token)
-      queue_store.start_execution(reservation_token:, now: current_time)
+      job = queue_store.start_execution(reservation_token:, now: current_time)
+      instrument('worker.job.started', reservation_token:, job_id: job.id, handler: job.handler, queue: job.queue)
+      job
     rescue ExpiredReservationError, UnknownReservationError
       LEASE_LOST
+    end
+
+    def instrument(event, **payload)
+      runtime.instrument(event, payload.merge(worker_id:))
     end
 
     def raise_unknown_option_error(options)
       raise InvalidWorkerConfigurationError, "unknown runtime dependency keywords: #{options.keys.join(', ')}"
     end
 
-    # Validated worker bootstrap configuration.
-    class Configuration
-      OPTION_KEYS = %i[worker_id queues handlers lease_duration].freeze
-
-      def self.from_options(options)
-        attributes = OPTION_KEYS.each_with_object({}) do |key, collected|
-          collected[key] = options.delete(key) if options.key?(key)
-        end
-        new(**attributes)
-      end
-
-      attr_reader :handlers, :lease_duration, :queues, :worker_id
-
-      def initialize(worker_id:, queues:, handlers:, lease_duration:)
-        @worker_id = Identifier.new(:worker_id, worker_id).normalize
-        @queues = QueueList.new(queues).normalize
-        @handlers = HandlerRegistry.new(handlers)
-        @lease_duration = PositiveFiniteNumber.new(:lease_duration, lease_duration).normalize
-      end
-    end
-
-    # Worker runtime dependencies that provide clock and sleep behavior.
-    class Runtime
-      OPTION_KEYS = %i[clock sleeper].freeze
-
-      def self.from_options(options)
-        attributes = OPTION_KEYS.each_with_object({}) do |key, collected|
-          collected[key] = options.delete(key) if options.key?(key)
-        end
-        new(**attributes)
-      end
-
-      def initialize(clock: -> { Time.now.utc }, sleeper: nil)
-        @clock = Callable.new(:clock, clock).normalize
-        @sleeper = Callable.new(:sleeper, sleeper || ->(duration) { Kernel.sleep(duration) }).normalize
-      end
-
-      def current_time
-        value = @clock.call
-        raise InvalidWorkerConfigurationError, 'clock must return a Time' unless value.is_a?(Time)
-
-        value
-      end
-
-      def sleep(duration)
-        @sleeper.call(duration)
-      end
-    end
-
-    # Normalizes identifier-like values into non-blank strings.
-    class Identifier
-      def initialize(name, value)
-        @name = name
-        @value = value
-      end
-
-      def normalize
-        normalized_value = value.to_s.strip
-        return normalized_value unless normalized_value.empty?
-
-        raise InvalidWorkerConfigurationError, "#{name} must be present"
-      end
-
-      private
-
-      attr_reader :name, :value
-    end
-
-    # Normalizes queue lists into a frozen list of queue identifiers.
-    class QueueList
-      def initialize(values)
-        @values = values
-      end
-
-      def normalize
-        normalized_values = Array(values).map { |value| Identifier.new(:queue, value).normalize }
-        raise InvalidWorkerConfigurationError, 'queues must be present' if normalized_values.empty?
-
-        normalized_values.freeze
-      end
-
-      private
-
-      attr_reader :values
-    end
-
-    # Normalizes handler mappings into executable handler entries.
-    class HandlerRegistry
-      def initialize(value)
-        raise InvalidWorkerConfigurationError, 'handlers must be a Hash' unless value.is_a?(Hash)
-
-        @value = value
-        @normalized_handlers = normalize
-      end
-
-      def normalize
-        value.each_with_object({}) do |(name, handler), normalized|
-          normalized_name = Identifier.new(:handler, name).normalize
-          normalized[normalized_name] = HandlerExecution.build(handler:, handler_name: normalized_name)
-        end.freeze
-      end
-
-      def fetch(handler_name)
-        normalized_handlers.fetch(handler_name)
-      rescue KeyError
-        raise MissingHandlerError, "handler #{handler_name.inspect} is not registered"
-      end
-
-      private
-
-      attr_reader :normalized_handlers, :value
-    end
-
-    # Validates positive, finite numeric values.
-    class PositiveFiniteNumber
-      def initialize(name, value)
-        @name = name
-        @value = value
-      end
-
-      def normalize
-        return value if valid?
-
-        raise InvalidWorkerConfigurationError, "#{name} must be a positive finite number"
-      end
-
-      private
-
-      attr_reader :name, :value
-
-      def valid?
-        value.is_a?(Numeric) && value.positive? && (!value.is_a?(Float) || value.finite?)
-      end
-    end
-
-    # Validates non-negative, finite numeric values.
-    class NonNegativeFiniteNumber
-      def initialize(name, value)
-        @name = name
-        @value = value
-      end
-
-      def normalize
-        return value if valid?
-
-        raise InvalidWorkerConfigurationError, "#{name} must be a finite non-negative number"
-      end
-
-      private
-
-      attr_reader :name, :value
-
-      def valid?
-        value.is_a?(Numeric) && value >= 0 && (!value.is_a?(Float) || value.finite?)
-      end
-    end
-
-    # Validates callable dependencies such as worker clocks.
-    class Callable
-      def initialize(name, value)
-        @name = name
-        @value = value
-      end
-
-      def normalize
-        value.public_method(:call)
-        value
-      rescue NameError
-        raise InvalidWorkerConfigurationError, "#{name} must respond to #call"
-      end
-
-      private
-
-      attr_reader :name, :value
-    end
-
-    # Encapsulates optional max-iteration behavior for the worker run loop.
-    class IterationLimit
-      NORMALIZERS = {
-        Integer => lambda do |candidate|
-          return candidate if candidate.positive?
-
-          raise InvalidWorkerConfigurationError, 'max_iterations must be a positive Integer'
-        end,
-        NilClass => ->(_candidate) { :unlimited }
-      }.freeze
-
-      def initialize(value)
-        @value = normalize(value)
-      end
-
-      def reached?(iterations)
-        return false if value == :unlimited
-
-        iterations >= value
-      end
-
-      private
-
-      attr_reader :value
-
-      def normalize(candidate)
-        normalizer = NORMALIZERS[candidate.class]
-        return normalizer.call(candidate) if normalizer
-
-        raise InvalidWorkerConfigurationError, 'max_iterations must be a positive Integer'
-      end
-    end
-
-    # Builds executable handler entries from registered runtime handlers.
-    class HandlerExecution
-      def self.build(handler:, handler_name:)
-        return CallableExecution.new(handler) if callable?(handler)
-        return PerformExecution.new(handler) if performable?(handler)
-
-        UnsupportedExecution.new(handler_name)
-      end
-
-      def self.callable?(handler)
-        handler.public_method(:call)
-        true
-      rescue NameError
-        false
-      end
-
-      def self.performable?(handler)
-        handler.public_method(:perform)
-        true
-      rescue NameError
-        false
-      end
-    end
-
-    # Executes handlers that respond to `call`.
-    class CallableExecution
-      def initialize(handler)
-        parameter_source = case handler
-                           when Proc, Method, UnboundMethod
-                             handler
-                           else
-                             handler.method(:call)
-                           end
-        @dispatcher = MethodDispatcher.new(parameters: parameter_source.parameters)
-        @handler = handler
-      end
-
-      def call(arguments:)
-        @dispatcher.call(arguments:) do |mode, payload|
-          dispatch(mode, payload)
-        end
-      end
-
-      private
-
-      def dispatch(mode, payload)
-        case mode
-        when :none
-          @handler.call
-        when :positional_hash
-          @handler.call(payload)
-        else
-          @handler.call(**payload)
-        end
-      end
-    end
-
-    # Executes handlers that respond to `perform`.
-    class PerformExecution
-      def initialize(handler)
-        @dispatcher = MethodDispatcher.new(parameters: handler.method(:perform).parameters)
-        @handler = handler
-      end
-
-      def call(arguments:)
-        @dispatcher.call(arguments:) do |mode, payload|
-          dispatch(mode, payload)
-        end
-      end
-
-      private
-
-      def dispatch(mode, payload)
-        case mode
-        when :none
-          @handler.perform
-        when :positional_hash
-          @handler.perform(payload)
-        else
-          @handler.perform(**payload)
-        end
-      end
-    end
-
-    # Raises a configuration error when the registered handler is not executable.
-    class UnsupportedExecution
-      def initialize(handler_name)
-        @handler_name = handler_name
-      end
-
-      def call(arguments:)
-        _arguments = arguments
-        raise InvalidWorkerConfigurationError, "handler #{@handler_name.inspect} must respond to #call or #perform"
-      end
-    end
-
-    # Safely dispatches job arguments into supported Ruby method signatures.
-    class MethodDispatcher
-      KEYWORD_PARAMETER_TYPES = %i[key keyreq].freeze
-
-      def initialize(parameters:)
-        @parameters = parameters
-      end
-
-      def call(arguments:)
-        if positional_hash_dispatch?
-          yield(:positional_hash, MutableGraphCopy.call(arguments))
-        elsif keyword_dispatch?
-          yield(:keywords, keyword_arguments(arguments))
-        elsif arguments.empty?
-          yield(:none, nil)
-        else
-          raise InvalidWorkerConfigurationError, unsupported_signature_message
-        end
-      end
-
-      private
-
-      attr_reader :parameters
-
-      def positional_hash_dispatch?
-        parameters.length == 1 && %i[req opt].include?(parameters.first.fetch(0))
-      end
-
-      def any_parameter_matches?(*types)
-        parameters.any? { |type, _name| types.include?(type) }
-      end
-
-      def keyword_dispatch?
-        has_keyrest = any_parameter_matches?(:keyrest)
-        return false if has_keyrest
-        return false if any_parameter_matches?(:req, :opt, :rest)
-
-        any_parameter_matches?(*KEYWORD_PARAMETER_TYPES)
-      end
-
-      def keyword_arguments(arguments)
-        allowed_names = parameters.filter_map do |type, name|
-          name if KEYWORD_PARAMETER_TYPES.include?(type)
-        end
-        unexpected_keys = arguments.keys - allowed_names.map(&:to_s)
-        raise InvalidWorkerConfigurationError, unexpected_arguments_message(unexpected_keys) unless unexpected_keys.empty?
-
-        allowed_names.each_with_object({}) do |name, normalized|
-          key = name.to_s
-          normalized[name] = MutableGraphCopy.call(arguments.fetch(key)) if arguments.key?(key)
-        end
-      end
-
-      def unsupported_signature_message
-        'handler methods must accept no arguments, one Hash argument, or explicit keyword arguments without keyrest'
-      end
-
-      def unexpected_arguments_message(unexpected_keys)
-        self.class.send(:unexpected_arguments_message, unexpected_keys)
-      end
-
-      def self.unexpected_arguments_message(unexpected_keys)
-        "handler received unexpected argument keys: #{unexpected_keys.join(', ')}"
-      end
-
-      private_class_method :unexpected_arguments_message
-    end
-
-    # Produces mutable copies of normalized immutable argument graphs for handler dispatch.
-    class MutableGraphCopy
-      def self.call(value)
-        case value
-        when Hash
-          duplicate_hash(value)
-        when Array
-          duplicate_array(value)
-        when String, Time
-          value.dup
-        else
-          value
-        end
-      end
-
-      def self.duplicate_hash(value)
-        value.each_with_object({}) do |(key, nested_value), duplicated|
-          duplicated[key.dup] = call(nested_value)
-        end
-      end
-
-      def self.duplicate_array(value)
-        value.map { |nested_value| call(nested_value) }
-      end
-
-      private_class_method :new
-      private_class_method :duplicate_array, :duplicate_hash
-    end
-
-    private_constant :Callable,
-                     :CallableExecution,
+    private_constant :CallableExecution,
+                     :CONTINUE_RUNNING,
                      :Configuration,
                      :HandlerExecution,
                      :HandlerRegistry,
-                     :Identifier,
-                     :IterationLimit,
+                     :InactiveShutdownController,
                      :LEASE_LOST,
                      :MethodDispatcher,
                      :MutableGraphCopy,
+                     :NOOP_SUBSCRIPTION,
                      :NO_WORK_AVAILABLE,
-                     :NonNegativeFiniteNumber,
                      :PerformExecution,
-                     :PositiveFiniteNumber,
-                     :QueueList,
                      :Runtime,
+                     :RunLoopDecision,
+                     :SIGNALS,
+                     :ShutdownController,
                      :UnsupportedExecution
   end
 end

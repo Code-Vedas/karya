@@ -1,0 +1,36 @@
+module Karya
+  class WorkerSupervisor
+    # Tracks supervisor shutdown transitions.
+    class ShutdownController
+      @state: :normal | :draining | :force_stop
+
+      @pre_execution_monitor: Monitor
+
+      NORMAL: :normal
+
+      DRAINING: :draining
+
+      FORCE_STOP: :force_stop
+
+      def initialize: () -> void
+
+      def advance: () -> void
+
+      def draining?: () -> bool
+
+      def force_stop?: () -> bool
+
+      def normal?: () -> bool
+
+      def stop_polling?: () -> bool
+
+      def stop_before_reserve?: () -> bool
+
+      def stop_after_reserve?: () -> bool
+
+      def stop_after_iteration?: () -> bool
+
+      def synchronize_pre_execution: [A] () { () -> A } -> A
+    end
+  end
+end

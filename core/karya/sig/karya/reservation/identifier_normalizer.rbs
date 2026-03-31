@@ -1,0 +1,20 @@
+module Karya
+  class Reservation
+    # Normalizes identifier-like attributes into frozen, non-blank strings.
+    class IdentifierNormalizer
+      @name: Symbol
+
+      @value: Karya::state_name | Integer
+
+      def initialize: (Symbol name, Karya::state_name | Integer value) -> void
+
+      def normalize: () -> String
+
+      private
+
+      attr_reader name: Symbol
+
+      attr_reader value: Karya::state_name | Integer
+    end
+  end
+end

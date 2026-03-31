@@ -1,0 +1,28 @@
+module Karya
+  class Worker
+    # Decides whether the run loop should continue, return a result, or stop.
+    class RunLoopDecision
+      @result: Job?
+
+      @state: { idle: bool, iteration_limit: Internal::RuntimeSupport::IterationLimit, iterations: Integer, lease_lost: bool, shutdown_controller: Worker::_ShutdownController, stop_when_idle: bool }
+
+      def initialize: (result: Job?, state: { idle: bool, iteration_limit: Internal::RuntimeSupport::IterationLimit, iterations: Integer, lease_lost: bool, shutdown_controller: Worker::_ShutdownController, stop_when_idle: bool }) -> void
+
+      def resolve: () -> Job?
+
+      private
+
+      def idle: () -> bool
+
+      def iteration_limit: () -> Internal::RuntimeSupport::IterationLimit
+
+      def iterations: () -> Integer
+
+      def lease_lost: () -> bool
+
+      def shutdown_controller: () -> Worker::_ShutdownController
+
+      def stop_when_idle: () -> bool
+    end
+  end
+end

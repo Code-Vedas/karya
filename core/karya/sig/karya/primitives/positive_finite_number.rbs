@@ -1,0 +1,26 @@
+module Karya
+  module Primitives
+    # Validates positive, finite numeric values.
+    class PositiveFiniteNumber
+      @name: Symbol
+
+      @value: Numeric
+
+      @error_class: Karya::error_class
+
+      def initialize: (Symbol name, Numeric value, error_class: Karya::error_class) -> void
+
+      def normalize: () -> Numeric
+
+      private
+
+      attr_reader name: Symbol
+
+      attr_reader value: Numeric
+
+      attr_reader error_class: Karya::error_class
+
+      def valid?: () -> bool
+    end
+  end
+end

@@ -1,0 +1,56 @@
+# frozen_string_literal: true
+
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    # Backend-facing contract for queue persistence and reservation behavior.
+    module Base
+      def enqueue(job:, now:)
+        _job = job
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def reserve(queue:, worker_id:, lease_duration:, now:)
+        _queue = queue
+        _worker_id = worker_id
+        _lease_duration = lease_duration
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def release(reservation_token:, now:)
+        _reservation_token = reservation_token
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def start_execution(reservation_token:, now:)
+        _reservation_token = reservation_token
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def complete_execution(reservation_token:, now:)
+        _reservation_token = reservation_token
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def fail_execution(reservation_token:, now:)
+        _reservation_token = reservation_token
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def expire_reservations(now:)
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+    end
+  end
+end

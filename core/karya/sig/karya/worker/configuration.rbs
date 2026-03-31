@@ -1,0 +1,38 @@
+module Karya
+  class Worker
+    # Validated worker bootstrap configuration.
+    class Configuration
+      @worker_id: String
+
+      @queues: Array[String]
+
+      @handlers: Worker::HandlerRegistry
+
+      @lease_duration: Numeric
+
+      @lifecycle: JobLifecycle::Registry
+
+      OPTION_KEYS: ::Array[:worker_id | :queues | :handlers | :lease_duration | :lifecycle]
+
+      def self.from_options: (symbol_options options) -> Configuration
+
+      attr_reader handlers: Worker::HandlerRegistry
+
+      attr_reader lease_duration: Numeric
+
+      attr_reader lifecycle: JobLifecycle::Registry
+
+      attr_reader queues: Array[String]
+
+      attr_reader worker_id: String
+
+      def initialize: (
+        worker_id: state_name,
+        queues: Array[state_name],
+        handlers: handler_mapping | Worker::HandlerRegistry,
+        lease_duration: Numeric,
+        ?lifecycle: JobLifecycle::Registry
+      ) -> void
+    end
+  end
+end

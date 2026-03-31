@@ -1,0 +1,101 @@
+module Karya
+  # Raised when worker bootstrap input is invalid.
+  class InvalidWorkerConfigurationError < Error
+  end
+
+  # Raised when a reserved job cannot be mapped to executable code.
+  class MissingHandlerError < Error
+  end
+
+  # Single-process worker that reserves jobs, dispatches handlers, and persists outcomes.
+  class Worker
+    interface _Handler
+    end
+
+    interface _ShutdownController
+      def force_stop?: () -> bool
+      def stop_before_reserve?: () -> bool
+      def stop_after_reserve?: () -> bool
+      def stop_after_iteration?: () -> bool
+      def synchronize_pre_execution: [A] () { () -> A } -> A
+    end
+
+    @queue_store: QueueStore::Base
+
+    @configuration: Worker::Configuration
+
+    @runtime: Worker::Runtime
+
+    DEFAULT_POLL_INTERVAL: 1
+
+    NOOP_SUBSCRIPTION: ^() -> nil
+
+    SIGNALS: ::Array["INT" | "TERM"]
+
+    def initialize: (
+      queue_store: QueueStore::Base,
+      ?configuration: Worker::Configuration?,
+      ?runtime: Worker::Runtime?,
+      **Karya::option_value
+    ) -> void
+
+    def worker_id: () -> String
+
+    def queues: () -> Array[String]
+
+    def handlers: () -> Worker::HandlerRegistry
+
+    def lease_duration: () -> Numeric
+
+    def lifecycle: () -> JobLifecycle::Registry
+
+    def work_once: () -> Job?
+
+    def run: (
+      ?poll_interval: Numeric,
+      ?max_iterations: Integer?,
+      ?stop_when_idle: bool,
+      ?shutdown_controller: _ShutdownController?
+    ) -> Job?
+
+    private
+
+    attr_reader configuration: Worker::Configuration
+
+    attr_reader queue_store: QueueStore::Base
+
+    attr_reader runtime: Worker::Runtime
+
+    def work_once_result: (_ShutdownController shutdown_controller) -> Job?
+
+    def reserve_next: () -> Reservation?
+
+    def current_time: () -> Time
+
+    def with_shutdown_handlers: (ShutdownController shutdown_controller) { () -> Job? } -> Job?
+
+    def register_shutdown_restorers: (Array[^() -> nil] restorers, ShutdownController shutdown_controller) -> Array[^() -> nil]
+
+    def release_reserved_job: (String reservation_token) -> Job?
+
+    def release_reserved_job_if_stopping_after_reserve: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+
+    def release_reserved_job_if_stopping_before_execution: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+
+    def acquire_running_job: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+
+    def pre_execution_transition: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+
+    def release_reserved_job_if_stopping: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+
+    def complete_execution_job: (String reservation_token) -> Job?
+
+    def fail_execution_job: (String reservation_token) -> Job?
+
+    def start_execution_job: (String reservation_token) -> Job?
+
+    def instrument: (String event, **job_argument | Integer | Array[Integer] payload) -> nil
+
+    def raise_unknown_option_error: (symbol_options options) -> void
+  end
+end
