@@ -22,7 +22,7 @@ module Karya
 
       def terminal?: ((Symbol | String) state) -> bool
 
-      def register_state: ((Symbol | String) state, ?terminal: bool) -> Array[Symbol | String]
+      def register_state: ((Symbol | String) state, ?terminal: bool) -> String
 
       def register_transition: (from: (Symbol | String), to: (Symbol | String)) -> (Symbol | String)
 
@@ -32,9 +32,9 @@ module Karya
 
       def terminal_states: () -> Array[Symbol | String]
 
-      def clear_extensions!: () -> Hash[String, Array[String]]
+      def clear_extensions!: () -> nil
 
-      def clear_extensions: () -> Hash[String, Array[String]]
+      def clear_extensions: () -> nil
     end
   end
 end

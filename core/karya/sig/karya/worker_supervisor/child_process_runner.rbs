@@ -8,13 +8,13 @@ module Karya
 
       @queue_store: QueueStore::Base
 
-      @signal_subscriber: (Method | Proc)
+      @signal_subscriber: (Method | Proc)?
 
       NOOP_SUBSCRIPTION: Karya::signal_restorer
 
       SIGNALS: ::Array["INT" | "TERM"]
 
-      def initialize: (child_worker_class: singleton(Worker), configuration: WorkerSupervisor::Configuration, queue_store: QueueStore::Base, signal_subscriber: (Method | Proc)) -> void
+      def initialize: (child_worker_class: singleton(Worker), configuration: WorkerSupervisor::Configuration, queue_store: QueueStore::Base, signal_subscriber: (Method | Proc)?) -> void
 
       def run: () -> nil
 
@@ -26,9 +26,9 @@ module Karya
 
       attr_reader queue_store: QueueStore::Base
 
-      attr_reader signal_subscriber: (Method | Proc)
+      attr_reader signal_subscriber: (Method | Proc)?
 
-      def build_threads: (WorkerSupervisor::ShutdownController shutdown_controller, Thread::Queue[StandardError] failures) -> Array[Thread]
+      def build_threads: (WorkerSupervisor::ShutdownController shutdown_controller, Thread::Queue failures) -> Array[Thread]
 
       def run_thread_worker: (Integer thread_index, WorkerSupervisor::ShutdownController shutdown_controller) -> Job?
 

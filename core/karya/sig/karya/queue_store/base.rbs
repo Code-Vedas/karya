@@ -14,7 +14,7 @@ module Karya
 
       def fail_execution: (reservation_token: String, now: Time) -> Job
 
-      def expire_reservations: (now: Time) -> Array[Reservation]
+      def expire_reservations: (now: Time) -> Array[Job]
     end
   end
 end

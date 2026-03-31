@@ -2,11 +2,11 @@ module Karya
   module JobLifecycle
     # Extension state and transition registration
     module Extension
-      def self?.register_state: (Karya::state_name state, state_manager: StateManager, ?terminal: bool) -> String
+      def self.register_state: (Karya::state_name state, state_manager: StateManager, ?terminal: bool) -> String
 
-      def self?.register_transition: (from: Karya::state_name, to: Karya::state_name, state_manager: StateManager) -> Karya::state_name
+      def self.register_transition: (from: Karya::state_name, to: Karya::state_name, state_manager: StateManager) -> Karya::state_name
 
-      def self?.clear_extensions!: (state_manager: StateManager) -> nil
+      def self.clear_extensions!: (state_manager: StateManager) -> nil
     end
   end
 end

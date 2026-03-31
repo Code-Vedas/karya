@@ -7,7 +7,7 @@ module Karya
 
     def version: () -> nil
 
-    def help: (?String? command) -> nil
+    def help: (?String command) -> nil
 
     def worker: (*String queues) -> nil
   end
