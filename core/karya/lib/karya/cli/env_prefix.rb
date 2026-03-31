@@ -14,7 +14,7 @@ module Karya
       end
 
       def normalize
-        normalized = value.to_s.strip.gsub(/[^a-zA-Z0-9]+/, '_').gsub(/\A_+|_+\z/, '').upcase
+        normalized = normalize_value
         return normalized unless normalized.empty?
 
         raise InvalidWorkerSupervisorConfigurationError,
@@ -24,6 +24,17 @@ module Karya
       private
 
       attr_reader :value
+
+      def normalize_value
+        value
+          .to_s
+          .strip
+          .tr('^A-Za-z0-9', '_')
+          .squeeze('_')
+          .delete_prefix('_')
+          .delete_suffix('_')
+          .upcase
+      end
     end
   end
 end

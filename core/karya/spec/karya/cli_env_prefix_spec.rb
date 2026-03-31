@@ -13,6 +13,10 @@ RSpec.describe Karya::CLI do
       expect(env_prefix_class.new('billing-worker').normalize).to eq('BILLING_WORKER')
     end
 
+    it 'collapses repeated non-alphanumeric separators without leading or trailing underscores' do
+      expect(env_prefix_class.new('  billing---worker / sync  ').normalize).to eq('BILLING_WORKER_SYNC')
+    end
+
     it 'rejects env prefixes without alphanumeric characters' do
       expect do
         env_prefix_class.new('---').normalize
