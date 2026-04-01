@@ -17,7 +17,7 @@ module Karya
         attributes = OPTION_KEYS.each_with_object({}) do |key, collected|
           collected[key] = options.delete(key) if options.key?(key)
         end
-        new(attributes)
+        new(**attributes)
       end
 
       def self.default_killer
@@ -32,7 +32,7 @@ module Karya
         Primitives::OptionalCallable.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
       end
 
-      def initialize(attributes = {})
+      def initialize(**attributes)
         runtime_class = self.class
         @process_liveness = lambda do |pid|
           Process.kill(0, pid)

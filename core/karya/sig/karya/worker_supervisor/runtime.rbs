@@ -34,7 +34,7 @@ module Karya
 
       def self.normalize_optional_callable: (Symbol name, (Method | Proc | nil) value) -> (Method | Proc | nil)
 
-      def initialize: (?symbol_options attributes) -> void
+      def initialize: (**symbol_options attributes) -> void
 
       def fork_child: [A] () { () -> A } -> Integer
 

@@ -625,7 +625,7 @@ RSpec.describe Karya::Worker do
       expect(Kernel).to have_received(:sleep).with(0.5)
     end
 
-    it 'rejects unknown runtime dependency keywords' do
+    it 'rejects unknown keyword options' do
       expect do
         described_class.new(
           queue_store:,
@@ -635,7 +635,7 @@ RSpec.describe Karya::Worker do
           lease_duration: 30,
           tracer: Object.new
         )
-      end.to raise_error(Karya::InvalidWorkerConfigurationError, /unknown runtime dependency keywords: tracer/)
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /unknown keyword options: tracer/)
     end
 
     it 'raises MissingHandlerError when fetching an unknown handler directly' do

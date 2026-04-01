@@ -248,7 +248,7 @@ module Karya
     end
 
     def raise_unknown_option_error(options)
-      raise InvalidWorkerConfigurationError, "unknown runtime dependency keywords: #{options.keys.join(', ')}"
+      raise InvalidWorkerConfigurationError, "unknown keyword options: #{options.keys.join(', ')}"
     end
 
     private_constant :CallableExecution,

@@ -239,7 +239,7 @@ module Karya
 
     def raise_unknown_option_error(options)
       raise InvalidWorkerSupervisorConfigurationError,
-            "unknown runtime dependency keywords: #{options.keys.join(', ')}"
+            "unknown keyword options: #{options.keys.join(', ')}"
     end
 
     def instrument(event, **payload)

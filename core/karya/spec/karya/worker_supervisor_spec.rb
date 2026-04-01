@@ -650,7 +650,7 @@ RSpec.describe Karya::WorkerSupervisor do
       end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /poll_interval must be a finite non-negative number/)
     end
 
-    it 'rejects unknown runtime dependency keywords' do
+    it 'rejects unknown keyword options' do
       expect do
         described_class.new(
           queue_store: queue_store,
@@ -660,7 +660,7 @@ RSpec.describe Karya::WorkerSupervisor do
           lease_duration: 30,
           tracer: Object.new
         )
-      end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /unknown runtime dependency keywords: tracer/)
+      end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /unknown keyword options: tracer/)
     end
   end
 

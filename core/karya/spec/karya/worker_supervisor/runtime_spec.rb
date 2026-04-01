@@ -137,6 +137,19 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(waited_status.success?).to be(true)
     end
 
+    it 'accepts runtime hooks through Ruby keyword arguments' do
+      forker = lambda do |&block|
+        block.call
+        123
+      end
+
+      runtime_instance = runtime_class.new(forker:)
+
+      waited_pid = runtime_instance.fork_child { :ok }
+
+      expect(waited_pid).to eq(123)
+    end
+
     it 'returns nil when the default poll waiter has no child process' do
       expect(runtime_class.new.poll_for_child_exit).to be_nil
     end
