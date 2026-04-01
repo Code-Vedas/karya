@@ -5,6 +5,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative 'internal/null_logger'
+
 # Karya module serves as the namespace for all classes and modules related to the Karya gem.
 module Karya
   # Internal implementation namespace. Constants here are not part of the supported public API.

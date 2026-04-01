@@ -109,6 +109,19 @@ RSpec.describe Karya do
     expect(stdout).to eq("true\n")
   end
 
+  it 'allows requiring karya/base directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/base'
+      puts Karya.logger.class.name
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("Karya::Internal::NullLogger\n")
+  end
+
   it 'allows requiring karya/job_lifecycle/state_manager directly' do
     lib_path = File.expand_path('../lib', __dir__)
     script = <<~RUBY
