@@ -311,11 +311,11 @@ RSpec.describe Karya::JobLifecycle::StateManager do
 
   describe '#validate_state_locked' do
     it 'returns the validated state name for known states' do
-      expect(state_manager.validate_state_locked('queued')).to eq('queued')
+      expect(state_manager.send(:validate_state_locked, 'queued')).to eq('queued')
     end
 
     it 'returns nil for unknown states' do
-      expect(state_manager.validate_state_locked('unknown')).to be_nil
+      expect(state_manager.send(:validate_state_locked, 'unknown')).to be_nil
     end
   end
 
@@ -337,29 +337,33 @@ RSpec.describe Karya::JobLifecycle::StateManager do
     it 'returns nil for invalid transitions' do
       expect(state_manager.validate_transition(from: :queued, to: :running)).to be_nil
     end
+
+    it 'returns nil for unknown states' do
+      expect(state_manager.validate_transition(from: :unknown, to: :queued)).to be_nil
+    end
   end
 
   describe '#extension_state_name?' do
     it 'returns false for canonical states' do
-      expect(state_manager.extension_state_name?('queued')).to be false
+      expect(state_manager.send(:extension_state_name?, 'queued')).to be false
     end
 
     it 'returns true for extension states' do
       Karya::JobLifecycle::Extension.register_state('custom', state_manager: state_manager)
 
-      expect(state_manager.extension_state_name?('custom')).to be true
+      expect(state_manager.send(:extension_state_name?, 'custom')).to be true
     end
   end
 
   describe '#public_state' do
     it 'returns symbol for canonical state names' do
-      expect(state_manager.public_state('queued')).to eq(:queued)
+      expect(state_manager.send(:public_state, 'queued')).to eq(:queued)
     end
 
     it 'returns string for extension state names' do
       Karya::JobLifecycle::Extension.register_state('custom', state_manager: state_manager)
 
-      expect(state_manager.public_state('custom')).to eq('custom')
+      expect(state_manager.send(:public_state, 'custom')).to eq('custom')
     end
   end
 

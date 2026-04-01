@@ -113,15 +113,15 @@ module Karya
       end
 
       def extension_state_name?(state_name)
-        state_manager.extension_state_name?(state_name)
+        state_manager.send(:extension_state_name?, state_name)
       end
 
       def public_state(state_name)
-        state_manager.public_state(state_name)
+        state_manager.send(:public_state, state_name)
       end
 
       def transition_values(next_state_names)
-        state_manager.transition_values(next_state_names)
+        state_manager.send(:transition_values, next_state_names)
       end
     end
   end

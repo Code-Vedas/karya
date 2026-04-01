@@ -17,7 +17,7 @@ module Karya
       def register_state(state, state_manager:, terminal: false)
         normalized_state_name = Normalization.normalize_state_name(state).freeze
 
-        state_manager.synchronize do
+        state_manager.send(:synchronize) do
           if state_manager.send(:state_names_locked).include?(normalized_state_name)
             raise InvalidJobStateError, "state must be new; #{normalized_state_name.inspect} is already registered"
           end
@@ -29,11 +29,11 @@ module Karya
       end
 
       def register_transition(from:, to:, state_manager:)
-        state_manager.synchronize do
+        state_manager.send(:synchronize) do
           normalized_from = state_manager.send(:normalize_state_locked, from)
           normalized_to = state_manager.send(:normalize_state_locked, to)
-          unless state_manager.extension_state_name?(normalized_from) ||
-                 state_manager.extension_state_name?(normalized_to)
+          unless state_manager.send(:extension_state_name_locked?, normalized_from) ||
+                 state_manager.send(:extension_state_name_locked?, normalized_to)
             raise InvalidJobTransitionError,
                   'extension transitions must involve at least one registered extension state'
           end
@@ -43,12 +43,12 @@ module Karya
 
           state_manager.send(:add_extension_transition_locked, normalized_from, normalized_to)
 
-          state_manager.public_state(normalized_to)
+          state_manager.send(:public_state, normalized_to)
         end
       end
 
       def clear_extensions!(state_manager:)
-        state_manager.synchronize do
+        state_manager.send(:synchronize) do
           state_manager.send(:clear_extensions_locked)
         end
       end

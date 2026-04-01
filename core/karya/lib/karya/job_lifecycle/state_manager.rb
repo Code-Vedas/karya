@@ -9,12 +9,14 @@ require_relative 'constants'
 require_relative 'errors'
 require_relative 'normalization'
 require_relative 'extension_snapshots'
+require_relative 'state_queries'
 
 module Karya
   module JobLifecycle
     # Thread-safe state management and caching
     class StateManager
       include ExtensionSnapshots
+      include StateQueries
 
       def initialize
         @mutex = Mutex.new
@@ -24,10 +26,6 @@ module Karya
         @state_names_locked = nil
         @terminal_state_names_locked = nil
         @transition_names_locked = nil
-      end
-
-      def synchronize(&)
-        @mutex.synchronize(&)
       end
 
       def normalize_state(state)
@@ -89,12 +87,6 @@ module Karya
         end
       end
 
-      def validate_state_locked(state_name)
-        validate_state_locked!(state_name)
-      rescue InvalidJobStateError
-        nil
-      end
-
       def validate_state(state)
         synchronize do
           normalized_state_name = Normalization.normalize_state_name(state)
@@ -105,25 +97,17 @@ module Karya
 
       def validate_transition(from:, to:)
         validate_transition!(from: from, to: to)
-      rescue InvalidJobTransitionError
+      rescue InvalidJobStateError, InvalidJobTransitionError
         nil
-      end
-
-      def extension_state_name?(state_name)
-        @extension_state_names.include?(state_name)
-      end
-
-      def public_state(state_name)
-        canonical_state?(state_name) ? state_name.to_sym : state_name
-      end
-
-      def transition_values(next_state_names)
-        next_state_names.map { |next_state_name| public_state(next_state_name) }.freeze
       end
 
       private
 
       attr_reader :mutex
+
+      def synchronize(&)
+        @mutex.synchronize(&)
+      end
 
       def normalize_state_locked(state)
         validate_state_locked!(Normalization.normalize_state_name(state))
@@ -153,6 +137,12 @@ module Karya
         raise InvalidJobStateError, "Unknown job state: #{state_name.inspect}"
       end
 
+      def validate_state_locked(state_name)
+        validate_state_locked!(state_name)
+      rescue InvalidJobStateError
+        nil
+      end
+
       def add_extension_state_locked(state_name, terminal:)
         @extension_state_names << state_name
         @extension_terminal_state_names << state_name if terminal
@@ -170,6 +160,14 @@ module Karya
         @extension_terminal_state_names.clear
         @extension_transitions.clear
         invalidate_caches
+      end
+
+      def extension_state_name_locked?(state_name)
+        @extension_state_names.include?(state_name)
+      end
+
+      def canonical_state?(state_name)
+        Constants::CANONICAL_STATE_NAMES.include?(state_name)
       end
 
       def build_transition_names
@@ -195,10 +193,6 @@ module Karya
         state_names_locked.each do |state_name|
           base_transitions[state_name] ||= Constants::EMPTY_TRANSITIONS
         end
-      end
-
-      def canonical_state?(state_name)
-        Constants::CANONICAL_STATE_NAMES.include?(state_name)
       end
     end
   end
