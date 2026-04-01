@@ -6,7 +6,7 @@ module Karya
 
       def initialize: (Hash[Symbol, Karya::job_attribute_value] attributes) -> void
 
-      def to_h: () -> { id: String, queue: String, handler: String, arguments: Karya::job_arguments, lifecycle: JobLifecycle::Registry, state: Karya::state_name, attempt: Integer, created_at: Time, updated_at: Time }
+      def to_h: () -> { id: String, queue: String, handler: String, arguments: Karya::job_arguments, lifecycle: Karya::lifecycle, state: Karya::state_name, attempt: Integer, created_at: Time, updated_at: Time }
 
       private
 
@@ -14,7 +14,7 @@ module Karya
 
       def required: (Symbol name) -> Karya::job_attribute_value
 
-      def optional: (Symbol name, Karya::job_argument | Integer | Time | JobLifecycle::Registry) -> (Karya::job_argument | Integer | Time | JobLifecycle::Registry)
+      def optional: (Symbol name, Karya::job_argument | Integer | Time | Karya::lifecycle) -> (Karya::job_argument | Integer | Time | Karya::lifecycle)
 
       # Normalizes required identifier-like fields into frozen, non-blank strings.
       class IdentifierNormalizer

@@ -5,8 +5,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative 'base'
+require_relative 'job_lifecycle'
+require_relative 'worker'
 require_relative 'internal/runtime_support/signal_restorer'
 require_relative 'internal/runtime_support/iteration_limit'
+require_relative 'internal/runtime_support/shutdown_state'
+require_relative 'primitives/lifecycle'
 require_relative 'primitives/identifier'
 require_relative 'primitives/queue_list'
 require_relative 'primitives/positive_finite_number'
@@ -70,7 +75,16 @@ module Karya
           end
 
           waited_child = runtime.wait_for_child
-          next unless waited_child
+          unless waited_child
+            pruned_children = prune_stale_children(child_pids)
+            completed_processes, failed_bounded_child = update_pruned_child_state(
+              completed_children: completed_processes,
+              failed_bounded_child:,
+              pruned_children:,
+              shutdown_controller:
+            )
+            next
+          end
 
           pid, status = waited_child
           next unless child_pids.delete(pid)
@@ -144,10 +158,27 @@ module Karya
       shutdown_controller.normal? && configuration.bounded_run?
     end
 
+    def prune_stale_children(child_pids)
+      pruned_children = 0
+      child_pids.delete_if do |pid, _|
+        pruned = !runtime.process_alive?(pid)
+        pruned_children += 1 if pruned
+        pruned
+      end
+      pruned_children
+    end
+
     def update_bounded_child_state(completed_children:, failed_bounded_child:, shutdown_controller:, status:)
       return [completed_children, failed_bounded_child] unless bounded_child_exit?(shutdown_controller)
 
       [completed_children + 1, failed_bounded_child || !status.success?]
+    end
+
+    def update_pruned_child_state(completed_children:, failed_bounded_child:, pruned_children:, shutdown_controller:)
+      return [completed_children, failed_bounded_child] if pruned_children.zero?
+      return [completed_children, failed_bounded_child] unless bounded_child_exit?(shutdown_controller)
+
+      [completed_children + pruned_children, true]
     end
 
     def run_child_worker

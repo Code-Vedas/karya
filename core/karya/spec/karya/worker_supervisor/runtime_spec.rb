@@ -148,6 +148,27 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(Process).to have_received(:kill).with('TERM', 12_345)
     end
 
+    it 'reports processes as alive when Process.kill succeeds' do
+      runtime_instance = runtime_class.new
+      allow(Process).to receive(:kill).with(0, 12_345).and_return(1)
+
+      expect(runtime_instance.process_alive?(12_345)).to be(true)
+    end
+
+    it 'reports processes as alive when kill raises EPERM' do
+      runtime_instance = runtime_class.new
+      allow(Process).to receive(:kill).with(0, 12_345).and_raise(Errno::EPERM)
+
+      expect(runtime_instance.process_alive?(12_345)).to be(true)
+    end
+
+    it 'reports processes as dead when kill raises ESRCH' do
+      runtime_instance = runtime_class.new
+      allow(Process).to receive(:kill).with(0, 12_345).and_raise(Errno::ESRCH)
+
+      expect(runtime_instance.process_alive?(12_345)).to be(false)
+    end
+
     it 'retries the default poll waiter when waits are interrupted' do
       runtime_instance = runtime_class.new
       call_count = 0

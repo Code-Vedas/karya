@@ -69,4 +69,43 @@ RSpec.describe Karya do
     expect(status).to be_success, stderr
     expect(stdout).to eq("queued\n")
   end
+
+  it 'allows requiring karya/worker directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/worker'
+      puts Karya::Worker::DEFAULT_POLL_INTERVAL
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("1\n")
+  end
+
+  it 'allows requiring karya/worker_supervisor directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/worker_supervisor'
+      puts Karya::WorkerSupervisor::DEFAULT_PROCESSES
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("1\n")
+  end
+
+  it 'allows requiring karya/cli directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/cli'
+      puts Karya::CLI.header.include?(Karya::VERSION)
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("true\n")
+  end
 end

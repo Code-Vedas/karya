@@ -6,6 +6,10 @@
 # LICENSE file in the root directory of this source tree.
 
 require 'thor'
+require_relative 'base'
+require_relative 'version'
+require_relative 'worker'
+require_relative 'worker_supervisor'
 require_relative 'cli/config_builder'
 require_relative 'cli/integer_option'
 require_relative 'cli/env_prefix'
@@ -114,6 +118,8 @@ module Karya
       end
     end
 
+    # Logger and instrumenter globals are process-wide defaults.
+    # Pass explicit runtime collaborators when multiple isolated runtimes share a process.
     private_constant :ConfigBuilder, :EnvPrefix, :HandlerParser, :IntegerOption, :MappingEntry, :SignalSubscription
   end
 end

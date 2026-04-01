@@ -5,11 +5,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative 'extension_snapshots'
+
 module Karya
   module JobLifecycle
     # Thread-safe state management and caching
     class StateManager
-      attr_reader :mutex, :extension_state_names, :extension_terminal_state_names, :extension_transitions
+      include ExtensionSnapshots
+
+      attr_reader :mutex
 
       def initialize
         @mutex = Mutex.new
@@ -120,9 +124,9 @@ module Karya
 
       def validate_state(state)
         synchronize do
-          validate_state_locked!(Normalization.normalize_state_name(state))
-        rescue InvalidJobStateError
-          nil
+          normalized_state_name = Normalization.normalize_state_name(state)
+          validated_state_name = validate_state_locked(normalized_state_name)
+          validated_state_name && public_state(validated_state_name)
         end
       end
 
@@ -134,6 +138,25 @@ module Karya
 
       def extension_state_name?(state_name)
         @extension_state_names.include?(state_name)
+      end
+
+      def add_extension_state(state_name, terminal:)
+        @extension_state_names << state_name
+        @extension_terminal_state_names << state_name if terminal
+        invalidate_caches
+        state_name
+      end
+
+      def add_extension_transition(from_state_name, to_state_name)
+        @extension_transitions[from_state_name] |= [to_state_name]
+        invalidate_caches
+      end
+
+      def clear_extensions
+        @extension_state_names.clear
+        @extension_terminal_state_names.clear
+        @extension_transitions.clear
+        invalidate_caches
       end
 
       def public_state(state_name)

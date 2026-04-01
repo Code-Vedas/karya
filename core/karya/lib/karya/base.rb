@@ -21,10 +21,12 @@ module Karya
     attr_reader :instrumenter
 
     def configure_instrumenter(instrumenter)
+      # Process-wide default used when a runtime does not receive an explicit instrumenter.
       @instrumenter = instrumenter
     end
 
     def configure_logger(logger)
+      # Process-wide default used when a runtime does not receive an explicit logger.
       @logger = logger
     end
 

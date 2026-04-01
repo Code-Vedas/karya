@@ -22,7 +22,7 @@ module Karya
 
       def initialize(token_generator: -> { SecureRandom.uuid }, expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
         valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
-        raise ArgumentError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
+        raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
 
         @token_generator = token_generator
         @reservation_token_sequence = 0

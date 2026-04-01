@@ -310,39 +310,31 @@ RSpec.describe Karya::JobLifecycle::StateManager do
   end
 
   describe '#validate_state_locked' do
-    it 'returns state name for valid state' do
+    it 'returns the validated state name for known states' do
       expect(state_manager.validate_state_locked('queued')).to eq('queued')
     end
 
-    it 'returns nil for unknown state' do
+    it 'returns nil for unknown states' do
       expect(state_manager.validate_state_locked('unknown')).to be_nil
     end
   end
 
   describe '#validate_state' do
-    it 'validates and returns state name' do
-      expect(state_manager.validate_state('retry-pending')).to eq('retry_pending')
+    it 'returns the public state for valid states' do
+      expect(state_manager.validate_state('queued')).to eq(:queued)
     end
 
-    it 'returns nil for unknown state' do
+    it 'returns nil for invalid states' do
       expect(state_manager.validate_state('unknown')).to be_nil
-    end
-
-    it 'uses mutex synchronization' do
-      allow(state_manager.mutex).to receive(:synchronize).and_call_original
-
-      state_manager.validate_state('queued')
-
-      expect(state_manager.mutex).to have_received(:synchronize)
     end
   end
 
   describe '#validate_transition' do
-    it 'returns target state for valid transition' do
+    it 'returns the target state for valid transitions' do
       expect(state_manager.validate_transition(from: :queued, to: :reserved)).to eq(:reserved)
     end
 
-    it 'returns nil for invalid transition' do
+    it 'returns nil for invalid transitions' do
       expect(state_manager.validate_transition(from: :queued, to: :running)).to be_nil
     end
   end

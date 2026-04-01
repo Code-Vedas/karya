@@ -1,4 +1,13 @@
 module Karya
+  interface _Lifecycle
+    def normalize_state: (state_name state) -> state_name
+    def validate_state!: (state_name state) -> state_name
+    def valid_transition?: (from: state_name, to: state_name) -> bool
+    def validate_transition!: (from: state_name, to: state_name) -> state_name
+    def terminal?: (state_name state) -> bool
+  end
+
+  type lifecycle = _Lifecycle
   type state_name = Symbol | String
   type state_name_array = Array[state_name]
   type normalized_state_name = String
@@ -12,7 +21,7 @@ module Karya
   type lease_duration_value = Integer | Float | Rational | BigDecimal
   type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
   type handler_mapping = ::Hash[String, Worker::_Handler]
-  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | JobLifecycle::Registry | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | Method | Proc | singleton(Worker)
+  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | Method | Proc | singleton(Worker)
   type symbol_options = ::Hash[Symbol, option_value]
   type mixed_options = ::Hash[Symbol | String, option_value]
   type job_arguments = ::Hash[String, job_argument]
@@ -28,6 +37,6 @@ module Karya
   type cli_env_prefix_normalizer = ^(Symbol) -> String?
   type cli_optional_integer_coercer = ^(Symbol) -> Integer?
   type cli_positive_integer_resolver = ^(Symbol, env_prefix: String?, defaults: cli_defaults) -> Integer
-  type job_attribute_value = job_argument | Integer | Time | JobLifecycle::Registry | state_name
+  type job_attribute_value = job_argument | Integer | Time | lifecycle | state_name
   type reservation_attribute_value = state_name | Integer | Time
 end

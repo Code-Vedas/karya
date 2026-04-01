@@ -89,6 +89,10 @@ store that is safe to share across processes and thread-safe handlers.
 `Karya::QueueStore::InMemory` is single-process and is shown here only for local
 examples.
 
+`Karya.configure_logger` and `Karya.configure_instrumenter` define process-wide
+defaults. If a process hosts multiple runtimes, inject explicit `logger:` and
+`instrumenter:` collaborators to avoid cross-runtime global mutation.
+
 ## Related Concepts
 
 - [Job Model](/runtime/job-model/): worker behavior starts from the job lifecycle

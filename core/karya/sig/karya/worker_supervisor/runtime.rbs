@@ -10,6 +10,8 @@ module Karya
 
       @logger: logger
 
+      @process_liveness: ^(Integer) -> bool
+
       @poll_waiter: ^() -> [Integer, Process::Status]?
 
       @signal_subscriber: (nil | ^(String, Karya::signal_handler) -> Karya::signal_restorer?)
@@ -37,6 +39,8 @@ module Karya
       def fork_child: [A] () { () -> A } -> Integer
 
       def kill_process: (String signal, Integer pid) -> Integer
+
+      def process_alive?: (Integer pid) -> bool
 
       def subscribe_signal: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
 

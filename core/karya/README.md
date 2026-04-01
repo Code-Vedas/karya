@@ -93,5 +93,9 @@ Use multiple processes or threads only with a queue store backed by shared
 process-safe storage and thread-safe handlers. `Karya::QueueStore::InMemory` is
 suitable for local examples and bootstrapping only.
 
+`Karya.configure_logger` and `Karya.configure_instrumenter` set process-wide
+defaults. When multiple runtimes share the same process, pass explicit
+`logger:` and `instrumenter:` collaborators to keep runtime boundaries isolated.
+
 For platform-level setup, workflows, and operator guidance, use the
 [Karya documentation](https://karya.codevedas.com/).

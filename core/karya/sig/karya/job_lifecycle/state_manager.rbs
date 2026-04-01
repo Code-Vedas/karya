@@ -2,6 +2,8 @@ module Karya
   module JobLifecycle
     # Thread-safe state management and caching
     class StateManager
+      include ExtensionSnapshots
+
       @mutex: Thread::Mutex
 
       @extension_state_names: Array[String]
@@ -17,12 +19,6 @@ module Karya
       @transition_names_locked: Hash[String, Array[String]]?
 
       attr_reader mutex: Thread::Mutex
-
-      attr_reader extension_state_names: Array[String]
-
-      attr_reader extension_terminal_state_names: Array[String]
-
-      attr_reader extension_transitions: Hash[String, Array[String]]
 
       def initialize: () -> void
 
@@ -58,11 +54,17 @@ module Karya
 
       def validate_state_locked: (String state_name) -> String?
 
-      def validate_state: (Karya::state_name state) -> String?
+      def validate_state: (Karya::state_name state) -> Karya::state_name?
 
       def validate_transition: (from: Karya::state_name, to: Karya::state_name) -> Karya::state_name?
 
       def extension_state_name?: (String state_name) -> bool
+
+      def add_extension_state: (String state_name, terminal: bool) -> String
+
+      def add_extension_transition: (String from_state_name, String to_state_name) -> Array[String]
+
+      def clear_extensions: () -> nil
 
       def public_state: (String state_name) -> Karya::state_name
 

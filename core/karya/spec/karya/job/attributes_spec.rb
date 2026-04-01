@@ -99,6 +99,22 @@ RSpec.describe 'Karya::Job::Attributes' do
         ).to_h
       end.to raise_error(Karya::InvalidJobAttributeError, 'attempt must be a non-negative Integer')
     end
+
+    it 'raises InvalidJobAttributeError for invalid lifecycle collaborators' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          lifecycle: Object.new
+        ).to_h
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        /lifecycle must respond to #normalize_state, #validate_state!, #valid_transition\?, #validate_transition!, #terminal\?/
+      )
+    end
   end
 
   describe 'IdentifierNormalizer' do

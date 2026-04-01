@@ -91,7 +91,11 @@ module Karya
 
       def assign_optional_attributes(attributes)
         configuration_class = self.class
-        @lifecycle = attributes.fetch(:lifecycle, JobLifecycle.default_registry)
+        @lifecycle = Primitives::Lifecycle.new(
+          :lifecycle,
+          attributes.fetch(:lifecycle, JobLifecycle.default_registry),
+          error_class: InvalidWorkerSupervisorConfigurationError
+        ).normalize
         @poll_interval = configuration_class.normalize_poll_interval(attributes.fetch(:poll_interval, Worker::DEFAULT_POLL_INTERVAL))
         @max_iterations = MaxIterationsSetting.new(attributes.fetch(:max_iterations, :unlimited)).normalize
         @stop_when_idle = attributes.fetch(:stop_when_idle, false)

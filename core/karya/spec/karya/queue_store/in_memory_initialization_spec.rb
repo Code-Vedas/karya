@@ -34,19 +34,19 @@ RSpec.describe Karya::QueueStore::InMemory do
     it 'rejects negative expired tombstone limits' do
       expect do
         described_class.new(expired_tombstone_limit: -1)
-      end.to raise_error(ArgumentError, /finite non-negative Integer/)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /finite non-negative Integer/)
     end
 
     it 'rejects nil expired tombstone limits' do
       expect do
         described_class.new(expired_tombstone_limit: nil)
-      end.to raise_error(ArgumentError, /finite non-negative Integer/)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /finite non-negative Integer/)
     end
 
     it 'rejects non-integer expired tombstone limits' do
       expect do
         described_class.new(expired_tombstone_limit: Float::INFINITY)
-      end.to raise_error(ArgumentError, /finite non-negative Integer/)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /finite non-negative Integer/)
     end
   end
 

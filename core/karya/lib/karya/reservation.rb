@@ -34,6 +34,6 @@ module Karya
       expires_at <= current_time
     end
 
-    private_constant :Attributes
+    private_constant :Attributes, :IdentifierNormalizer, :TimestampNormalizer
   end
 end

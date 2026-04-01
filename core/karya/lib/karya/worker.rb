@@ -6,8 +6,11 @@
 # LICENSE file in the root directory of this source tree.
 
 require 'monitor'
+require_relative 'base'
+require_relative 'job_lifecycle'
 require_relative 'internal/runtime_support/iteration_limit'
 require_relative 'internal/runtime_support/signal_restorer'
+require_relative 'primitives/lifecycle'
 require_relative 'primitives/identifier'
 require_relative 'primitives/queue_list'
 require_relative 'primitives/positive_finite_number'

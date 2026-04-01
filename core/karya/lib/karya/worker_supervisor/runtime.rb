@@ -34,6 +34,14 @@ module Karya
 
       def initialize(attributes = {})
         runtime_class = self.class
+        @process_liveness = lambda do |pid|
+          Process.kill(0, pid)
+          true
+        rescue Errno::EPERM
+          true
+        rescue Errno::ESRCH
+          false
+        end
         @forker = runtime_class.normalize_callable(:forker, attributes.fetch(:forker, nil) || method(:default_forker))
         @instrumenter = runtime_class.normalize_optional_callable(:instrumenter, attributes.fetch(:instrumenter, nil) || Karya.instrumenter)
         @killer = runtime_class.normalize_callable(:killer, attributes.fetch(:killer, nil) || runtime_class.default_killer)
@@ -49,6 +57,10 @@ module Karya
 
       def kill_process(signal, pid)
         @killer.call(signal, pid)
+      end
+
+      def process_alive?(pid)
+        @process_liveness.call(pid)
       end
 
       def subscribe_signal(signal, handler)

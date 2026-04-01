@@ -5,6 +5,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative '../primitives/lifecycle'
+
 module Karya
   class Job
     # Normalizes constructor input without leaking validation helpers onto the public job API.
@@ -16,7 +18,11 @@ module Karya
       def to_h
         created_at = TimestampNormalizer.new(:created_at, required(:created_at)).normalize
         attempt = optional(:attempt, 0)
-        lifecycle = optional(:lifecycle, JobLifecycle.default_registry)
+        lifecycle = Primitives::Lifecycle.new(
+          :lifecycle,
+          optional(:lifecycle, JobLifecycle.default_registry),
+          error_class: InvalidJobAttributeError
+        ).normalize
         raise InvalidJobAttributeError, 'attempt must be a non-negative Integer' unless attempt.is_a?(Integer) && attempt >= 0
 
         {

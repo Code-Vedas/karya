@@ -10,7 +10,7 @@ module Karya
 
       @lease_duration: Numeric
 
-      @lifecycle: JobLifecycle::Registry
+      @lifecycle: Karya::lifecycle
 
       @poll_interval: Numeric
 
@@ -36,7 +36,7 @@ module Karya
 
       attr_reader max_iterations: Integer | :unlimited
 
-      attr_reader lifecycle: JobLifecycle::Registry
+      attr_reader lifecycle: Karya::lifecycle
 
       attr_reader poll_interval: Numeric
 

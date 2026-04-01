@@ -556,6 +556,22 @@ RSpec.describe Karya::Worker do
       end.to raise_error(Karya::InvalidWorkerConfigurationError, /lease_duration must be a positive finite number/)
     end
 
+    it 'rejects invalid lifecycle collaborators' do
+      expect do
+        described_class.new(
+          queue_store:,
+          worker_id: 'worker-1',
+          queues:,
+          handlers:,
+          lease_duration: 30,
+          lifecycle: Object.new
+        )
+      end.to raise_error(
+        Karya::InvalidWorkerConfigurationError,
+        /lifecycle must respond to #normalize_state, #validate_state!, #valid_transition\?, #validate_transition!, #terminal\?/
+      )
+    end
+
     it 'rejects clocks that do not respond to call' do
       expect do
         described_class.new(

@@ -4,8 +4,6 @@ module Karya
     class Registry
       @state_manager: StateManager
 
-      attr_reader state_manager: StateManager
-
       def initialize: (?state_manager: StateManager) -> void
 
       def normalize_state: ((Symbol | String) state) -> (Symbol | String)
@@ -35,6 +33,10 @@ module Karya
       def clear_extensions!: () -> nil
 
       def clear_extensions: () -> nil
+
+      private
+
+      def validate_state_locked: (String state_name) -> String?
     end
   end
 end

@@ -41,16 +41,15 @@ module Karya
       end
 
       def instance_variable_get(name)
-        state_manager = default_registry.state_manager
         case name
         when :@extension_state_names
-          state_manager.extension_state_names
+          default_registry.send(:extension_state_names)
         when :@extension_terminal_state_names
-          state_manager.extension_terminal_state_names
+          default_registry.send(:extension_terminal_state_names)
         when :@extension_transitions
-          state_manager.extension_transitions
+          default_registry.send(:extension_transitions)
         when :@mutex
-          state_manager.mutex
+          default_registry.send(:mutex)
         else
           super
         end
@@ -106,31 +105,31 @@ module Karya
     private
 
     def normalize_state_locked(state)
-      default_registry.state_manager.normalize_state_locked(state)
+      default_registry.send(:normalize_state_locked, state)
     end
     module_function :normalize_state_locked
     private_class_method :normalize_state_locked
 
     def state_names_locked
-      default_registry.state_manager.state_names_locked
+      default_registry.send(:state_names_locked)
     end
     module_function :state_names_locked
     private_class_method :state_names_locked
 
     def transition_names_locked
-      default_registry.state_manager.transition_names_locked
+      default_registry.send(:transition_names_locked)
     end
     module_function :transition_names_locked
     private_class_method :transition_names_locked
 
     def terminal_state_names_locked
-      default_registry.state_manager.terminal_state_names_locked
+      default_registry.send(:terminal_state_names_locked)
     end
     module_function :terminal_state_names_locked
     private_class_method :terminal_state_names_locked
 
     def invalidate_caches
-      default_registry.state_manager.invalidate_caches
+      default_registry.send(:invalidate_caches)
     end
     module_function :invalidate_caches
     private_class_method :invalidate_caches
@@ -142,25 +141,25 @@ module Karya
     private_class_method :normalize_state_name
 
     def validate_state_locked!(state_name)
-      default_registry.state_manager.validate_state_locked!(state_name)
+      default_registry.send(:validate_state_locked!, state_name)
     end
     module_function :validate_state_locked!
     private_class_method :validate_state_locked!
 
     def extension_state_name?(state_name)
-      default_registry.state_manager.extension_state_name?(state_name)
+      default_registry.send(:extension_state_name?, state_name)
     end
     module_function :extension_state_name?
     private_class_method :extension_state_name?
 
     def public_state(state_name)
-      default_registry.state_manager.public_state(state_name)
+      default_registry.send(:public_state, state_name)
     end
     module_function :public_state
     private_class_method :public_state
 
     def transition_values(next_state_names)
-      default_registry.state_manager.transition_values(next_state_names)
+      default_registry.send(:transition_values, next_state_names)
     end
     module_function :transition_values
     private_class_method :transition_values

@@ -25,7 +25,7 @@ module Karya
         @queues = Primitives::QueueList.new(queues, error_class: InvalidWorkerConfigurationError).normalize
         @handlers = handlers.is_a?(HandlerRegistry) ? handlers : HandlerRegistry.new(handlers)
         @lease_duration = Primitives::PositiveFiniteNumber.new(:lease_duration, lease_duration, error_class: InvalidWorkerConfigurationError).normalize
-        @lifecycle = lifecycle
+        @lifecycle = Primitives::Lifecycle.new(:lifecycle, lifecycle, error_class: InvalidWorkerConfigurationError).normalize
       end
     end
   end

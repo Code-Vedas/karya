@@ -19,9 +19,7 @@ module Karya
             raise InvalidJobStateError, "state must be new; #{normalized_state_name.inspect} is already registered"
           end
 
-          state_manager.extension_state_names << normalized_state_name
-          state_manager.extension_terminal_state_names << normalized_state_name if terminal
-          state_manager.invalidate_caches
+          state_manager.add_extension_state(normalized_state_name, terminal:)
         end
 
         normalized_state_name
@@ -40,8 +38,7 @@ module Karya
             raise InvalidJobTransitionError, 'terminal states cannot define outgoing transitions'
           end
 
-          state_manager.extension_transitions[normalized_from] |= [normalized_to]
-          state_manager.invalidate_caches
+          state_manager.add_extension_transition(normalized_from, normalized_to)
 
           state_manager.public_state(normalized_to)
         end
@@ -49,10 +46,7 @@ module Karya
 
       def clear_extensions!(state_manager:)
         state_manager.synchronize do
-          state_manager.extension_state_names.clear
-          state_manager.extension_terminal_state_names.clear
-          state_manager.extension_transitions.clear
-          state_manager.invalidate_caches
+          state_manager.clear_extensions
         end
       end
     end

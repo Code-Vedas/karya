@@ -50,6 +50,7 @@ RSpec.describe Karya::WorkerSupervisor do
       subscribe_signal: nil,
       fork_child: nil,
       instrument: nil,
+      process_alive?: true,
       poll_for_child_exit: nil,
       wait_for_child: nil,
       kill_process: nil
@@ -74,6 +75,7 @@ RSpec.describe Karya::WorkerSupervisor do
     allow(runtime).to receive(:poll_for_child_exit) do
       poll_wait_results.shift
     end
+    allow(runtime).to receive(:process_alive?).and_return(true)
     allow(runtime).to receive(:kill_process) do |signal, pid|
       killed_processes << [signal, pid]
     end
@@ -187,6 +189,14 @@ RSpec.describe Karya::WorkerSupervisor do
       wait_results.push([999, success_status], [100, success_status])
 
       expect(supervisor.run).to eq(0)
+      expect(forked_pids).to eq([100])
+    end
+
+    it 'prunes stale tracked children when wait_for_child returns nil' do
+      wait_results << nil
+      allow(runtime).to receive(:process_alive?).with(100).and_return(false)
+
+      expect(supervisor.run).to eq(1)
       expect(forked_pids).to eq([100])
     end
 
@@ -577,6 +587,22 @@ RSpec.describe Karya::WorkerSupervisor do
       end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /lease_duration must be a positive finite number/)
     end
 
+    it 'rejects invalid lifecycle collaborators with the supervisor error class' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-supervisor',
+          queues: ['billing'],
+          handlers: { 'billing_sync' => -> {} },
+          lease_duration: 30,
+          lifecycle: Object.new
+        )
+      end.to raise_error(
+        Karya::InvalidWorkerSupervisorConfigurationError,
+        /lifecycle must respond to #normalize_state, #validate_state!, #valid_transition\?, #validate_transition!, #terminal\?/
+      )
+    end
+
     it 'rejects negative poll intervals with the supervisor error class' do
       expect do
         described_class.new(
@@ -631,6 +657,37 @@ RSpec.describe Karya::WorkerSupervisor do
         'supervisor.child.exited',
         hash_including(worker_id: 'worker-supervisor', pid: 100, success: true)
       )
+    end
+
+    it 'does not change bounded child state when no stale children were pruned' do
+      shutdown_controller = described_class.const_get(:ShutdownController, false).new
+
+      completed_children, failed_bounded_child = supervisor.send(
+        :update_pruned_child_state,
+        completed_children: 1,
+        failed_bounded_child: false,
+        pruned_children: 0,
+        shutdown_controller: shutdown_controller
+      )
+
+      expect(completed_children).to eq(1)
+      expect(failed_bounded_child).to be(false)
+    end
+
+    it 'does not count pruned children after shutdown has started' do
+      shutdown_controller = described_class.const_get(:ShutdownController, false).new
+      shutdown_controller.advance
+
+      completed_children, failed_bounded_child = supervisor.send(
+        :update_pruned_child_state,
+        completed_children: 1,
+        failed_bounded_child: false,
+        pruned_children: 1,
+        shutdown_controller: shutdown_controller
+      )
+
+      expect(completed_children).to eq(1)
+      expect(failed_bounded_child).to be(false)
     end
   end
 end

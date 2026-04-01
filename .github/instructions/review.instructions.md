@@ -13,6 +13,17 @@ high-signal semantic review over generic style feedback.
   claims that conflict with explicit repository structure and documented support
   boundaries.
 
+## Repo-Specific Review Supplement
+
+- This repository is a monorepo. When changes touch shared contracts, check for
+  drift across sibling packages under `core/`, adapters, and framework
+  integrations.
+- When reviewing runtime, queue-store, or lifecycle changes in `core/karya`,
+  cross-check any impacted README/docs examples and package-level scripts.
+- When reviewing dashboard, framework integration, or backend-facing changes,
+  verify the owning package still reflects the same public surface and naming as
+  `core/karya`.
+
 ## Required Review Checks
 
 - Run secret scan checks.
