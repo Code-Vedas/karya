@@ -49,10 +49,12 @@ For any code that checks state then acts on it:
 - Identify ALL external state: signals, time, shared memory, process state
 - Trace: Can state change BETWEEN the check and the action?
 - Look for patterns like:
-  ```
+
+  ```ruby
   return if shutdown?  # Check
   do_work()            # ← Signal can arrive HERE
   ```
+
 - **Required:** Find the exact line numbers where state can change
 
 ### Control Flow Reachability
@@ -61,11 +63,13 @@ For any cleanup/escalation/fallback code:
 
 - Trace: Can execution ACTUALLY reach this code?
 - Look for blocking operations that prevent fallthrough:
-  ```
+
+  ```ruby
   send_signal("TERM")
   blocking_wait()      # ← Hangs forever if TERM fails
   send_signal("KILL")  # Never reached!
   ```
+
 - **Required:** Verify all code paths are reachable under failure conditions
 
 ### Error Handling Side Effects
@@ -102,15 +106,19 @@ For any input validation:
 - Identify WHERE validation happens vs WHERE normalization happens
 - **Critical rule:** Validation MUST happen on raw input, not normalized output
 - Look for:
-  ```
+
+  ```ruby
   value = input || default  # Normalization FIRST
   validate(value)           # Validates default, not input! ⚠️
   ```
+
 - Correct pattern:
-  ```
+
+  ```ruby
   validate(input)           # Validate FIRST
   value = input || default  # Normalize AFTER
   ```
+
 - **Required:** Verify validation sees actual input, not preprocessed/normalized
   values
 
