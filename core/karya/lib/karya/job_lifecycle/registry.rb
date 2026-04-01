@@ -5,6 +5,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative 'errors'
+require_relative 'normalization'
+require_relative 'extension'
+require_relative 'state_manager'
+
 module Karya
   module JobLifecycle
     # Explicit registry object that owns lifecycle extension state and queries.

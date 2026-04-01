@@ -214,18 +214,26 @@ module Karya
 
     def shutdown_tracked_children(child_pids, signal, blocking:)
       signal_children(child_pids.keys, signal)
-      reap_tracked_children(child_pids) { blocking ? runtime.wait_for_child : runtime.poll_for_child_exit }
+      reap_tracked_children(child_pids, blocking:) { blocking ? runtime.wait_for_child : runtime.poll_for_child_exit }
     end
 
-    def reap_tracked_children(child_pids)
+    def reap_tracked_children(child_pids, blocking:)
+      children_remaining = child_pids.length
+
       loop do
-        return if child_pids.empty?
+        return if children_remaining < 1
 
         waited_child = yield
-        return unless waited_child
+        unless waited_child
+          children_remaining -= prune_stale_children(child_pids)
+          no_children_remaining = children_remaining.zero?
+          return if no_children_remaining || !blocking
+
+          next
+        end
 
         pid, = waited_child
-        child_pids.delete(pid)
+        children_remaining -= 1 if child_pids.delete(pid)
       end
     end
 

@@ -30,15 +30,15 @@ module Karya
         end
 
         def normal?
-          @state == NORMAL
+          @pre_execution_monitor.synchronize { @state == NORMAL }
         end
 
         def draining?
-          @state == DRAINING
+          @pre_execution_monitor.synchronize { @state == DRAINING }
         end
 
         def force_stop?
-          @state == FORCE_STOP
+          @pre_execution_monitor.synchronize { @state == FORCE_STOP }
         end
 
         def stop_polling?

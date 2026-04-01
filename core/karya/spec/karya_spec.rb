@@ -108,4 +108,30 @@ RSpec.describe Karya do
     expect(status).to be_success, stderr
     expect(stdout).to eq("true\n")
   end
+
+  it 'allows requiring karya/job_lifecycle/state_manager directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/job_lifecycle/state_manager'
+      puts Karya::JobLifecycle::StateManager.new.states.include?(:queued)
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("true\n")
+  end
+
+  it 'allows requiring karya/job_lifecycle/registry directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/job_lifecycle/registry'
+      puts Karya::JobLifecycle::Registry.new.validate_state(:queued)
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("queued\n")
+  end
 end

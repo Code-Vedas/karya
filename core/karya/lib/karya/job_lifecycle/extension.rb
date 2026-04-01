@@ -5,6 +5,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative 'errors'
+require_relative 'normalization'
+
 module Karya
   module JobLifecycle
     # Extension state and transition registration
@@ -19,7 +22,7 @@ module Karya
             raise InvalidJobStateError, "state must be new; #{normalized_state_name.inspect} is already registered"
           end
 
-          state_manager.add_extension_state(normalized_state_name, terminal:)
+          state_manager.send(:add_extension_state_locked, normalized_state_name, terminal:)
         end
 
         normalized_state_name
@@ -38,7 +41,7 @@ module Karya
             raise InvalidJobTransitionError, 'terminal states cannot define outgoing transitions'
           end
 
-          state_manager.add_extension_transition(normalized_from, normalized_to)
+          state_manager.send(:add_extension_transition_locked, normalized_from, normalized_to)
 
           state_manager.public_state(normalized_to)
         end
@@ -46,7 +49,7 @@ module Karya
 
       def clear_extensions!(state_manager:)
         state_manager.synchronize do
-          state_manager.clear_extensions
+          state_manager.send(:clear_extensions_locked)
         end
       end
     end

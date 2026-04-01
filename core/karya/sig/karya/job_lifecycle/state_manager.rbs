@@ -60,12 +60,6 @@ module Karya
 
       def extension_state_name?: (String state_name) -> bool
 
-      def add_extension_state: (String state_name, terminal: bool) -> String
-
-      def add_extension_transition: (String from_state_name, String to_state_name) -> Array[String]
-
-      def clear_extensions: () -> nil
-
       def public_state: (String state_name) -> Karya::state_name
 
       def transition_values: (Array[String] next_state_names) -> Array[Karya::state_name]

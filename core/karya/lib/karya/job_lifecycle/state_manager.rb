@@ -5,6 +5,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative 'constants'
+require_relative 'errors'
+require_relative 'normalization'
 require_relative 'extension_snapshots'
 
 module Karya
@@ -140,25 +143,6 @@ module Karya
         @extension_state_names.include?(state_name)
       end
 
-      def add_extension_state(state_name, terminal:)
-        @extension_state_names << state_name
-        @extension_terminal_state_names << state_name if terminal
-        invalidate_caches
-        state_name
-      end
-
-      def add_extension_transition(from_state_name, to_state_name)
-        @extension_transitions[from_state_name] |= [to_state_name]
-        invalidate_caches
-      end
-
-      def clear_extensions
-        @extension_state_names.clear
-        @extension_terminal_state_names.clear
-        @extension_transitions.clear
-        invalidate_caches
-      end
-
       def public_state(state_name)
         canonical_state?(state_name) ? state_name.to_sym : state_name
       end
@@ -168,6 +152,25 @@ module Karya
       end
 
       private
+
+      def add_extension_state_locked(state_name, terminal:)
+        @extension_state_names << state_name
+        @extension_terminal_state_names << state_name if terminal
+        invalidate_caches
+        state_name
+      end
+
+      def add_extension_transition_locked(from_state_name, to_state_name)
+        @extension_transitions[from_state_name] |= [to_state_name]
+        invalidate_caches
+      end
+
+      def clear_extensions_locked
+        @extension_state_names.clear
+        @extension_terminal_state_names.clear
+        @extension_transitions.clear
+        invalidate_caches
+      end
 
       def build_transition_names
         base_transitions = initialize_base_transitions

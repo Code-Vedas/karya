@@ -421,6 +421,39 @@ RSpec.describe Karya::WorkerSupervisor do
       poll_wait_results << nil
       wait_results << nil
       fork_attempts = 0
+      allow(runtime).to receive(:process_alive?).with(100).and_return(false)
+      allow(runtime).to receive(:fork_child) do
+        fork_attempts += 1
+        raise Errno::EAGAIN if fork_attempts == 2
+
+        pid = 100
+        forked_pids << pid
+        pid
+      end
+
+      crashing_supervisor = described_class.new(
+        queue_store: queue_store,
+        worker_id: 'worker-supervisor',
+        queues: ['billing'],
+        handlers: { 'billing_sync' => -> {} },
+        lease_duration: 30,
+        processes: 2,
+        threads: 1,
+        poll_interval: 0,
+        max_iterations: 1,
+        runtime: runtime,
+        child_worker_class: child_worker_class
+      )
+
+      expect { crashing_supervisor.run }.to raise_error(Errno::EAGAIN)
+      expect(killed_processes).to eq([['TERM', 100]])
+    end
+
+    it 'retries blocking cleanup waits after nil returns until tracked children exit' do
+      poll_wait_results << nil
+      wait_results.push(nil, [100, success_status])
+      fork_attempts = 0
+      allow(runtime).to receive(:process_alive?).with(100).and_return(true, true)
       allow(runtime).to receive(:fork_child) do
         fork_attempts += 1
         raise Errno::EAGAIN if fork_attempts == 2
@@ -446,6 +479,7 @@ RSpec.describe Karya::WorkerSupervisor do
 
       expect { crashing_supervisor.run }.to raise_error(Errno::EAGAIN)
       expect(killed_processes).to eq([['TERM', 100], ['KILL', 100]])
+      expect(runtime).to have_received(:wait_for_child).twice
     end
   end
 
@@ -688,6 +722,17 @@ RSpec.describe Karya::WorkerSupervisor do
 
       expect(completed_children).to eq(1)
       expect(failed_bounded_child).to be(false)
+    end
+
+    it 'ignores waited child pids that are not tracked during helper reaping' do
+      child_pids = { 100 => true }
+      waited_children = [[999, success_status], nil]
+
+      supervisor.send(:reap_tracked_children, child_pids, blocking: false) do
+        waited_children.shift
+      end
+
+      expect(child_pids.keys).to eq([100])
     end
   end
 end
