@@ -28,8 +28,6 @@ module Karya
 
     def self.default_registry: () -> Registry
 
-    def self.instance_variable_get: (Symbol name) -> (Array[String] | Hash[String, Array[String]] | Thread::Mutex)
-
     def self.normalize_state: (Karya::state_name state) -> Karya::state_name
 
     def self.validate_state!: (Karya::state_name state) -> Karya::state_name

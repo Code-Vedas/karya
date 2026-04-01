@@ -7,7 +7,14 @@ module Karya
     def terminal?: (state_name state) -> bool
   end
 
+  interface _CallableValue
+    def call: (*callable_argument args) -> callable_result
+  end
+
   type lifecycle = _Lifecycle
+  type callable_argument = nil | bool | Numeric | String | Symbol | Time | context_payload | signal_handler | Array[String]
+  type callable_result = nil | bool | Numeric | String | Symbol | Time | signal_restorer | context_payload | Array[String]
+  type callable_value = Method | Proc | _CallableValue
   type state_name = Symbol | String
   type state_name_array = Array[state_name]
   type normalized_state_name = String
@@ -21,7 +28,7 @@ module Karya
   type lease_duration_value = Integer | Float | Rational | BigDecimal
   type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
   type handler_mapping = ::Hash[String, Worker::_Handler]
-  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | Method | Proc | singleton(Worker)
+  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
   type symbol_options = ::Hash[Symbol, option_value]
   type mixed_options = ::Hash[Symbol | String, option_value]
   type job_arguments = ::Hash[String, job_argument]

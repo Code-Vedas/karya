@@ -2,9 +2,9 @@ module Karya
   class WorkerSupervisor
     # Normalizes child pids returned by the configured forker.
     class Pid
-      @value: Integer
+      @value: nil | bool | Numeric | String | Symbol | Array[Integer] | Hash[Symbol, Integer]
 
-      def initialize: (Integer value) -> void
+      def initialize: (nil | bool | Numeric | String | Symbol | Array[Integer] | Hash[Symbol, Integer] value) -> void
 
       def normalize: () -> Integer
     end

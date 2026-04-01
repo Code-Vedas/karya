@@ -56,4 +56,49 @@ RSpec.describe 'Karya::WorkerSupervisor::ChildProcessRunner' do
       /signal_subscriber must return a callable restorer responding to #call/
     )
   end
+
+  it 'accepts nil signal subscriber restorers as no-op subscriptions' do
+    configuration = configuration_class.new(
+      worker_id: 'worker-supervisor',
+      queues: ['billing'],
+      handlers: { 'billing_sync' => -> {} },
+      lease_duration: 30,
+      max_iterations: 1,
+      threads: 1
+    )
+    worker_instance = instance_double(Karya::Worker, run: nil)
+    allow(child_worker_class).to receive(:new).and_return(worker_instance)
+
+    expect do
+      runner_class.new(
+        child_worker_class: child_worker_class,
+        configuration: configuration,
+        queue_store: queue_store,
+        signal_subscriber: ->(_signal, _handler) {}
+      ).run
+    end.not_to raise_error
+  end
+
+  it 'rejects false signal subscriber restorers' do
+    configuration = configuration_class.new(
+      worker_id: 'worker-supervisor',
+      queues: ['billing'],
+      handlers: { 'billing_sync' => -> {} },
+      lease_duration: 30,
+      max_iterations: 1,
+      threads: 1
+    )
+
+    expect do
+      runner_class.new(
+        child_worker_class: child_worker_class,
+        configuration: configuration,
+        queue_store: queue_store,
+        signal_subscriber: ->(_signal, _handler) { false }
+      ).run
+    end.to raise_error(
+      Karya::InvalidWorkerSupervisorConfigurationError,
+      /signal_subscriber must return a callable restorer responding to #call/
+    )
+  end
 end

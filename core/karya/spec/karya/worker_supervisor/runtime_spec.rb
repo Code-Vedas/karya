@@ -280,6 +280,17 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       )
     end
 
+    it 'rejects false signal subscriber restorers' do
+      runtime_instance = runtime_class.new(signal_subscriber: ->(_signal, _handler) { false })
+
+      expect do
+        runtime_instance.subscribe_signal('TERM', -> {})
+      end.to raise_error(
+        Karya::InvalidWorkerSupervisorConfigurationError,
+        /signal_subscriber must return a callable restorer responding to #call/
+      )
+    end
+
     it 'returns callable signal subscriber restorers unchanged' do
       restorer = -> {}
       runtime_instance = runtime_class.new(signal_subscriber: ->(_signal, _handler) { restorer })

@@ -68,7 +68,7 @@ module Karya
 
         restorer = signal_subscriber.call(signal, handler)
         Internal::RuntimeSupport::SignalRestorer.new(
-          restorer || NOOP_SUBSCRIPTION,
+          { nil => NOOP_SUBSCRIPTION }.fetch(restorer, restorer),
           error_class: InvalidWorkerSupervisorConfigurationError,
           message: "signal_subscriber must return a callable restorer responding to #call, got: #{restorer.inspect}"
         ).normalize

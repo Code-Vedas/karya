@@ -47,7 +47,7 @@ module Karya
 
         restorer = @signal_subscriber.call(signal, handler)
         Internal::RuntimeSupport::SignalRestorer.new(
-          restorer || NOOP_SUBSCRIPTION,
+          { nil => NOOP_SUBSCRIPTION }.fetch(restorer, restorer),
           error_class: InvalidWorkerConfigurationError,
           message: 'signal_subscriber must return a callable (responding to #call) or nil'
         ).normalize

@@ -4,11 +4,11 @@ module Karya
     class PositiveInteger
       @name: Symbol
 
-      @value: Integer
+      @value: Karya::option_value | Array[Integer] | Hash[Symbol, Integer]
 
       @error_class: Karya::error_class
 
-      def initialize: (Symbol name, Integer value, error_class: Karya::error_class) -> void
+      def initialize: (Symbol name, Karya::option_value | Array[Integer] | Hash[Symbol, Integer] value, error_class: Karya::error_class) -> void
 
       def normalize: () -> Integer
 
@@ -16,7 +16,7 @@ module Karya
 
       attr_reader name: Symbol
 
-      attr_reader value: Integer
+      attr_reader value: Karya::option_value | Array[Integer] | Hash[Symbol, Integer]
 
       attr_reader error_class: Karya::error_class
     end

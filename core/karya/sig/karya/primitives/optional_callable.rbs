@@ -4,19 +4,19 @@ module Karya
     class OptionalCallable
       @name: Symbol
 
-      @value: (Method | Proc | nil)
+      @value: Karya::callable_value?
 
       @error_class: Karya::error_class
 
-      def initialize: (Symbol name, (Method | Proc | nil) value, error_class: Karya::error_class) -> void
+      def initialize: (Symbol name, Karya::callable_value? value, error_class: Karya::error_class) -> void
 
-      def normalize: () -> (Method | Proc | nil)
+      def normalize: () -> Karya::callable_value?
 
       private
 
       attr_reader name: Symbol
 
-      attr_reader value: (Method | Proc | nil)
+      attr_reader value: Karya::callable_value?
 
       attr_reader error_class: Karya::error_class
     end
