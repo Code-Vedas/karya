@@ -327,6 +327,14 @@ RSpec.describe Karya::JobLifecycle::StateManager do
     it 'returns nil for unknown state' do
       expect(state_manager.validate_state('unknown')).to be_nil
     end
+
+    it 'uses mutex synchronization' do
+      allow(state_manager.mutex).to receive(:synchronize).and_call_original
+
+      state_manager.validate_state('queued')
+
+      expect(state_manager.mutex).to have_received(:synchronize)
+    end
   end
 
   describe '#validate_transition' do

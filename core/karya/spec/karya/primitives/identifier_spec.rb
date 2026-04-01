@@ -57,6 +57,12 @@ RSpec.describe Karya::Primitives::Identifier do
         result = described_class.new(name, 'user sync', error_class:).normalize
         expect(result).to eq('user sync')
       end
+
+      it 'returns a frozen normalized string' do
+        result = described_class.new(name, 'billing', error_class:).normalize
+
+        expect(result).to be_frozen
+      end
     end
 
     context 'with invalid identifiers' do

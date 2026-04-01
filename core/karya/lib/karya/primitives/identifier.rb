@@ -17,7 +17,7 @@ module Karya
 
       def normalize
         normalized_value = value.to_s.strip
-        return normalized_value unless normalized_value.empty?
+        return normalized_value.freeze unless normalized_value.empty?
 
         raise error_class, "#{name} must be present"
       end

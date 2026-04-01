@@ -119,9 +119,11 @@ module Karya
       end
 
       def validate_state(state)
-        validate_state_locked!(Normalization.normalize_state_name(state))
-      rescue InvalidJobStateError
-        nil
+        synchronize do
+          validate_state_locked!(Normalization.normalize_state_name(state))
+        rescue InvalidJobStateError
+          nil
+        end
       end
 
       def validate_transition(from:, to:)
