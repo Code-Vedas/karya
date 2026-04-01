@@ -1,7 +1,7 @@
 module Karya
   # The CLI class defines the command-line interface for the Karya gem. It uses Thor to handle command parsing and execution.
   class CLI < Thor
-    def self.start: (?Array[String] given_args, ?Hash[Symbol, bool] config) -> nil
+    def self.start: (?Array[String] given_args, ?Hash[Symbol | String, Karya::cli_option_value] config) -> nil
 
     def self.header: () -> ::String
 
