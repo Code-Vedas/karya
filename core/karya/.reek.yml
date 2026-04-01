@@ -34,7 +34,6 @@ detectors:
   UtilityFunction:
     enabled: true
     exclude:
-      - Karya::WorkerSupervisor::Configuration#normalize_max_iterations
       - Karya::JobLifecycle::StateManager#initialize_base_transitions
       - Karya::JobLifecycle::StateManager#canonical_state?
 exclude_paths:

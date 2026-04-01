@@ -33,4 +33,27 @@ RSpec.describe 'Karya::WorkerSupervisor::ChildProcessRunner' do
       ).run
     end.to raise_error(RuntimeError, /boom/)
   end
+
+  it 'rejects non-callable signal subscriber restorers' do
+    configuration = configuration_class.new(
+      worker_id: 'worker-supervisor',
+      queues: ['billing'],
+      handlers: { 'billing_sync' => -> {} },
+      lease_duration: 30,
+      max_iterations: 1,
+      threads: 1
+    )
+
+    expect do
+      runner_class.new(
+        child_worker_class: child_worker_class,
+        configuration: configuration,
+        queue_store: queue_store,
+        signal_subscriber: ->(_signal, _handler) { true }
+      ).run
+    end.to raise_error(
+      Karya::InvalidWorkerSupervisorConfigurationError,
+      /signal_subscriber must return a callable restorer responding to #call/
+    )
+  end
 end
