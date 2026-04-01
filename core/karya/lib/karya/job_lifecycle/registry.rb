@@ -27,8 +27,7 @@ module Karya
       end
 
       def validate_state(state)
-        normalized_state_name = validate_state_locked(Normalization.normalize_state_name(state))
-        normalized_state_name && public_state(normalized_state_name)
+        state_manager.validate_state(state)
       end
 
       def valid_transition?(from:, to:)
@@ -93,38 +92,24 @@ module Karya
         state_manager.extension_transitions
       end
 
-      def mutex
-        state_manager.mutex
-      end
-
       def normalize_state_locked(state)
-        state_manager.normalize_state_locked(state)
+        state_manager.send(:normalize_state_locked, state)
       end
 
       def state_names_locked
-        state_manager.state_names_locked
+        state_manager.send(:state_names_locked)
       end
 
       def transition_names_locked
-        state_manager.transition_names_locked
+        state_manager.send(:transition_names_locked)
       end
 
       def terminal_state_names_locked
-        state_manager.terminal_state_names_locked
+        state_manager.send(:terminal_state_names_locked)
       end
 
       def invalidate_caches
-        state_manager.invalidate_caches
-      end
-
-      def validate_state_locked!(state_name)
-        state_manager.validate_state_locked!(state_name)
-      end
-
-      def validate_state_locked(state_name)
-        validate_state_locked!(state_name)
-      rescue InvalidJobStateError
-        nil
+        state_manager.send(:invalidate_caches)
       end
 
       def extension_state_name?(state_name)

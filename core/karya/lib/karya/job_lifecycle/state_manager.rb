@@ -16,8 +16,6 @@ module Karya
     class StateManager
       include ExtensionSnapshots
 
-      attr_reader :mutex
-
       def initialize
         @mutex = Mutex.new
         @extension_state_names = []
@@ -91,34 +89,6 @@ module Karya
         end
       end
 
-      def normalize_state_locked(state)
-        validate_state_locked!(Normalization.normalize_state_name(state))
-      end
-
-      def state_names_locked
-        @state_names_locked ||= (Constants::CANONICAL_STATE_NAMES + @extension_state_names).freeze
-      end
-
-      def transition_names_locked
-        @transition_names_locked ||= build_transition_names
-      end
-
-      def terminal_state_names_locked
-        @terminal_state_names_locked ||= (Constants::CANONICAL_TERMINAL_STATE_NAMES + @extension_terminal_state_names).freeze
-      end
-
-      def invalidate_caches
-        @state_names_locked = nil
-        @terminal_state_names_locked = nil
-        @transition_names_locked = nil
-      end
-
-      def validate_state_locked!(state_name)
-        return state_name if state_names_locked.include?(state_name)
-
-        raise InvalidJobStateError, "Unknown job state: #{state_name.inspect}"
-      end
-
       def validate_state_locked(state_name)
         validate_state_locked!(state_name)
       rescue InvalidJobStateError
@@ -152,6 +122,36 @@ module Karya
       end
 
       private
+
+      attr_reader :mutex
+
+      def normalize_state_locked(state)
+        validate_state_locked!(Normalization.normalize_state_name(state))
+      end
+
+      def state_names_locked
+        @state_names_locked ||= (Constants::CANONICAL_STATE_NAMES + @extension_state_names).freeze
+      end
+
+      def transition_names_locked
+        @transition_names_locked ||= build_transition_names
+      end
+
+      def terminal_state_names_locked
+        @terminal_state_names_locked ||= (Constants::CANONICAL_TERMINAL_STATE_NAMES + @extension_terminal_state_names).freeze
+      end
+
+      def invalidate_caches
+        @state_names_locked = nil
+        @terminal_state_names_locked = nil
+        @transition_names_locked = nil
+      end
+
+      def validate_state_locked!(state_name)
+        return state_name if state_names_locked.include?(state_name)
+
+        raise InvalidJobStateError, "Unknown job state: #{state_name.inspect}"
+      end
 
       def add_extension_state_locked(state_name, terminal:)
         @extension_state_names << state_name

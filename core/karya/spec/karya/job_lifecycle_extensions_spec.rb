@@ -61,7 +61,7 @@ RSpec.describe Karya::JobLifecycle do
     it 'stores extension state names internally without symbolizing them' do
       described_class.register_state(:dead_letter)
 
-      extension_state_names = described_class.instance_variable_get(:@extension_state_names)
+      extension_state_names = described_class.default_registry.send(:extension_state_names)
       expect(extension_state_names).to eq(['dead_letter'])
       expect(extension_state_names.first).to be_a(String)
     end

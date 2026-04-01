@@ -18,8 +18,6 @@ module Karya
 
       @transition_names_locked: Hash[String, Array[String]]?
 
-      attr_reader mutex: Thread::Mutex
-
       def initialize: () -> void
 
       def synchronize: [A] () { () -> A } -> A
@@ -40,18 +38,6 @@ module Karya
 
       def terminal_states: () -> Array[Karya::state_name]
 
-      def normalize_state_locked: (Karya::state_name state) -> String
-
-      def state_names_locked: () -> Array[String]
-
-      def transition_names_locked: () -> Hash[String, Array[String]]
-
-      def terminal_state_names_locked: () -> Array[String]
-
-      def invalidate_caches: () -> nil
-
-      def validate_state_locked!: (String state_name) -> String
-
       def validate_state_locked: (String state_name) -> String?
 
       def validate_state: (Karya::state_name state) -> Karya::state_name?
@@ -65,6 +51,20 @@ module Karya
       def transition_values: (Array[String] next_state_names) -> Array[Karya::state_name]
 
       private
+
+      attr_reader mutex: Thread::Mutex
+
+      def normalize_state_locked: (Karya::state_name state) -> String
+
+      def state_names_locked: () -> Array[String]
+
+      def transition_names_locked: () -> Hash[String, Array[String]]
+
+      def terminal_state_names_locked: () -> Array[String]
+
+      def invalidate_caches: () -> nil
+
+      def validate_state_locked!: (String state_name) -> String
 
       def build_transition_names: () -> Hash[String, Array[String]]
 

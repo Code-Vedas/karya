@@ -16,7 +16,7 @@ RSpec.describe Karya::JobLifecycle::StateManager do
     end
 
     it 'initializes with a mutex' do
-      expect(state_manager.mutex).to be_a(Mutex)
+      expect(state_manager.send(:mutex)).to be_a(Mutex)
     end
   end
 
@@ -182,19 +182,19 @@ RSpec.describe Karya::JobLifecycle::StateManager do
 
   describe '#normalize_state_locked' do
     it 'normalizes and validates state (locked version)' do
-      expect(state_manager.normalize_state_locked(:queued)).to eq('queued')
+      expect(state_manager.send(:normalize_state_locked, :queued)).to eq('queued')
     end
 
     it 'raises Karya::JobLifecycle::InvalidJobStateError for unknown state' do
       expect do
-        state_manager.normalize_state_locked('unknown')
+        state_manager.send(:normalize_state_locked, 'unknown')
       end.to raise_error(Karya::JobLifecycle::InvalidJobStateError)
     end
   end
 
   describe '#state_names_locked' do
     it 'returns canonical state names' do
-      state_names = state_manager.state_names_locked
+      state_names = state_manager.send(:state_names_locked)
 
       expect(state_names).to include('queued', 'reserved', 'running')
     end
@@ -202,18 +202,18 @@ RSpec.describe Karya::JobLifecycle::StateManager do
     it 'includes extension state names' do
       Karya::JobLifecycle::Extension.register_state('custom', state_manager: state_manager)
 
-      state_names = state_manager.state_names_locked
+      state_names = state_manager.send(:state_names_locked)
 
       expect(state_names).to include('custom')
     end
 
     it 'is frozen' do
-      expect(state_manager.state_names_locked).to be_frozen
+      expect(state_manager.send(:state_names_locked)).to be_frozen
     end
 
     it 'caches the result' do
-      first_call = state_manager.state_names_locked
-      second_call = state_manager.state_names_locked
+      first_call = state_manager.send(:state_names_locked)
+      second_call = state_manager.send(:state_names_locked)
 
       expect(first_call.object_id).to eq(second_call.object_id)
     end
@@ -221,24 +221,24 @@ RSpec.describe Karya::JobLifecycle::StateManager do
 
   describe '#transition_names_locked' do
     it 'returns transition names map' do
-      transitions = state_manager.transition_names_locked
+      transitions = state_manager.send(:transition_names_locked)
 
       expect(transitions['queued']).to include('reserved', 'cancelled')
     end
 
     it 'is frozen' do
-      expect(state_manager.transition_names_locked).to be_frozen
+      expect(state_manager.send(:transition_names_locked)).to be_frozen
     end
 
     it 'has frozen value arrays' do
-      state_manager.transition_names_locked.each_value do |values|
+      state_manager.send(:transition_names_locked).each_value do |values|
         expect(values).to be_frozen
       end
     end
 
     it 'caches the result' do
-      first_call = state_manager.transition_names_locked
-      second_call = state_manager.transition_names_locked
+      first_call = state_manager.send(:transition_names_locked)
+      second_call = state_manager.send(:transition_names_locked)
 
       expect(first_call.object_id).to eq(second_call.object_id)
     end
@@ -246,18 +246,18 @@ RSpec.describe Karya::JobLifecycle::StateManager do
 
   describe '#terminal_state_names_locked' do
     it 'returns terminal state names' do
-      terminal_names = state_manager.terminal_state_names_locked
+      terminal_names = state_manager.send(:terminal_state_names_locked)
 
       expect(terminal_names).to include('succeeded', 'cancelled')
     end
 
     it 'is frozen' do
-      expect(state_manager.terminal_state_names_locked).to be_frozen
+      expect(state_manager.send(:terminal_state_names_locked)).to be_frozen
     end
 
     it 'caches the result' do
-      first_call = state_manager.terminal_state_names_locked
-      second_call = state_manager.terminal_state_names_locked
+      first_call = state_manager.send(:terminal_state_names_locked)
+      second_call = state_manager.send(:terminal_state_names_locked)
 
       expect(first_call.object_id).to eq(second_call.object_id)
     end
@@ -265,33 +265,33 @@ RSpec.describe Karya::JobLifecycle::StateManager do
 
   describe '#invalidate_caches' do
     it 'clears cached state names' do
-      first_states = state_manager.state_names_locked
+      first_states = state_manager.send(:state_names_locked)
 
       Karya::JobLifecycle::Extension.register_state('custom', state_manager: state_manager)
 
-      second_states = state_manager.state_names_locked
+      second_states = state_manager.send(:state_names_locked)
 
       expect(second_states).to include('custom')
       expect(first_states).not_to include('custom')
     end
 
     it 'clears cached transition names' do
-      state_manager.transition_names_locked
+      state_manager.send(:transition_names_locked)
 
       Karya::JobLifecycle::Extension.register_state('custom', state_manager: state_manager)
       Karya::JobLifecycle::Extension.register_transition(from: :queued, to: 'custom', state_manager: state_manager)
 
-      transitions = state_manager.transition_names_locked
+      transitions = state_manager.send(:transition_names_locked)
 
       expect(transitions['queued']).to include('custom')
     end
 
     it 'clears cached terminal state names' do
-      state_manager.terminal_state_names_locked
+      state_manager.send(:terminal_state_names_locked)
 
       Karya::JobLifecycle::Extension.register_state('archived', state_manager: state_manager, terminal: true)
 
-      terminal_names = state_manager.terminal_state_names_locked
+      terminal_names = state_manager.send(:terminal_state_names_locked)
 
       expect(terminal_names).to include('archived')
     end
@@ -299,12 +299,12 @@ RSpec.describe Karya::JobLifecycle::StateManager do
 
   describe '#validate_state_locked!' do
     it 'validates and returns state name' do
-      expect(state_manager.validate_state_locked!('queued')).to eq('queued')
+      expect(state_manager.send(:validate_state_locked!, 'queued')).to eq('queued')
     end
 
     it 'raises Karya::JobLifecycle::InvalidJobStateError for unknown state' do
       expect do
-        state_manager.validate_state_locked!('unknown')
+        state_manager.send(:validate_state_locked!, 'unknown')
       end.to raise_error(Karya::JobLifecycle::InvalidJobStateError)
     end
   end
@@ -365,11 +365,11 @@ RSpec.describe Karya::JobLifecycle::StateManager do
 
   describe 'thread safety' do
     it 'uses mutex for synchronization' do
-      allow(state_manager.mutex).to receive(:synchronize).and_call_original
+      allow(state_manager.send(:mutex)).to receive(:synchronize).and_call_original
 
       state_manager.normalize_state(:queued)
 
-      expect(state_manager.mutex).to have_received(:synchronize)
+      expect(state_manager.send(:mutex)).to have_received(:synchronize)
     end
 
     it 'allows concurrent reads after cache invalidation' do

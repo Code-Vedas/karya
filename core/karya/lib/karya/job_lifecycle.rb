@@ -39,21 +39,6 @@ module Karya
       def default_registry
         @default_registry ||= Registry.new
       end
-
-      def instance_variable_get(name)
-        case name
-        when :@extension_state_names
-          default_registry.send(:extension_state_names)
-        when :@extension_terminal_state_names
-          default_registry.send(:extension_terminal_state_names)
-        when :@extension_transitions
-          default_registry.send(:extension_transitions)
-        when :@mutex
-          default_registry.send(:mutex)
-        else
-          super
-        end
-      end
     end
 
     def normalize_state(state)
@@ -141,7 +126,7 @@ module Karya
     private_class_method :normalize_state_name
 
     def validate_state_locked!(state_name)
-      default_registry.send(:validate_state_locked!, state_name)
+      default_registry.send(:state_manager).send(:validate_state_locked!, state_name)
     end
     module_function :validate_state_locked!
     private_class_method :validate_state_locked!

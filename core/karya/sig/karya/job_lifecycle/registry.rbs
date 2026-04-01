@@ -35,8 +35,6 @@ module Karya
       def clear_extensions: () -> nil
 
       private
-
-      def validate_state_locked: (String state_name) -> String?
     end
   end
 end

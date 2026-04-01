@@ -23,9 +23,9 @@ module Karya
 
         def advance
           @pre_execution_monitor.synchronize do
-            return if force_stop?
+            return if @state == FORCE_STOP
 
-            @state = draining? ? FORCE_STOP : DRAINING
+            @state = @state == DRAINING ? FORCE_STOP : DRAINING
           end
         end
 
@@ -42,7 +42,7 @@ module Karya
         end
 
         def stop_polling?
-          draining? || force_stop?
+          @pre_execution_monitor.synchronize { @state != NORMAL }
         end
 
         def stop_before_reserve?

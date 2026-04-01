@@ -29,34 +29,29 @@ RSpec.describe Karya::JobLifecycle do
     end
   end
 
-  describe '.instance_variable_get' do
-    it 'returns extension_state_names for @extension_state_names' do
+  describe 'explicit registry access' do
+    it 'keeps extension state names in the default registry' do
       described_class.register_state(:custom_state)
-      result = described_class.instance_variable_get(:@extension_state_names)
+      result = described_class.default_registry.send(:extension_state_names)
       expect(result).to include('custom_state')
     end
 
-    it 'returns extension_terminal_state_names for @extension_terminal_state_names' do
+    it 'keeps extension terminal state names in the default registry' do
       described_class.register_state(:custom_terminal, terminal: true)
-      result = described_class.instance_variable_get(:@extension_terminal_state_names)
+      result = described_class.default_registry.send(:extension_terminal_state_names)
       expect(result).to include('custom_terminal')
     end
 
-    it 'returns extension_transitions for @extension_transitions' do
+    it 'keeps extension transitions in the default registry' do
       described_class.register_state(:from_state)
       described_class.register_state(:to_state)
       described_class.register_transition(from: :from_state, to: :to_state)
-      result = described_class.instance_variable_get(:@extension_transitions)
+      result = described_class.default_registry.send(:extension_transitions)
       expect(result).to be_a(Hash)
       expect(result).to have_key('from_state')
     end
 
-    it 'returns mutex for @mutex' do
-      result = described_class.instance_variable_get(:@mutex)
-      expect(result).to be_a(Thread::Mutex)
-    end
-
-    it 'calls super for unknown instance variables' do
+    it 'does not override core instance_variable_get behavior' do
       result = described_class.instance_variable_get(:@unknown_variable)
       expect(result).to be_nil
     end
