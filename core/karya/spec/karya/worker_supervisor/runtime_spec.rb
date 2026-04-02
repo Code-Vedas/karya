@@ -310,6 +310,24 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /signal_subscriber must respond to #call/)
     end
 
+    it 'rejects instrumenter set to false for supervisor runtime' do
+      expect do
+        runtime_class.new(instrumenter: false)
+      end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /instrumenter must respond to #call/)
+    end
+
+    it 'rejects forker set to false for supervisor runtime' do
+      expect do
+        runtime_class.new(forker: false)
+      end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /forker must respond to #call/)
+    end
+
+    it 'rejects logger set to false for supervisor runtime' do
+      expect do
+        runtime_class.new(logger: false)
+      end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /logger must respond to #debug, #info, #warn, and #error/)
+    end
+
     it 'returns nil when no instrumenter is configured' do
       expect(runtime_class.new.instrument('supervisor.child.spawned', pid: 123)).to be_nil
     end
@@ -326,7 +344,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
     end
 
     it 'swallows instrumentation errors and logs them' do
-      logger = instance_double(Karya::Internal::NullLogger, error: nil)
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(
         instrumenter: ->(_event, _payload) { raise 'boom' },
         logger:

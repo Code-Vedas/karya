@@ -10,6 +10,7 @@ module Karya
     # Supervisor runtime hooks for process management and signal handling.
     class Runtime
       OPTION_KEYS = %i[forker instrumenter killer logger poll_waiter signal_subscriber waiter].freeze
+      UNSET = Object.new.freeze
 
       attr_reader :instrumenter, :logger, :signal_subscriber
 
@@ -32,8 +33,12 @@ module Karya
         Primitives::OptionalCallable.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
       end
 
+      def self.resolve_option(attributes, key, default:)
+        value = attributes.fetch(key, UNSET)
+        value.equal?(UNSET) ? default : value
+      end
+
       def initialize(**attributes)
-        runtime_class = self.class
         @process_liveness = lambda do |pid|
           Process.kill(0, pid)
           true
@@ -42,13 +47,34 @@ module Karya
         rescue Errno::ESRCH
           false
         end
-        @forker = runtime_class.normalize_callable(:forker, attributes.fetch(:forker, nil) || method(:default_forker))
-        @instrumenter = runtime_class.normalize_optional_callable(:instrumenter, attributes.fetch(:instrumenter, nil) || Karya.instrumenter)
-        @killer = runtime_class.normalize_callable(:killer, attributes.fetch(:killer, nil) || runtime_class.default_killer)
-        @logger = attributes.fetch(:logger, nil) || Karya.logger
-        @poll_waiter = runtime_class.normalize_callable(:poll_waiter, attributes.fetch(:poll_waiter, nil) || default_poll_waiter)
-        @signal_subscriber = runtime_class.normalize_optional_callable(:signal_subscriber, attributes.fetch(:signal_subscriber, nil))
-        @waiter = runtime_class.normalize_callable(:waiter, attributes.fetch(:waiter, nil) || default_waiter)
+        runtime_class = self.class
+        @forker = runtime_class.normalize_callable(
+          :forker,
+          runtime_class.resolve_option(attributes, :forker, default: method(:default_forker))
+        )
+        @instrumenter = runtime_class.normalize_optional_callable(
+          :instrumenter,
+          runtime_class.resolve_option(attributes, :instrumenter, default: Karya.instrumenter)
+        )
+        @killer = runtime_class.normalize_callable(
+          :killer,
+          runtime_class.resolve_option(attributes, :killer, default: runtime_class.default_killer)
+        )
+        @logger = validate_logger(
+          runtime_class.resolve_option(attributes, :logger, default: Karya.logger)
+        )
+        @poll_waiter = runtime_class.normalize_callable(
+          :poll_waiter,
+          runtime_class.resolve_option(attributes, :poll_waiter, default: default_poll_waiter)
+        )
+        @signal_subscriber = runtime_class.normalize_optional_callable(
+          :signal_subscriber,
+          runtime_class.resolve_option(attributes, :signal_subscriber, default: nil)
+        )
+        @waiter = runtime_class.normalize_callable(
+          :waiter,
+          runtime_class.resolve_option(attributes, :waiter, default: default_waiter)
+        )
       end
 
       def fork_child(&)
@@ -122,6 +148,19 @@ module Karya
           nil
         end
       end
+
+      private
+
+      def validate_logger(value)
+        %i[debug info warn error].each do |level|
+          value.public_method(level)
+        end
+        value
+      rescue NameError
+        raise InvalidWorkerSupervisorConfigurationError, 'logger must respond to #debug, #info, #warn, and #error'
+      end
+
+      private_constant :UNSET
     end
   end
 end

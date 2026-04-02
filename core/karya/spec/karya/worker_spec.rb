@@ -1115,6 +1115,30 @@ RSpec.describe Karya::Worker do
       end.to raise_error(Karya::InvalidWorkerConfigurationError, /signal_subscriber must respond to #call/)
     end
 
+    it 'rejects instrumenter set to false' do
+      runtime_class = described_class.const_get(:Runtime, false)
+
+      expect do
+        runtime_class.new(instrumenter: false)
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /instrumenter must respond to #call/)
+    end
+
+    it 'rejects sleeper set to false' do
+      runtime_class = described_class.const_get(:Runtime, false)
+
+      expect do
+        runtime_class.new(sleeper: false)
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /sleeper must respond to #call/)
+    end
+
+    it 'rejects logger set to false' do
+      runtime_class = described_class.const_get(:Runtime, false)
+
+      expect do
+        runtime_class.new(logger: false)
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /logger must respond to #debug, #info, #warn, and #error/)
+    end
+
     it 'filters explicit keyword arguments without symbolizing arbitrary keys' do
       dispatcher = described_class.const_get(:MethodDispatcher, false).new(
         parameters: [%i[req job], %i[keyreq account_id], %i[key mode]]
@@ -1193,7 +1217,7 @@ RSpec.describe Karya::Worker do
     end
 
     it 'swallows instrumentation failures and logs them' do
-      logger = instance_double(Karya::Internal::NullLogger, error: nil)
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_class = described_class.const_get(:Runtime, false)
       runtime_instance = runtime_class.new(
         instrumenter: ->(_event, _payload) { raise 'boom' },

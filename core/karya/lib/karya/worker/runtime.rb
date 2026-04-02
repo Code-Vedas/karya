@@ -10,6 +10,7 @@ module Karya
     # Worker runtime dependencies that provide clock and sleep behavior.
     class Runtime
       OPTION_KEYS = %i[clock instrumenter logger signal_subscriber sleeper].freeze
+      UNSET = Object.new.freeze
 
       attr_reader :instrumenter, :logger
 
@@ -20,14 +21,16 @@ module Karya
         new(**attributes)
       end
 
-      def initialize(clock: -> { Time.now.utc }, instrumenter: nil, logger: nil, sleeper: nil, signal_subscriber: nil)
+      def initialize(clock: -> { Time.now.utc }, instrumenter: UNSET, logger: UNSET, sleeper: UNSET, signal_subscriber: nil)
         @clock = Primitives::Callable.new(:clock, clock, error_class: InvalidWorkerConfigurationError).normalize
-        @instrumenter = Primitives::OptionalCallable.new(:instrumenter, instrumenter || Karya.instrumenter,
+        @instrumenter = Primitives::OptionalCallable.new(:instrumenter, instrumenter.equal?(UNSET) ? Karya.instrumenter : instrumenter,
                                                          error_class: InvalidWorkerConfigurationError).normalize
-        @logger = logger || Karya.logger
-        @sleeper = Primitives::Callable.new(:sleeper, sleeper || lambda { |duration|
-          Kernel.sleep(duration)
-        }, error_class: InvalidWorkerConfigurationError).normalize
+        @logger = validate_logger(logger.equal?(UNSET) ? Karya.logger : logger)
+        @sleeper = Primitives::Callable.new(
+          :sleeper,
+          sleeper.equal?(UNSET) ? default_sleeper : sleeper,
+          error_class: InvalidWorkerConfigurationError
+        ).normalize
         @signal_subscriber = Primitives::OptionalCallable.new(:signal_subscriber, signal_subscriber, error_class: InvalidWorkerConfigurationError).normalize
       end
 
@@ -61,6 +64,25 @@ module Karya
         logger.error('instrumentation failed', event:, error_class: e.class.name, error_message: e.message)
         nil
       end
+
+      private
+
+      def default_sleeper
+        lambda do |duration|
+          Kernel.sleep(duration)
+        end
+      end
+
+      def validate_logger(value)
+        %i[debug info warn error].each do |level|
+          value.public_method(level)
+        end
+        value
+      rescue NameError
+        raise InvalidWorkerConfigurationError, 'logger must respond to #debug, #info, #warn, and #error'
+      end
+
+      private_constant :UNSET
     end
   end
 end
