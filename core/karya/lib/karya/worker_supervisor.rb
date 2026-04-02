@@ -218,22 +218,17 @@ module Karya
     end
 
     def reap_tracked_children(child_pids, blocking:)
-      children_remaining = child_pids.length
-
-      loop do
-        return if children_remaining < 1
-
+      while child_pids.any?
         waited_child = yield
         unless waited_child
-          children_remaining -= prune_stale_children(child_pids)
-          no_children_remaining = children_remaining.zero?
-          return if no_children_remaining || !blocking
+          prune_stale_children(child_pids)
+          return if child_pids.empty? || !blocking
 
           next
         end
 
         pid, = waited_child
-        children_remaining -= 1 if child_pids.delete(pid)
+        child_pids.delete(pid)
       end
     end
 

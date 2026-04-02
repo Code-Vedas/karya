@@ -734,5 +734,19 @@ RSpec.describe Karya::WorkerSupervisor do
 
       expect(child_pids.keys).to eq([100])
     end
+
+    it 'continues blocking helper reaping after unknown waited child pids' do
+      child_pids = { 100 => true }
+      waited_children = [[999, success_status], nil]
+
+      allow(runtime).to receive(:process_alive?).with(100).and_return(false)
+
+      supervisor.send(:reap_tracked_children, child_pids, blocking: true) do
+        waited_children.shift
+      end
+
+      expect(child_pids).to be_empty
+      expect(runtime).to have_received(:process_alive?).with(100)
+    end
   end
 end
