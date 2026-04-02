@@ -1,0 +1,43 @@
+module Karya
+  # Raised when reservation attributes are invalid.
+  class InvalidReservationAttributeError < Error
+  end
+
+  # Immutable value object representing a temporary lease on a queued job.
+  class Reservation
+    @token: String
+
+    @job_id: String
+
+    @queue: String
+
+    @worker_id: String
+
+    @reserved_at: Time
+
+    @expires_at: Time
+
+    attr_reader expires_at: Time
+
+    attr_reader job_id: String
+
+    attr_reader queue: String
+
+    attr_reader reserved_at: Time
+
+    attr_reader token: String
+
+    attr_reader worker_id: String
+
+    def initialize: (
+      token: state_name,
+      job_id: state_name,
+      queue: state_name,
+      worker_id: state_name,
+      reserved_at: Time,
+      expires_at: Time
+    ) -> void
+
+    def expired?: (Time now) -> bool
+  end
+end

@@ -1,0 +1,14 @@
+module Karya
+  module JobLifecycle
+    # Internal state query and value helpers for StateManager.
+    module StateQueries
+      private
+
+      def extension_state_name?: (String state_name) -> bool
+
+      def public_state: (String state_name) -> Karya::state_name
+
+      def transition_values: (Array[String] next_state_names) -> Array[Karya::state_name]
+    end
+  end
+end

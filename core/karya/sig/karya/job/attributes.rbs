@@ -1,0 +1,54 @@
+module Karya
+  class Job
+    # Normalizes constructor input without leaking validation helpers onto the public job API.
+    class Attributes
+      @attributes: Hash[Symbol, Karya::job_attribute_value]
+
+      def initialize: (Hash[Symbol, Karya::job_attribute_value] attributes) -> void
+
+      def to_h: () -> { id: String, queue: String, handler: String, arguments: Karya::job_arguments, lifecycle: Karya::lifecycle, state: Karya::state_name, attempt: Integer, created_at: Time, updated_at: Time }
+
+      private
+
+      attr_reader attributes: Hash[Symbol, Karya::job_attribute_value]
+
+      def required: (Symbol name) -> Karya::job_attribute_value
+
+      def optional: (Symbol name, Karya::job_argument | Integer | Time | Karya::lifecycle) -> (Karya::job_argument | Integer | Time | Karya::lifecycle)
+
+      # Normalizes required identifier-like fields into frozen, non-blank strings.
+      class IdentifierNormalizer
+        @name: Symbol
+
+        @value: Karya::state_name | Integer
+
+        def initialize: (Symbol name, Karya::state_name | Integer value) -> void
+
+        def normalize: () -> String
+
+        private
+
+        attr_reader name: Symbol
+
+        attr_reader value: Karya::state_name | Integer
+      end
+
+      # Normalizes timestamps into frozen copies so jobs cannot mutate caller-owned Time objects.
+      class TimestampNormalizer
+        @name: Symbol
+
+        @value: Time
+
+        def initialize: (Symbol name, Time value) -> void
+
+        def normalize: () -> Time
+
+        private
+
+        attr_reader name: Symbol
+
+        attr_reader value: Time
+      end
+    end
+  end
+end

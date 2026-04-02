@@ -1,0 +1,81 @@
+module Karya
+  # Canonical lifecycle rules for queued job instances.
+  module JobLifecycle
+    self.@default_registry: Registry
+
+    # Re-export constants for backward compatibility
+    SUBMISSION: :submission
+
+    QUEUED: :queued
+
+    RESERVED: :reserved
+
+    RUNNING: :running
+
+    SUCCEEDED: :succeeded
+
+    FAILED: :failed
+
+    RETRY_PENDING: :retry_pending
+
+    CANCELLED: :cancelled
+
+    STATES: Array[Symbol]
+
+    TRANSITIONS: Hash[Symbol, Array[Symbol]]
+
+    TERMINAL_STATES: Array[Symbol]
+
+    def self.default_registry: () -> Registry
+
+    def self.normalize_state: (Karya::state_name state) -> Karya::state_name
+
+    def self.validate_state!: (Karya::state_name state) -> Karya::state_name
+
+    def self.valid_transition?: (from: Karya::state_name, to: Karya::state_name) -> bool
+
+    def self.validate_transition!: (from: Karya::state_name, to: Karya::state_name) -> Karya::state_name
+
+    def self.terminal?: (Karya::state_name state) -> bool
+
+    def self.register_state: (Karya::state_name state, ?terminal: bool) -> String
+
+    def self.register_transition: (from: Karya::state_name, to: Karya::state_name) -> Karya::state_name
+
+    def self.states: () -> Array[Karya::state_name]
+
+    def self.transitions: () -> Hash[Karya::state_name, Array[Karya::state_name]]
+
+    def self.terminal_states: () -> Array[Karya::state_name]
+
+    def self.clear_extensions!: () -> nil
+
+    private
+
+    def self.normalize_state_locked: (Karya::state_name state) -> String
+
+    def self.state_names_locked: () -> Array[String]
+
+    def self.transition_names_locked: () -> Hash[String, Array[String]]
+
+    def self.terminal_state_names_locked: () -> Array[String]
+
+    def self.invalidate_caches: () -> nil
+
+    def self.normalize_state_name: (Karya::state_name state) -> String
+
+    def self.validate_state_locked!: (String state_name) -> String
+
+    def self.extension_state_name?: (String state_name) -> bool
+
+    def self.public_state: (String state_name) -> Karya::state_name
+
+    def self.transition_values: (Array[String] next_state_names) -> Array[Karya::state_name]
+
+    def self.lowercase_letter?: (String character) -> bool
+
+    def self.digit?: (String character) -> bool
+
+    def self.raise_blank_state_error!: () -> void
+  end
+end

@@ -1,0 +1,5 @@
+class Monitor
+  def initialize: () -> void
+
+  def synchronize: [A] () { () -> A } -> A
+end

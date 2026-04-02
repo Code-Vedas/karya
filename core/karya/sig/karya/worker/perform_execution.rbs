@@ -1,0 +1,18 @@
+module Karya
+  class Worker
+    # Executes handlers that respond to `perform`.
+    class PerformExecution
+      @dispatcher: MethodDispatcher
+
+      @handler: Worker::_Handler
+
+      def initialize: (Worker::_Handler handler) -> void
+
+      def call: (arguments: Karya::job_arguments) -> nil
+
+      private
+
+      def dispatch: (Karya::handler_dispatch_mode mode, Karya::job_arguments? payload) -> nil
+    end
+  end
+end

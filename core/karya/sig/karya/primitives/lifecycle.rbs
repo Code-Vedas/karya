@@ -1,0 +1,26 @@
+module Karya
+  module Primitives
+    # Validates lifecycle strategy objects used by jobs and runtimes.
+    class Lifecycle
+      REQUIRED_METHODS: Array[:normalize_state | :validate_state! | :valid_transition? | :validate_transition! | :terminal?]
+
+      @name: Symbol
+
+      @value: Karya::lifecycle
+
+      @error_class: Karya::error_class
+
+      def initialize: (Symbol name, Karya::lifecycle value, error_class: Karya::error_class) -> void
+
+      def normalize: () -> Karya::lifecycle
+
+      private
+
+      attr_reader error_class: Karya::error_class
+
+      attr_reader name: Symbol
+
+      attr_reader value: Karya::lifecycle
+    end
+  end
+end

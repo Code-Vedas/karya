@@ -1,0 +1,161 @@
+module Karya
+  module QueueStore
+    # Single-process reference implementation for queue submission and reservation behavior.
+    class InMemory
+      @token_generator: Method | Proc
+
+      @reservation_token_sequence: Integer
+
+      @mutex: Thread::Mutex
+
+      @state: StoreState
+
+      include Base
+
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024
+
+      def initialize: (?(Method | Proc) token_generator, ?Integer expired_tombstone_limit) -> void
+
+      def enqueue: (job: Job, now: Time) -> Job
+
+      def reserve: (queue: Karya::state_name, worker_id: Karya::state_name | Integer, lease_duration: Karya::lease_duration_value, now: Time) -> Reservation?
+
+      def release: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
+
+      def start_execution: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
+
+      def complete_execution: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
+
+      def fail_execution: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
+
+      def expire_reservations: (now: Time) -> Array[Job]
+
+      private
+
+      attr_reader state: StoreState
+
+      attr_reader token_generator: Method | Proc
+
+      # Internal mutable state for the single-process queue store.
+      class StoreState
+        @executions_by_token: Hash[String, Reservation]
+
+        @execution_tokens_in_order: Array[String]
+
+        @expired_reservation_tokens: Hash[String, bool]
+
+        @expired_reservation_tokens_in_order: Array[String]
+
+        @expired_tombstone_limit: Integer
+
+        @jobs_by_id: Hash[String, Job]
+
+        @queued_job_ids_by_queue: Hash[String, Array[String]]
+
+        @reservation_tokens_in_order: Array[String]
+
+        @reservations_by_token: Hash[String, Reservation]
+
+        attr_reader executions_by_token: Hash[String, Reservation]
+
+        attr_reader execution_tokens_in_order: Array[String]
+
+        attr_reader expired_reservation_tokens: Hash[String, bool]
+
+        attr_reader expired_reservation_tokens_in_order: Array[String]
+
+        attr_reader jobs_by_id: Hash[String, Job]
+
+        attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
+
+        attr_reader reservation_tokens_in_order: Array[String]
+
+        attr_reader reservations_by_token: Hash[String, Reservation]
+
+        def initialize: (expired_tombstone_limit: Integer) -> void
+
+        def queue_job_ids_for: (String queue) -> Array[String]
+
+        def delete_queue: (String queue) -> Array[String]?
+
+        def reserve: (Reservation reservation) -> Array[String]
+
+        def activate_execution: (String reservation_token, Reservation reservation) -> Array[String]
+
+        def delete_reservation_token: (String reservation_token) -> String?
+
+        def delete_execution_token: (String reservation_token) -> String?
+
+        def mark_expired: (String reservation_token) -> bool?
+
+        def reservation_token_in_use?: (String reservation_token) -> bool
+
+        private
+
+        def prune_expired_reservation_tokens: () -> bool?
+      end
+
+      # Validates and normalizes lease durations accepted by the queue store.
+      class LeaseDuration
+        @value: Karya::lease_duration_value
+
+        def initialize: (Karya::lease_duration_value value) -> void
+
+        def normalize: () -> Karya::lease_duration_value
+
+        private
+
+        attr_reader value: Karya::lease_duration_value
+
+        def valid?: () -> bool
+      end
+
+      def validate_enqueue: (Job job) -> nil
+
+      def next_token: () -> ::String
+
+      def expire_reservations_locked: (Time now) -> Array[Job]
+
+      def requeue_reservation: (Reservation reservation, Time now) -> Job
+
+      def requeue_expired_reservation: (Reservation reservation, Time now) -> Job
+
+      def requeue_expired_execution: (Reservation reservation, Time now) -> Job
+
+      def normalize_identifier: (Symbol name, Karya::state_name | Integer value, error_class: Karya::error_class) -> String
+
+      def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
+
+      def build_reservation: (reserved_job: Job, worker_id: String, reserved_at: Time, lease_duration: Karya::lease_duration_value) -> Reservation
+
+      def ensure_unique_reservation_token: (String reservation_token) -> nil
+
+      def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed) -> Job
+
+      def fetch_active_reservation: (String reservation_token, Time now) -> Reservation
+
+      def collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now) -> Array[Reservation]
+
+      def self.collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now) -> Array[Reservation]
+
+      def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
+
+      # Rebuilds a running job as queued when execution lease recovery is required.
+      class ExecutionRecovery
+        @running_job: Job
+
+        @now: Time
+
+        def initialize: (Job running_job, Time now) -> void
+
+        def to_queued_job: () -> Job
+
+        private
+
+        attr_reader now: Time
+
+        attr_reader running_job: Job
+      end
+    end
+  end
+end

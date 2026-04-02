@@ -1,0 +1,20 @@
+module Karya
+  # Raised when a requested constant path cannot be resolved.
+  class ConstantResolutionError < Error
+  end
+
+  # Resolves Ruby constants from explicit string paths such as "BillingJob".
+  class ConstantResolver
+    @name: String | Symbol
+
+    def initialize: (String | Symbol name) -> void
+
+    def resolve: () -> Module
+
+    private
+
+    attr_reader name: String | Symbol
+
+    def constant_names: () -> Array[String]
+  end
+end

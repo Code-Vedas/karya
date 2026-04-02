@@ -1,0 +1,24 @@
+module Karya
+  module Primitives
+    # Validates identifier-like values into non-blank strings.
+    class Identifier
+      @name: Symbol
+
+      @value: Karya::state_name | Integer
+
+      @error_class: Karya::error_class
+
+      def initialize: (Symbol name, Karya::state_name | Integer value, error_class: Karya::error_class) -> void
+
+      def normalize: () -> String
+
+      private
+
+      attr_reader name: Symbol
+
+      attr_reader value: Karya::state_name | Integer
+
+      attr_reader error_class: Karya::error_class
+    end
+  end
+end

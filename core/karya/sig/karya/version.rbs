@@ -1,0 +1,5 @@
+module Karya
+  TAGLINE: "Background job and workflow system"
+
+  VERSION: "0.1.0"
+end

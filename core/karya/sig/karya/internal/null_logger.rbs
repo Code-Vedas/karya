@@ -1,0 +1,14 @@
+module Karya
+  module Internal
+    # Default no-op logger used when the runtime has not been configured with a logger.
+    class NullLogger
+      def debug: (?String message, **String context) -> nil
+
+      def info: (?String message, **String context) -> nil
+
+      def warn: (?String message, **String context) -> nil
+
+      def error: (?String message, **String context) -> nil
+    end
+  end
+end

@@ -1,0 +1,18 @@
+module Karya
+  class Reservation
+    # Normalizes and validates constructor input for immutable reservations.
+    class Attributes
+      @attributes: Hash[Symbol, Karya::reservation_attribute_value]
+
+      def initialize: (Hash[Symbol, Karya::reservation_attribute_value] attributes) -> void
+
+      def to_h: () -> { token: String, job_id: String, queue: String, worker_id: String, reserved_at: Time, expires_at: Time }
+
+      private
+
+      attr_reader attributes: Hash[Symbol, Karya::reservation_attribute_value]
+
+      def required: (Symbol name) -> Karya::reservation_attribute_value
+    end
+  end
+end

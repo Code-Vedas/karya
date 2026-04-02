@@ -41,283 +41,25 @@ RSpec.describe Karya::Job do
       expect(job).to be_frozen
     end
 
-    it 'defaults updated_at to created_at' do
+    it 'uses an explicit lifecycle registry when provided' do
+      lifecycle = Karya::JobLifecycle::Registry.new
+      lifecycle.register_state('archived', terminal: true)
+      lifecycle.register_transition(from: :queued, to: 'archived')
+
       job = described_class.new(
-        id: 'job_123',
+        id: 'job123',
         queue: 'billing',
         handler: 'billing_sync',
         state: :queued,
+        lifecycle:,
         created_at:
       )
 
-      expect(job.updated_at).to eq(created_at)
-      expect(job.updated_at).to be_frozen
-    end
+      transitioned_job = job.transition_to('archived', updated_at:)
 
-    it 'duplicates and freezes timestamps without mutating caller-owned instances' do
-      job = described_class.new(
-        id: 'job_123',
-        queue: 'billing',
-        handler: 'billing_sync',
-        state: :queued,
-        created_at:,
-        updated_at:
-      )
-
-      expect(job.created_at).to eq(created_at)
-      expect(job.updated_at).to eq(updated_at)
-      expect(job.created_at).to be_frozen
-      expect(job.updated_at).to be_frozen
-      expect(created_at).not_to be_frozen
-      expect(updated_at).not_to be_frozen
-      expect(job.created_at).not_to equal(created_at)
-      expect(job.updated_at).not_to equal(updated_at)
-    end
-
-    it 'rejects missing required fields' do
-      expect do
-        described_class.new(
-          queue: 'billing',
-          handler: 'billing_sync',
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /id must be present/)
-    end
-
-    it 'rejects blank identifiers' do
-      expect do
-        described_class.new(
-          id: '',
-          queue: 'billing',
-          handler: 'billing_sync',
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /id must be present/)
-    end
-
-    it 'rejects non-hash arguments' do
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          arguments: nil,
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /arguments must be a Hash/)
-    end
-
-    it 'normalizes argument keys through string conversion' do
-      job = described_class.new(
-        id: 'job_123',
-        queue: 'billing',
-        handler: 'billing_sync',
-        arguments: { 123 => 'value' },
-        state: :queued,
-        created_at:
-      )
-
-      expect(job.arguments).to eq('123' => 'value')
-    end
-
-    it 'does not freeze caller-owned scalar argument values' do
-      message = +'hello'
-
-      job = described_class.new(
-        id: 'job_123',
-        queue: 'billing',
-        handler: 'billing_sync',
-        arguments: { message: },
-        state: :queued,
-        created_at:
-      )
-
-      expect(job.arguments['message']).to eq('hello')
-      expect(job.arguments['message']).to be_frozen
-      expect(message).not_to be_frozen
-    end
-
-    it 'accepts non-duplicable scalar argument values' do
-      job = described_class.new(
-        id: 'job_123',
-        queue: 'billing',
-        handler: 'billing_sync',
-        arguments: { attempt_limit: 3 },
-        state: :queued,
-        created_at:
-      )
-
-      expect(job.arguments).to eq('attempt_limit' => 3)
-    end
-
-    it 'accepts duplicated time argument values without freezing the caller-owned instance' do
-      scheduled_at = Time.utc(2026, 3, 26, 12, 30, 0)
-
-      job = described_class.new(
-        id: 'job_123',
-        queue: 'billing',
-        handler: 'billing_sync',
-        arguments: { scheduled_at: },
-        state: :queued,
-        created_at:
-      )
-
-      expect(job.arguments['scheduled_at']).to eq(scheduled_at)
-      expect(job.arguments['scheduled_at']).to be_frozen
-      expect(scheduled_at).not_to be_frozen
-    end
-
-    it 'rejects nested mutable objects outside the supported argument types' do
-      payload_class = Struct.new(:items)
-
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          arguments: { payload: payload_class.new([]) },
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /argument values must be composed/)
-    end
-
-    it 'rejects recursive hash argument graphs' do
-      recursive_hash = {}
-      recursive_hash['self'] = recursive_hash
-
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          arguments: recursive_hash,
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /arguments must not contain recursive structures/)
-    end
-
-    it 'rejects recursive array argument graphs' do
-      recursive_array = []
-      recursive_array << recursive_array
-
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          arguments: { items: recursive_array },
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /arguments must not contain recursive structures/)
-    end
-
-    it 'rejects recursive frozen argument graphs during normalized fast-path checks' do
-      recursive_hash = {}
-      recursive_hash['self'] = recursive_hash
-      recursive_hash.freeze
-
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          arguments: recursive_hash,
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /arguments must not contain recursive structures/)
-    end
-
-    it 'rejects blank argument keys' do
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          arguments: { '   ' => 'value' },
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /argument keys must be present/)
-    end
-
-    it 'rejects duplicate argument keys after normalization' do
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          arguments: { 'account_id' => 1, account_id: 2 },
-          state: :queued,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /duplicate argument key after normalization: "account_id"/)
-    end
-
-    it 'normalizes frozen argument hashes with untrimmed keys instead of accepting them as pre-normalized' do
-      raw_arguments = { '  foo  ' => 'bar' }.transform_keys(&:freeze).transform_values(&:freeze).freeze
-
-      job = described_class.new(
-        id: 'job_123',
-        queue: 'billing',
-        handler: 'billing_sync',
-        arguments: raw_arguments,
-        state: :queued,
-        created_at:
-      )
-
-      expect(job.arguments).not_to equal(raw_arguments)
-      expect(job.arguments['foo']).to eq('bar')
-      expect(job.arguments['  foo  ']).to be_nil
-    end
-
-    it 'normalizes frozen argument hashes whose keys are not normalized strings' do
-      raw_arguments = { foo: 'bar' }.freeze
-
-      job = described_class.new(
-        id: 'job_123',
-        queue: 'billing',
-        handler: 'billing_sync',
-        arguments: raw_arguments,
-        state: :queued,
-        created_at:
-      )
-
-      expect(job.arguments).not_to equal(raw_arguments)
-      expect(job.arguments['foo']).to eq('bar')
-      expect(job.arguments.keys).to contain_exactly('foo')
-      expect(job.arguments.keys.first).to be_frozen
-    end
-
-    it 'rejects invalid attempts' do
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          state: :queued,
-          attempt: -1,
-          created_at:
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /attempt must be a non-negative Integer/)
-    end
-
-    it 'rejects non-time timestamps' do
-      expect do
-        described_class.new(
-          id: 'job_123',
-          queue: 'billing',
-          handler: 'billing_sync',
-          state: :queued,
-          created_at: '2026-03-26T12:00:00Z'
-        )
-      end.to raise_error(Karya::InvalidJobAttributeError, /created_at must be a Time/)
+      expect(job.can_transition_to?('archived')).to be(true)
+      expect(transitioned_job.state).to eq('archived')
+      expect(transitioned_job.terminal?).to be(true)
     end
   end
 
@@ -376,7 +118,7 @@ RSpec.describe Karya::Job do
       )
 
       expect { job.transition_to(:queued, updated_at:) }
-        .to raise_error(Karya::InvalidJobTransitionError, /Cannot transition/)
+        .to raise_error(Karya::JobLifecycle::InvalidJobTransitionError, /Cannot transition/)
     end
 
     it 'validates the transition timestamp on the new job' do

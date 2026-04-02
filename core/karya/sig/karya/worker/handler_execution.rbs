@@ -1,0 +1,12 @@
+module Karya
+  class Worker
+    # Builds executable handler entries from registered runtime handlers.
+    class HandlerExecution
+      def self.build: (handler: Worker::_Handler, handler_name: Karya::state_name) -> (CallableExecution | PerformExecution | UnsupportedExecution)
+
+      def self.callable?: (Worker::_Handler handler) -> bool
+
+      def self.performable?: (Worker::_Handler handler) -> bool
+    end
+  end
+end

@@ -1,0 +1,26 @@
+module Karya
+  module Internal
+    module RuntimeSupport
+      # Shared validation for signal-subscriber restorer callbacks.
+      class SignalRestorer
+        @value: Karya::signal_restorer
+
+        @error_class: Karya::error_class
+
+        @message: String
+
+        def initialize: (Karya::signal_restorer value, error_class: Karya::error_class, message: String) -> void
+
+        def normalize: () -> Karya::signal_restorer
+
+        private
+
+        attr_reader error_class: Karya::error_class
+
+        attr_reader message: String
+
+        attr_reader value: Karya::signal_restorer
+      end
+    end
+  end
+end

@@ -1,0 +1,16 @@
+module Karya
+  class CLI < Thor
+    # Normalizes worker-specific env prefixes used for process/thread settings.
+    class EnvPrefix
+      @value: String | Symbol
+
+      def initialize: (String | Symbol value) -> void
+
+      def normalize: () -> String
+
+      private
+
+      attr_reader value: String | Symbol
+    end
+  end
+end

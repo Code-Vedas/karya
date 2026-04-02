@@ -1,0 +1,20 @@
+module Karya
+  class Reservation
+    # Normalizes timestamps into frozen copies so reservations stay immutable.
+    class TimestampNormalizer
+      @name: Symbol
+
+      @value: Time
+
+      def initialize: (Symbol name, Time value) -> void
+
+      def normalize: () -> Time
+
+      private
+
+      attr_reader name: Symbol
+
+      attr_reader value: Time
+    end
+  end
+end

@@ -1,0 +1,40 @@
+module Karya
+  module JobLifecycle
+    # Explicit registry object that owns lifecycle extension state and queries.
+    class Registry
+      @state_manager: StateManager
+
+      def initialize: (?state_manager: StateManager) -> void
+
+      def normalize_state: ((Symbol | String) state) -> (Symbol | String)
+
+      def validate_state!: ((Symbol | String) state) -> (Symbol | String)
+
+      def validate_state: ((Symbol | String) state) -> (Symbol | String)?
+
+      def valid_transition?: (from: (Symbol | String), to: (Symbol | String)) -> bool
+
+      def validate_transition!: (from: (Symbol | String), to: (Symbol | String)) -> (Symbol | String)
+
+      def validate_transition: (from: (Symbol | String), to: (Symbol | String)) -> (Symbol | String)?
+
+      def terminal?: ((Symbol | String) state) -> bool
+
+      def register_state: ((Symbol | String) state, ?terminal: bool) -> String
+
+      def register_transition: (from: (Symbol | String), to: (Symbol | String)) -> (Symbol | String)
+
+      def states: () -> Array[Symbol | String]
+
+      def transitions: () -> Hash[Symbol | String, Array[Symbol | String]]
+
+      def terminal_states: () -> Array[Symbol | String]
+
+      def clear_extensions!: () -> nil
+
+      def clear_extensions: () -> nil
+
+      private
+    end
+  end
+end

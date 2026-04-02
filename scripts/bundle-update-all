@@ -16,22 +16,20 @@ update_bundle_dir() {
 
   cd "${REPO_ROOT}/${suite_dir}"
 
-  if [ "${gemfile_path}" = "" ]; then
+  if [ -z "${gemfile_path}" ]; then
     if suite_uses_rails "${suite_dir}"; then
       RUN_ALL_EXPECT_RAILS=1 run_cmd "$(basename "${suite_dir}")-bundle-update" ruby -S bundle update
       return 0
-    end
+    fi
 
     run_cmd "$(basename "${suite_dir}")-bundle-update" ruby -S bundle update
     return 0
   fi
 
-  RUN_ALL_EXPECT_RAILS=1 \
-  RUN_ALL_BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile_path}" \
-  run_cmd_env \
-    "$(basename "${suite_dir}")-$(gemfile_label "${gemfile_path}")-bundle-update" \
-    BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile_path}" \
-    ruby -S bundle update
+  label="$(basename "${suite_dir}")-$(gemfile_label "${gemfile_path}")-bundle-update"
+  bundle_gemfile="${REPO_ROOT}/${suite_dir}/${gemfile_path}"
+  RUN_ALL_EXPECT_RAILS=1 RUN_ALL_BUNDLE_GEMFILE="${bundle_gemfile}" \
+    run_cmd_env "${label}" BUNDLE_GEMFILE="${bundle_gemfile}" ruby -S bundle update
 }
 
 update_yarn_dir() {

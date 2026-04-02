@@ -1,0 +1,21 @@
+# frozen_string_literal: true
+
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    # Default no-op logger used when the runtime has not been configured with a logger.
+    class NullLogger
+      %i[debug info warn error].each do |level|
+        define_method(level) do |message = nil, **context|
+          _message = message
+          _context = context
+          nil
+        end
+      end
+    end
+  end
+end

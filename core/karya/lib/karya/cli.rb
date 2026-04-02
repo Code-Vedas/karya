@@ -6,6 +6,16 @@
 # LICENSE file in the root directory of this source tree.
 
 require 'thor'
+require_relative 'base'
+require_relative 'version'
+require_relative 'worker'
+require_relative 'worker_supervisor'
+require_relative 'cli/config_builder'
+require_relative 'cli/integer_option'
+require_relative 'cli/env_prefix'
+require_relative 'cli/handler_parser'
+require_relative 'cli/mapping_entry'
+require_relative 'cli/signal_subscription'
 
 module Karya
   # The CLI class defines the command-line interface for the Karya gem. It uses Thor to handle command parsing and execution.
@@ -14,7 +24,7 @@ module Karya
     default_task :help
 
     def self.start(given_args = ARGV, config = {})
-      puts header
+      puts header unless config[:suppress_header]
       super
     end
 
@@ -44,7 +54,11 @@ module Karya
       super
     end
 
-    desc 'worker QUEUE [QUEUE...]', 'Start a worker for one or more queues'
+    desc 'worker QUEUE [QUEUE...]',
+         'Start a worker supervisor for one or more queues (manages processes and per-process threads)'
+    method_option :processes, type: :numeric
+    method_option :threads, type: :numeric
+    method_option :env_prefix, type: :string
     method_option :worker_id, type: :string, default: "worker-#{Process.pid}"
     method_option :lease_duration, type: :numeric, default: 30
     method_option :poll_interval, type: :numeric, default: Karya::Worker::DEFAULT_POLL_INTERVAL
@@ -54,85 +68,58 @@ module Karya
     method_option :stop_when_idle, type: :boolean, default: false
     def worker(*queues)
       load_required_files(options.fetch(:require))
+      supervisor = Karya::WorkerSupervisor.new(**build_worker_configuration(queues))
 
-      worker = Karya::Worker.new(
-        queue_store: Karya.queue_store,
-        worker_id: options.fetch(:worker_id),
-        queues:,
-        handlers: HandlerParser.parse(options.fetch(:handler)),
-        lease_duration: options.fetch(:lease_duration)
-      )
-
-      worker.run(
-        poll_interval: options.fetch(:poll_interval),
-        max_iterations: options[:max_iterations],
-        stop_when_idle: options.fetch(:stop_when_idle)
-      )
+      status = supervisor.run
+      exit(status) if status.positive?
     end
 
     no_commands do
+      def build_worker_configuration(queues)
+        ConfigBuilder.build(
+          options:,
+          queues:,
+          queue_store: Karya.queue_store,
+          defaults: {
+            processes: Karya::WorkerSupervisor::DEFAULT_PROCESSES,
+            threads: Karya::WorkerSupervisor::DEFAULT_THREADS
+          },
+          helpers: {
+            coerce_optional_positive_integer_option: method(:coerce_optional_positive_integer_option),
+            normalize_env_prefix_option: method(:normalize_env_prefix_option),
+            resolve_positive_integer_option: method(:resolve_positive_integer_option)
+          }
+        )
+      end
+
+      def resolve_positive_integer_option(option_name, env_prefix:, defaults:)
+        raw_value = options[option_name]
+        raw_value ||= ENV.fetch("KARYA_#{env_prefix}_#{option_name.to_s.upcase}", nil) if env_prefix
+        raw_value ||= defaults.fetch(option_name)
+        IntegerOption.new(option_name, raw_value).normalize
+      end
+
+      def coerce_optional_positive_integer_option(option_name)
+        options[option_name]&.then do |raw_value|
+          IntegerOption.new(option_name, raw_value).normalize
+        end
+      end
+
       def load_required_files(paths)
         paths.each do |path|
           require File.expand_path(path)
         end
       end
-    end
 
-    # Parses explicit handler mapping entries passed through the CLI.
-    class HandlerParser
-      def self.parse(entries)
-        new(entries).parse
-      end
-
-      def initialize(entries)
-        @entries = entries
-      end
-
-      def parse
-        entries.each_with_object({}) do |entry, handlers|
-          MappingEntry.new(entry).merge_into(handlers)
-        end
-      end
-
-      private
-
-      attr_reader :entries
-    end
-
-    # Parses one CLI handler mapping in `NAME=CONSTANT` format.
-    class MappingEntry
-      def initialize(entry)
-        @entry = entry
-      end
-
-      def name
-        split_entry.fetch(0)
-      end
-
-      def constant_name
-        split_entry.fetch(1)
-      end
-
-      def merge_into(handlers)
-        handlers[name] = Karya::ConstantResolver.new(constant_name).resolve
-      rescue Karya::ConstantResolutionError => e
-        raise Thor::Error, e.message
-      end
-
-      private
-
-      attr_reader :entry
-
-      def split_entry
-        @split_entry ||= begin
-          name, constant_name = entry.to_s.split('=', 2)
-          raise Thor::Error, "handler entries must use NAME=CONSTANT format: #{entry.inspect}" if name.to_s.strip.empty? || constant_name.to_s.strip.empty?
-
-          [name.strip, constant_name.strip].freeze
+      def normalize_env_prefix_option(option_name)
+        options[option_name]&.then do |raw_value|
+          EnvPrefix.new(raw_value).normalize
         end
       end
     end
 
-    private_constant :HandlerParser, :MappingEntry
+    # Logger and instrumenter globals are process-wide defaults.
+    # Pass explicit runtime collaborators when multiple isolated runtimes share a process.
+    private_constant :ConfigBuilder, :EnvPrefix, :HandlerParser, :IntegerOption, :MappingEntry, :SignalSubscription
   end
 end

@@ -1,0 +1,31 @@
+module Karya
+  # Raised when enqueue intent conflicts with existing job identity.
+  class DuplicateJobError < Error
+  end
+
+  # Raised when a queue store operation receives invalid input or violates
+  # queue store expectations.
+  class InvalidQueueStoreOperationError < Error
+  end
+
+  # Raised when an enqueue operation receives invalid input or violates
+  # queue store expectations.
+  class InvalidEnqueueError < InvalidQueueStoreOperationError
+  end
+
+  # Raised when a reservation token is unknown to the queue store.
+  class UnknownReservationError < Error
+  end
+
+  # Raised when a reservation token exists but is no longer active.
+  class ExpiredReservationError < Error
+  end
+
+  # Raised when a generated reservation token collides with an active lease.
+  class DuplicateReservationTokenError < Error
+  end
+
+  # Namespace for queue store implementations.
+  module QueueStore
+  end
+end

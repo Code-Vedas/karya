@@ -1,0 +1,12 @@
+module Karya
+  module JobLifecycle
+    # Read-only snapshot accessors for extension state internals.
+    module ExtensionSnapshots
+      def extension_state_names: () -> Array[String]
+
+      def extension_terminal_state_names: () -> Array[String]
+
+      def extension_transitions: () -> Hash[String, Array[String]]
+    end
+  end
+end

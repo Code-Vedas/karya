@@ -1,0 +1,16 @@
+module Karya
+  class WorkerSupervisor
+    # Normalizes supervisor max-iteration settings while treating nil as unlimited.
+    class MaxIterationsSetting
+      @value: Integer | Symbol | nil
+
+      def initialize: ((Integer | Symbol | nil) value) -> void
+
+      def normalize: () -> (Integer | :unlimited)
+
+      private
+
+      attr_reader value: Integer | Symbol | nil
+    end
+  end
+end

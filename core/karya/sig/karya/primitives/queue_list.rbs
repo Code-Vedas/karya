@@ -1,0 +1,20 @@
+module Karya
+  module Primitives
+    # Normalizes queue lists into a frozen list of queue identifiers.
+    class QueueList
+      @values: Karya::state_name | Array[Karya::state_name]
+
+      @error_class: Karya::error_class
+
+      def initialize: (Karya::state_name | Array[Karya::state_name] values, error_class: Karya::error_class) -> void
+
+      def normalize: () -> Array[String]
+
+      private
+
+      attr_reader values: Karya::state_name | Array[Karya::state_name]
+
+      attr_reader error_class: Karya::error_class
+    end
+  end
+end

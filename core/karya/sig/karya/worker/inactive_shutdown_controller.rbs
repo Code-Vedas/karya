@@ -1,0 +1,22 @@
+module Karya
+  class Worker
+    # Null shutdown controller used by one-shot worker entrypoints like `work_once`.
+    class InactiveShutdownController
+      @pre_execution_monitor: Monitor
+
+      def initialize: () -> void
+
+      def force_stop?: () -> false
+
+      def stop_polling?: () -> false
+
+      def stop_before_reserve?: () -> false
+
+      def stop_after_reserve?: () -> false
+
+      def stop_after_iteration?: () -> false
+
+      def synchronize_pre_execution: [A] () { () -> A } -> A
+    end
+  end
+end

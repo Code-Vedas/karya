@@ -1,0 +1,64 @@
+module Karya
+  # Raised when a canonical job attribute is invalid.
+  class InvalidJobAttributeError < Error
+  end
+
+  # Immutable value object for the canonical queued job model.
+  class Job
+    @id: String
+
+    @queue: String
+
+    @handler: String
+
+    @arguments: job_arguments
+
+    @state: state_name
+
+    @attempt: Integer
+
+    @created_at: Time
+
+    @lifecycle: JobLifecycle::Registry
+
+    @updated_at: Time
+
+    attr_reader arguments: job_arguments
+
+    attr_reader attempt: Integer
+
+    attr_reader created_at: Time
+
+    attr_reader handler: String
+
+    attr_reader id: String
+
+    attr_reader queue: String
+
+    attr_reader state: state_name
+
+    attr_reader updated_at: Time
+
+    def initialize: (
+      id: state_name,
+      queue: state_name,
+      handler: state_name,
+      ?arguments: Hash[state_name, job_argument],
+      state: state_name,
+      ?attempt: Integer,
+      created_at: Time,
+      ?lifecycle: JobLifecycle::Registry,
+      ?updated_at: Time
+    ) -> void
+
+    def can_transition_to?: (state_name next_state) -> bool
+
+    def transition_to: (state_name next_state, updated_at: Time, ?attempt: Integer) -> Job
+
+    def terminal?: () -> bool
+
+    private
+
+    attr_reader lifecycle: JobLifecycle::Registry
+  end
+end

@@ -1,0 +1,10 @@
+module Karya
+  class Worker
+    # Tracks child-worker shutdown transitions across normal, drain, and force-stop states.
+    class ShutdownController < Karya::Internal::RuntimeSupport::ShutdownState
+      self.@inactive: InactiveShutdownController?
+
+      def self.inactive: () -> InactiveShutdownController
+    end
+  end
+end

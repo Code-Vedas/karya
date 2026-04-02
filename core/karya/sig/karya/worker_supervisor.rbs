@@ -1,0 +1,86 @@
+module Karya
+  # Raised when worker supervisor bootstrap input is invalid.
+  class InvalidWorkerSupervisorConfigurationError < Error
+  end
+
+  # Supervisor process that manages forked worker children.
+  class WorkerSupervisor
+    @queue_store: QueueStore::Base
+
+    @configuration: WorkerSupervisor::Configuration
+
+    @runtime: WorkerSupervisor::Runtime
+
+    @child_worker_class: singleton(Worker)
+
+    DEFAULT_PROCESSES: 1
+
+    DEFAULT_THREADS: 1
+
+    FORCEFUL_SIGNAL: "KILL"
+
+    GRACEFUL_SIGNAL: "TERM"
+
+    NOOP_SUBSCRIPTION: ^() -> nil
+
+    SIGNALS: ::Array["INT" | "TERM"]
+
+    def initialize: (
+      queue_store: QueueStore::Base,
+      ?configuration: WorkerSupervisor::Configuration?,
+      ?runtime: WorkerSupervisor::Runtime?,
+      ?child_worker_class: singleton(Worker),
+      **Karya::option_value
+    ) -> void
+
+    def run: () -> Integer
+
+    private
+
+    attr_reader child_worker_class: singleton(Worker)
+
+    attr_reader configuration: WorkerSupervisor::Configuration
+
+    attr_reader queue_store: QueueStore::Base
+
+    attr_reader runtime: WorkerSupervisor::Runtime
+
+    def spawn_missing_children: (::Hash[Integer, bool] child_pids, Integer desired_children, WorkerSupervisor::ShutdownController shutdown_controller) -> ::Hash[Integer, bool]
+
+    def desired_child_count: (WorkerSupervisor::ShutdownController shutdown_controller, Integer completed_children) -> Integer
+
+    def signal_children_for_shutdown: (
+      child_pids: ::Hash[Integer, bool],
+      shutdown_controller: WorkerSupervisor::ShutdownController,
+      graceful_signal_sent: bool,
+      forced_signal_sent: bool
+    ) -> [bool, bool]
+
+    def signal_children: (Array[Integer] pids, String signal) -> Array[Integer]
+
+    def bounded_child_exit?: (WorkerSupervisor::ShutdownController shutdown_controller) -> bool
+
+    def update_bounded_child_state: (
+      completed_children: Integer,
+      failed_bounded_child: bool,
+      shutdown_controller: WorkerSupervisor::ShutdownController,
+      status: Process::Status
+    ) -> [Integer, bool]
+
+    def run_child_worker: () -> nil
+
+    def with_signal_handlers: (WorkerSupervisor::ShutdownController shutdown_controller) { () -> Integer } -> Integer
+
+    def register_signal_restorers: (Array[^() -> nil] restorers, WorkerSupervisor::ShutdownController shutdown_controller) -> Array[^() -> nil]
+
+    def cleanup_tracked_children: (::Hash[Integer, bool] child_pids) -> nil
+
+    def shutdown_tracked_children: (::Hash[Integer, bool] child_pids, String signal, blocking: bool) -> nil
+
+    def reap_tracked_children: (::Hash[Integer, bool] child_pids) { () -> [Integer, Process::Status]? } -> nil
+
+    def raise_unknown_option_error: (symbol_options options) -> void
+
+    def instrument: (String event, **job_argument | Integer | Array[Integer] payload) -> nil
+  end
+end

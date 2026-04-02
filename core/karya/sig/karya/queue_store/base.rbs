@@ -1,0 +1,20 @@
+module Karya
+  module QueueStore
+    # Backend-facing contract for queue persistence and reservation behavior.
+    module Base
+      def enqueue: (job: Job, now: Time) -> Job
+
+      def reserve: (queue: String, worker_id: String, lease_duration: Karya::lease_duration_value, now: Time) -> Reservation?
+
+      def release: (reservation_token: String, now: Time) -> Job
+
+      def start_execution: (reservation_token: String, now: Time) -> Job
+
+      def complete_execution: (reservation_token: String, now: Time) -> Job
+
+      def fail_execution: (reservation_token: String, now: Time) -> Job
+
+      def expire_reservations: (now: Time) -> Array[Job]
+    end
+  end
+end

@@ -1,0 +1,7 @@
+module Karya
+  class WorkerSupervisor
+    # Tracks supervisor shutdown transitions.
+    class ShutdownController < Karya::Internal::RuntimeSupport::ShutdownState
+    end
+  end
+end
