@@ -16,7 +16,7 @@ unless ENV['NO_COVERAGE'] == '1'
 
   SimpleCov.at_fork do |process_number|
     SimpleCov.command_name "#{SimpleCov.command_name} (fork #{process_number})"
-    SimpleCov.minimum_coverage 0
+    SimpleCov.minimum_coverage line: 0, branch: 0
     SimpleCov.start do
       enable_coverage :branch
       track_files 'lib/**/*.rb'
