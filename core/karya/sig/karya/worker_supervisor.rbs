@@ -30,8 +30,16 @@ module Karya
       ?configuration: WorkerSupervisor::Configuration?,
       ?runtime: WorkerSupervisor::Runtime?,
       ?child_worker_class: singleton(Worker),
+      ?state_file: String?,
+      ?runtime_state_store: WorkerSupervisor::RuntimeStateStore | WorkerSupervisor::RuntimeStateStore::NullStore,
       **Karya::option_value
     ) -> void
+
+    def runtime_snapshot: () -> WorkerSupervisor::RuntimeSnapshot
+
+    def begin_drain: () -> void
+
+    def force_stop: () -> void
 
     def run: () -> Integer
 
@@ -82,5 +90,11 @@ module Karya
     def raise_unknown_option_error: (symbol_options options) -> void
 
     def instrument: (String event, **job_argument | Integer | Array[Integer] payload) -> nil
+  end
+
+  class WorkerSupervisor::RuntimeControlUnavailableError < Error
+  end
+
+  class WorkerSupervisor::InvalidRuntimeStateFileError < Error
   end
 end

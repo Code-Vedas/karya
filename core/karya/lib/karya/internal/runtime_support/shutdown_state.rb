@@ -11,6 +11,7 @@ module Karya
   module Internal
     module RuntimeSupport
       # Shared shutdown state machine for normal, drain, and force-stop transitions.
+      # :reek:MissingSafeMethod { exclude: [force_stop!] }
       class ShutdownState
         NORMAL = :normal
         DRAINING = :draining
@@ -26,6 +27,24 @@ module Karya
             return if @state == FORCE_STOP
 
             @state = @state == DRAINING ? FORCE_STOP : DRAINING
+          end
+        end
+
+        def begin_drain
+          @pre_execution_monitor.synchronize do
+            return false unless @state == NORMAL
+
+            @state = DRAINING
+            true
+          end
+        end
+
+        def force_stop!
+          @pre_execution_monitor.synchronize do
+            return false if @state == FORCE_STOP
+
+            @state = FORCE_STOP
+            true
           end
         end
 

@@ -1,0 +1,173 @@
+module Karya
+  class WorkerSupervisor
+    # File-backed runtime state store shared across the supervisor and child processes.
+    class RuntimeStateStore
+      type thread_payload = Hash[String, String | Integer]
+
+      type child_payload_value = String | Integer | Array[thread_payload]
+
+      type child_payload = Hash[String, child_payload_value]
+
+      type snapshot_payload_value = String | Integer | Array[String] | Array[child_payload]
+
+      type snapshot_payload = Hash[String, snapshot_payload_value]
+
+      type runtime_payload_value = String | Integer | snapshot_payload
+
+      type runtime_payload = Hash[String, runtime_payload_value]
+
+      LOCK_RETRY_INTERVAL: Numeric
+
+      LOCK_TIMEOUT_SECONDS: Integer
+
+      MAX_UNIX_SOCKET_PATH_BYTES: Integer
+
+      SCHEMA_VERSION: Integer
+
+      RUNNING_PHASE: String
+
+      DRAINING_PHASE: String
+
+      FORCE_STOPPING_PHASE: String
+
+      STOPPED_PHASE: String
+
+      CHILD_RUNNING_STATE: String
+
+      CHILD_DRAINING_STATE: String
+
+      CHILD_FORCE_STOPPING_STATE: String
+
+      CHILD_STOPPED_STATE: String
+
+      THREAD_BOOTING_STATE: String
+
+      THREAD_POLLING_STATE: String
+
+      THREAD_RUNNING_STATE: String
+
+      THREAD_IDLE_STATE: String
+
+      THREAD_STOPPING_STATE: String
+
+      THREAD_STOPPED_STATE: String
+
+      attr_reader control_socket_path: String
+
+      attr_reader instance_token: String
+
+      attr_reader path: String
+
+      attr_reader started_at: String
+
+      def self.default_path: (String worker_id) -> String
+
+      def self.default_control_socket_path: (String path) -> String
+
+      def self.socket_path_within_limit?: (String path) -> bool
+
+      def self.read_payload!: (String path) -> runtime_payload
+
+      def self.read_snapshot!: (String path) -> WorkerSupervisor::RuntimeSnapshot
+
+      def self.live_payload!: (String path) -> runtime_payload
+
+      def self.control_payload!: (String path) -> runtime_payload
+
+      def self.process_alive?: (Integer pid) -> bool
+
+      def self.validate_payload!: (runtime_payload payload) -> runtime_payload
+
+      def self.validate_snapshot!: (snapshot_payload snapshot) -> snapshot_payload
+
+      def self.validate_child_snapshot!: (child_payload child) -> child_payload
+
+      def self.validate_thread_snapshot!: (thread_payload thread) -> Integer
+
+      def initialize: (
+        configuration: WorkerSupervisor::Configuration,
+        ?path: String?,
+        ?supervisor_pid: Integer,
+        ?started_at: Time,
+        ?instance_token: String,
+        ?control_socket_path: String
+      ) -> void
+
+      def snapshot: () -> WorkerSupervisor::RuntimeSnapshot
+
+      def write_running: () -> void
+
+      def mark_supervisor_phase: (String phase) -> void
+
+      def register_child: (Integer pid) -> void
+
+      def mark_child_phase: (Integer pid, String phase) -> void
+
+      def mark_child_stopped: (Integer pid) -> void
+
+      def register_thread: (process_pid: Integer, worker_id: String, thread_index: Integer) -> void
+
+      def mark_thread_state: (process_pid: Integer, worker_id: String, state: String, ?thread_index: Integer?) -> void
+
+      def write_stopped: () -> void
+
+      class NullStore
+        attr_reader snapshot: WorkerSupervisor::RuntimeSnapshot
+
+        def initialize: () -> void
+
+        def write_running: () -> nil
+
+        def mark_supervisor_phase: (String phase) -> nil
+
+        def register_child: (Integer pid) -> nil
+
+        def mark_child_phase: (Integer pid, String phase) -> nil
+
+        def mark_child_stopped: (Integer pid) -> nil
+
+        def register_thread: (process_pid: Integer, worker_id: String, thread_index: Integer) -> nil
+
+        def mark_thread_state: (process_pid: Integer, worker_id: String, state: String, ?thread_index: Integer?) -> nil
+
+        def write_stopped: () -> nil
+      end
+
+      class MutablePayload
+        def initialize: (payload: runtime_payload, configuration: WorkerSupervisor::Configuration) -> void
+
+        def mark_running: (Integer supervisor_pid, started_at: String, instance_token: String, control_socket_path: String) -> MutablePayload
+
+        def mark_supervisor_phase: (String phase) -> MutablePayload
+
+        def register_child: (Integer pid) -> MutablePayload
+
+        def mark_child_phase: (Integer pid, String phase) -> MutablePayload
+
+        def mark_child_stopped: (Integer pid) -> MutablePayload
+
+        def register_thread: (process_pid: Integer, worker_id: String, thread_index: Integer) -> MutablePayload
+
+        def mark_thread_state: (process_pid: Integer, worker_id: String, state: String, ?thread_index: Integer?) -> MutablePayload
+
+        def stop_all: () -> MutablePayload
+
+        def to_h: () -> runtime_payload
+
+        class ChildPayload
+          def initialize: (child_payload child) -> void
+
+          def register_thread: (worker_id: String, thread_index: Integer) -> void
+
+          def mark_thread_state: (worker_id: String, state: String, thread_index: Integer) -> void
+        end
+      end
+
+      class AtomicPayloadWriter
+        def initialize: (path: String, payload: runtime_payload) -> void
+
+        def write: () -> void
+      end
+    end
+  end
+end

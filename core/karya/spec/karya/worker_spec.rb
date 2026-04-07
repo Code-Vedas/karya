@@ -1232,5 +1232,23 @@ RSpec.describe Karya::Worker do
         error_message: 'boom'
       )
     end
+
+    it 'logs and swallows runtime state reporter failures' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_class = described_class.const_get(:Runtime, false)
+      runtime_instance = runtime_class.new(
+        logger:,
+        state_reporter: ->(**) { raise 'boom' }
+      )
+
+      expect(runtime_instance.report_state(worker_id: 'worker-1', state: 'running')).to be_nil
+      expect(logger).to have_received(:error).with(
+        'runtime state reporting failed',
+        worker_id: 'worker-1',
+        state: 'running',
+        error_class: 'RuntimeError',
+        error_message: 'boom'
+      )
+    end
   end
 end

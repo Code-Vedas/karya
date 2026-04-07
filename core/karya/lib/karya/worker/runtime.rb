@@ -9,7 +9,7 @@ module Karya
   class Worker
     # Worker runtime dependencies that provide clock and sleep behavior.
     class Runtime
-      OPTION_KEYS = %i[clock instrumenter logger signal_subscriber sleeper].freeze
+      OPTION_KEYS = %i[clock instrumenter logger signal_subscriber sleeper state_reporter].freeze
       UNSET = Object.new.freeze
 
       attr_reader :instrumenter, :logger
@@ -21,10 +21,20 @@ module Karya
         new(**attributes)
       end
 
-      def initialize(clock: -> { Time.now.utc }, instrumenter: UNSET, logger: UNSET, sleeper: UNSET, signal_subscriber: nil)
+      def initialize(**attributes)
+        clock = attributes.fetch(:clock, -> { Time.now.utc })
+        instrumenter = attributes.fetch(:instrumenter, UNSET)
+        logger = attributes.fetch(:logger, UNSET)
+        sleeper = attributes.fetch(:sleeper, UNSET)
+        signal_subscriber = attributes.fetch(:signal_subscriber, nil)
+        state_reporter = attributes.fetch(:state_reporter, nil)
+
         @clock = Primitives::Callable.new(:clock, clock, error_class: InvalidWorkerConfigurationError).normalize
-        @instrumenter = Primitives::OptionalCallable.new(:instrumenter, instrumenter.equal?(UNSET) ? Karya.instrumenter : instrumenter,
-                                                         error_class: InvalidWorkerConfigurationError).normalize
+        @instrumenter = Primitives::OptionalCallable.new(
+          :instrumenter,
+          instrumenter.equal?(UNSET) ? Karya.instrumenter : instrumenter,
+          error_class: InvalidWorkerConfigurationError
+        ).normalize
         @logger = validate_logger(logger.equal?(UNSET) ? Karya.logger : logger)
         @sleeper = Primitives::Callable.new(
           :sleeper,
@@ -32,6 +42,7 @@ module Karya
           error_class: InvalidWorkerConfigurationError
         ).normalize
         @signal_subscriber = Primitives::OptionalCallable.new(:signal_subscriber, signal_subscriber, error_class: InvalidWorkerConfigurationError).normalize
+        @state_reporter = Primitives::OptionalCallable.new(:state_reporter, state_reporter, error_class: InvalidWorkerConfigurationError).normalize
       end
 
       def current_time
@@ -62,6 +73,15 @@ module Karya
         instrumenter.call(event, payload)
       rescue StandardError => e
         logger.error('instrumentation failed', event:, error_class: e.class.name, error_message: e.message)
+        nil
+      end
+
+      def report_state(worker_id:, state:)
+        return unless @state_reporter
+
+        @state_reporter.call(worker_id:, state:)
+      rescue StandardError => e
+        logger.error('runtime state reporting failed', worker_id:, state:, error_class: e.class.name, error_message: e.message)
         nil
       end
 

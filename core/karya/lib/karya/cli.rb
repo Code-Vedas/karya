@@ -15,6 +15,7 @@ require_relative 'cli/integer_option'
 require_relative 'cli/env_prefix'
 require_relative 'cli/handler_parser'
 require_relative 'cli/mapping_entry'
+require_relative 'cli/runtime_command'
 require_relative 'cli/signal_subscription'
 
 module Karya
@@ -22,6 +23,10 @@ module Karya
   class CLI < Thor
     package_name 'karya'
     default_task :help
+
+    def self.exit_on_failure?
+      true
+    end
 
     def self.start(given_args = ARGV, config = {})
       puts header unless config[:suppress_header]
@@ -58,6 +63,7 @@ module Karya
          'Start a worker supervisor for one or more queues (manages processes and per-process threads)'
     method_option :processes, type: :numeric
     method_option :threads, type: :numeric
+    method_option :state_file, type: :string
     method_option :env_prefix, type: :string
     method_option :worker_id, type: :string, default: "worker-#{Process.pid}"
     method_option :lease_duration, type: :numeric, default: 30
@@ -73,6 +79,9 @@ module Karya
       status = supervisor.run
       exit(status) if status.positive?
     end
+
+    desc 'runtime SUBCOMMAND ...ARGS', 'Inspect or control a running supervisor via the local runtime state file'
+    subcommand 'runtime', RuntimeCommand
 
     no_commands do
       def build_worker_configuration(queues)

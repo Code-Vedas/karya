@@ -21,6 +21,8 @@ RSpec.describe Karya::CLI do
       '3',
       '--threads',
       '4',
+      '--state-file',
+      '/tmp/karya-runtime-worker-cli.json',
       '--env-prefix',
       'billing_worker',
       '--poll-interval',
@@ -88,6 +90,7 @@ RSpec.describe Karya::CLI do
         expect(kwargs.fetch(:queue_store)).to be(configured_queue_store)
         expect(kwargs.fetch(:processes)).to eq(3)
         expect(kwargs.fetch(:threads)).to eq(4)
+        expect(kwargs.fetch(:state_file)).to eq('/tmp/karya-runtime-worker-cli.json')
         expect(kwargs.fetch(:worker_id)).to eq('worker-cli')
         expect(kwargs.fetch(:queues)).to eq(%w[billing email])
         expect(kwargs.fetch(:lease_duration)).to eq(45)

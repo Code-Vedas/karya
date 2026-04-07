@@ -1,0 +1,50 @@
+module Karya
+  class WorkerSupervisor
+    # Supervisor-owned local socket server for runtime control commands.
+    class RuntimeControlServer
+      type control_response = Hash[String, bool | String]
+
+      CLIENT_READ_TIMEOUT_SECONDS: Integer
+
+      MAX_REQUEST_BYTES: Integer
+
+      STOP_TIMEOUT_SECONDS: Integer
+
+      def initialize: (path: String, instance_token: String, command_handler: ^(String) -> nil, logger: logger) -> void
+
+      def start: () -> RuntimeControlServer
+
+      def stop: () -> nil
+
+      private
+
+      def stop_server_thread: () -> nil
+
+      def run_loop: () -> nil
+
+      def handle_client: (IO client) -> nil
+
+      def control_response_for: (String raw_request) -> control_response
+
+      def validate_instance_token: (Hash[String, String] request) -> nil
+
+      class ErrorResponse
+        def initialize: (error: StandardError) -> void
+
+        def to_h: () -> Hash[String, String]
+      end
+
+      class ClientSession
+        READ_CHUNK_BYTES: Integer
+
+        def initialize: (client: IO, response_builder: ^(String) -> control_response) -> void
+
+        def call: () -> nil
+
+        private
+
+        def read_request: () -> String
+      end
+    end
+  end
+end
