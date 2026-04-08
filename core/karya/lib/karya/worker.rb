@@ -52,6 +52,7 @@ module Karya
       @queue_store = queue_store
       @configuration = configuration || Configuration.from_options(extracted_options)
       @runtime = runtime || Runtime.from_options(extracted_options)
+      @last_reported_runtime_state = nil
       raise_unknown_option_error(extracted_options) unless extracted_options.empty?
     end
 
@@ -229,7 +230,10 @@ module Karya
     end
 
     def report_runtime_state(state)
+      return if @last_reported_runtime_state == state
+
       runtime.report_state(worker_id:, state:)
+      @last_reported_runtime_state = state
     end
 
     def raise_unknown_option_error(options)

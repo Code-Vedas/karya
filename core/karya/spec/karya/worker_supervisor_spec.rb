@@ -962,7 +962,7 @@ RSpec.describe Karya::WorkerSupervisor do
         :update_pruned_child_state,
         completed_children: 1,
         failed_bounded_child: false,
-        pruned_children: 0,
+        pruned_children: [],
         shutdown_controller: shutdown_controller
       )
 
@@ -978,7 +978,7 @@ RSpec.describe Karya::WorkerSupervisor do
         :update_pruned_child_state,
         completed_children: 1,
         failed_bounded_child: false,
-        pruned_children: 1,
+        pruned_children: [100],
         shutdown_controller: shutdown_controller
       )
 

@@ -80,6 +80,9 @@ module Karya
 
       def handle_missing_waited_child
         pruned_children = supervisor.send(:prune_stale_children, child_pids)
+        pruned_children.each do |pid|
+          supervisor.send(:runtime_state_store).mark_child_stopped(pid)
+        end
         @completed_processes, @failed_bounded_child = supervisor.send(
           :update_pruned_child_state,
           completed_children: @completed_processes,

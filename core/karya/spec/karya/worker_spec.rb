@@ -1258,5 +1258,23 @@ RSpec.describe Karya::Worker do
         runtime_class.new(unexpected: true)
       end.to raise_error(Karya::InvalidWorkerConfigurationError, /unknown runtime option\(s\): :unexpected/)
     end
+
+    it 'only reports runtime state transitions once per repeated steady state' do
+      runtime = instance_double(described_class.const_get(:Runtime, false), report_state: nil)
+      transition_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        runtime:
+      )
+
+      2.times { transition_worker.send(:report_runtime_state, 'polling') }
+      2.times { transition_worker.send(:report_runtime_state, 'idle') }
+
+      expect(runtime).to have_received(:report_state).with(worker_id: 'worker-1', state: 'polling').once
+      expect(runtime).to have_received(:report_state).with(worker_id: 'worker-1', state: 'idle').once
+    end
   end
 end

@@ -12,7 +12,7 @@ RSpec.describe 'Karya::WorkerSupervisor::RunSession' do
   let(:wakeup_signal_class) { Karya::WorkerSupervisor.const_get(:WakeupSignal, false) }
   let(:supervisor) { instance_double(Karya::WorkerSupervisor) }
   let(:shutdown_controller) { instance_double(shutdown_controller_class, begin_drain: true, force_stop: true, force_stop?: false) }
-  let(:runtime_state_store) { instance_double(runtime_state_store_class, mark_supervisor_phase: nil) }
+  let(:runtime_state_store) { instance_double(runtime_state_store_class, mark_supervisor_phase: nil, mark_child_stopped: nil) }
 
   it 'returns immediately when process_wait_result resolves to a final status' do
     session = described_class.new(supervisor:, shutdown_controller:)
@@ -101,5 +101,18 @@ RSpec.describe 'Karya::WorkerSupervisor::RunSession' do
 
     expect(runtime_state_store).not_to have_received(:mark_supervisor_phase)
     expect(wakeup_signal_class).not_to have_received(:interrupt)
+  end
+
+  it 'marks pruned stale children as stopped in the runtime state store' do
+    session = described_class.new(supervisor:, shutdown_controller:)
+    allow(supervisor).to receive_messages(
+      prune_stale_children: [100, 101],
+      update_pruned_child_state: [2, true],
+      runtime_state_store:
+    )
+
+    expect(session.send(:handle_missing_waited_child)).to equal(described_class.const_get(:CONTINUE_RUNNING, false))
+    expect(runtime_state_store).to have_received(:mark_child_stopped).with(100)
+    expect(runtime_state_store).to have_received(:mark_child_stopped).with(101)
   end
 end

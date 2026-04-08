@@ -99,8 +99,7 @@ module Karya
 
       with_signal_handlers(shutdown_controller) do
         run_session = prepare_run(shutdown_controller)
-        run_result = run_session.call
-        finalize_run(run_result)
+        run_session.call
       rescue StandardError
         cleanup_tracked_children(run_session&.child_pids || {})
         raise
@@ -147,10 +146,6 @@ module Karya
 
       runtime_control_server&.stop
       mark_runtime_stopped if running_claimed
-    end
-
-    def finalize_run(run_result)
-      run_result
     end
 
     def spawn_missing_children(child_pids, desired_children, shutdown_controller)
@@ -207,10 +202,10 @@ module Karya
     end
 
     def prune_stale_children(child_pids)
-      pruned_children = 0
+      pruned_children = []
       child_pids.delete_if do |pid, _|
         pruned = !runtime.process_alive?(pid)
-        pruned_children += 1 if pruned
+        pruned_children << pid if pruned
         pruned
       end
       pruned_children
@@ -223,10 +218,11 @@ module Karya
     end
 
     def update_pruned_child_state(completed_children:, failed_bounded_child:, pruned_children:, shutdown_controller:)
-      return [completed_children, failed_bounded_child] if pruned_children.zero?
+      pruned_children_count = pruned_children.length
+      return [completed_children, failed_bounded_child] if pruned_children_count.zero?
       return [completed_children, failed_bounded_child] unless bounded_child_exit?(shutdown_controller)
 
-      [completed_children + pruned_children, true]
+      [completed_children + pruned_children_count, true]
     end
 
     def run_child_worker
