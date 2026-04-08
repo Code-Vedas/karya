@@ -44,7 +44,7 @@ RSpec/MultipleExpectations:
   Max: 30
 
 RSpec/ExampleLength:
-  Max: 50
+  Max: 60
 
 RSpec/MultipleMemoizedHelpers:
   Max: 15

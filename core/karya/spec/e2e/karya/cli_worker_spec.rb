@@ -87,20 +87,34 @@ RSpec.describe Karya::CLI, :e2e, :integration do
         '--state-file',
         state_file
       ), chdir: KaryaE2EHelpers::PACKAGE_ROOT) do |_stdin, stdout_and_stderr, wait_thr|
-        wait_until { File.exist?(marker_file) && File.exist?(state_file) }
-        supervisor_pid = read_runtime_state(state_file).fetch('supervisor_pid')
-        Process.kill('TERM', supervisor_pid)
-        sleep(0.1)
-        Process.kill('TERM', supervisor_pid)
-      rescue Errno::ESRCH
-        nil
-      ensure
-        process_status = Timeout.timeout(10) { wait_thr.value }
-        output = stdout_and_stderr.read
+        process_status = nil
 
-        expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{output}" }
-        expect(File.read(marker_file).strip).not_to be_empty
-        expect(read_runtime_state(state_file).fetch('snapshot').fetch('phase')).to eq('stopped')
+        begin
+          wait_until { File.exist?(marker_file) && File.exist?(state_file) }
+          supervisor_pid = read_runtime_state(state_file).fetch('supervisor_pid')
+          Process.kill('TERM', supervisor_pid)
+          sleep(0.1)
+          Process.kill('TERM', supervisor_pid)
+        rescue Errno::ESRCH
+          nil
+        ensure
+          begin
+            if wait_thr.alive?
+              Process.kill('TERM', wait_thr.pid)
+              sleep(0.1)
+              Process.kill('KILL', wait_thr.pid) if wait_thr.alive?
+            end
+          rescue Errno::ESRCH
+            nil
+          ensure
+            process_status ||= Timeout.timeout(10) { wait_thr.value }
+            output = stdout_and_stderr.read
+
+            expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{output}" }
+            expect(File.read(marker_file).strip).not_to be_empty
+            expect(read_runtime_state(state_file).fetch('snapshot').fetch('phase')).to eq('stopped')
+          end
+        end
       end
     end
   end

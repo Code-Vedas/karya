@@ -30,7 +30,7 @@ RSpec.describe Karya::Worker, :integration do
     queue_store.instance_variable_get(:@state).jobs_by_id.fetch(job_id)
   end
 
-  it 'executes a queued job to succeeded through the real worker and queue-store path' do
+  it 'executes a queued job to succeed through the real worker and queue-store path' do
     enqueue_submission_job(id: 'job-success')
 
     worker = described_class.new(
