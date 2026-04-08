@@ -23,7 +23,7 @@ investigation, and automation.
 ### Scripting An Operator Workflow
 
 CLI workflows should mirror the same operational concepts shown in the
-dashboard:
+dashboard and operator APIs:
 
 ```text
 karya queue inspect billing
@@ -31,22 +31,33 @@ karya workflow replay invoice-closeout-204
 karya schedule pause nightly-reconciliation
 ```
 
-These examples show vocabulary alignment, not a finalized command reference.
+These examples show the vocabulary and workflow shape operators should expect
+across Karya surfaces.
 
-## Current Runtime Commands
+## Runtime Bootstrap And Control
 
-The minimal runtime control slice currently exposes:
+Runtime-oriented CLI flows use the supervisor-managed worker model:
 
 ```text
-karya worker billing --state-file /tmp/karya-runtime-billing.json
+karya worker billing \
+  --processes 1 \
+  --threads 1 \
+  --state-file /tmp/karya-runtime-billing.json \
+  --env-prefix billing_worker \
+  --worker-id worker-1 \
+  --handler billing_sync=BillingJob
 karya runtime inspect --state-file /tmp/karya-runtime-billing.json
+karya runtime show --state-file /tmp/karya-runtime-billing.json
 karya runtime drain --state-file /tmp/karya-runtime-billing.json
 karya runtime force-stop --state-file /tmp/karya-runtime-billing.json
 ```
 
 The worker supervisor writes a versioned JSON runtime state file. The runtime
 CLI reads that file for inspection and uses the recorded local Unix control
-socket plus instance token for drain or force-stop requests.
+socket plus instance token for drain or force-stop requests. `inspect` and
+`show` describe the same inspection workflow. Process and thread defaults can
+also be sourced from env-prefixed settings such as
+`KARYA_BILLING_WORKER_PROCESSES` and `KARYA_BILLING_WORKER_THREADS`.
 
 ## Related Concepts
 

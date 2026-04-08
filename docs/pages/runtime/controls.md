@@ -12,7 +12,7 @@ CLI surfaces.
 
 ## Supported Control Types
 
-- minimal runtime inspection APIs
+- runtime inspection APIs for supervisor, child-process, and worker-thread state
 - supervisor-level drain and force-stop controls for worker runtimes
 - queue and worker lifecycle control
 - bulk enqueue, retry, cancel, and pause/resume operations
@@ -53,17 +53,19 @@ control models.
 
 ### Inspecting A Running Worker Runtime
 
-Issue 16 delivers the first supported runtime inspection/control slice for the
-supervisor-managed worker runtime:
+The supervisor-managed worker runtime surfaces:
 
 - supervisor topology inspection
 - coarse child-process and worker-thread state visibility
 - graceful drain and force-stop controls at the whole-supervisor level
 - local CLI access through a runtime state file plus a supervisor-owned Unix
   control socket validated with an instance token
+- corresponding dashboard and operator API workflows that expose the same
+  runtime vocabulary for investigation and intervention
 
-This surface does not yet include dashboard-owned APIs, remote transports, or
-fine-grained per-thread and per-job intervention.
+Runtime control remains aligned around the supervisor-managed execution model:
+supervisor state, child-process state, worker-thread state, and safe
+intervention boundaries around queued, reserved, running, and recovery flows.
 
 ## Related Concepts
 

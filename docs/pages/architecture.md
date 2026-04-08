@@ -54,6 +54,11 @@ The product exposes three peer operator surfaces:
 All three surfaces share the same domain vocabulary: queues, workers,
 workflows, schedules, activity, policies, approvals, and rollout state.
 
+For runtime execution, those surfaces are organized around the same
+supervisor-managed worker model: a supervisor process owns worker lifecycle,
+child processes provide process isolation, and each child process runs work
+through a thread pool.
+
 ## Scheduling Model
 
 Recurring jobs and cron-style schedules are provided through Kaal, the Karya
