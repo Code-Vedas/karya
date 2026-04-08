@@ -1,0 +1,28 @@
+module Karya
+  class WorkerSupervisor
+    # Runs the supervisor child-management loop and owns run-local counters.
+    class RunSession
+      def initialize: (supervisor: WorkerSupervisor, shutdown_controller: WorkerSupervisor::ShutdownController) -> void
+
+      def child_pids: () -> Hash[Integer, bool]
+
+      def call: () -> Integer
+
+      def request_drain: () -> nil
+
+      def request_force_stop: () -> nil
+
+      private
+
+      def update_signal_state: () -> [bool, bool]
+
+      def finished_run_status: () -> Integer
+
+      def process_wait_result: () -> Integer?
+
+      def handle_missing_waited_child: () -> Integer?
+
+      def handle_waited_child: ([Integer, Process::Status] waited_child) -> Integer?
+    end
+  end
+end

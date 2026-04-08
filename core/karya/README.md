@@ -77,6 +77,7 @@ end
 bundle exec ruby -r./config/worker_boot -Ilib exe/karya worker billing \
   --processes 1 \
   --threads 1 \
+  --state-file /tmp/karya-runtime-billing.json \
   --env-prefix billing_worker \
   --worker-id worker-1 \
   --handler billing_sync=BillingJob
@@ -96,6 +97,29 @@ suitable for local examples and bootstrapping only.
 `Karya.configure_logger` and `Karya.configure_instrumenter` set process-wide
 defaults. When multiple runtimes share the same process, pass explicit
 `logger:` and `instrumenter:` collaborators to keep runtime boundaries isolated.
+
+## Runtime Inspection And Control
+
+`Karya::WorkerSupervisor` now exposes a minimal supported inspection and control
+surface:
+
+- `runtime_snapshot` for supervisor, child-process, and worker-thread topology
+- `begin_drain` for graceful shutdown
+- `force_stop` for forced shutdown
+
+The CLI exposes the same local-runtime surface through the state file written by
+`karya worker` for inspection plus a supervisor-owned local Unix control socket
+for drain and force-stop requests:
+
+```bash
+bundle exec exe/karya runtime inspect --state-file /tmp/karya-runtime-billing.json
+bundle exec exe/karya runtime drain --state-file /tmp/karya-runtime-billing.json
+bundle exec exe/karya runtime force-stop --state-file /tmp/karya-runtime-billing.json
+```
+
+This issue intentionally stops at supervisor-wide control and coarse runtime
+state. Dashboard-owned APIs, remote transports, and fine-grained operator
+actions remain separate work.
 
 For platform-level setup, workflows, and operator guidance, use the
 [Karya documentation](https://karya.codevedas.com/).

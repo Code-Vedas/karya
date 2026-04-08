@@ -13,6 +13,7 @@ CLI surfaces.
 ## Supported Control Types
 
 - minimal runtime inspection APIs
+- supervisor-level drain and force-stop controls for worker runtimes
 - queue and worker lifecycle control
 - bulk enqueue, retry, cancel, and pause/resume operations
 - operator-visible state used for safe intervention across `queued`,
@@ -49,6 +50,20 @@ inspect worker <worker-id>
 Command and API shapes may evolve, but the model stays the same: operators can
 inspect and intervene through aligned surfaces instead of learning unrelated
 control models.
+
+### Inspecting A Running Worker Runtime
+
+Issue 16 delivers the first supported runtime inspection/control slice for the
+supervisor-managed worker runtime:
+
+- supervisor topology inspection
+- coarse child-process and worker-thread state visibility
+- graceful drain and force-stop controls at the whole-supervisor level
+- local CLI access through a runtime state file plus a supervisor-owned Unix
+  control socket validated with an instance token
+
+This surface does not yet include dashboard-owned APIs, remote transports, or
+fine-grained per-thread and per-job intervention.
 
 ## Related Concepts
 

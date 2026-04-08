@@ -17,6 +17,10 @@ module Karya
 
         def advance: () -> void
 
+        def begin_drain: () -> bool
+
+        def force_stop: () -> bool
+
         def normal?: () -> bool
 
         def draining?: () -> bool

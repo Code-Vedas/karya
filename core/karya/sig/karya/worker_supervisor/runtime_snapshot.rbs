@@ -1,0 +1,84 @@
+module Karya
+  class WorkerSupervisor
+    class RuntimeSnapshot
+      type thread_snapshot_record = ::Hash[Symbol, String]
+
+      type child_process_snapshot_record_value = Integer | String | Array[thread_snapshot_record]
+
+      type child_process_snapshot_record = ::Hash[Symbol, child_process_snapshot_record_value]
+
+      type snapshot_record_value = Integer | String | Array[String] | Array[child_process_snapshot_record]
+
+      type snapshot_record = ::Hash[Symbol, snapshot_record_value]
+
+      type thread_snapshot_input_value = String | Integer | Symbol
+
+      type thread_snapshot_input = ::Hash[Symbol | String, thread_snapshot_input_value]
+
+      type child_process_snapshot_input_value = Integer | String | Symbol | Array[thread_snapshot_input]
+
+      type child_process_snapshot_input = ::Hash[Symbol | String, child_process_snapshot_input_value]
+
+      type snapshot_input_value = Integer | String | Symbol | Array[String] | Array[child_process_snapshot_input]
+
+      type snapshot_input = ::Hash[Symbol | String, snapshot_input_value]
+
+      attr_reader worker_id: String
+
+      attr_reader supervisor_pid: Integer
+
+      attr_reader queues: Array[String]
+
+      attr_reader configured_processes: Integer
+
+      attr_reader configured_threads: Integer
+
+      attr_reader phase: String
+
+      attr_reader child_processes: Array[ChildProcessSnapshot]
+
+      def self.from_h: (snapshot_input payload) -> RuntimeSnapshot
+
+      def initialize: (
+        worker_id: String,
+        supervisor_pid: Integer,
+        queues: Array[String],
+        configured_processes: Integer,
+        configured_threads: Integer,
+        phase: String,
+        child_processes: Array[ChildProcessSnapshot]
+      ) -> void
+
+      def to_h: () -> snapshot_record
+
+      class ThreadSnapshot
+        attr_reader worker_id: String
+
+        attr_reader state: String
+
+        def initialize: (worker_id: String, state: String) -> void
+
+        def to_h: () -> thread_snapshot_record
+      end
+
+      class ChildProcessSnapshot
+        attr_reader pid: Integer
+
+        attr_reader state: String
+
+        attr_reader thread_count: Integer
+
+        attr_reader threads: Array[ThreadSnapshot]
+
+        def initialize: (
+          pid: Integer,
+          state: String,
+          thread_count: Integer,
+          threads: Array[ThreadSnapshot]
+        ) -> void
+
+        def to_h: () -> child_process_snapshot_record
+      end
+    end
+  end
+end

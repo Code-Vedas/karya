@@ -1,0 +1,28 @@
+module Karya
+  class Worker
+    # Encapsulates the worker polling loop and associated runtime-state updates.
+    class RunSession
+      def initialize: (
+        worker: Worker,
+        iteration_limit: Internal::RuntimeSupport::IterationLimit,
+        normalized_poll_interval: Numeric,
+        shutdown_controller: Worker::ShutdownController | Worker::InactiveShutdownController,
+        stop_when_idle: bool
+      ) -> void
+
+      def call: () -> Job?
+
+      private
+
+      def run_iteration: () -> Job?
+
+      def resolve_loop_result: (Job? result) -> Job?
+
+      def report_loop_state: (Job? loop_result, Job? result) -> nil
+
+      def sleep_if_needed: (Job? result) -> nil
+
+      def stop_loop: () -> nil
+    end
+  end
+end

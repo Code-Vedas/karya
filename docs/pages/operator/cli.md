@@ -33,6 +33,21 @@ karya schedule pause nightly-reconciliation
 
 These examples show vocabulary alignment, not a finalized command reference.
 
+## Current Runtime Commands
+
+The minimal runtime control slice currently exposes:
+
+```text
+karya worker billing --state-file /tmp/karya-runtime-billing.json
+karya runtime inspect --state-file /tmp/karya-runtime-billing.json
+karya runtime drain --state-file /tmp/karya-runtime-billing.json
+karya runtime force-stop --state-file /tmp/karya-runtime-billing.json
+```
+
+The worker supervisor writes a versioned JSON runtime state file. The runtime
+CLI reads that file for inspection and uses the recorded local Unix control
+socket plus instance token for drain or force-stop requests.
+
 ## Related Concepts
 
 - [Controls](/runtime/controls/): CLI commands express the same control

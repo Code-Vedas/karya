@@ -28,6 +28,7 @@ module Karya
           queue_store:,
           processes: resolve_positive_integer_option.call(:processes, env_prefix:, defaults:),
           threads: resolve_positive_integer_option.call(:threads, env_prefix:, defaults:),
+          state_file: options.fetch(:state_file, nil),
           worker_id: options.fetch(:worker_id),
           queues:,
           handlers: HandlerParser.parse(options.fetch(:handler)),

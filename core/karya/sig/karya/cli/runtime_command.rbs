@@ -1,0 +1,23 @@
+module Karya
+  class CLI
+    class RuntimeCommand < Thor
+      RESPONSE_TIMEOUT_SECONDS: Integer
+
+      def self.exit_on_failure?: () -> bool
+
+      def show: () -> nil
+
+      def drain: () -> nil
+
+      def force_stop: () -> nil
+
+      private
+
+      def send_control_command: (String command) -> nil
+
+      def read_response: (IO socket) -> String
+
+      def wait_for_response: (IO socket) -> nil
+    end
+  end
+end

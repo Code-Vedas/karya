@@ -29,6 +29,24 @@ module Karya
           end
         end
 
+        def begin_drain
+          @pre_execution_monitor.synchronize do
+            return false unless @state == NORMAL
+
+            @state = DRAINING
+            true
+          end
+        end
+
+        def force_stop
+          @pre_execution_monitor.synchronize do
+            return false if @state == FORCE_STOP
+
+            @state = FORCE_STOP
+            true
+          end
+        end
+
         def normal?
           @pre_execution_monitor.synchronize { @state == NORMAL }
         end

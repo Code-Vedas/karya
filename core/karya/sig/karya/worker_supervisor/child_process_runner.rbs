@@ -10,11 +10,19 @@ module Karya
 
       @signal_subscriber: (Method | Proc)?
 
+      @runtime_state_store: WorkerSupervisor::RuntimeStateStore | WorkerSupervisor::RuntimeStateStore::NullStore
+
       NOOP_SUBSCRIPTION: Karya::signal_restorer
 
       SIGNALS: ::Array["INT" | "TERM"]
 
-      def initialize: (child_worker_class: singleton(Worker), configuration: WorkerSupervisor::Configuration, queue_store: QueueStore::Base, signal_subscriber: (Method | Proc)?) -> void
+      def initialize: (
+        child_worker_class: singleton(Worker),
+        configuration: WorkerSupervisor::Configuration,
+        queue_store: QueueStore::Base,
+        signal_subscriber: (Method | Proc)?,
+        ?runtime_state_store: WorkerSupervisor::RuntimeStateStore | WorkerSupervisor::RuntimeStateStore::NullStore
+      ) -> void
 
       def run: () -> nil
 
@@ -25,6 +33,8 @@ module Karya
       attr_reader configuration: WorkerSupervisor::Configuration
 
       attr_reader queue_store: QueueStore::Base
+
+      attr_reader runtime_state_store: WorkerSupervisor::RuntimeStateStore | WorkerSupervisor::RuntimeStateStore::NullStore
 
       attr_reader signal_subscriber: (Method | Proc)?
 
@@ -43,6 +53,8 @@ module Karya
       def append_signal_restorers: (Array[Karya::signal_restorer] restorers, WorkerSupervisor::ShutdownController shutdown_controller) -> Array["INT" | "TERM"]
 
       def subscribe_signal: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
+
+      def report_thread_state: (worker_id: String, state: String) -> nil
     end
   end
 end

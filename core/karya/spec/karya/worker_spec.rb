@@ -1232,5 +1232,73 @@ RSpec.describe Karya::Worker do
         error_message: 'boom'
       )
     end
+
+    it 'logs and swallows runtime state reporter failures' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_class = described_class.const_get(:Runtime, false)
+      runtime_instance = runtime_class.new(
+        logger:,
+        state_reporter: ->(**) { raise 'boom' }
+      )
+
+      expect(runtime_instance.report_state(worker_id: 'worker-1', state: 'running')).to be_nil
+      expect(logger).to have_received(:error).with(
+        'runtime state reporting failed',
+        worker_id: 'worker-1',
+        state: 'running',
+        error_class: 'RuntimeError',
+        error_message: 'boom'
+      )
+    end
+
+    it 'rejects unknown runtime keyword options' do
+      runtime_class = described_class.const_get(:Runtime, false)
+
+      expect do
+        runtime_class.new(unexpected: true)
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /unknown runtime option\(s\): :unexpected/)
+    end
+
+    it 'only reports runtime state transitions once per repeated steady state' do
+      runtime = instance_double(described_class.const_get(:Runtime, false), report_state: nil)
+      transition_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        runtime:
+      )
+
+      2.times { transition_worker.send(:report_runtime_state, 'polling') }
+      2.times { transition_worker.send(:report_runtime_state, 'idle') }
+
+      expect(runtime).to have_received(:report_state).with(worker_id: 'worker-1', state: 'polling').once
+      expect(runtime).to have_received(:report_state).with(worker_id: 'worker-1', state: 'idle').once
+    end
+
+    it 'resets runtime-state transition tracking at the start of each run' do
+      reports = []
+      restarting_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        clock: -> { now },
+        state_reporter: ->(worker_id:, state:) { reports << [worker_id, state] }
+      )
+
+      2.times { restarting_worker.run(stop_when_idle: true) }
+
+      expect(reports).to eq(
+        [
+          %w[worker-1 polling],
+          %w[worker-1 stopping],
+          %w[worker-1 polling],
+          %w[worker-1 stopping]
+        ]
+      )
+    end
   end
 end

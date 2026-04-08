@@ -12,11 +12,12 @@ module Karya
       NOOP_SUBSCRIPTION = -> {}.freeze
       SIGNALS = %w[INT TERM].freeze
 
-      def initialize(child_worker_class:, configuration:, queue_store:, signal_subscriber:)
+      def initialize(child_worker_class:, configuration:, queue_store:, signal_subscriber:, runtime_state_store: RuntimeStateStore::NullStore.new)
         @child_worker_class = child_worker_class
         @configuration = configuration
         @queue_store = queue_store
         @signal_subscriber = signal_subscriber
+        @runtime_state_store = runtime_state_store
       end
 
       def run
@@ -31,7 +32,7 @@ module Karya
 
       private
 
-      attr_reader :child_worker_class, :configuration, :queue_store, :signal_subscriber
+      attr_reader :child_worker_class, :configuration, :queue_store, :runtime_state_store, :signal_subscriber
 
       def build_threads(shutdown_controller, failures)
         Array.new(configuration.threads) do |index|
@@ -45,13 +46,17 @@ module Karya
       end
 
       def run_thread_worker(thread_index, shutdown_controller)
+        process_pid = Process.pid
+        worker_id = child_worker_id(thread_index)
+        runtime_state_store.register_thread(process_pid:, worker_id:, thread_index:)
         worker = child_worker_class.new(
           queue_store:,
-          worker_id: child_worker_id(thread_index),
+          worker_id:,
           queues: configuration.queues,
           handlers: configuration.handlers,
           lease_duration: configuration.lease_duration,
-          lifecycle: configuration.lifecycle
+          lifecycle: configuration.lifecycle,
+          state_reporter: method(:report_thread_state)
         )
         worker.run(
           poll_interval: configuration.poll_interval,
@@ -59,6 +64,8 @@ module Karya
           stop_when_idle: configuration.stop_when_idle,
           shutdown_controller:
         )
+      ensure
+        mark_thread_stopped(process_pid:, worker_id:)
       end
 
       def child_worker_id(thread_index)
@@ -99,6 +106,23 @@ module Karya
           error_class: InvalidWorkerSupervisorConfigurationError,
           message: "signal_subscriber must return a callable restorer responding to #call, got: #{restorer.inspect}"
         ).normalize
+      end
+
+      def report_thread_state(worker_id:, state:)
+        runtime_state_store.mark_thread_state(process_pid: Process.pid, worker_id:, state:)
+      end
+
+      def mark_thread_stopped(process_pid:, worker_id:)
+        runtime_state_store.mark_thread_state(process_pid:, worker_id:, state: RuntimeStateStore::THREAD_STOPPED_STATE)
+      rescue StandardError
+        Karya.logger.error(
+          'runtime state reporting failed during child thread shutdown',
+          process_pid:,
+          worker_id:,
+          error_class: $ERROR_INFO.class.name,
+          error_message: $ERROR_INFO.message
+        )
+        nil
       end
     end
   end

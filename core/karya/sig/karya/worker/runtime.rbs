@@ -12,7 +12,9 @@ module Karya
 
       @signal_subscriber: (nil | ^(String, Karya::signal_handler) -> Karya::signal_restorer?)
 
-      OPTION_KEYS: ::Array[:clock | :instrumenter | :logger | :signal_subscriber | :sleeper]
+      @state_reporter: (nil | ^(worker_id: String, state: String) -> nil)
+
+      OPTION_KEYS: ::Array[:clock | :instrumenter | :logger | :signal_subscriber | :sleeper | :state_reporter]
 
       attr_reader instrumenter: instrumenter?
 
@@ -25,7 +27,8 @@ module Karya
         ?instrumenter: instrumenter?,
         ?logger: logger?,
         ?sleeper: (^(Numeric) -> Numeric)?,
-        ?signal_subscriber: (^(String, Karya::signal_handler) -> Karya::signal_restorer?)?
+        ?signal_subscriber: (^(String, Karya::signal_handler) -> Karya::signal_restorer?)?,
+        ?state_reporter: (^(worker_id: String, state: String) -> nil)?
       ) -> void
 
       def current_time: () -> Time
@@ -35,6 +38,8 @@ module Karya
       def subscribe_signal: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
 
       def instrument: (String event, context_payload payload) -> nil
+
+      def report_state: (worker_id: String, state: String) -> nil
     end
   end
 end

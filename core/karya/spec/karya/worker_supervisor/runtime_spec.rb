@@ -244,6 +244,34 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       end
     end
 
+    it 'covers the default forker success path without forking a real process' do
+      runtime_instance = runtime_class.new
+      allow(Process).to receive(:fork).and_yield.and_return(123)
+      allow(Kernel).to receive(:exit!)
+
+      expect(runtime_instance.send(:default_forker) { :ok }).to eq(123)
+      expect(Kernel).to have_received(:exit!).with(0)
+    end
+
+    it 're-raises SystemExit from the default forker child block' do
+      runtime_instance = runtime_class.new
+      allow(Process).to receive(:fork).and_yield
+
+      expect do
+        runtime_instance.send(:default_forker) { raise SystemExit, 1 }
+      end.to raise_error(SystemExit)
+    end
+
+    it 'covers the default forker failure path without forking a real process' do
+      runtime_instance = runtime_class.new
+      allow(Process).to receive(:fork).and_yield
+      allow(Kernel).to receive(:exit!)
+
+      runtime_instance.send(:default_forker) { raise 'boom' }
+
+      expect(Kernel).to have_received(:exit!).with(1)
+    end
+
     it 'builds runtime from option hashes and restores nil restorer handling' do
       subscriptions = {}
       runtime_instance = runtime_class.from_options(

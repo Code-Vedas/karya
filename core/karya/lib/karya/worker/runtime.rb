@@ -9,7 +9,7 @@ module Karya
   class Worker
     # Worker runtime dependencies that provide clock and sleep behavior.
     class Runtime
-      OPTION_KEYS = %i[clock instrumenter logger signal_subscriber sleeper].freeze
+      OPTION_KEYS = %i[clock instrumenter logger signal_subscriber sleeper state_reporter].freeze
       UNSET = Object.new.freeze
 
       attr_reader :instrumenter, :logger
@@ -21,34 +21,33 @@ module Karya
         new(**attributes)
       end
 
-      def initialize(clock: -> { Time.now.utc }, instrumenter: UNSET, logger: UNSET, sleeper: UNSET, signal_subscriber: nil)
-        @clock = Primitives::Callable.new(:clock, clock, error_class: InvalidWorkerConfigurationError).normalize
-        @instrumenter = Primitives::OptionalCallable.new(:instrumenter, instrumenter.equal?(UNSET) ? Karya.instrumenter : instrumenter,
-                                                         error_class: InvalidWorkerConfigurationError).normalize
-        @logger = validate_logger(logger.equal?(UNSET) ? Karya.logger : logger)
-        @sleeper = Primitives::Callable.new(
-          :sleeper,
-          sleeper.equal?(UNSET) ? default_sleeper : sleeper,
-          error_class: InvalidWorkerConfigurationError
-        ).normalize
-        @signal_subscriber = Primitives::OptionalCallable.new(:signal_subscriber, signal_subscriber, error_class: InvalidWorkerConfigurationError).normalize
+      def initialize(**attributes)
+        unknown_keys = attributes.each_key.reject { |key| OPTION_KEYS.include?(key) }
+        raise InvalidWorkerConfigurationError, "unknown runtime option(s): #{unknown_keys.map(&:inspect).join(', ')}" unless unknown_keys.empty?
+
+        initialize_clock(attributes)
+        initialize_instrumenter(attributes)
+        initialize_logger_dependency(attributes)
+        initialize_sleeper(attributes)
+        initialize_signal_subscriber(attributes)
+        initialize_state_reporter(attributes)
       end
 
       def current_time
-        value = @clock.call
+        value = clock.call
         raise InvalidWorkerConfigurationError, 'clock must return a Time' unless value.is_a?(Time)
 
         value
       end
 
       def sleep(duration)
-        @sleeper.call(duration)
+        sleeper.call(duration)
       end
 
       def subscribe_signal(signal, handler)
-        return NOOP_SUBSCRIPTION unless @signal_subscriber
+        return NOOP_SUBSCRIPTION unless signal_subscriber
 
-        restorer = @signal_subscriber.call(signal, handler)
+        restorer = signal_subscriber.call(signal, handler)
         Internal::RuntimeSupport::SignalRestorer.new(
           { nil => NOOP_SUBSCRIPTION }.fetch(restorer, restorer),
           error_class: InvalidWorkerConfigurationError,
@@ -65,7 +64,64 @@ module Karya
         nil
       end
 
+      def report_state(worker_id:, state:)
+        return unless state_reporter
+
+        state_reporter.call(worker_id:, state:)
+      rescue StandardError => e
+        logger.error('runtime state reporting failed', worker_id:, state:, error_class: e.class.name, error_message: e.message)
+        nil
+      end
+
       private
+
+      attr_reader :clock, :signal_subscriber, :sleeper, :state_reporter
+
+      def initialize_clock(attributes)
+        clock = attributes.fetch(:clock, -> { Time.now.utc })
+        @clock = Primitives::Callable.new(:clock, clock, error_class: InvalidWorkerConfigurationError).normalize
+      end
+
+      def initialize_instrumenter(attributes)
+        instrumenter = attributes.fetch(:instrumenter, UNSET)
+        @instrumenter = Primitives::OptionalCallable.new(
+          :instrumenter,
+          instrumenter.equal?(UNSET) ? Karya.instrumenter : instrumenter,
+          error_class: InvalidWorkerConfigurationError
+        ).normalize
+      end
+
+      def initialize_logger_dependency(attributes)
+        logger = attributes.fetch(:logger, UNSET)
+        @logger = validate_logger(logger.equal?(UNSET) ? Karya.logger : logger)
+      end
+
+      def initialize_sleeper(attributes)
+        sleeper = attributes.fetch(:sleeper, UNSET)
+        @sleeper = Primitives::Callable.new(
+          :sleeper,
+          sleeper.equal?(UNSET) ? default_sleeper : sleeper,
+          error_class: InvalidWorkerConfigurationError
+        ).normalize
+      end
+
+      def initialize_signal_subscriber(attributes)
+        signal_subscriber = attributes.fetch(:signal_subscriber, nil)
+        @signal_subscriber = Primitives::OptionalCallable.new(
+          :signal_subscriber,
+          signal_subscriber,
+          error_class: InvalidWorkerConfigurationError
+        ).normalize
+      end
+
+      def initialize_state_reporter(attributes)
+        state_reporter = attributes.fetch(:state_reporter, nil)
+        @state_reporter = Primitives::OptionalCallable.new(
+          :state_reporter,
+          state_reporter,
+          error_class: InvalidWorkerConfigurationError
+        ).normalize
+      end
 
       def default_sleeper
         lambda do |duration|
