@@ -1,0 +1,57 @@
+# frozen_string_literal: true
+
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+RSpec.describe Karya::QueueStore::InMemory, :integration do
+  subject(:store) { described_class.new(token_generator: -> { 'lease-token' }) }
+
+  let(:base_time) { Time.utc(2026, 4, 7, 12, 0, 0) }
+
+  def submission_job(id:)
+    Karya::Job.new(
+      id:,
+      queue: 'billing',
+      handler: 'billing_sync',
+      arguments: { 'account_id' => 42 },
+      state: :submission,
+      created_at: base_time
+    )
+  end
+
+  def stored_job(job_id)
+    store.instance_variable_get(:@state).jobs_by_id.fetch(job_id)
+  end
+
+  it 'requeues an expired reservation and allows another worker to reserve the same job' do
+    store.enqueue(job: submission_job(id: 'job-reservation'), now: base_time)
+    reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 5, now: base_time + 1)
+
+    expect do
+      store.start_execution(reservation_token: reservation.token, now: base_time + 10)
+    end.to raise_error(Karya::ExpiredReservationError)
+
+    replacement = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 5, now: base_time + 11)
+
+    expect(replacement.job_id).to eq('job-reservation')
+    expect(stored_job('job-reservation').state).to eq(:reserved)
+  end
+
+  it 'requeues an expired execution so the job can be retried deterministically' do
+    store.enqueue(job: submission_job(id: 'job-execution'), now: base_time)
+    reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: base_time + 1)
+    store.start_execution(reservation_token: reservation.token, now: base_time + 1.5)
+
+    expect do
+      store.complete_execution(reservation_token: reservation.token, now: base_time + 5)
+    end.to raise_error(Karya::ExpiredReservationError)
+
+    replacement = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 5, now: base_time + 6)
+
+    expect(replacement.job_id).to eq('job-execution')
+    expect(stored_job('job-execution').state).to eq(:reserved)
+    expect(stored_job('job-execution').attempt).to eq(1)
+  end
+end

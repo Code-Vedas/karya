@@ -13,7 +13,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
   let(:success_status) { instance_double(Process::Status, success?: true) }
   let(:failure_status) { instance_double(Process::Status, success?: false) }
 
-  describe 'integration tests' do
+  describe 'integration tests', :integration do
     it 'builds and runs a real child worker from supervisor configuration' do
       real_queue_store = Karya::QueueStore::InMemory.new(token_generator: -> { 'lease-token' })
       executed = []
