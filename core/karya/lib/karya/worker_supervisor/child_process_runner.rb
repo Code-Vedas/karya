@@ -114,13 +114,13 @@ module Karya
 
       def mark_thread_stopped(process_pid:, worker_id:)
         runtime_state_store.mark_thread_state(process_pid:, worker_id:, state: RuntimeStateStore::THREAD_STOPPED_STATE)
-      rescue StandardError
+      rescue StandardError => e
         Karya.logger.error(
           'runtime state reporting failed during child thread shutdown',
           process_pid:,
           worker_id:,
-          error_class: $ERROR_INFO.class.name,
-          error_message: $ERROR_INFO.message
+          error_class: e.class.name,
+          error_message: e.message
         )
         nil
       end

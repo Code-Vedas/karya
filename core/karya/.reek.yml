@@ -31,6 +31,7 @@ detectors:
     exclude:
       - Karya::WorkerSupervisor#reap_tracked_children
       - Karya::JobLifecycle::StateManager#merge_extension_transitions
+      - Karya::WorkerSupervisor::ChildProcessRunner#mark_thread_stopped
   UtilityFunction:
     enabled: true
     exclude:

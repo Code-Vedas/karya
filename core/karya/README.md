@@ -43,6 +43,10 @@ bin/reek
 bundle exec exe/karya --version
 ```
 
+`bin/rspec-unit` is the fast default lane for isolated specs. `bin/rspec-e2e`
+runs the committed non-unit validation suite tagged with `:integration`,
+including subprocess-driven CLI coverage.
+
 ## Worker Bootstrap
 
 The core package now includes a supervisor-managed worker runtime. The

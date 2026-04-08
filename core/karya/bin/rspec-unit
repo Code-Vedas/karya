@@ -4,4 +4,4 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 set -euo pipefail
-bin/rspec --tag ~feature --tag ~integration "$@"
+bin/rspec --tag ~feature --tag ~integration --tag ~e2e "$@"

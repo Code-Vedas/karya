@@ -29,6 +29,19 @@ RSpec.describe 'Karya::WorkerSupervisor::ChildProcessRunner' do
     )
   end
 
+  def configuration_with(**overrides)
+    configuration_class.new(
+      {
+        worker_id: 'worker-supervisor',
+        queues: ['billing'],
+        handlers: { 'billing_sync' => -> {} },
+        lease_duration: 30,
+        max_iterations: 1,
+        threads: 1
+      }.merge(overrides)
+    )
+  end
+
   it 'raises child thread failures after joining the thread pool' do
     worker_instance = instance_double(Karya::Worker)
     allow(child_worker_class).to receive(:new).and_return(worker_instance)
@@ -73,6 +86,26 @@ RSpec.describe 'Karya::WorkerSupervisor::ChildProcessRunner' do
         runtime_state_store:
       ).run
     end.not_to raise_error
+  end
+
+  it 'passes nil max_iterations to child workers when the configuration is unlimited' do
+    worker_instance = instance_double(Karya::Worker, run: nil)
+    allow(child_worker_class).to receive(:new).and_return(worker_instance)
+
+    runner_class.new(
+      child_worker_class: child_worker_class,
+      configuration: configuration_with(max_iterations: :unlimited),
+      queue_store: queue_store,
+      signal_subscriber: nil,
+      runtime_state_store:
+    ).run
+
+    expect(worker_instance).to have_received(:run).with(
+      poll_interval: 1,
+      max_iterations: nil,
+      stop_when_idle: false,
+      shutdown_controller: respond_to(:force_stop?)
+    )
   end
 
   it 'rejects false signal subscriber restorers' do
