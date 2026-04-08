@@ -53,7 +53,7 @@ while IFS= read -r suite_dir; do
   fi
 done < "${TMP_DIR}/ruby-suites.txt"
 
-update_bundle_dir "docs" "Gemfile"
+update_bundle_dir "docs"
 
 js_suites > "${TMP_DIR}/js-suites.txt"
 
