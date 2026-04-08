@@ -28,7 +28,7 @@
     "eslint": "^10.2.0",
     "eslint-plugin-simple-import-sort": "^13.0.0",
     "globals": "^17.4.0",
-    "postcss": "^8.5.8",
+    "postcss": "^8.5.9",
     "sass": "^1.99.0",
     "semver": "^7.7.4",
     "stylelint": "^17.6.0",
