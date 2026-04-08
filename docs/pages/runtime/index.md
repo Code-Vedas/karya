@@ -26,7 +26,7 @@ The runtime section is the source of truth for:
 
 - canonical job and queue execution semantics
 - canonical job lifecycle states and transition boundaries
-- worker bootstrap and coordinated execution flow
+- worker bootstrap and coordinated supervisor-managed execution flow
 - graceful shutdown and drain behavior
 - lifecycle controls that later reliability and workflow features build on
 

@@ -32,8 +32,11 @@ Workers extend the canonical job lifecycle; they do not introduce a separate
 execution state model.
 
 The runtime uses a supervisor-owned process model. `karya worker` starts a
-master process that maintains the configured number of child worker processes,
-and each child process executes the queue loop through a thread pool.
+supervisor process that maintains the configured number of child worker
+processes, and each child process executes the queue loop through a thread
+pool. Process-level concurrency is controlled independently from per-child
+thread concurrency so operators can shape worker topology for the selected
+queue store and handler workload.
 
 When the supervisor receives `SIGINT` or `SIGTERM`, it enters drain mode: it
 stops replacing child workers, signals active children to stop polling, and
@@ -72,6 +75,8 @@ Karya::CLI.start([
   '1',
   '--threads',
   '1',
+  '--state-file',
+  '/tmp/karya-runtime-billing.json',
   '--env-prefix',
   'billing_worker',
   '--worker-id',
@@ -84,8 +89,10 @@ Karya::CLI.start([
 The supervisor coordinates shutdown and control signals, while child worker
 threads reserve work, execute it, and drain in-flight jobs when shutdown
 begins. Per-worker env overrides use `KARYA_<PREFIX>_PROCESSES` and
-`KARYA_<PREFIX>_THREADS`. Use multiple processes or threads only with a queue
-store that is safe to share across processes and thread-safe handlers.
+`KARYA_<PREFIX>_THREADS`, for example
+`KARYA_BILLING_WORKER_PROCESSES` and `KARYA_BILLING_WORKER_THREADS`.
+Use multiple processes or threads only with a queue store that is safe to
+share across processes and thread-safe handlers.
 `Karya::QueueStore::InMemory` is single-process and is shown here only for local
 examples.
 
