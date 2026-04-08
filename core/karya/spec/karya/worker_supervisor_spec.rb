@@ -281,6 +281,7 @@ RSpec.describe Karya::WorkerSupervisor do
         instance_token: 'runtime-token',
         snapshot: nil,
         register_child: nil,
+        mark_supervisor_phase: nil,
         mark_child_phase: nil,
         mark_child_stopped: nil
       )
