@@ -1276,5 +1276,29 @@ RSpec.describe Karya::Worker do
       expect(runtime).to have_received(:report_state).with(worker_id: 'worker-1', state: 'polling').once
       expect(runtime).to have_received(:report_state).with(worker_id: 'worker-1', state: 'idle').once
     end
+
+    it 'resets runtime-state transition tracking at the start of each run' do
+      reports = []
+      restarting_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        clock: -> { now },
+        state_reporter: ->(worker_id:, state:) { reports << [worker_id, state] }
+      )
+
+      2.times { restarting_worker.run(stop_when_idle: true) }
+
+      expect(reports).to eq(
+        [
+          %w[worker-1 polling],
+          %w[worker-1 stopping],
+          %w[worker-1 polling],
+          %w[worker-1 stopping]
+        ]
+      )
+    end
   end
 end

@@ -270,6 +270,51 @@ RSpec.describe Karya::WorkerSupervisor do
       expect(supervisor.runtime_snapshot.phase).to eq('stopped')
     end
 
+    it 'supports begin_drain through the public control API without reading the runtime state file' do
+      wait_call_count = 0
+      supervisor_with_runtime_state = nil
+      runtime_state_store = instance_double(
+        described_class.const_get(:RuntimeStateStore, false),
+        write_running: nil,
+        write_stopped: nil,
+        control_socket_path: '/tmp/runtime.sock',
+        instance_token: 'runtime-token',
+        snapshot: nil,
+        register_child: nil,
+        mark_child_phase: nil,
+        mark_child_stopped: nil
+      )
+      allow(runtime_state_store).to receive(:snapshot).and_raise('should not read snapshot for in-process control')
+      allow(runtime).to receive(:wait_for_child) do
+        wait_call_count += 1
+        if wait_call_count == 1
+          supervisor_with_runtime_state.begin_drain
+          nil
+        else
+          wait_results.shift
+        end
+      end
+      wait_results << [100, success_status]
+      supervisor_with_runtime_state = described_class.new(
+        queue_store: queue_store,
+        worker_id: 'worker-supervisor',
+        queues: ['billing'],
+        handlers: { 'billing_sync' => -> {} },
+        lease_duration: 30,
+        processes: 1,
+        threads: 1,
+        poll_interval: 0,
+        max_iterations: 1,
+        runtime: runtime,
+        runtime_state_store: runtime_state_store,
+        child_worker_class: child_worker_class
+      )
+
+      expect(supervisor_with_runtime_state.run).to eq(0)
+      expect(killed_processes).to eq([['TERM', 100]])
+      expect(runtime_state_store).not_to have_received(:snapshot)
+    end
+
     it 'supports force_stop through the public control API while running' do
       wait_call_count = 0
       allow(runtime).to receive(:wait_for_child) do
@@ -488,9 +533,6 @@ RSpec.describe Karya::WorkerSupervisor do
       request_thread = Thread.new { supervisor_with_runtime_state.begin_drain }
       request_started.pop
       release_thread = Thread.new { supervisor_with_runtime_state.send(:release_run) }
-      sleep(0.01)
-
-      expect(runtime_state_store).not_to have_received(:write_stopped)
 
       request_release << true
       request_thread.join

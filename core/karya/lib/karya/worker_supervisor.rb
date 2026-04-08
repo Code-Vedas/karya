@@ -287,15 +287,13 @@ module Karya
     end
 
     def with_running_session
-      control_monitor.synchronize do
-        run_session = @run_session
-        snapshot = nil
-        snapshot = runtime_state_store.snapshot if run_session
-        running = run_session && snapshot.phase != RuntimeStateStore::STOPPED_PHASE
-        raise RuntimeControlUnavailableError, 'worker supervisor is not running' unless running
+      run_session = control_monitor.synchronize do
+        raise RuntimeControlUnavailableError, 'worker supervisor is not running' unless @run_session && @running_claimed
 
-        yield(run_session)
+        @run_session
       end
+
+      yield(run_session)
     end
 
     def assign_shutdown_controller(shutdown_controller)

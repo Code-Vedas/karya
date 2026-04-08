@@ -87,6 +87,7 @@ module Karya
     end
 
     def run(poll_interval: DEFAULT_POLL_INTERVAL, max_iterations: nil, stop_when_idle: false, shutdown_controller: nil)
+      @last_reported_runtime_state = nil
       normalized_poll_interval = Primitives::NonNegativeFiniteNumber.new(
         :poll_interval,
         poll_interval,
