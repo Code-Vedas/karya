@@ -14,7 +14,6 @@ require 'fileutils'
 
 module KaryaE2EHelpers
   PACKAGE_ROOT = File.expand_path('../..', __dir__)
-  DEFAULT_TIMESTAMP = Time.utc(2026, 4, 7, 12, 0, 0).freeze
 
   def karya_command(*args)
     ['bundle', 'exec', RbConfig.ruby, '-Ilib', 'exe/karya', *args]

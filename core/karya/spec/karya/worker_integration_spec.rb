@@ -61,7 +61,8 @@ RSpec.describe Karya::Worker, :integration do
       worker_id:,
       queues: [queue_name],
       handlers: {
-        'billing_sync' => lambda do |**_arguments|
+        'billing_sync' => lambda do |account_id:|
+          expect(account_id).to eq(42)
           raise 'boom'
         end
       },
