@@ -12,13 +12,12 @@ require 'fileutils'
 module Karya
   class WorkerSupervisor
     # Supervisor-owned local socket server for runtime control commands.
-    # :reek:MissingSafeMethod { exclude: [unlink_stale_socket!] }
     class RuntimeControlServer
       CLIENT_READ_TIMEOUT_SECONDS = 1
       MAX_REQUEST_BYTES = 4096
       STOP_TIMEOUT_SECONDS = 2
       HANDLED_RUNTIME_ERRORS = [RuntimeControlUnavailableError, InvalidRuntimeStateFileError].freeze
-      INVALID_REQUEST_ERRORS = [KeyError, JSON::ParserError].freeze
+      INVALID_REQUEST_ERRORS = [KeyError, JSON::ParserError, TypeError].freeze
 
       # Maps a handled request error into the control protocol payload.
       class ErrorResponse
@@ -55,7 +54,6 @@ module Karya
       end
 
       # Handles a single runtime control request/response exchange.
-      # :reek:MissingSafeMethod { exclude: [validate_request_size!] }
       class ClientSession
         READ_CHUNK_BYTES = 1024
 
@@ -77,7 +75,7 @@ module Karya
           loop do
             wait_for_client_readability
             buffer << client.readpartial(READ_CHUNK_BYTES)
-            validate_request_size!(buffer)
+            validate_request_size(buffer)
           end
         rescue EOFError
           buffer
@@ -89,7 +87,7 @@ module Karya
           raise InvalidRuntimeStateFileError, 'runtime control request timed out while reading from client'
         end
 
-        def validate_request_size!(buffer)
+        def validate_request_size(buffer)
           return if buffer.bytesize <= MAX_REQUEST_BYTES
 
           raise InvalidRuntimeStateFileError, "runtime control request exceeds #{MAX_REQUEST_BYTES} bytes"
@@ -108,7 +106,7 @@ module Karya
 
       def start
         FileUtils.mkdir_p(File.dirname(path))
-        unlink_stale_socket!
+        unlink_stale_socket
         @server = UNIXServer.new(path)
         @stopping = false
         @server_thread = Thread.new { run_loop }
@@ -127,7 +125,7 @@ module Karya
 
       attr_reader :command_handler, :instance_token, :logger, :path
 
-      def unlink_stale_socket!
+      def unlink_stale_socket
         return unless File.exist?(path)
         return FileUtils.rm_f(path) if File.socket?(path)
 
@@ -146,6 +144,7 @@ module Karya
 
       def run_loop
         loop do
+          client = nil
           client = @server.accept
           handle_client(client)
         rescue IOError, Errno::EBADF
@@ -165,6 +164,7 @@ module Karya
 
       def control_response_for(raw_request)
         request = JSON.parse(raw_request)
+        validate_request_shape(request)
         validate_instance_token(request)
         command = request.fetch('command')
         return { 'ok' => true } if command == 'ping'
@@ -179,6 +179,12 @@ module Karya
         return if request.fetch('instance_token') == instance_token
 
         raise InvalidRuntimeStateFileError, 'runtime control token does not match the running supervisor'
+      end
+
+      def validate_request_shape(request)
+        return if request.is_a?(Hash)
+
+        raise TypeError, 'runtime control request must be a JSON object'
       end
     end
   end

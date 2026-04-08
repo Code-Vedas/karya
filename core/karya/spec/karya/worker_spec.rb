@@ -1250,5 +1250,13 @@ RSpec.describe Karya::Worker do
         error_message: 'boom'
       )
     end
+
+    it 'rejects unknown runtime keyword options' do
+      runtime_class = described_class.const_get(:Runtime, false)
+
+      expect do
+        runtime_class.new(unexpected: true)
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /unknown runtime option\(s\): :unexpected/)
+    end
   end
 end

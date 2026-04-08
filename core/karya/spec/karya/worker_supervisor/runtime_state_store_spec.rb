@@ -308,6 +308,10 @@ RSpec.describe Karya::WorkerSupervisor::RuntimeStateStore do
     expect(described_class.default_path('billing-worker')).to end_with("/karya-runtime-billing-worker-#{Process.pid}.json")
   end
 
+  it 'normalizes repeated invalid worker-id characters without leaving leading or trailing dashes' do
+    expect(described_class.default_path('---billing***worker---')).to end_with("/karya-runtime-billing-worker-#{Process.pid}.json")
+  end
+
   it 'writes, snapshots, and controls runtime payloads through the state file' do
     server = UNIXServer.new(socket_file)
     store = described_class.new(configuration:, path: state_file, supervisor_pid: 12_345)
@@ -369,6 +373,21 @@ RSpec.describe Karya::WorkerSupervisor::RuntimeStateStore do
     expect(second_payload.fetch('control_socket_path')).to eq(second_store.control_socket_path)
     expect(second_payload.fetch('supervisor_pid')).to eq(54_321)
     expect(second_payload.fetch('instance_token')).not_to eq(first_payload.fetch('instance_token'))
+  end
+
+  it 'clears stale child topology when a different supervisor instance claims the runtime state file' do
+    first_store = described_class.new(configuration:, path: state_file, supervisor_pid: 12_345)
+    first_store.write_running
+    first_store.register_child(100)
+    first_store.register_thread(process_pid: 100, worker_id: 'worker-supervisor:100:thread-1', thread_index: 1)
+
+    second_store = described_class.new(configuration:, path: state_file, supervisor_pid: 54_321)
+    allow(described_class).to receive(:process_alive?).with(12_345).and_return(false)
+    second_store.write_running
+
+    second_snapshot = described_class.read_snapshot!(state_file)
+    expect(second_snapshot.supervisor_pid).to eq(54_321)
+    expect(second_snapshot.child_processes).to eq([])
   end
 
   it 'defaults thread index inference when the worker id does not end in a thread suffix' do

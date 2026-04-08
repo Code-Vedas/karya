@@ -78,11 +78,11 @@ module Karya
 
       def self.validate_payload!: (runtime_payload payload) -> runtime_payload
 
-      def self.validate_snapshot!: (snapshot_payload snapshot) -> snapshot_payload
+      def self.validate_snapshot!: (snapshot_payload snapshot) -> void
 
-      def self.validate_child_snapshot!: (child_payload child) -> child_payload
+      def self.validate_child_snapshot!: (child_payload child) -> void
 
-      def self.validate_thread_snapshot!: (thread_payload thread) -> Integer
+      def self.validate_thread_snapshot!: (thread_payload thread) -> void
 
       def initialize: (
         configuration: WorkerSupervisor::Configuration,

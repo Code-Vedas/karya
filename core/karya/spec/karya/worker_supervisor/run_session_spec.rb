@@ -11,7 +11,7 @@ RSpec.describe 'Karya::WorkerSupervisor::RunSession' do
   let(:shutdown_controller_class) { Karya::WorkerSupervisor.const_get(:ShutdownController, false) }
   let(:wakeup_signal_class) { Karya::WorkerSupervisor.const_get(:WakeupSignal, false) }
   let(:supervisor) { instance_double(Karya::WorkerSupervisor) }
-  let(:shutdown_controller) { instance_double(shutdown_controller_class, begin_drain: true, force_stop!: true, force_stop?: false) }
+  let(:shutdown_controller) { instance_double(shutdown_controller_class, begin_drain: true, force_stop: true, force_stop?: false) }
   let(:runtime_state_store) { instance_double(runtime_state_store_class, mark_supervisor_phase: nil) }
 
   it 'returns immediately when process_wait_result resolves to a final status' do
@@ -82,7 +82,7 @@ RSpec.describe 'Karya::WorkerSupervisor::RunSession' do
   end
 
   it 'does not rewrite the phase or interrupt the loop when force-stop was already requested' do
-    allow(shutdown_controller).to receive(:force_stop!).and_return(false)
+    allow(shutdown_controller).to receive(:force_stop).and_return(false)
     allow(supervisor).to receive(:runtime_state_store).and_return(runtime_state_store)
     allow(wakeup_signal_class).to receive(:interrupt)
 

@@ -10,7 +10,7 @@
     "prepackage-build": "yarn build && node scripts/verify-dist.mjs",
     "dev": "vite dev --host 0.0.0.0 --port 4173",
     "preview": "vite preview --host 127.0.0.1 --port 4273",
-    "firefox:e2e": "yarn prepackage-build && ./node_modules/.bin/playwright test --project=firefox"
+    "firefox:e2e": "yarn prepackage-build && yarn exec -- playwright test --project=firefox"
   },
   "dependencies": {
     "react": "^19.2.4",

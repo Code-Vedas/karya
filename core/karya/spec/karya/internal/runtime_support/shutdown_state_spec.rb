@@ -13,10 +13,10 @@ RSpec.describe Karya::Internal::RuntimeSupport::ShutdownState do
     expect(state.begin_drain).to be(false)
   end
 
-  it 'returns false when force_stop! is requested after force-stop has already started' do
+  it 'returns false when force_stop is requested after force-stop has already started' do
     state = described_class.new
 
-    expect(state.force_stop!).to be(true)
-    expect(state.force_stop!).to be(false)
+    expect(state.force_stop).to be(true)
+    expect(state.force_stop).to be(false)
   end
 end

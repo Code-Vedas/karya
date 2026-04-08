@@ -100,6 +100,12 @@ RSpec.describe 'Karya::WorkerSupervisor::RuntimeControlServer' do
     expect(response.fetch('error')).to match(/invalid control request/)
   end
 
+  it 'returns an invalid-request error for non-object JSON payloads' do
+    response = server.send(:control_response_for, JSON.generate(['drain']))
+
+    expect(response.fetch('error')).to match(/invalid control request: runtime control request must be a JSON object/)
+  end
+
   it 'returns a runtime error when the control token does not match' do
     response = server.send(:control_response_for, JSON.generate('command' => 'drain', 'instance_token' => 'wrong-token'))
 
@@ -160,6 +166,23 @@ RSpec.describe 'Karya::WorkerSupervisor::RuntimeControlServer' do
       error_message: 'boom',
       socket_path:
     )
+  end
+
+  it 'does not try to close the previous iteration client again when the next accept fails early' do
+    previous_client = instance_double(IO)
+    fake_server = instance_double(UNIXServer)
+    accept_count = 0
+    allow(fake_server).to receive(:accept) do
+      accept_count += 1
+      accept_count == 1 ? previous_client : raise(IOError)
+    end
+    allow(previous_client).to receive(:close)
+    server.instance_variable_set(:@server, fake_server)
+    server.instance_variable_set(:@stopping, true)
+    allow(server).to receive(:handle_client)
+
+    expect { server.send(:run_loop) }.not_to raise_error
+    expect(previous_client).to have_received(:close).once
   end
 
   it 're-raises server IO errors when shutdown has not started' do

@@ -23,7 +23,6 @@ module Karya
     class InvalidRuntimeStateFileError < Error; end
 
     # File-backed runtime state store shared across the supervisor and child processes.
-    # :reek:MissingSafeMethod { exclude: [validate_control_socket_path!, prevent_live_supervisor_takeover!] }
     # rubocop:disable Metrics/ClassLength
     class RuntimeStateStore
       LOCK_RETRY_INTERVAL = 0.01
@@ -128,6 +127,7 @@ module Karya
         end
 
         def mark_running(supervisor_pid, started_at:, instance_token:, control_socket_path:)
+          reset_topology if supervisor_identity_changed?(supervisor_pid, instance_token)
           @payload['started_at'] = started_at
           @payload['instance_token'] = instance_token
           @payload['control_socket_path'] = control_socket_path
@@ -192,6 +192,14 @@ module Karya
 
         private
 
+        def reset_topology
+          @snapshot['child_processes'] = []
+        end
+
+        def supervisor_identity_changed?(supervisor_pid, instance_token)
+          @payload['supervisor_pid'] != supervisor_pid || @payload['instance_token'] != instance_token
+        end
+
         def find_or_build_child(pid)
           child_processes = @snapshot.fetch('child_processes')
           child_processes.find { |entry| entry['pid'] == pid } || append_child(pid)
@@ -226,7 +234,7 @@ module Karya
       attr_reader :control_socket_path, :instance_token, :path, :started_at
 
       def self.default_path(worker_id)
-        slug = worker_id.to_s.gsub(/[^a-zA-Z0-9_-]+/, '-').gsub(/\A-+|-+\z/, '')
+        slug = slugify_worker_id(worker_id)
         basename = "karya-runtime-#{slug.empty? ? 'worker' : slug}-#{Process.pid}.json"
         File.join(Dir.tmpdir, basename)
       end
@@ -241,6 +249,36 @@ module Karya
 
       def self.socket_path_within_limit?(path)
         path.to_s.bytesize <= MAX_UNIX_SOCKET_PATH_BYTES
+      end
+
+      def self.slugify_worker_id(worker_id)
+        slug = +''
+        previous_dash = false
+
+        worker_id.to_s.each_char do |char|
+          append_dash = !previous_dash && !slug.empty?
+          normalized_char = nil
+
+          if char == '-'
+            normalized_char = char if append_dash
+            previous_dash = append_dash
+          elsif alphanumeric_or_allowed_slug_char?(char)
+            normalized_char = char
+            previous_dash = false
+          elsif append_dash
+            normalized_char = '-'
+            previous_dash = true
+          end
+
+          slug << normalized_char if normalized_char
+        end
+
+        slug.chop! while slug.end_with?('-')
+        slug
+      end
+
+      def self.alphanumeric_or_allowed_slug_char?(char)
+        char.match?(/[A-Za-z0-9_]/)
       end
 
       def self.read_payload!(path)
@@ -384,7 +422,7 @@ module Karya
         @started_at = metadata.fetch(:started_at, Time.now.utc).utc.iso8601
         @instance_token = metadata.fetch(:instance_token, SecureRandom.hex(16))
         @control_socket_path = metadata.fetch(:control_socket_path, store_class.default_control_socket_path(@path))
-        validate_control_socket_path!
+        validate_control_socket_path
       end
 
       def snapshot
@@ -393,7 +431,7 @@ module Karya
 
       def write_running
         update_payload do |payload|
-          prevent_live_supervisor_takeover!(payload)
+          prevent_live_supervisor_takeover(payload)
           mutable_payload(payload).mark_running(
             @supervisor_pid,
             started_at: @started_at,
@@ -439,7 +477,7 @@ module Karya
 
       private
 
-      def validate_control_socket_path!
+      def validate_control_socket_path
         return if self.class.socket_path_within_limit?(@control_socket_path)
 
         raise InvalidWorkerSupervisorConfigurationError,
@@ -551,7 +589,11 @@ module Karya
         raise InvalidRuntimeStateFileError, "runtime state file phase must be one of: #{SNAPSHOT_PHASES.join(', ')}"
       end
 
-      private_class_method :control_socket_live?, :validate_queue_snapshot!, :validate_snapshot_fields!
+      private_class_method :alphanumeric_or_allowed_slug_char?,
+                           :control_socket_live?,
+                           :slugify_worker_id,
+                           :validate_queue_snapshot!,
+                           :validate_snapshot_fields!
 
       def self.read_control_response(socket)
         buffer = +''
@@ -566,7 +608,7 @@ module Karya
 
       private_class_method :read_control_response
 
-      def prevent_live_supervisor_takeover!(payload)
+      def prevent_live_supervisor_takeover(payload)
         existing_pid = payload.fetch('supervisor_pid')
         existing_phase = payload.fetch('snapshot').fetch('phase')
         existing_token = payload.fetch('instance_token')

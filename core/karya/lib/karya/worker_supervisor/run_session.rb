@@ -40,7 +40,7 @@ module Karya
       end
 
       def request_force_stop
-        perform_shutdown_request(shutdown_controller.force_stop!, RuntimeStateStore::FORCE_STOPPING_PHASE)
+        perform_shutdown_request(shutdown_controller.force_stop, RuntimeStateStore::FORCE_STOPPING_PHASE)
       end
 
       private

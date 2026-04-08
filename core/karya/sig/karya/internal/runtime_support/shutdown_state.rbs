@@ -19,7 +19,7 @@ module Karya
 
         def begin_drain: () -> bool
 
-        def force_stop!: () -> bool
+        def force_stop: () -> bool
 
         def normal?: () -> bool
 

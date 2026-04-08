@@ -37,8 +37,6 @@ module Karya
   class InvalidWorkerSupervisorConfigurationError < Error; end
 
   # Supervisor process that manages forked worker children.
-  # :reek:TooManyMethods { enabled: false }
-  # :reek:MissingSafeMethod { exclude: [validate_queue_store!] }
   class WorkerSupervisor
     # Encapsulates the out-of-band signal used only to interrupt blocking waits.
     class WakeupSignal
@@ -65,7 +63,7 @@ module Karya
     def initialize(queue_store: nil, **attributes)
       extracted_options = attributes.dup
       @queue_store = queue_store
-      validate_queue_store!
+      validate_queue_store
       configuration = extracted_options.delete(:configuration)
       runtime = extracted_options.delete(:runtime)
       @configuration = configuration || Configuration.from_options(extracted_options)
@@ -115,7 +113,7 @@ module Karya
 
     attr_reader :child_worker_class, :configuration, :control_monitor, :queue_store, :runtime, :runtime_state_store
 
-    def validate_queue_store!
+    def validate_queue_store
       return if @queue_store
 
       raise InvalidWorkerSupervisorConfigurationError, 'queue_store is required'
@@ -295,6 +293,7 @@ module Karya
     def with_running_session
       control_monitor.synchronize do
         run_session = @run_session
+        snapshot = nil
         snapshot = runtime_state_store.snapshot if run_session
         running = run_session && snapshot.phase != RuntimeStateStore::STOPPED_PHASE
         raise RuntimeControlUnavailableError, 'worker supervisor is not running' unless running
