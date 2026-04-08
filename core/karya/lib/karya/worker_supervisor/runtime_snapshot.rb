@@ -63,14 +63,15 @@ module Karya
         )
       end
 
-      def initialize(attributes)
-        @worker_id = attributes.fetch(:worker_id).freeze
-        @supervisor_pid = attributes.fetch(:supervisor_pid)
-        @queues = attributes.fetch(:queues).freeze
-        @configured_processes = attributes.fetch(:configured_processes)
-        @configured_threads = attributes.fetch(:configured_threads)
-        @phase = attributes.fetch(:phase).freeze
-        @child_processes = attributes.fetch(:child_processes).freeze
+      def initialize(worker_id:, supervisor_pid:, queues:, configured_processes:, configured_threads:, phase:,
+                     child_processes:)
+        @worker_id = worker_id.freeze
+        @supervisor_pid = supervisor_pid
+        @queues = queues.freeze
+        @configured_processes = configured_processes
+        @configured_threads = configured_threads
+        @phase = phase.freeze
+        @child_processes = child_processes.freeze
         freeze
       end
 
