@@ -136,7 +136,7 @@ module Karya
         def initialize(handler_names)
           if handler_names.nil?
             @match_all = true
-            @handler_names = [].freeze
+            @handler_names = {}.freeze
             return
           end
 
@@ -160,7 +160,7 @@ module Karya
           end
           raise InvalidQueueStoreOperationError, 'handler_names must be present' if normalized_names.empty?
 
-          normalized_names.freeze
+          normalized_names.to_h { |name| [name, true] }.freeze
         end
       end
 
