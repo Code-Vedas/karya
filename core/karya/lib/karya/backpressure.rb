@@ -51,7 +51,7 @@ module Karya
         return raw_policy if matching_policy_instance?
 
         policy_class.new(key:, **policy_attributes)
-      rescue ArgumentError
+      rescue ArgumentError, TypeError
         raise InvalidPolicyError, "#{policy_class.name.split('::').last} must be built from a Hash or policy instance"
       end
 
@@ -64,9 +64,26 @@ module Karya
       end
 
       def policy_attributes
-        return raw_policy if raw_policy.is_a?(Hash)
+        return normalized_hash_attributes if raw_policy.is_a?(Hash)
 
         {}
+      end
+
+      def normalized_hash_attributes
+        raw_policy.each_with_object({}) do |(attribute_key, value), normalized|
+          normalized[normalize_attribute_key(attribute_key)] = value
+        end
+      end
+
+      def normalize_attribute_key(attribute_key)
+        case attribute_key
+        when Symbol
+          attribute_key
+        when String
+          attribute_key.to_sym
+        else
+          raise InvalidPolicyError, 'policy attribute keys must be Symbols or Strings'
+        end
       end
     end
 

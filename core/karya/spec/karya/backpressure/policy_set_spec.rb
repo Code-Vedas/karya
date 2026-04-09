@@ -47,6 +47,18 @@ RSpec.describe Karya::Backpressure::PolicySet do
     )
   end
 
+  it 'normalizes string attribute keys for policy hashes' do
+    policy_set = described_class.new(concurrency: { account_sync: { 'limit' => 2 } })
+
+    expect(policy_set.concurrency_policy_for('account_sync')&.limit).to eq(2)
+  end
+
+  it 'rejects unsupported policy attribute key types' do
+    expect do
+      described_class.new(concurrency: { account_sync: { 1 => 2 } })
+    end.to raise_error(Karya::Backpressure::InvalidPolicyError, /policy attribute keys must be Symbols or Strings/)
+  end
+
   it 'rejects non-hash policy registries' do
     expect do
       described_class.new(concurrency: [])

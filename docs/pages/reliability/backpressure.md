@@ -25,9 +25,9 @@ rate limits, concurrency caps, paused state, or backend-specific constraints.
 
 In `core/karya`, backpressure policy is modeled through
 `Karya::Backpressure::PolicySet`. Concurrency policies cap active `reserved` and
-`running` jobs sharing one `concurrency_key`. Rate-limit policies use fixed
-windows keyed by `rate_limit_key` and consume capacity when reservation
-succeeds.
+`running` jobs sharing one `concurrency_key`. Rate-limit policies use rolling
+(sliding) windows keyed by `rate_limit_key`, evaluating capacity over the most
+recent period and consuming capacity when reservation succeeds.
 
 ## Common Scenarios
 
