@@ -6,17 +6,21 @@
 # LICENSE file in the root directory of this source tree.
 
 RSpec.describe Karya::QueueStore::InMemory do
-  subject(:store) { described_class.new(token_generator: token_generator) }
+  subject(:store) { described_class.new(token_generator: token_generator, policy_set:) }
 
   let(:token_sequence) { %w[lease-1 lease-2 lease-3 lease-4].each }
   let(:token_generator) { -> { token_sequence.next } }
   let(:created_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
+  let(:policy_set) { Karya::Backpressure::PolicySet.new }
 
-  def submission_job(id:, queue:, created_at:, handler: 'billing_sync')
+  def submission_job(id:, queue:, created_at:, handler: 'billing_sync', priority: 0, concurrency_key: nil, rate_limit_key: nil)
     Karya::Job.new(
       id:,
       queue:,
       handler:,
+      priority:,
+      concurrency_key:,
+      rate_limit_key:,
       state: :submission,
       created_at:
     )
@@ -73,6 +77,41 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(first.job_id).to eq('job-1')
       expect(second.job_id).to eq('job-2')
+    end
+
+    it 'reserves higher priority jobs first within the same queue' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:, priority: 1), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, priority: 10), now: created_at + 2)
+
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+
+      expect(reservation.job_id).to eq('job-2')
+    end
+
+    it 'keeps FIFO order for jobs with the same priority' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:, priority: 5), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, priority: 5), now: created_at + 2)
+
+      first = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      second = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second.job_id).to eq('job-2')
+    end
+
+    it 'keeps queue order ahead of cross-queue priority' do
+      store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:, priority: 1), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'email-1', queue: 'email', created_at: created_at + 1, priority: 99), now: created_at + 2)
+
+      reservation = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 3
+      )
+
+      expect(reservation.job_id).to eq('billing-1')
     end
 
     it 'reserves first matching job from subscribed queues in declared order' do
@@ -136,6 +175,199 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(reservation).to be_nil
       expect(stored_job('job-1').state).to eq(:queued)
+    end
+
+    it 'skips blocked higher-priority jobs and reserves lower-priority eligible jobs' do
+      constrained_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(concurrency: { account_sync: { limit: 1 } })
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, priority: 10, concurrency_key: 'account_sync'),
+        now: created_at + 1
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, priority: 1),
+        now: created_at + 2
+      )
+
+      first = constrained_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      second = constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second.job_id).to eq('job-2')
+    end
+
+    it 'skips blocked earlier queues and reserves from later queues' do
+      constrained_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(concurrency: { account_sync: { limit: 1 } })
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'billing-1', queue: 'billing', created_at:, priority: 10, concurrency_key: 'account_sync'),
+        now: created_at + 1
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'email-1', queue: 'email', created_at: created_at + 1, priority: 1),
+        now: created_at + 2
+      )
+
+      constrained_store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 3
+      )
+
+      reservation = constrained_store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-2',
+        lease_duration: 30,
+        now: created_at + 4
+      )
+
+      expect(reservation.job_id).to eq('email-1')
+    end
+
+    it 'reopens concurrency capacity after release' do
+      constrained_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(concurrency: { account_sync: { limit: 1 } })
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, concurrency_key: 'account_sync'),
+        now: created_at + 1
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, concurrency_key: 'account_sync'),
+        now: created_at + 2
+      )
+
+      first = constrained_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      expect(constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)).to be_nil
+
+      constrained_store.release(reservation_token: first.token, now: created_at + 5)
+
+      second = constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 6)
+      expect(second.job_id).to eq('job-2')
+    end
+
+    it 'reopens concurrency capacity after execution completion' do
+      constrained_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(concurrency: { account_sync: { limit: 1 } })
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, concurrency_key: 'account_sync'),
+        now: created_at + 1
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, concurrency_key: 'account_sync'),
+        now: created_at + 2
+      )
+
+      first = constrained_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      constrained_store.start_execution(reservation_token: first.token, now: created_at + 4)
+      expect(constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 5)).to be_nil
+
+      constrained_store.complete_execution(reservation_token: first.token, now: created_at + 6)
+
+      second = constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 7)
+      expect(second.job_id).to eq('job-2')
+    end
+
+    it 'reopens concurrency capacity after expiration' do
+      constrained_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(concurrency: { account_sync: { limit: 1 } })
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, concurrency_key: 'account_sync'),
+        now: created_at + 1
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, concurrency_key: 'account_sync'),
+        now: created_at + 2
+      )
+
+      constrained_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 3)
+
+      replacement = constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 5)
+      expect(replacement.job_id).to eq('job-2')
+    end
+
+    it 'ignores concurrency caps for jobs without a configured concurrency_key' do
+      constrained_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(concurrency: { account_sync: { limit: 1 } })
+      )
+      constrained_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      constrained_store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1), now: created_at + 2)
+
+      first = constrained_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      second = constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second.job_id).to eq('job-2')
+    end
+
+    it 'blocks reservations after a rate-limit window reaches capacity' do
+      limited_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(rate_limits: { partner_api: { limit: 1, period: 60 } })
+      )
+      limited_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, rate_limit_key: 'partner_api'),
+        now: created_at + 1
+      )
+      limited_store.enqueue(
+        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, rate_limit_key: 'partner_api'),
+        now: created_at + 2
+      )
+
+      first = limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      second = limited_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second).to be_nil
+    end
+
+    it 'reopens rate-limit capacity after the window expires' do
+      limited_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(rate_limits: { partner_api: { limit: 1, period: 10 } })
+      )
+      limited_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, rate_limit_key: 'partner_api'),
+        now: created_at + 1
+      )
+      limited_store.enqueue(
+        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, rate_limit_key: 'partner_api'),
+        now: created_at + 2
+      )
+
+      first = limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      expect(first.job_id).to eq('job-1')
+
+      second = limited_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 14)
+      expect(second.job_id).to eq('job-2')
+    end
+
+    it 'ignores rate limits for jobs without a configured rate_limit_key' do
+      limited_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(rate_limits: { partner_api: { limit: 1, period: 60 } })
+      )
+      limited_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      limited_store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1), now: created_at + 2)
+
+      first = limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      second = limited_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second.job_id).to eq('job-2')
     end
 
     it 'returns a reservation lease with the reserved job metadata' do

@@ -3,6 +3,7 @@ module Karya
     # Single-process reference implementation for queue submission and reservation behavior.
     class InMemory
       @token_generator: Method | Proc
+      @policy_set: Backpressure::PolicySet
 
       @reservation_token_sequence: Integer
 
@@ -16,7 +17,7 @@ module Karya
 
       RESERVE_QUEUES_ERROR_MESSAGE: String
 
-      def initialize: (?(Method | Proc) token_generator, ?Integer expired_tombstone_limit) -> void
+      def initialize: (?(Method | Proc) token_generator, ?Integer expired_tombstone_limit, ?Backpressure::PolicySet policy_set) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
 
@@ -77,6 +78,7 @@ module Karya
         @expired_tombstone_limit: Integer
 
         @jobs_by_id: Hash[String, Job]
+        @rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         @queued_job_ids_by_queue: Hash[String, Array[String]]
 
@@ -93,6 +95,7 @@ module Karya
         attr_reader expired_reservation_tokens_in_order: Array[String]
 
         attr_reader jobs_by_id: Hash[String, Job]
+        attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
 
@@ -105,6 +108,10 @@ module Karya
         def queue_job_ids_for: (String queue) -> Array[String]
 
         def delete_queue: (String queue) -> Array[String]?
+
+        def rate_limit_admissions_for: (String key) -> Array[Time]
+
+        def delete_rate_limit_key: (String key) -> Array[Time]?
 
         def reserve: (Reservation reservation) -> Array[String]
 
@@ -160,9 +167,21 @@ module Karya
 
       def normalize_reserve_queues: (queue: Karya::state_name?, queues: Array[Karya::state_name]?) -> Array[String]
 
-      def find_reserved_job: (Array[String] queues, HandlerMatcher handler_matcher) -> [String, Integer, String]?
+      def find_reserved_job: (Array[String] queues, HandlerMatcher handler_matcher, Time now) -> [String, Integer, String]?
 
-      def matching_job_for: (String queue, HandlerMatcher handler_matcher) -> [Integer, String]?
+      def matching_job_for: (String queue, HandlerMatcher handler_matcher, Time now) -> [Integer, String]?
+
+      def concurrency_blocked?: (Job job) -> bool
+
+      def active_job_count_for: (String concurrency_key) -> Integer
+
+      def count_jobs_with_key: (Hash[String, Reservation] leases_by_token, String concurrency_key) -> Integer
+
+      def rate_limited?: (Job job, Time now) -> bool
+
+      def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
+
+      def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now) -> Array[Time]
 
       def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed) -> Job
 

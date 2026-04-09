@@ -12,6 +12,9 @@ module Karya
     @handler: String
 
     @arguments: job_arguments
+    @priority: Integer
+    @concurrency_key: String?
+    @rate_limit_key: String?
 
     @state: state_name
 
@@ -26,14 +29,17 @@ module Karya
     attr_reader arguments: job_arguments
 
     attr_reader attempt: Integer
+    attr_reader concurrency_key: String?
 
     attr_reader created_at: Time
 
     attr_reader handler: String
 
     attr_reader id: String
+    attr_reader priority: Integer
 
     attr_reader queue: String
+    attr_reader rate_limit_key: String?
 
     attr_reader state: state_name
 
@@ -44,6 +50,9 @@ module Karya
       queue: state_name,
       handler: state_name,
       ?arguments: Hash[state_name, job_argument],
+      ?priority: Integer,
+      ?concurrency_key: state_name?,
+      ?rate_limit_key: state_name?,
       state: state_name,
       ?attempt: Integer,
       created_at: Time,

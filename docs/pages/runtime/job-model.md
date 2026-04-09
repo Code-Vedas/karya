@@ -26,6 +26,8 @@ A canonical job instance carries these behavior-level expectations:
 - lifecycle metadata that callers, workers, and operator surfaces can inspect
   consistently
 - one canonical current state for the job instance at any point in time
+- optional scheduling metadata such as `priority`, `concurrency_key`, and
+  `rate_limit_key` for runtime backpressure decisions
 
 Application code defines what the job does. Karya owns the queue placement,
 lifecycle, reservation, execution, and operator-visible state around that work.
@@ -158,6 +160,9 @@ job = Karya::Job.new(
   queue: 'billing',
   handler: 'billing_sync',
   arguments: { account_id: 42, source: 'dashboard' },
+  priority: 10,
+  concurrency_key: 'account-42',
+  rate_limit_key: 'partner-api',
   state: :queued,
   created_at: created_at
 )
@@ -169,6 +174,11 @@ reserved_job = job.transition_to(:reserved, updated_at: Time.utc(2026, 3, 26, 12
 reserved_job.state
 # => :reserved
 ```
+
+`priority` defaults to `0`. Higher numbers win within same queue, while worker
+subscription queue order still decides which queue is scanned first.
+`concurrency_key` and `rate_limit_key` are optional identifiers that let queue
+stores apply configured backpressure policies without mutating handler input.
 
 Lifecycle extensions are also explicit. Follow-on runtime work can register a
 new state and link it to the base lifecycle without redefining the canonical

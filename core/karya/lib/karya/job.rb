@@ -16,20 +16,56 @@ module Karya
 
   # Immutable value object for the canonical queued job model.
   class Job
-    attr_reader :arguments, :attempt, :created_at, :handler, :id, :queue, :state, :updated_at
+    # Canonical immutable routing payload for one job instance.
+    Identity = Struct.new(:id, :queue, :handler, :arguments)
+    # Canonical immutable scheduling metadata for job selection policies.
+    Scheduling = Struct.new(:priority, :concurrency_key, :rate_limit_key)
+    # Canonical immutable lifecycle state for one job instance.
+    LifecycleState = Struct.new(:state, :attempt, :created_at, :updated_at, :lifecycle)
+    # Groups normalized constructor fields into lifecycle-safe components.
+    class Components
+      def initialize(attributes)
+        @attributes = attributes
+      end
+
+      def identity
+        Identity.new(
+          attributes.fetch(:id),
+          attributes.fetch(:queue),
+          attributes.fetch(:handler),
+          attributes.fetch(:arguments)
+        )
+      end
+
+      def scheduling
+        Scheduling.new(
+          attributes.fetch(:priority),
+          attributes.fetch(:concurrency_key),
+          attributes.fetch(:rate_limit_key)
+        )
+      end
+
+      def lifecycle_state
+        LifecycleState.new(
+          attributes.fetch(:state),
+          attributes.fetch(:attempt),
+          attributes.fetch(:created_at),
+          attributes.fetch(:updated_at),
+          attributes.fetch(:lifecycle)
+        )
+      end
+
+      private
+
+      attr_reader :attributes
+    end
 
     def initialize(**attributes)
-      normalized_attributes = Attributes.new(attributes).to_h
+      components = Components.new(Attributes.new(attributes).to_h)
 
-      @id = normalized_attributes.fetch(:id)
-      @queue = normalized_attributes.fetch(:queue)
-      @handler = normalized_attributes.fetch(:handler)
-      @arguments = normalized_attributes.fetch(:arguments)
-      @state = normalized_attributes.fetch(:state)
-      @attempt = normalized_attributes.fetch(:attempt)
-      @created_at = normalized_attributes.fetch(:created_at)
-      @lifecycle = normalized_attributes.fetch(:lifecycle)
-      @updated_at = normalized_attributes.fetch(:updated_at)
+      @identity = components.identity
+      @scheduling = components.scheduling
+      @lifecycle_state = components.lifecycle_state
 
       freeze
     end
@@ -48,6 +84,9 @@ module Karya
         queue:,
         handler:,
         arguments:,
+        priority:,
+        concurrency_key:,
+        rate_limit_key:,
         lifecycle:,
         state: normalized_next_state,
         attempt:,
@@ -60,10 +99,26 @@ module Karya
       lifecycle.terminal?(state)
     end
 
-    private_constant :Attributes, :ImmutableArguments
+    def id = identity.id
+    def queue = identity.queue
+    def handler = identity.handler
+    def arguments = identity.arguments
+    def priority = scheduling.priority
+    def concurrency_key = scheduling.concurrency_key
+    def rate_limit_key = scheduling.rate_limit_key
+    def state = lifecycle_state.state
+    def attempt = lifecycle_state.attempt
+    def created_at = lifecycle_state.created_at
+    def updated_at = lifecycle_state.updated_at
+
+    private_constant :Attributes, :Components, :ImmutableArguments
 
     private
 
-    attr_reader :lifecycle
+    attr_reader :identity, :lifecycle_state, :scheduling
+
+    def lifecycle
+      lifecycle_state.lifecycle
+    end
   end
 end

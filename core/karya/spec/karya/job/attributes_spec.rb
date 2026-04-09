@@ -49,6 +49,22 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:attempt]).to eq(0)
     end
 
+    it 'defaults priority to 0 and policy keys to nil' do
+      attributes = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'queued',
+        created_at: created_at
+      )
+
+      result = attributes.to_h
+
+      expect(result[:priority]).to eq(0)
+      expect(result[:concurrency_key]).to be_nil
+      expect(result[:rate_limit_key]).to be_nil
+    end
+
     it 'defaults updated_at to created_at when not provided' do
       attributes = attributes_class.new(
         id: 'job123',
@@ -85,6 +101,45 @@ RSpec.describe 'Karya::Job::Attributes' do
           attempt: '1'
         ).to_h
       end.to raise_error(Karya::InvalidJobAttributeError, 'attempt must be a non-negative Integer')
+    end
+
+    it 'raises InvalidJobAttributeError for non-integer priority' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          priority: 'high'
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'priority must be an Integer')
+    end
+
+    it 'raises InvalidJobAttributeError for blank concurrency_key' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          concurrency_key: ' '
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'concurrency_key must be present')
+    end
+
+    it 'raises InvalidJobAttributeError for blank rate_limit_key' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          rate_limit_key: ''
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'rate_limit_key must be present')
     end
 
     it 'raises InvalidJobAttributeError for negative attempt' do

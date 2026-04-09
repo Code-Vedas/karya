@@ -16,6 +16,9 @@ RSpec.describe Karya::Job do
         queue: 'billing',
         handler: :billing_sync,
         arguments: { 'account_id' => 42, metadata: { source: 'sync' }, tags: ['vip'] },
+        priority: 5,
+        concurrency_key: 'account-42',
+        rate_limit_key: 'partner-api',
         state: 'retry-pending',
         attempt: 2,
         created_at:,
@@ -32,6 +35,9 @@ RSpec.describe Karya::Job do
       expect(job.arguments).to be_frozen
       expect(job.arguments['metadata']).to be_frozen
       expect(job.arguments['tags']).to be_frozen
+      expect(job.priority).to eq(5)
+      expect(job.concurrency_key).to eq('account-42')
+      expect(job.rate_limit_key).to eq('partner-api')
       expect(job.state).to eq(:retry_pending)
       expect(job.attempt).to eq(2)
       expect(job.created_at).to eq(created_at)
@@ -168,6 +174,25 @@ RSpec.describe Karya::Job do
       expect(transitioned_job.arguments).to equal(job.arguments)
       expect(transitioned_job.arguments['metadata']).to equal(job.arguments['metadata'])
       expect(transitioned_job.arguments['tags']).to equal(job.arguments['tags'])
+    end
+
+    it 'preserves priority and policy keys across transitions' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        priority: 9,
+        concurrency_key: 'account-9',
+        rate_limit_key: 'partner-api',
+        state: :reserved,
+        created_at:
+      )
+
+      transitioned_job = job.transition_to(:running, updated_at:)
+
+      expect(transitioned_job.priority).to eq(9)
+      expect(transitioned_job.concurrency_key).to eq('account-9')
+      expect(transitioned_job.rate_limit_key).to eq('partner-api')
     end
   end
 
