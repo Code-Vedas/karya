@@ -19,7 +19,7 @@ module Karya
 
       def parse
         entries.each_with_object({}) do |entry, handlers|
-          MappingEntry.new(entry).merge_into(handlers)
+          MappingEntry.new(entry).merge_into(handlers, duplicate_error_class: Thor::Error)
         end
       end
 

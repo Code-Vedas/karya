@@ -29,6 +29,7 @@ require_relative 'worker/run_session'
 require_relative 'worker/run_loop_decision'
 require_relative 'worker/runtime'
 require_relative 'worker/shutdown_controller'
+require_relative 'worker/subscription'
 require_relative 'worker/unsupported_execution'
 
 module Karya
@@ -70,6 +71,10 @@ module Karya
 
     def lease_duration
       configuration.lease_duration
+    end
+
+    def subscription
+      configuration.subscription
     end
 
     def lifecycle
@@ -132,20 +137,17 @@ module Karya
     end
 
     def reserve_next
-      queues.each do |queue|
-        reservation = queue_store.reserve(
-          queue:,
-          worker_id:,
-          lease_duration:,
-          now: current_time
-        )
-        next unless reservation
+      reservation = queue_store.reserve(
+        queues: subscription.queues,
+        handler_names: subscription.handler_names,
+        worker_id:,
+        lease_duration:,
+        now: current_time
+      )
+      return nil unless reservation
 
-        instrument('worker.job.reserved', reservation_token: reservation.token, job_id: reservation.job_id, queue:)
-        return reservation
-      end
-
-      nil
+      instrument('worker.job.reserved', reservation_token: reservation.token, job_id: reservation.job_id, queue: reservation.queue)
+      reservation
     end
 
     def current_time

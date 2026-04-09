@@ -11,6 +11,7 @@ module Karya
     class HandlerRegistry
       def initialize(value)
         raise InvalidWorkerConfigurationError, 'handlers must be a Hash' unless value.is_a?(Hash)
+        raise InvalidWorkerConfigurationError, 'handlers must be present' if value.empty?
 
         @value = value
         @normalized_handlers = normalize
@@ -19,6 +20,8 @@ module Karya
       def normalize
         value.each_with_object({}) do |(name, handler), normalized|
           normalized_name = Primitives::Identifier.new(:handler, name, error_class: InvalidWorkerConfigurationError).normalize
+          raise InvalidWorkerConfigurationError, "handlers must be unique: #{normalized_name}" if normalized.key?(normalized_name)
+
           normalized[normalized_name] = HandlerExecution.build(handler:, handler_name: normalized_name)
         end.freeze
       end
@@ -27,6 +30,10 @@ module Karya
         normalized_handlers.fetch(handler_name)
       rescue KeyError
         raise MissingHandlerError, "handler #{handler_name.inspect} is not registered"
+      end
+
+      def names
+        normalized_handlers.keys
       end
 
       private

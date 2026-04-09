@@ -14,11 +14,20 @@ module Karya
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024
 
+      RESERVE_QUEUES_ERROR_MESSAGE: String
+
       def initialize: (?(Method | Proc) token_generator, ?Integer expired_tombstone_limit) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
 
-      def reserve: (queue: Karya::state_name, worker_id: Karya::state_name | Integer, lease_duration: Karya::lease_duration_value, now: Time) -> Reservation?
+      def reserve: (
+        worker_id: Karya::state_name | Integer,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        ?queue: Karya::state_name?,
+        ?queues: Array[Karya::state_name]?,
+        ?handler_names: Array[Karya::state_name]?
+      ) -> Reservation?
 
       def release: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
 
@@ -35,6 +44,25 @@ module Karya
       attr_reader state: StoreState
 
       attr_reader token_generator: Method | Proc
+
+      # Encapsulates subscription handler matching for reservation scans.
+      class HandlerMatcher
+        @match_all: bool
+
+        @handler_names: Hash[String, bool]
+
+        def initialize: (Array[Karya::state_name]? handler_names) -> void
+
+        def include?: (String handler_name) -> bool
+
+        private
+
+        attr_reader handler_names: Hash[String, bool]
+
+        attr_reader match_all: bool
+
+        def normalize_present_handler_names: (Array[Karya::state_name] handler_names) -> Hash[String, bool]
+      end
 
       # Internal mutable state for the single-process queue store.
       class StoreState
@@ -129,6 +157,12 @@ module Karya
       def build_reservation: (reserved_job: Job, worker_id: String, reserved_at: Time, lease_duration: Karya::lease_duration_value) -> Reservation
 
       def ensure_unique_reservation_token: (String reservation_token) -> nil
+
+      def normalize_reserve_queues: (queue: Karya::state_name?, queues: Array[Karya::state_name]?) -> Array[String]
+
+      def find_reserved_job: (Array[String] queues, HandlerMatcher handler_matcher) -> [String, Integer, String]?
+
+      def matching_job_for: (String queue, HandlerMatcher handler_matcher) -> [Integer, String]?
 
       def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed) -> Job
 

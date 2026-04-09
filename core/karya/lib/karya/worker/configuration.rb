@@ -18,12 +18,13 @@ module Karya
         new(**attributes)
       end
 
-      attr_reader :handlers, :lease_duration, :lifecycle, :queues, :worker_id
+      attr_reader :handlers, :lease_duration, :lifecycle, :queues, :subscription, :worker_id
 
       def initialize(worker_id:, queues:, handlers:, lease_duration:, lifecycle: JobLifecycle.default_registry)
         @worker_id = Primitives::Identifier.new(:worker_id, worker_id, error_class: InvalidWorkerConfigurationError).normalize
-        @queues = Primitives::QueueList.new(queues, error_class: InvalidWorkerConfigurationError).normalize
         @handlers = handlers.is_a?(HandlerRegistry) ? handlers : HandlerRegistry.new(handlers)
+        @subscription = Subscription.new(queues:, handler_names: @handlers.names)
+        @queues = @subscription.queues
         @lease_duration = Primitives::PositiveFiniteNumber.new(:lease_duration, lease_duration, error_class: InvalidWorkerConfigurationError).normalize
         @lifecycle = Primitives::Lifecycle.new(:lifecycle, lifecycle, error_class: InvalidWorkerConfigurationError).normalize
       end

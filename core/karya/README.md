@@ -55,6 +55,12 @@ them to queues, resolves handlers from an explicit registry keyed by
 `job.handler`, and persists `succeeded` or `failed` outcomes through the queue
 store execution flow.
 
+Routing stays explicit: `job.queue` determines where work is offered, and a
+worker may execute a job only when both its subscribed queue list and handler
+registry match that job. If no compatible worker exists yet, the job remains
+queued. Queue list order is deterministic subscription preference, not a
+fairness guarantee.
+
 The CLI accepts separate `--processes` and `--threads` settings. The supervisor
 manages child worker processes, and each child process always runs work through
 a thread pool, even when `--threads 1` is used. The supervisor owns `SIGINT`

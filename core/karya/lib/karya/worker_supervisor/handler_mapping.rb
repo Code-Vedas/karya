@@ -15,9 +15,12 @@ module Karya
 
       def normalize
         raise InvalidWorkerSupervisorConfigurationError, 'handlers must be a Hash' unless value.is_a?(Hash)
+        raise InvalidWorkerSupervisorConfigurationError, 'handlers must be present' if value.empty?
 
         value.each_with_object({}) do |(name, handler), normalized|
           normalized_name = Primitives::Identifier.new(:handler, name, error_class: InvalidWorkerSupervisorConfigurationError).normalize
+          raise InvalidWorkerSupervisorConfigurationError, "handlers must be unique: #{normalized_name}" if normalized.key?(normalized_name)
+
           normalized[normalized_name] = handler
         end.freeze
       end

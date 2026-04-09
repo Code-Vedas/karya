@@ -110,7 +110,7 @@ RSpec.describe Karya::CLI do
 
     expect do
       described_class.start(['runtime', 'inspect', '--state-file', state_file], suppress_header: true)
-    end.to raise_error(SystemExit)
+    end.to output(/runtime state file is stale for pid 12345/).to_stderr.and raise_error(SystemExit)
   end
 
   it 'raises a Thor error directly from runtime command helpers for invalid state files' do
@@ -126,7 +126,7 @@ RSpec.describe Karya::CLI do
 
     expect do
       described_class.start(['runtime', 'drain', '--state-file', state_file], suppress_header: true)
-    end.to raise_error(SystemExit)
+    end.to output(/runtime control socket is missing:/).to_stderr.and raise_error(SystemExit)
   end
 
   it 'raises a Thor error when the control server rejects the command' do

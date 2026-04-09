@@ -20,5 +20,14 @@ RSpec.describe Karya::CLI do
         handler_parser_class.parse(['billing_sync=MissingCliWorkerHandler'])
       end.to raise_error(Thor::Error, /could not resolve handler constant/)
     end
+
+    it 'rejects duplicate handler names' do
+      stub_const('BillingSyncOne', Class.new)
+      stub_const('BillingSyncTwo', Class.new)
+
+      expect do
+        handler_parser_class.parse(['billing_sync=BillingSyncOne', 'billing_sync=BillingSyncTwo'])
+      end.to raise_error(Thor::Error, /duplicate handler mapping for "billing_sync"/)
+    end
   end
 end

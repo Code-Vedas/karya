@@ -4,7 +4,14 @@ module Karya
     module Base
       def enqueue: (job: Job, now: Time) -> Job
 
-      def reserve: (queue: String, worker_id: String, lease_duration: Karya::lease_duration_value, now: Time) -> Reservation?
+      def reserve: (
+        worker_id: String,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        ?queue: String?,
+        ?queues: Array[String]?,
+        ?handler_names: Array[String]?
+      ) -> Reservation?
 
       def release: (reservation_token: String, now: Time) -> Job
 

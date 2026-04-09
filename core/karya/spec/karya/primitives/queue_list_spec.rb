@@ -115,6 +115,12 @@ RSpec.describe Karya::Primitives::QueueList do
           described_class.new(['billing', nil], error_class:).normalize
         end.to raise_error(ArgumentError, 'queue must be present')
       end
+
+      it 'raises error for duplicate queue names after normalization' do
+        expect do
+          described_class.new(['billing', ' billing '], error_class:).normalize
+        end.to raise_error(ArgumentError, 'queues must be unique: billing')
+      end
     end
 
     context 'with custom error class' do

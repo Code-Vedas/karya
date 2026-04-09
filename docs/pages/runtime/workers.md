@@ -10,6 +10,12 @@ permalink: /runtime/workers/
 Workers are responsible for reserving work, executing jobs, and participating in
 coordinated runtime lifecycle behavior.
 
+Routing stays explicit through `job.queue`. Worker subscription is the
+combination of an ordered queue list and a handler registry. A worker reserves
+only jobs whose queue and handler both match that subscription. Unmatched jobs
+stay queued until a compatible worker exists. Queue order is subscription
+preference, not a fairness guarantee.
+
 ## Worker Responsibilities
 
 - subscribe to the correct queues

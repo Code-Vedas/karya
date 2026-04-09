@@ -1,0 +1,22 @@
+module Karya
+  class Worker
+    # Immutable worker subscription contract used by routing and reservation code.
+    class Subscription
+      @queues: Array[String]
+
+      @handler_names: Array[String]
+
+      attr_reader queues: Array[String]
+
+      attr_reader handler_names: Array[String]
+
+      def initialize: (queues: Karya::state_name | Array[Karya::state_name], handler_names: Karya::state_name | Array[Karya::state_name]) -> void
+
+      def includes_queue?: (Karya::state_name queue) -> bool
+
+      def handles?: (Karya::state_name handler_name) -> bool
+
+      def match?: (Job job) -> bool
+    end
+  end
+end

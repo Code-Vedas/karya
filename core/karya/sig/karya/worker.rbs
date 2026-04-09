@@ -47,6 +47,8 @@ module Karya
 
     def lease_duration: () -> Numeric
 
+    def subscription: () -> Worker::Subscription
+
     def lifecycle: () -> JobLifecycle::Registry
 
     def work_once: () -> Job?
