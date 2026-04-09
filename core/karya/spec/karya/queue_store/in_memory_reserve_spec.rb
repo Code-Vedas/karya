@@ -430,6 +430,18 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(second.job_id).to eq('job-2')
     end
 
+    it 'ignores unconfigured rate-limit keys without recording admissions' do
+      store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, rate_limit_key: 'unconfigured'),
+        now: created_at + 1
+      )
+
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect(reservation.job_id).to eq('job-1')
+      expect(store_state.rate_limit_admissions_by_key).to eq({})
+    end
+
     it 'returns a reservation lease with the reserved job metadata' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
 

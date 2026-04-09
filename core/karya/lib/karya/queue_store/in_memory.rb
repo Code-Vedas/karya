@@ -12,6 +12,7 @@ require_relative 'base'
 require_relative 'in_memory/backpressure_support'
 require_relative 'in_memory/handler_matcher'
 require_relative 'in_memory/lease_duration'
+require_relative 'in_memory/reserve_scan_state'
 require_relative 'in_memory/store_state'
 require_relative '../job'
 require_relative '../primitives/identifier'
@@ -67,36 +68,16 @@ module Karya
       end
 
       def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: nil)
-        normalized_queues = normalize_reserve_queues(queue:, queues:)
-        handler_matcher = HandlerMatcher.new(handler_names)
-        normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
-        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
-        normalized_lease_duration = LeaseDuration.new(lease_duration).normalize
+        reserve_request = normalize_reserve_request(
+          worker_id:,
+          lease_duration:,
+          now:,
+          queue:,
+          queues:,
+          handler_names:
+        )
 
-        @mutex.synchronize do
-          perform_reserve_maintenance(normalized_now)
-
-          matched_queue, matched_job_index, matched_job_id = find_reserved_job(normalized_queues, handler_matcher, normalized_now)
-          return nil unless matched_job_id
-
-          jobs_by_id = state.jobs_by_id
-          queue_job_ids = state.queued_job_ids_by_queue.fetch(matched_queue)
-          queued_job = jobs_by_id.fetch(matched_job_id)
-          reserved_job = queued_job.transition_to(:reserved, updated_at: normalized_now)
-          reservation = build_reservation(
-            reserved_job:,
-            worker_id: normalized_worker_id,
-            reserved_at: normalized_now,
-            lease_duration: normalized_lease_duration
-          )
-
-          queue_job_ids.delete_at(matched_job_index)
-          state.delete_queue(matched_queue) if queue_job_ids.empty?
-          jobs_by_id[reserved_job.id] = reserved_job
-          record_rate_limit_admission(reserved_job, normalized_now)
-          state.reserve(reservation)
-          reservation
-        end
+        @mutex.synchronize { reserve_matching_job(reserve_request) }
       end
 
       def release(reservation_token:, now:)
@@ -144,7 +125,7 @@ module Karya
 
       attr_reader :policy_set, :state, :token_generator
 
-      private_constant :LeaseDuration, :HandlerMatcher
+      private_constant :LeaseDuration, :HandlerMatcher, :ReserveScanState
 
       def validate_enqueue(job)
         raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)
@@ -169,6 +150,7 @@ module Karya
 
       def perform_reserve_maintenance(now)
         expire_reservations_locked(now)
+        build_reserve_scan_state
       end
 
       def requeue_reservation(reservation, now)
@@ -247,33 +229,73 @@ module Karya
         Primitives::QueueList.new(reserve_queues, error_class: InvalidQueueStoreOperationError).normalize
       end
 
-      def find_reserved_job(queues, handler_matcher, now)
+      def normalize_reserve_request(worker_id:, lease_duration:, now:, queue:, queues:, handler_names:)
+        {
+          handler_matcher: HandlerMatcher.new(handler_names),
+          lease_duration: LeaseDuration.new(lease_duration).normalize,
+          now: normalize_time(:now, now, error_class: InvalidQueueStoreOperationError),
+          queues: normalize_reserve_queues(queue:, queues:),
+          worker_id: normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
+        }
+      end
+
+      def reserve_matching_job(reserve_request)
+        now = reserve_request.fetch(:now)
+        reserve_scan_state = perform_reserve_maintenance(now)
+        matched_queue, matched_job_index, matched_job_id =
+          find_reserved_job(reserve_request.fetch(:queues), reserve_request.fetch(:handler_matcher), reserve_scan_state)
+        return nil unless matched_job_id
+
+        jobs_by_id = state.jobs_by_id
+        queue_job_ids = state.queued_job_ids_by_queue.fetch(matched_queue)
+        queued_job = jobs_by_id.fetch(matched_job_id)
+        reserved_job = queued_job.transition_to(:reserved, updated_at: now)
+        reservation = build_reservation(
+          reserved_job:,
+          worker_id: reserve_request.fetch(:worker_id),
+          reserved_at: now,
+          lease_duration: reserve_request.fetch(:lease_duration)
+        )
+
+        queue_job_ids.delete_at(matched_job_index)
+        state.delete_queue(matched_queue) if queue_job_ids.empty?
+        jobs_by_id[reserved_job.id] = reserved_job
+        record_rate_limit_admission(reserved_job, now)
+        state.reserve(reservation)
+        reservation
+      end
+
+      def find_reserved_job(queues, handler_matcher, reserve_scan_state)
         queues.each do |queue|
-          matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher, now)
+          matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher, reserve_scan_state)
           return [queue, matched_job_index, matched_job_id] if matched_job_id
         end
 
         nil
       end
 
-      def matching_job_for(queue, handler_matcher, now)
+      def matching_job_for(queue, handler_matcher, reserve_scan_state)
         queue_job_ids = state.queued_job_ids_by_queue.fetch(queue, [])
-        selected_job = nil
+        selected_job_id = nil
+        selected_job_index = nil
+        selected_job_priority = nil
 
         queue_job_ids.each_with_index do |job_id, index|
           queued_job = state.jobs_by_id.fetch(job_id)
           queued_job_priority = queued_job.priority
           next unless handler_matcher.include?(queued_job.handler)
-          next if concurrency_blocked?(queued_job)
-          next if rate_limited?(queued_job, now)
-          next if selected_job && queued_job_priority <= selected_job.fetch(:priority)
+          next if reserve_scan_state.concurrency_blocked?(queued_job)
+          next if reserve_scan_state.rate_limited?(queued_job)
+          next if selected_job_priority && queued_job_priority <= selected_job_priority
 
-          selected_job = { id: job_id, index:, priority: queued_job_priority }
+          selected_job_id = job_id
+          selected_job_index = index
+          selected_job_priority = queued_job_priority
         end
 
-        return nil unless selected_job
+        return nil unless selected_job_id
 
-        [selected_job.fetch(:index), selected_job.fetch(:id)]
+        [selected_job_index, selected_job_id]
       end
 
       def finalize_execution(reservation_token:, now:, next_state:)
