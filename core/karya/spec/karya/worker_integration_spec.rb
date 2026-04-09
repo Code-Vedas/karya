@@ -81,7 +81,7 @@ RSpec.describe Karya::Worker, :integration do
     expect(stored_job('job-failure').state).to eq(:failed)
   end
 
-  it 'executes an eligible lower-priority job when a higher-priority job is concurrency-blocked' do
+  it 'executes an eligible lower-priority job when a queued higher-priority job is concurrency-blocked' do
     constrained_store = Karya::QueueStore::InMemory.new(
       token_generator: -> { 'lease-token' },
       policy_set: Karya::Backpressure::PolicySet.new(concurrency: { account_sync: { limit: 1 } })
@@ -101,19 +101,32 @@ RSpec.describe Karya::Worker, :integration do
     )
     constrained_store.enqueue(
       job: Karya::Job.new(
+        id: 'job-blocked-queued',
+        queue: queue_name,
+        handler: 'billing_sync',
+        arguments: { 'account_id' => 42 },
+        priority: 9,
+        concurrency_key: 'account_sync',
+        state: :submission,
+        created_at: base_time + 1
+      ),
+      now: base_time + 1
+    )
+    constrained_store.enqueue(
+      job: Karya::Job.new(
         id: 'job-eligible',
         queue: queue_name,
         handler: 'billing_sync',
         arguments: { 'account_id' => 42 },
         priority: 1,
         state: :submission,
-        created_at: base_time + 1
+        created_at: base_time + 2
       ),
-      now: base_time + 1
+      now: base_time + 2
     )
 
-    first_reservation = constrained_store.reserve(queue: queue_name, worker_id: worker_id, lease_duration: 30, now: base_time + 2)
-    worker_clock = [base_time + 3, base_time + 4, base_time + 5, base_time + 6].each
+    first_reservation = constrained_store.reserve(queue: queue_name, worker_id: worker_id, lease_duration: 30, now: base_time + 3)
+    worker_clock = [base_time + 4, base_time + 5, base_time + 6, base_time + 7].each
     worker = described_class.new(
       queue_store: constrained_store,
       worker_id: 'worker-2',
@@ -129,6 +142,7 @@ RSpec.describe Karya::Worker, :integration do
     expect(first_reservation.job_id).to eq('job-blocked')
     expect(result.id).to eq('job-eligible')
     expect(state.jobs_by_id.fetch('job-blocked').state).to eq(:reserved)
+    expect(state.jobs_by_id.fetch('job-blocked-queued').state).to eq(:queued)
     expect(state.jobs_by_id.fetch('job-eligible').state).to eq(:succeeded)
   end
 end

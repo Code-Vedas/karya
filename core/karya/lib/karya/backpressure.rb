@@ -29,7 +29,13 @@ module Karya
       end
 
       def positive_period(value)
-        Primitives::PositiveFiniteNumber.new(:period, value, error_class: InvalidPolicyError).normalize
+        normalized_value = Primitives::PositiveFiniteNumber.new(:period, value, error_class: InvalidPolicyError).normalize
+        non_finite_decimal_or_float = [Float, BigDecimal].any? do |type|
+          normalized_value.is_a?(type) && !normalized_value.finite?
+        end
+        raise InvalidPolicyError, 'period must be a positive finite number' if non_finite_decimal_or_float
+
+        normalized_value
       end
     end
 

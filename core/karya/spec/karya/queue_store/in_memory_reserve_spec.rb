@@ -187,15 +187,19 @@ RSpec.describe Karya::QueueStore::InMemory do
         now: created_at + 1
       )
       constrained_store.enqueue(
-        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, priority: 1),
+        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, priority: 9, concurrency_key: 'account_sync'),
         now: created_at + 2
       )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-3', queue: 'billing', created_at: created_at + 2, priority: 1),
+        now: created_at + 3
+      )
 
-      first = constrained_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
-      second = constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+      first = constrained_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 4)
+      second = constrained_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 5)
 
       expect(first.job_id).to eq('job-1')
-      expect(second.job_id).to eq('job-2')
+      expect(second.job_id).to eq('job-3')
     end
 
     it 'skips blocked earlier queues and reserves from later queues' do
@@ -208,8 +212,12 @@ RSpec.describe Karya::QueueStore::InMemory do
         now: created_at + 1
       )
       constrained_store.enqueue(
-        job: submission_job(id: 'email-1', queue: 'email', created_at: created_at + 1, priority: 1),
+        job: submission_job(id: 'billing-2', queue: 'billing', created_at: created_at + 1, priority: 9, concurrency_key: 'account_sync'),
         now: created_at + 2
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'email-1', queue: 'email', created_at: created_at + 2, priority: 1),
+        now: created_at + 3
       )
 
       constrained_store.reserve(
@@ -217,7 +225,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         handler_names: %w[billing_sync],
         worker_id: 'worker-1',
         lease_duration: 30,
-        now: created_at + 3
+        now: created_at + 4
       )
 
       reservation = constrained_store.reserve(
@@ -225,7 +233,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         handler_names: %w[billing_sync],
         worker_id: 'worker-2',
         lease_duration: 30,
-        now: created_at + 4
+        now: created_at + 5
       )
 
       expect(reservation.job_id).to eq('email-1')
@@ -332,6 +340,31 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(first.job_id).to eq('job-1')
       expect(second).to be_nil
+    end
+
+    it 'skips rate-limited higher-priority jobs and reserves a later eligible job' do
+      limited_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(rate_limits: { partner_api: { limit: 1, period: 60 } })
+      )
+      limited_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, priority: 10, rate_limit_key: 'partner_api'),
+        now: created_at + 1
+      )
+      limited_store.enqueue(
+        job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, priority: 9, rate_limit_key: 'partner_api'),
+        now: created_at + 2
+      )
+      limited_store.enqueue(
+        job: submission_job(id: 'job-3', queue: 'billing', created_at: created_at + 2, priority: 1),
+        now: created_at + 3
+      )
+
+      first = limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 4)
+      second = limited_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 5)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second.job_id).to eq('job-3')
     end
 
     it 'reopens rate-limit capacity after the window expires' do

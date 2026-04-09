@@ -34,7 +34,7 @@ module Karya
           attributes.fetch(:queue),
           attributes.fetch(:handler),
           attributes.fetch(:arguments)
-        )
+        ).freeze
       end
 
       def scheduling
@@ -42,7 +42,7 @@ module Karya
           attributes.fetch(:priority),
           attributes.fetch(:concurrency_key),
           attributes.fetch(:rate_limit_key)
-        )
+        ).freeze
       end
 
       def lifecycle_state
@@ -52,7 +52,7 @@ module Karya
           attributes.fetch(:created_at),
           attributes.fetch(:updated_at),
           attributes.fetch(:lifecycle)
-        )
+        ).freeze
       end
 
       private

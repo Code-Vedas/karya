@@ -17,7 +17,7 @@ module Karya
 
       RESERVE_QUEUES_ERROR_MESSAGE: String
 
-      def initialize: (?(Method | Proc) token_generator, ?Integer expired_tombstone_limit, ?Backpressure::PolicySet policy_set) -> void
+      def initialize: (?token_generator: (Method | Proc), ?expired_tombstone_limit: Integer, ?policy_set: Backpressure::PolicySet) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
 
@@ -181,7 +181,7 @@ module Karya
 
       def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
 
-      def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now) -> Array[Time]
+      def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
 
       def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed) -> Job
 

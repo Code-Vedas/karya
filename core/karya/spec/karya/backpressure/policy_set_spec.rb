@@ -59,6 +59,12 @@ RSpec.describe Karya::Backpressure::PolicySet do
     end.to raise_error(Karya::Backpressure::InvalidPolicyError, /period must be a positive finite number/)
   end
 
+  it 'rejects non-finite bigdecimal periods' do
+    expect do
+      described_class.new(rate_limits: { partner_api: { limit: 1, period: BigDecimal('Infinity') } })
+    end.to raise_error(Karya::Backpressure::InvalidPolicyError, /period must be a positive finite number/)
+  end
+
   it 'returns nil for missing lookup keys' do
     policy_set = described_class.new
 

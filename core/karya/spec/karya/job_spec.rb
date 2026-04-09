@@ -194,6 +194,23 @@ RSpec.describe Karya::Job do
       expect(transitioned_job.concurrency_key).to eq('account-9')
       expect(transitioned_job.rate_limit_key).to eq('partner-api')
     end
+
+    it 'freezes internal component structs to preserve immutability' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        priority: 9,
+        concurrency_key: 'account-9',
+        rate_limit_key: 'partner-api',
+        state: :reserved,
+        created_at:
+      )
+
+      expect(job.instance_variable_get(:@identity)).to be_frozen
+      expect(job.instance_variable_get(:@scheduling)).to be_frozen
+      expect(job.instance_variable_get(:@lifecycle_state)).to be_frozen
+    end
   end
 
   describe '#terminal?' do

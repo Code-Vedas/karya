@@ -144,7 +144,7 @@ module Karya
 
       attr_reader :policy_set, :state, :token_generator
 
-      private_constant :LeaseDuration
+      private_constant :LeaseDuration, :HandlerMatcher
 
       def validate_enqueue(job)
         raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)
