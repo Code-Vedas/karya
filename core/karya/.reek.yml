@@ -32,11 +32,15 @@ detectors:
       - Karya::WorkerSupervisor#reap_tracked_children
       - Karya::JobLifecycle::StateManager#merge_extension_transitions
       - Karya::WorkerSupervisor::ChildProcessRunner#mark_thread_stopped
+      - Karya::QueueStore::InMemory::HandlerMatcher#normalize_present_handler_names
   UtilityFunction:
     enabled: true
     exclude:
       - Karya::JobLifecycle::StateManager#initialize_base_transitions
       - Karya::JobLifecycle::StateManager#canonical_state?
+  NilCheck:
+    exclude:
+      - Karya::QueueStore::InMemory::HandlerMatcher#initialize
 exclude_paths:
   - spec/**/*
   - db/**/*

@@ -20,7 +20,6 @@ module Karya
       include Base
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
-      ALL_HANDLER_NAMES = Object.new
 
       def initialize(token_generator: -> { SecureRandom.uuid }, expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
         valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
@@ -53,9 +52,9 @@ module Karya
         end
       end
 
-      def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: ALL_HANDLER_NAMES)
+      def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: nil)
         normalized_queues = Primitives::QueueList.new(queues || queue, error_class: InvalidQueueStoreOperationError).normalize
-        normalized_handler_names = normalize_handler_names(handler_names)
+        handler_matcher = HandlerMatcher.new(handler_names)
         normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
         normalized_lease_duration = LeaseDuration.new(lease_duration).normalize
@@ -63,7 +62,7 @@ module Karya
         @mutex.synchronize do
           expire_reservations_locked(normalized_now)
 
-          matched_job_id, matched_queue = find_reserved_job(normalized_queues, normalized_handler_names)
+          matched_job_id, matched_queue = find_reserved_job(normalized_queues, handler_matcher)
           return nil unless matched_job_id
 
           jobs_by_id = state.jobs_by_id
@@ -129,6 +128,39 @@ module Karya
       private
 
       attr_reader :state, :token_generator
+
+      # Encapsulates subscription handler matching for reservation scans.
+      class HandlerMatcher
+        def initialize(handler_names)
+          converted_handler_names = Array.try_convert(handler_names)
+
+          if converted_handler_names.nil?
+            @match_all = true
+            @handler_names = [].freeze
+            return
+          end
+
+          @match_all = false
+          @handler_names = normalize_present_handler_names(converted_handler_names)
+        end
+
+        def include?(handler_name)
+          match_all || handler_names.include?(handler_name)
+        end
+
+        private
+
+        attr_reader :handler_names, :match_all
+
+        def normalize_present_handler_names(handler_names)
+          normalized_names = handler_names.map do |name|
+            Primitives::Identifier.new(:handler, name, error_class: InvalidQueueStoreOperationError).normalize
+          end
+          raise InvalidQueueStoreOperationError, 'handler_names must be present' if normalized_names.empty?
+
+          normalized_names.freeze
+        end
+      end
 
       # Internal mutable state for the single-process queue store.
       class StoreState
@@ -298,17 +330,6 @@ module Karya
         normalized_value
       end
 
-      def normalize_handler_names(value)
-        return ALL_HANDLER_NAMES if value.equal?(ALL_HANDLER_NAMES)
-
-        normalized_names = Array(value).map do |handler_name|
-          normalize_identifier(:handler, handler_name, error_class: InvalidQueueStoreOperationError)
-        end
-        raise InvalidQueueStoreOperationError, 'handler_names must be present' if normalized_names.empty?
-
-        normalized_names.freeze
-      end
-
       def normalize_time(name, value, error_class:)
         return value if value.is_a?(Time)
 
@@ -336,20 +357,20 @@ module Karya
               "reservation token #{reservation_token.inspect} is already in use (active or expired)"
       end
 
-      def find_reserved_job(queues, handler_names)
+      def find_reserved_job(queues, handler_matcher)
         queues.each do |queue|
-          matched_job_id = matching_job_id_for(queue, handler_names)
+          matched_job_id = matching_job_id_for(queue, handler_matcher)
           return [matched_job_id, queue] if matched_job_id
         end
 
         nil
       end
 
-      def matching_job_id_for(queue, handler_names)
+      def matching_job_id_for(queue, handler_matcher)
         queue_job_ids = state.queued_job_ids_by_queue.fetch(queue, [])
         queue_job_ids.find do |job_id|
           queued_job = state.jobs_by_id.fetch(job_id)
-          handler_names.equal?(ALL_HANDLER_NAMES) || handler_names.include?(queued_job.handler)
+          handler_matcher.include?(queued_job.handler)
         end
       end
 
