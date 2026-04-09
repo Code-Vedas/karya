@@ -10,6 +10,7 @@ require 'bigdecimal'
 
 require_relative 'base'
 require_relative '../job'
+require_relative '../primitives/identifier'
 require_relative '../primitives/queue_list'
 require_relative '../reservation'
 
