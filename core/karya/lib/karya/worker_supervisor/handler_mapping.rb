@@ -19,6 +19,8 @@ module Karya
 
         value.each_with_object({}) do |(name, handler), normalized|
           normalized_name = Primitives::Identifier.new(:handler, name, error_class: InvalidWorkerSupervisorConfigurationError).normalize
+          raise InvalidWorkerSupervisorConfigurationError, "handlers must be unique: #{normalized_name}" if normalized.key?(normalized_name)
+
           normalized[normalized_name] = handler
         end.freeze
       end

@@ -578,6 +578,18 @@ RSpec.describe Karya::Worker do
       end.to raise_error(Karya::InvalidWorkerConfigurationError, /handlers must be present/)
     end
 
+    it 'rejects handlers that collide after name normalization' do
+      expect do
+        described_class.new(
+          queue_store:,
+          worker_id: 'worker-1',
+          queues:,
+          handlers: { 'billing_sync' => -> {}, ' billing_sync ' => -> {} },
+          lease_duration: 30
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /handlers must be unique: billing_sync/)
+    end
+
     it 'rejects non-positive lease durations' do
       expect do
         described_class.new(
@@ -705,6 +717,13 @@ RSpec.describe Karya::Worker do
       expect do
         subscription_class.new(queues: ['billing'], handler_names: [])
       end.to raise_error(Karya::InvalidWorkerConfigurationError, /handlers must be present/)
+    end
+
+    it 'freezes subscriptions after initialization' do
+      subscription_class = described_class.const_get(:Subscription, false)
+      subscription = subscription_class.new(queues: ['billing'], handler_names: ['billing_sync'])
+
+      expect(subscription).to be_frozen
     end
   end
 

@@ -273,5 +273,11 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.reserve(queues: ['billing'], handler_names: [], worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /handler_names must be present/)
     end
+
+    it 'rejects non-array handler_names for subscription-aware reserve input' do
+      expect do
+        store.reserve(queues: ['billing'], handler_names: 'billing_sync', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /handler_names must be an Array/)
+    end
   end
 end

@@ -20,6 +20,8 @@ module Karya
       def normalize
         value.each_with_object({}) do |(name, handler), normalized|
           normalized_name = Primitives::Identifier.new(:handler, name, error_class: InvalidWorkerConfigurationError).normalize
+          raise InvalidWorkerConfigurationError, "handlers must be unique: #{normalized_name}" if normalized.key?(normalized_name)
+
           normalized[normalized_name] = HandlerExecution.build(handler:, handler_name: normalized_name)
         end.freeze
       end

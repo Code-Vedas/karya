@@ -14,6 +14,7 @@ module Karya
       def initialize(queues:, handler_names:)
         @queues = Primitives::QueueList.new(queues, error_class: InvalidWorkerConfigurationError).normalize
         @handler_names = normalize_handler_names(handler_names)
+        freeze
       end
 
       def includes_queue?(queue)

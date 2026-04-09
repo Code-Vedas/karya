@@ -12,6 +12,8 @@ module Karya
 
       @lifecycle: Karya::lifecycle
 
+      @subscription: Worker::Subscription
+
       OPTION_KEYS: ::Array[:worker_id | :queues | :handlers | :lease_duration | :lifecycle]
 
       def self.from_options: (symbol_options options) -> Configuration
@@ -23,6 +25,8 @@ module Karya
       attr_reader lifecycle: Karya::lifecycle
 
       attr_reader queues: Array[String]
+
+      attr_reader subscription: Worker::Subscription
 
       attr_reader worker_id: String
 

@@ -132,16 +132,16 @@ module Karya
       # Encapsulates subscription handler matching for reservation scans.
       class HandlerMatcher
         def initialize(handler_names)
-          converted_handler_names = Array.try_convert(handler_names)
-
-          if converted_handler_names.nil?
+          if handler_names.nil?
             @match_all = true
             @handler_names = [].freeze
             return
           end
 
+          raise InvalidQueueStoreOperationError, 'handler_names must be an Array' unless handler_names.is_a?(Array)
+
           @match_all = false
-          @handler_names = normalize_present_handler_names(converted_handler_names)
+          @handler_names = normalize_present_handler_names(handler_names)
         end
 
         def include?(handler_name)
