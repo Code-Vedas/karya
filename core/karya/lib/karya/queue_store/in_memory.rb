@@ -74,7 +74,7 @@ module Karya
         normalized_lease_duration = LeaseDuration.new(lease_duration).normalize
 
         @mutex.synchronize do
-          expire_reservations_locked(normalized_now)
+          perform_reserve_maintenance(normalized_now)
 
           matched_queue, matched_job_index, matched_job_id = find_reserved_job(normalized_queues, handler_matcher, normalized_now)
           return nil unless matched_job_id
@@ -163,7 +163,12 @@ module Karya
 
         expired_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
         expired_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
+        prune_stale_rate_limit_admissions(now)
         expired_reserved_jobs + expired_running_jobs
+      end
+
+      def perform_reserve_maintenance(now)
+        expire_reservations_locked(now)
       end
 
       def requeue_reservation(reservation, now)

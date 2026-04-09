@@ -388,6 +388,33 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(second.job_id).to eq('job-2')
     end
 
+    it 'prunes stale rate-limit admission keys during reserve maintenance' do
+      limited_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(rate_limits: { partner_api: { limit: 1, period: 10 } })
+      )
+      limited_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, rate_limit_key: 'partner_api'),
+        now: created_at + 1
+      )
+
+      limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect(limited_store.instance_variable_get(:@state).rate_limit_admissions_by_key.keys).to eq(['partner_api'])
+
+      limited_store.reserve(queue: 'missing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 20)
+
+      expect(limited_store.instance_variable_get(:@state).rate_limit_admissions_by_key).to eq({})
+    end
+
+    it 'removes orphaned rate-limit admission keys during reserve maintenance' do
+      store_state.rate_limit_admissions_by_key['orphan'] = [created_at]
+
+      store.reserve(queue: 'missing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 20)
+
+      expect(store_state.rate_limit_admissions_by_key).to eq({})
+    end
+
     it 'ignores rate limits for jobs without a configured rate_limit_key' do
       limited_store = described_class.new(
         token_generator: token_generator,

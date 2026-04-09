@@ -44,6 +44,18 @@ module Karya
           prune_rate_limit_admissions(policy.key, policy, now, delete_empty: false) << now
         end
 
+        def prune_stale_rate_limit_admissions(now)
+          state.rate_limit_admissions_by_key.each_key do |rate_limit_key|
+            policy = policy_set.rate_limit_policy_for(rate_limit_key)
+            unless policy
+              state.delete_rate_limit_key(rate_limit_key)
+              next
+            end
+
+            prune_rate_limit_admissions(rate_limit_key, policy, now, delete_empty: true)
+          end
+        end
+
         def prune_rate_limit_admissions(rate_limit_key, policy, now, delete_empty:)
           admissions = state.rate_limit_admissions_for(rate_limit_key)
           cutoff_time = now - policy.period

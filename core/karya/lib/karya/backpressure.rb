@@ -120,7 +120,7 @@ module Karya
       end
     end
 
-    # Immutable fixed-window rate-limit policy keyed by a job rate-limit group.
+    # Immutable rolling-window rate-limit policy keyed by a job rate-limit group.
     class RateLimitPolicy
       attr_reader :key, :limit, :period
 

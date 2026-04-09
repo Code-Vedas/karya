@@ -106,8 +106,8 @@ share across processes and thread-safe handlers.
 `Karya::QueueStore::InMemory` is single-process and is shown here only for local
 examples.
 
-Backpressure policies are configured on the queue store, not through `karya
-worker` flags in this milestone. Jobs may carry `priority`,
+Backpressure policies are configured on the queue store, not through `karya worker`
+flags in this milestone. Jobs may carry `priority`,
 `concurrency_key`, and `rate_limit_key`, and the queue store decides whether a
 matching policy exists for those keys.
 
