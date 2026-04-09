@@ -43,6 +43,9 @@ module Karya
         end
         raise InvalidWorkerConfigurationError, 'handlers must be present' if normalized_names.empty?
 
+        duplicate_names = normalized_names.tally.select { |_name, count| count > 1 }.keys
+        raise InvalidWorkerConfigurationError, "handlers must be unique: #{duplicate_names.join(', ')}" unless duplicate_names.empty?
+
         normalized_names.freeze
       end
     end

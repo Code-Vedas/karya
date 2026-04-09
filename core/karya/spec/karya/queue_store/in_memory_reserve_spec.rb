@@ -279,5 +279,23 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.reserve(queues: ['billing'], handler_names: 'billing_sync', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /handler_names must be an Array/)
     end
+
+    it 'rejects reserve input that provides both queue and queues' do
+      expect do
+        store.reserve(
+          queue: 'billing',
+          queues: ['billing'],
+          worker_id: 'worker-1',
+          lease_duration: 30,
+          now: created_at + 2
+        )
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /provide exactly one of queue or queues/)
+    end
+
+    it 'rejects reserve input that provides neither queue nor queues' do
+      expect do
+        store.reserve(worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /provide exactly one of queue or queues/)
+    end
   end
 end

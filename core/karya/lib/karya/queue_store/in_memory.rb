@@ -20,6 +20,7 @@ module Karya
       include Base
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
+      RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
 
       def initialize(token_generator: -> { SecureRandom.uuid }, expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
         valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
@@ -53,7 +54,7 @@ module Karya
       end
 
       def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: nil)
-        normalized_queues = Primitives::QueueList.new(queues || queue, error_class: InvalidQueueStoreOperationError).normalize
+        normalized_queues = normalize_reserve_queues(queue:, queues:)
         handler_matcher = HandlerMatcher.new(handler_names)
         normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
@@ -62,7 +63,7 @@ module Karya
         @mutex.synchronize do
           expire_reservations_locked(normalized_now)
 
-          matched_job_id, matched_queue = find_reserved_job(normalized_queues, handler_matcher)
+          matched_queue, matched_job_index, matched_job_id = find_reserved_job(normalized_queues, handler_matcher)
           return nil unless matched_job_id
 
           jobs_by_id = state.jobs_by_id
@@ -76,7 +77,7 @@ module Karya
             lease_duration: normalized_lease_duration
           )
 
-          queue_job_ids.delete(matched_job_id)
+          queue_job_ids.delete_at(matched_job_index)
           state.delete_queue(matched_queue) if queue_job_ids.empty?
           jobs_by_id[reserved_job.id] = reserved_job
           state.reserve(reservation)
@@ -357,21 +358,30 @@ module Karya
               "reservation token #{reservation_token.inspect} is already in use (active or expired)"
       end
 
+      def normalize_reserve_queues(queue:, queues:)
+        reserve_queues = queue && queues ? nil : queue || queues
+        raise InvalidQueueStoreOperationError, RESERVE_QUEUES_ERROR_MESSAGE unless reserve_queues
+
+        Primitives::QueueList.new(reserve_queues, error_class: InvalidQueueStoreOperationError).normalize
+      end
+
       def find_reserved_job(queues, handler_matcher)
         queues.each do |queue|
-          matched_job_id = matching_job_id_for(queue, handler_matcher)
-          return [matched_job_id, queue] if matched_job_id
+          matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher)
+          return [queue, matched_job_index, matched_job_id] if matched_job_id
         end
 
         nil
       end
 
-      def matching_job_id_for(queue, handler_matcher)
+      def matching_job_for(queue, handler_matcher)
         queue_job_ids = state.queued_job_ids_by_queue.fetch(queue, [])
-        queue_job_ids.find do |job_id|
+        queue_job_ids.each_with_index do |job_id, index|
           queued_job = state.jobs_by_id.fetch(job_id)
-          handler_matcher.include?(queued_job.handler)
+          return [index, job_id] if handler_matcher.include?(queued_job.handler)
         end
+
+        nil
       end
 
       def finalize_execution(reservation_token:, now:, next_state:)

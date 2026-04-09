@@ -14,6 +14,8 @@ module Karya
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024
 
+      RESERVE_QUEUES_ERROR_MESSAGE: String
+
       def initialize: (?(Method | Proc) token_generator, ?Integer expired_tombstone_limit) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
@@ -156,9 +158,11 @@ module Karya
 
       def ensure_unique_reservation_token: (String reservation_token) -> nil
 
-      def find_reserved_job: (Array[String] queues, HandlerMatcher handler_matcher) -> [String, String]?
+      def normalize_reserve_queues: (queue: Karya::state_name?, queues: Array[Karya::state_name]?) -> Array[String]
 
-      def matching_job_id_for: (String queue, HandlerMatcher handler_matcher) -> String?
+      def find_reserved_job: (Array[String] queues, HandlerMatcher handler_matcher) -> [String, Integer, String]?
+
+      def matching_job_for: (String queue, HandlerMatcher handler_matcher) -> [Integer, String]?
 
       def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed) -> Job
 
