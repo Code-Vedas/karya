@@ -11,6 +11,7 @@ module Karya
     class HandlerRegistry
       def initialize(value)
         raise InvalidWorkerConfigurationError, 'handlers must be a Hash' unless value.is_a?(Hash)
+        raise InvalidWorkerConfigurationError, 'handlers must be present' if value.empty?
 
         @value = value
         @normalized_handlers = normalize
@@ -27,6 +28,10 @@ module Karya
         normalized_handlers.fetch(handler_name)
       rescue KeyError
         raise MissingHandlerError, "handler #{handler_name.inspect} is not registered"
+      end
+
+      def names
+        normalized_handlers.keys
       end
 
       private

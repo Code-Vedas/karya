@@ -902,6 +902,18 @@ RSpec.describe Karya::WorkerSupervisor do
       end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /queues must be present/)
     end
 
+    it 'rejects duplicate queue names with the supervisor error class' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-supervisor',
+          queues: ['billing', ' billing '],
+          handlers: { 'billing_sync' => -> {} },
+          lease_duration: 30
+        )
+      end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /queues must be unique: billing/)
+    end
+
     it 'rejects non-hash handlers with the supervisor error class' do
       expect do
         described_class.new(
@@ -912,6 +924,18 @@ RSpec.describe Karya::WorkerSupervisor do
           lease_duration: 30
         )
       end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /handlers must be a Hash/)
+    end
+
+    it 'rejects empty handlers with the supervisor error class' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-supervisor',
+          queues: ['billing'],
+          handlers: {},
+          lease_duration: 30
+        )
+      end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /handlers must be present/)
     end
 
     it 'rejects non-positive lease durations with the supervisor error class' do

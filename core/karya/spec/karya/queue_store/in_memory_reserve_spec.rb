@@ -75,6 +75,69 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(second.job_id).to eq('job-2')
     end
 
+    it 'reserves first matching job from subscribed queues in declared order' do
+      store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:, handler: 'billing_sync'), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'email-1', queue: 'email', created_at: created_at + 1, handler: 'email_sync'), now: created_at + 2)
+
+      reservation = store.reserve(
+        queues: %w[email billing],
+        handler_names: %w[email_sync billing_sync],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 3
+      )
+
+      expect(reservation.job_id).to eq('email-1')
+    end
+
+    it 'skips unsupported handlers in same queue without mutating queued jobs' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:, handler: 'unsupported'), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, handler: 'billing_sync'), now: created_at + 2)
+
+      reservation = store.reserve(
+        queues: ['billing'],
+        handler_names: ['billing_sync'],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 3
+      )
+
+      expect(reservation.job_id).to eq('job-2')
+      expect(stored_job('job-1').state).to eq(:queued)
+      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
+    end
+
+    it 'skips subscribed queues with only unsupported jobs and finds later matching queue' do
+      store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:, handler: 'unsupported'), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'email-1', queue: 'email', created_at: created_at + 1, handler: 'email_sync'), now: created_at + 2)
+
+      reservation = store.reserve(
+        queues: %w[billing email],
+        handler_names: ['email_sync'],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 3
+      )
+
+      expect(reservation.job_id).to eq('email-1')
+      expect(stored_job('billing-1').state).to eq(:queued)
+    end
+
+    it 'returns nil when subscribed queues only contain unsupported handlers' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:, handler: 'unsupported'), now: created_at + 1)
+
+      reservation = store.reserve(
+        queues: ['billing'],
+        handler_names: ['billing_sync'],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 2
+      )
+
+      expect(reservation).to be_nil
+      expect(stored_job('job-1').state).to eq(:queued)
+    end
+
     it 'returns a reservation lease with the reserved job metadata' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
 
@@ -203,6 +266,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: '2026-03-27T12:00:02Z')
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /now must be a Time/)
+    end
+
+    it 'rejects empty handler_names for subscription-aware reserve input' do
+      expect do
+        store.reserve(queues: ['billing'], handler_names: [], worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /handler_names must be present/)
     end
   end
 end

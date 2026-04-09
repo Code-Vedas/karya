@@ -22,7 +22,13 @@ RSpec.describe Karya::QueueStore do
 
   it 'requires reserve to be implemented' do
     expect do
-      store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: Time.utc(2026, 3, 27, 12, 0, 0))
+      store.reserve(
+        queues: ['billing'],
+        handler_names: ['billing_sync'],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: Time.utc(2026, 3, 27, 12, 0, 0)
+      )
     end.to raise_error(NotImplementedError, /implement #reserve/)
   end
 

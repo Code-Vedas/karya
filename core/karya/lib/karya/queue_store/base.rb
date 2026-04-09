@@ -15,11 +15,13 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
-      def reserve(queue:, worker_id:, lease_duration:, now:)
-        _queue = queue
+      def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: nil)
         _worker_id = worker_id
         _lease_duration = lease_duration
         _now = now
+        _queue = queue
+        _queues = queues
+        _handler_names = handler_names
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 

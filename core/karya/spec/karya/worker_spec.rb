@@ -188,6 +188,16 @@ RSpec.describe Karya::Worker do
       expect(result.state).to eq(:succeeded)
     end
 
+    it 'returns nil when queue has jobs but none match the worker subscription' do
+      queue_store.enqueue(
+        job: submission_job(id: 'job-1', handler_name: 'email_sync'),
+        now:
+      )
+
+      expect(worker.work_once).to be_nil
+      expect(stored_job('job-1').state).to eq(:queued)
+    end
+
     it 'executes callable handlers that define an unrelated parameters method' do
       callable_handler = Class.new do
         class << self
@@ -276,7 +286,7 @@ RSpec.describe Karya::Worker do
       expect(result.state).to eq(:succeeded)
     end
 
-    it 'marks jobs failed when the handler is not registered' do
+    it 'leaves jobs queued when the handler is not registered for the worker subscription' do
       queue_store.enqueue(
         job: submission_job(id: 'job-1', handler_name: 'missing_handler'),
         now:
@@ -284,9 +294,9 @@ RSpec.describe Karya::Worker do
 
       result = worker.work_once
 
-      expect(result.state).to eq(:failed)
-      expect(stored_job('job-1').state).to eq(:failed)
-      expect(stored_job('job-1').attempt).to eq(1)
+      expect(result).to be_nil
+      expect(stored_job('job-1').state).to eq(:queued)
+      expect(stored_job('job-1').attempt).to eq(0)
     end
 
     it 'marks jobs failed when the handler raises' do
@@ -532,6 +542,18 @@ RSpec.describe Karya::Worker do
       end.to raise_error(Karya::InvalidWorkerConfigurationError, /queues must be present/)
     end
 
+    it 'rejects duplicate queue names' do
+      expect do
+        described_class.new(
+          queue_store:,
+          worker_id: 'worker-1',
+          queues: ['billing', ' billing '],
+          handlers:,
+          lease_duration: 30
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /queues must be unique: billing/)
+    end
+
     it 'rejects non-hash handlers' do
       expect do
         described_class.new(
@@ -542,6 +564,18 @@ RSpec.describe Karya::Worker do
           lease_duration: 30
         )
       end.to raise_error(Karya::InvalidWorkerConfigurationError, /handlers must be a Hash/)
+    end
+
+    it 'rejects empty handlers' do
+      expect do
+        described_class.new(
+          queue_store:,
+          worker_id: 'worker-1',
+          queues:,
+          handlers: {},
+          lease_duration: 30
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /handlers must be present/)
     end
 
     it 'rejects non-positive lease durations' do
@@ -648,6 +682,29 @@ RSpec.describe Karya::Worker do
           lease_duration: 30
         ).handlers.fetch('missing_handler')
       end.to raise_error(Karya::MissingHandlerError, /missing_handler/)
+    end
+
+    it 'exposes a subscription that matches queue and handler together' do
+      worker_instance = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30
+      )
+      matching_job = submission_job(id: 'job-1')
+      non_matching_job = submission_job(id: 'job-2', handler_name: 'email_sync')
+
+      expect(worker_instance.subscription.match?(matching_job)).to be(true)
+      expect(worker_instance.subscription.match?(non_matching_job)).to be(false)
+    end
+
+    it 'rejects empty handler names when building a subscription directly' do
+      subscription_class = described_class.const_get(:Subscription, false)
+
+      expect do
+        subscription_class.new(queues: ['billing'], handler_names: [])
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, /handlers must be present/)
     end
   end
 

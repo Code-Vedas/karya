@@ -20,6 +20,12 @@ module Karya
         end
         raise error_class, 'queues must be present' if normalized_values.empty?
 
+        duplicate_values = normalized_values
+                           .group_by(&:itself)
+                           .select { |_queue, entries| entries.length > 1 }
+                           .keys
+        raise error_class, "queues must be unique: #{duplicate_values.join(', ')}" unless duplicate_values.empty?
+
         normalized_values.freeze
       end
 

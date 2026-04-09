@@ -10,6 +10,7 @@ require 'bigdecimal'
 
 require_relative 'base'
 require_relative '../job'
+require_relative '../primitives/queue_list'
 require_relative '../reservation'
 
 module Karya
@@ -19,6 +20,7 @@ module Karya
       include Base
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
+      ALL_HANDLER_NAMES = Object.new
 
       def initialize(token_generator: -> { SecureRandom.uuid }, expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
         valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
@@ -51,8 +53,9 @@ module Karya
         end
       end
 
-      def reserve(queue:, worker_id:, lease_duration:, now:)
-        normalized_queue = normalize_identifier(:queue, queue, error_class: InvalidQueueStoreOperationError)
+      def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: ALL_HANDLER_NAMES)
+        normalized_queues = Primitives::QueueList.new(queues || queue, error_class: InvalidQueueStoreOperationError).normalize
+        normalized_handler_names = normalize_handler_names(handler_names)
         normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
         normalized_lease_duration = LeaseDuration.new(lease_duration).normalize
@@ -60,12 +63,12 @@ module Karya
         @mutex.synchronize do
           expire_reservations_locked(normalized_now)
 
-          queue_job_ids = state.queued_job_ids_by_queue.fetch(normalized_queue, [])
-          job_id = queue_job_ids.first
-          return nil unless job_id
+          matched_job_id, matched_queue = find_reserved_job(normalized_queues, normalized_handler_names)
+          return nil unless matched_job_id
 
           jobs_by_id = state.jobs_by_id
-          queued_job = jobs_by_id.fetch(job_id)
+          queue_job_ids = state.queued_job_ids_by_queue.fetch(matched_queue)
+          queued_job = jobs_by_id.fetch(matched_job_id)
           reserved_job = queued_job.transition_to(:reserved, updated_at: normalized_now)
           reservation = build_reservation(
             reserved_job:,
@@ -74,8 +77,8 @@ module Karya
             lease_duration: normalized_lease_duration
           )
 
-          queue_job_ids.shift
-          state.delete_queue(normalized_queue) if queue_job_ids.empty?
+          queue_job_ids.delete(matched_job_id)
+          state.delete_queue(matched_queue) if queue_job_ids.empty?
           jobs_by_id[reserved_job.id] = reserved_job
           state.reserve(reservation)
           reservation
@@ -295,6 +298,17 @@ module Karya
         normalized_value
       end
 
+      def normalize_handler_names(value)
+        return ALL_HANDLER_NAMES if value.equal?(ALL_HANDLER_NAMES)
+
+        normalized_names = Array(value).map do |handler_name|
+          normalize_identifier(:handler, handler_name, error_class: InvalidQueueStoreOperationError)
+        end
+        raise InvalidQueueStoreOperationError, 'handler_names must be present' if normalized_names.empty?
+
+        normalized_names.freeze
+      end
+
       def normalize_time(name, value, error_class:)
         return value if value.is_a?(Time)
 
@@ -320,6 +334,23 @@ module Karya
 
         raise DuplicateReservationTokenError,
               "reservation token #{reservation_token.inspect} is already in use (active or expired)"
+      end
+
+      def find_reserved_job(queues, handler_names)
+        queues.each do |queue|
+          matched_job_id = matching_job_id_for(queue, handler_names)
+          return [matched_job_id, queue] if matched_job_id
+        end
+
+        nil
+      end
+
+      def matching_job_id_for(queue, handler_names)
+        queue_job_ids = state.queued_job_ids_by_queue.fetch(queue, [])
+        queue_job_ids.find do |job_id|
+          queued_job = state.jobs_by_id.fetch(job_id)
+          handler_names.equal?(ALL_HANDLER_NAMES) || handler_names.include?(queued_job.handler)
+        end
       end
 
       def finalize_execution(reservation_token:, now:, next_state:)

@@ -113,6 +113,8 @@ states or their core meanings.
 The first runtime queueing layer keeps the lifecycle explicit:
 
 - `enqueue` accepts only jobs in `submission` and persists them as `queued`
+- `reserve` matches queued jobs against worker subscription boundaries rather
+  than treating queue membership alone as executability
 - `reserve` returns a separate reservation lease token rather than embedding
   lease metadata into the job itself
 - reservation leases expire back to `queued` if they are not released or

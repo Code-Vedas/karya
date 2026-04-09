@@ -21,7 +21,9 @@ module Karya
         split_entry.fetch(1)
       end
 
-      def merge_into(handlers)
+      def merge_into(handlers, duplicate_error_class: ArgumentError)
+        raise duplicate_error_class, "duplicate handler mapping for #{name.inspect}" if handlers.key?(name)
+
         handlers[name] = Karya::ConstantResolver.new(constant_name).resolve
       rescue Karya::ConstantResolutionError => e
         raise Thor::Error, e.message
