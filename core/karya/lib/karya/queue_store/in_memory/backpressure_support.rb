@@ -20,7 +20,8 @@ module Karya
         end
 
         def prune_stale_rate_limit_admissions(now)
-          state.rate_limit_admissions_by_key.dup.each_key do |rate_limit_key|
+          rate_limit_keys = state.rate_limit_admissions_by_key.keys
+          rate_limit_keys.each do |rate_limit_key|
             policy = policy_set.rate_limit_policy_for(rate_limit_key)
             unless policy
               state.delete_rate_limit_key(rate_limit_key)

@@ -185,9 +185,21 @@ module Karya
         ?queue: Karya::state_name?,
         ?queues: Array[Karya::state_name]?,
         ?handler_names: Array[Karya::state_name]?
-      ) -> Hash[Symbol, untyped]
+      ) -> {
+        handler_matcher: HandlerMatcher,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        queues: Array[String],
+        worker_id: String
+      }
 
-      def reserve_matching_job: (Hash[Symbol, untyped] reserve_request) -> Reservation?
+      def reserve_matching_job: ({
+        handler_matcher: HandlerMatcher,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        queues: Array[String],
+        worker_id: String
+      } reserve_request) -> Reservation?
 
       def find_reserved_job: (
         Array[String] queues,
