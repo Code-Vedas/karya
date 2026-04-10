@@ -5,26 +5,44 @@ module Karya
 
   # Immutable value object for the canonical queued job model.
   class Job
-    @id: String
+    class Identity
+      @id: String
+      @queue: String
+      @handler: String
+      @arguments: job_arguments
 
-    @queue: String
+      attr_reader id: String
+      attr_reader queue: String
+      attr_reader handler: String
+      attr_reader arguments: job_arguments
+    end
 
-    @handler: String
+    class Scheduling
+      @priority: Integer
+      @concurrency_key: String?
+      @rate_limit_key: String?
 
-    @arguments: job_arguments
-    @priority: Integer
-    @concurrency_key: String?
-    @rate_limit_key: String?
+      attr_reader priority: Integer
+      attr_reader concurrency_key: String?
+      attr_reader rate_limit_key: String?
+    end
 
-    @state: state_name
+    class LifecycleState
+      @state: state_name
+      @attempt: Integer
+      @created_at: Time
+      @updated_at: Time
+      @lifecycle: JobLifecycle::Registry
 
-    @attempt: Integer
+      attr_reader state: state_name
+      attr_reader attempt: Integer
+      attr_reader created_at: Time
+      attr_reader updated_at: Time
+    end
 
-    @created_at: Time
-
-    @lifecycle: JobLifecycle::Registry
-
-    @updated_at: Time
+    @identity: Identity
+    @scheduling: Scheduling
+    @lifecycle_state: LifecycleState
 
     attr_reader arguments: job_arguments
 
@@ -67,6 +85,10 @@ module Karya
     def terminal?: () -> bool
 
     private
+
+    attr_reader identity: Identity
+    attr_reader scheduling: Scheduling
+    attr_reader lifecycle_state: LifecycleState
 
     attr_reader lifecycle: JobLifecycle::Registry
   end

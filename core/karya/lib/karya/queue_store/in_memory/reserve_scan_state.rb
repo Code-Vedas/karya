@@ -25,7 +25,9 @@ module Karya
           return false unless concurrency_key
 
           limit = @concurrency_limits[concurrency_key]
-          limit && @concurrency_counts.fetch(concurrency_key, 0) >= limit
+          return false unless limit
+
+          @concurrency_counts.fetch(concurrency_key, 0) >= limit
         end
 
         def rate_limited?(job)
@@ -33,7 +35,9 @@ module Karya
           return false unless rate_limit_key
 
           limit = @rate_limit_limits[rate_limit_key]
-          limit && @rate_limit_counts.fetch(rate_limit_key, 0) >= limit
+          return false unless limit
+
+          @rate_limit_counts.fetch(rate_limit_key, 0) >= limit
         end
 
         private

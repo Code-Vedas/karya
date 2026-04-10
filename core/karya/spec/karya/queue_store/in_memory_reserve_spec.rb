@@ -321,6 +321,21 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(second.job_id).to eq('job-2')
     end
 
+    it 'ignores unconfigured concurrency keys during reserve scans' do
+      constrained_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(concurrency: { account_sync: { limit: 1 } })
+      )
+      constrained_store.enqueue(
+        job: submission_job(id: 'job-1', queue: 'billing', created_at:, concurrency_key: 'unconfigured'),
+        now: created_at + 1
+      )
+
+      reservation = constrained_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect(reservation.job_id).to eq('job-1')
+    end
+
     it 'blocks reservations after a rate-limit window reaches capacity' do
       limited_store = described_class.new(
         token_generator: token_generator,

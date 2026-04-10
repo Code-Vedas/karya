@@ -42,6 +42,8 @@ module Karya
 
       private
 
+      attr_reader policy_set: Backpressure::PolicySet
+
       attr_reader state: StoreState
 
       attr_reader token_generator: Method | Proc
@@ -176,6 +178,8 @@ module Karya
 
       def ensure_unique_reservation_token: (String reservation_token) -> nil
 
+      def build_reserve_scan_state: () -> ReserveScanState
+
       def normalize_reserve_queues: (queue: Karya::state_name?, queues: Array[Karya::state_name]?) -> Array[String]
 
       def normalize_reserve_request: (
@@ -214,6 +218,8 @@ module Karya
       ) -> [Integer, String]?
 
       def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
+
+      def prune_stale_rate_limit_admissions: (Time now) -> void
 
       def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
 
