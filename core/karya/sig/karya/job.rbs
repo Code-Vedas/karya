@@ -38,6 +38,7 @@ module Karya
       attr_reader attempt: Integer
       attr_reader created_at: Time
       attr_reader updated_at: Time
+      attr_reader lifecycle: JobLifecycle::Registry
     end
 
     @identity: Identity
@@ -90,6 +91,6 @@ module Karya
     attr_reader scheduling: Scheduling
     attr_reader lifecycle_state: LifecycleState
 
-    attr_reader lifecycle: JobLifecycle::Registry
+    def lifecycle: () -> JobLifecycle::Registry
   end
 end
