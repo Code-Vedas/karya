@@ -9,6 +9,8 @@ RSpec.describe 'Karya::Job::Attributes' do
   let(:attributes_class) { Karya::Job.const_get(:Attributes, false) }
   let(:created_at) { Time.utc(2026, 3, 26, 12, 0, 0) }
   let(:updated_at) { Time.utc(2026, 3, 26, 12, 5, 0) }
+  let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2) }
+  let(:next_retry_at) { Time.utc(2026, 3, 26, 12, 10, 0) }
 
   describe '#to_h' do
     it 'normalizes all job attributes into canonical hash' do
@@ -19,8 +21,10 @@ RSpec.describe 'Karya::Job::Attributes' do
         arguments: { 'account_id' => 42 },
         state: 'queued',
         attempt: 1,
+        retry_policy: retry_policy,
         created_at: created_at,
-        updated_at: updated_at
+        updated_at: updated_at,
+        next_retry_at: next_retry_at
       )
 
       result = attributes.to_h
@@ -31,8 +35,10 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:arguments]).to eq('account_id' => 42)
       expect(result[:state]).to eq(:queued)
       expect(result[:attempt]).to eq(1)
+      expect(result[:retry_policy]).to eq(retry_policy)
       expect(result[:created_at]).to eq(created_at)
       expect(result[:updated_at]).to eq(updated_at)
+      expect(result[:next_retry_at]).to eq(next_retry_at)
     end
 
     it 'defaults attempt to 0 when not provided' do
@@ -63,6 +69,8 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:priority]).to eq(0)
       expect(result[:concurrency_key]).to be_nil
       expect(result[:rate_limit_key]).to be_nil
+      expect(result[:retry_policy]).to be_nil
+      expect(result[:next_retry_at]).to be_nil
     end
 
     it 'defaults updated_at to created_at when not provided' do
@@ -140,6 +148,32 @@ RSpec.describe 'Karya::Job::Attributes' do
           rate_limit_key: ''
         ).to_h
       end.to raise_error(Karya::InvalidJobAttributeError, 'rate_limit_key must be present')
+    end
+
+    it 'raises InvalidJobAttributeError for invalid retry_policy' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          retry_policy: Object.new
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy')
+    end
+
+    it 'raises InvalidJobAttributeError for invalid next_retry_at' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          next_retry_at: 'later'
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'next_retry_at must be a Time')
     end
 
     it 'raises InvalidJobAttributeError for negative attempt' do

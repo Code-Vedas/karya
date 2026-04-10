@@ -8,6 +8,8 @@
 RSpec.describe Karya::Job do
   let(:created_at) { Time.utc(2026, 3, 26, 12, 0, 0) }
   let(:updated_at) { Time.utc(2026, 3, 26, 12, 5, 0) }
+  let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2) }
+  let(:next_retry_at) { Time.utc(2026, 3, 26, 12, 10, 0) }
 
   describe '#initialize' do
     it 'builds an immutable canonical job with normalized fields' do
@@ -19,10 +21,12 @@ RSpec.describe Karya::Job do
         priority: 5,
         concurrency_key: 'account-42',
         rate_limit_key: 'partner-api',
+        retry_policy: retry_policy,
         state: 'retry-pending',
         attempt: 2,
         created_at:,
-        updated_at:
+        updated_at:,
+        next_retry_at: next_retry_at
       )
 
       expect(job.id).to eq('job123')
@@ -38,12 +42,15 @@ RSpec.describe Karya::Job do
       expect(job.priority).to eq(5)
       expect(job.concurrency_key).to eq('account-42')
       expect(job.rate_limit_key).to eq('partner-api')
+      expect(job.retry_policy).to eq(retry_policy)
       expect(job.state).to eq(:retry_pending)
       expect(job.attempt).to eq(2)
       expect(job.created_at).to eq(created_at)
       expect(job.updated_at).to eq(updated_at)
+      expect(job.next_retry_at).to eq(next_retry_at)
       expect(job.created_at).to be_frozen
       expect(job.updated_at).to be_frozen
+      expect(job.next_retry_at).to be_frozen
       expect(job).to be_frozen
     end
 
@@ -184,8 +191,10 @@ RSpec.describe Karya::Job do
         priority: 9,
         concurrency_key: 'account-9',
         rate_limit_key: 'partner-api',
+        retry_policy: retry_policy,
         state: :reserved,
-        created_at:
+        created_at:,
+        next_retry_at: next_retry_at
       )
 
       transitioned_job = job.transition_to(:running, updated_at:)
@@ -193,6 +202,25 @@ RSpec.describe Karya::Job do
       expect(transitioned_job.priority).to eq(9)
       expect(transitioned_job.concurrency_key).to eq('account-9')
       expect(transitioned_job.rate_limit_key).to eq('partner-api')
+      expect(transitioned_job.retry_policy).to eq(retry_policy)
+      expect(transitioned_job.next_retry_at).to eq(next_retry_at)
+    end
+
+    it 'allows overriding retry metadata during transition' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        retry_policy: retry_policy,
+        state: :failed,
+        attempt: 1,
+        created_at:
+      )
+
+      transitioned_job = job.transition_to(:retry_pending, updated_at:, next_retry_at: next_retry_at, retry_policy: retry_policy)
+
+      expect(transitioned_job.retry_policy).to eq(retry_policy)
+      expect(transitioned_job.next_retry_at).to eq(next_retry_at)
     end
 
     it 'freezes internal component structs to preserve immutability' do

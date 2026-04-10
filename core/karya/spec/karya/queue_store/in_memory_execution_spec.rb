@@ -11,6 +11,7 @@ RSpec.describe Karya::QueueStore::InMemory do
   let(:token_sequence) { %w[lease-1 lease-2 lease-3 lease-4].each }
   let(:token_generator) { -> { token_sequence.next } }
   let(:created_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
+  let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2, max_delay: 12) }
 
   def submission_job(id:, queue:, created_at:, handler: 'billing_sync')
     Karya::Job.new(
@@ -134,6 +135,16 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::UnknownReservationError, /was not found/)
     end
 
+    it 'rejects invalid retry policy objects' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      expect do
+        store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: Object.new)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, 'retry_policy must be a Karya::RetryPolicy')
+    end
+
     it 'rejects expired execution leases and requeues the running job' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 2)
@@ -145,6 +156,66 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(stored_job('job-1').state).to eq(:queued)
       expect(store_state.executions_by_token).to eq({})
+    end
+
+    it 'transitions a running job to retry_pending when retry policy allows another attempt' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      retried_job = store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: retry_policy)
+
+      expect(retried_job.state).to eq(:retry_pending)
+      expect(retried_job.attempt).to eq(1)
+      expect(retried_job.retry_policy).to eq(retry_policy)
+      expect(retried_job.next_retry_at).to eq(created_at + 9)
+      expect(stored_job('job-1').state).to eq(:retry_pending)
+      expect(store_state.retry_pending_job_ids).to eq(['job-1'])
+    end
+
+    it 'keeps a failed job terminal when max_attempts is exhausted' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: retry_policy)
+
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 9)
+      running_job = store.start_execution(reservation_token: reservation.token, now: created_at + 10)
+      expect(running_job.attempt).to eq(2)
+      store.fail_execution(reservation_token: reservation.token, now: created_at + 11, retry_policy: retry_policy)
+
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 21)
+      running_job = store.start_execution(reservation_token: reservation.token, now: created_at + 22)
+      expect(running_job.attempt).to eq(3)
+
+      failed_job = store.fail_execution(reservation_token: reservation.token, now: created_at + 23, retry_policy: retry_policy)
+
+      expect(failed_job.state).to eq(:failed)
+      expect(failed_job.next_retry_at).to be_nil
+      expect(store_state.retry_pending_job_ids).to eq([])
+    end
+
+    it 'does not reserve retry_pending jobs before they are due' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: retry_policy)
+
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 8)).to be_nil
+      expect(stored_job('job-1').state).to eq(:retry_pending)
+    end
+
+    it 'promotes due retry_pending jobs during reserve maintenance' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: retry_policy)
+
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 9)
+
+      expect(reservation.job_id).to eq('job-1')
+      expect(stored_job('job-1').state).to eq(:reserved)
+      expect(store_state.retry_pending_job_ids).to eq([])
     end
   end
 end

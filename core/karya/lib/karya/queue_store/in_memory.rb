@@ -10,14 +10,18 @@ require 'bigdecimal'
 
 require_relative 'base'
 require_relative 'in_memory/backpressure_support'
+require_relative 'in_memory/execution_recovery'
 require_relative 'in_memory/handler_matcher'
 require_relative 'in_memory/lease_duration'
+require_relative 'in_memory/reserve_selection_support'
+require_relative 'in_memory/retry_support'
 require_relative 'in_memory/reserve_scan_state'
 require_relative 'in_memory/store_state'
 require_relative '../job'
 require_relative '../primitives/identifier'
 require_relative '../primitives/queue_list'
 require_relative '../reservation'
+require_relative '../retry_policy'
 require_relative '../backpressure'
 
 module Karya
@@ -26,6 +30,8 @@ module Karya
     class InMemory
       include Base
       include BackpressureSupport
+      include ReserveSelectionSupport
+      include RetrySupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
@@ -109,8 +115,8 @@ module Karya
         finalize_execution(reservation_token:, now:, next_state: :succeeded)
       end
 
-      def fail_execution(reservation_token:, now:)
-        finalize_execution(reservation_token:, now:, next_state: :failed)
+      def fail_execution(reservation_token:, now:, retry_policy: nil)
+        finalize_execution(reservation_token:, now:, next_state: :failed, retry_policy:)
       end
 
       def expire_reservations(now:)
@@ -141,6 +147,7 @@ module Karya
       def expire_reservations_locked(now)
         expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now)
         expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
+        promote_due_retry_pending_jobs(now)
 
         expired_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
         expired_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
@@ -184,6 +191,7 @@ module Karya
         queued_job_id = queued_job.id
         jobs_by_id[queued_job_id] = queued_job
         state.queue_job_ids_for(queued_job.queue) << queued_job_id
+        state.delete_retry_pending(queued_job_id)
         state.mark_expired(reservation_token)
         queued_job
       end
@@ -265,42 +273,10 @@ module Karya
         reservation
       end
 
-      def find_reserved_job(queues, handler_matcher, reserve_scan_state)
-        queues.each do |queue|
-          matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher, reserve_scan_state)
-          return [queue, matched_job_index, matched_job_id] if matched_job_id
-        end
-
-        nil
-      end
-
-      def matching_job_for(queue, handler_matcher, reserve_scan_state)
-        queue_job_ids = state.queued_job_ids_by_queue.fetch(queue, [])
-        selected_job_id = nil
-        selected_job_index = nil
-        selected_job_priority = nil
-
-        queue_job_ids.each_with_index do |job_id, index|
-          queued_job = state.jobs_by_id.fetch(job_id)
-          queued_job_priority = queued_job.priority
-          next unless handler_matcher.include?(queued_job.handler)
-          next if reserve_scan_state.concurrency_blocked?(queued_job)
-          next if reserve_scan_state.rate_limited?(queued_job)
-          next if selected_job_priority && queued_job_priority <= selected_job_priority
-
-          selected_job_id = job_id
-          selected_job_index = index
-          selected_job_priority = queued_job_priority
-        end
-
-        return nil unless selected_job_id
-
-        [selected_job_index, selected_job_id]
-      end
-
-      def finalize_execution(reservation_token:, now:, next_state:)
+      def finalize_execution(reservation_token:, now:, next_state:, retry_policy: nil)
         normalized_token = normalize_identifier(:reservation_token, reservation_token, error_class: InvalidQueueStoreOperationError)
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
+        normalized_retry_policy = normalize_retry_policy(retry_policy)
 
         @mutex.synchronize do
           executions_by_token = state.executions_by_token
@@ -319,7 +295,12 @@ module Karya
 
           jobs_by_id = state.jobs_by_id
           running_job = jobs_by_id.fetch(reservation.job_id)
-          finalized_job = running_job.transition_to(next_state, updated_at: normalized_now)
+          finalized_job =
+            if next_state == :failed && normalized_retry_policy&.retry?(running_job.attempt)
+              retry_pending_job(running_job, normalized_now, normalized_retry_policy)
+            else
+              running_job.transition_to(next_state, updated_at: normalized_now, next_retry_at: nil)
+            end
           jobs_by_id[finalized_job.id] = finalized_job
           executions_by_token.delete(normalized_token)
           state.delete_execution_token(normalized_token)
@@ -361,22 +342,6 @@ module Karya
         return unless state.expired_reservation_tokens.key?(reservation_token)
 
         raise ExpiredReservationError, "reservation #{reservation_label} has expired"
-      end
-
-      # Rebuilds a running job as queued when execution lease recovery is required.
-      class ExecutionRecovery
-        def initialize(running_job, now)
-          @running_job = running_job
-          @now = now
-        end
-
-        def to_queued_job
-          running_job.transition_to(:queued, updated_at: now)
-        end
-
-        private
-
-        attr_reader :now, :running_job
       end
 
       private_constant :ExecutionRecovery, :StoreState

@@ -28,6 +28,8 @@ A canonical job instance carries these behavior-level expectations:
 - one canonical current state for the job instance at any point in time
 - optional scheduling metadata such as `priority`, `concurrency_key`, and
   `rate_limit_key` for runtime backpressure decisions
+- optional retry metadata such as `retry_policy` and `next_retry_at` for
+  bounded retry scheduling
 
 Application code defines what the job does. Karya owns the queue placement,
 lifecycle, reservation, execution, and operator-visible state around that work.
@@ -89,7 +91,8 @@ The documented lifecycle covers:
 
 This page does not define:
 
-- retry policy, backoff, jitter, or escalation rules
+- jitter, escalation, or failure-classification rules beyond the base
+  `retry_pending` waiting state
 - fairness, starvation prevention, or backpressure policy
 - dead-letter recovery behavior such as replay or discard rules
 - bulk-operation semantics beyond acknowledging that bulk actions operate on the
@@ -179,6 +182,9 @@ reserved_job.state
 subscription queue order still decides which queue is scanned first.
 `concurrency_key` and `rate_limit_key` are optional identifiers that let queue
 stores apply configured backpressure policies without mutating handler input.
+`retry_policy` is an optional deterministic retry/backoff definition, while
+`next_retry_at` marks when a `retry_pending` job becomes eligible to return to
+`queued`.
 
 Lifecycle extensions are also explicit. Follow-on runtime work can register a
 new state and link it to the base lifecycle without redefining the canonical

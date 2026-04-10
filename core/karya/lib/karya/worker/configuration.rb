@@ -9,7 +9,7 @@ module Karya
   class Worker
     # Validated worker bootstrap configuration.
     class Configuration
-      OPTION_KEYS = %i[worker_id queues handlers lease_duration lifecycle].freeze
+      OPTION_KEYS = %i[worker_id queues handlers lease_duration lifecycle retry_policy].freeze
 
       def self.from_options(options)
         attributes = OPTION_KEYS.each_with_object({}) do |key, collected|
@@ -18,15 +18,26 @@ module Karya
         new(**attributes)
       end
 
-      attr_reader :handlers, :lease_duration, :lifecycle, :queues, :subscription, :worker_id
+      attr_reader :handlers, :lease_duration, :lifecycle, :queues, :retry_policy, :subscription, :worker_id
 
-      def initialize(worker_id:, queues:, handlers:, lease_duration:, lifecycle: JobLifecycle.default_registry)
+      def initialize(worker_id:, queues:, handlers:, lease_duration:, lifecycle: JobLifecycle.default_registry, retry_policy: nil)
         @worker_id = Primitives::Identifier.new(:worker_id, worker_id, error_class: InvalidWorkerConfigurationError).normalize
         @handlers = handlers.is_a?(HandlerRegistry) ? handlers : HandlerRegistry.new(handlers)
         @subscription = Subscription.new(queues:, handler_names: @handlers.names)
         @queues = @subscription.queues
         @lease_duration = Primitives::PositiveFiniteNumber.new(:lease_duration, lease_duration, error_class: InvalidWorkerConfigurationError).normalize
         @lifecycle = Primitives::Lifecycle.new(:lifecycle, lifecycle, error_class: InvalidWorkerConfigurationError).normalize
+        @retry_policy = normalize_retry_policy(retry_policy)
+      end
+
+      private
+
+      def normalize_retry_policy(value)
+        value&.then do |retry_policy|
+          return retry_policy if retry_policy.is_a?(RetryPolicy)
+
+          raise InvalidWorkerConfigurationError, 'retry_policy must be a Karya::RetryPolicy'
+        end
       end
     end
   end

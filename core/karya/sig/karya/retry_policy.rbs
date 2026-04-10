@@ -1,0 +1,24 @@
+module Karya
+  # Raised when retry policy configuration is invalid.
+  class InvalidRetryPolicyError < Error
+  end
+
+  # Immutable retry policy for deterministic retry/backoff behavior.
+  class RetryPolicy
+    @max_attempts: Integer
+    @base_delay: Numeric
+    @multiplier: Numeric
+    @max_delay: Numeric?
+
+    attr_reader max_attempts: Integer
+    attr_reader base_delay: Numeric
+    attr_reader multiplier: Numeric
+    attr_reader max_delay: Numeric?
+
+    def initialize: (max_attempts: Integer, base_delay: Numeric, multiplier: Numeric, ?max_delay: Numeric?) -> void
+
+    def delay_for: (Integer attempt) -> Numeric
+
+    def retry?: (Integer attempt) -> bool
+  end
+end

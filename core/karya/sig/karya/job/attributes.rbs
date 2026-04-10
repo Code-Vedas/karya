@@ -6,7 +6,7 @@ module Karya
 
       def initialize: (Hash[Symbol, Karya::job_attribute_value] attributes) -> void
 
-      def to_h: () -> { id: String, queue: String, handler: String, arguments: Karya::job_arguments, priority: Integer, concurrency_key: String?, rate_limit_key: String?, lifecycle: Karya::lifecycle, state: Karya::state_name, attempt: Integer, created_at: Time, updated_at: Time }
+      def to_h: () -> { id: String, queue: String, handler: String, arguments: Karya::job_arguments, priority: Integer, concurrency_key: String?, rate_limit_key: String?, retry_policy: Karya::retry_policy?, lifecycle: Karya::lifecycle, state: Karya::state_name, attempt: Integer, created_at: Time, updated_at: Time, next_retry_at: Time? }
 
       private
 

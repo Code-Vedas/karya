@@ -26,6 +26,7 @@ RSpec.describe Karya::Worker do
   let(:now) { Time.utc(2026, 3, 29, 12, 0, 0) }
   let(:sleeper) { ->(_duration) {} }
   let(:signal_subscriber) { nil }
+  let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2) }
 
   def submission_job(id:, queue: 'billing', handler_name: 'billing_sync', arguments: {}, created_at: now - 60)
     Karya::Job.new(
@@ -55,6 +56,32 @@ RSpec.describe Karya::Worker do
       )
 
       expect(lifecycle_worker.lifecycle).to be(lifecycle)
+    end
+
+    it 'exposes the configured retry policy' do
+      retrying_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        retry_policy: retry_policy
+      )
+
+      expect(retrying_worker.retry_policy).to be(retry_policy)
+    end
+
+    it 'rejects invalid retry policy configuration' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-1',
+          queues: queues,
+          handlers: handlers,
+          lease_duration: 30,
+          retry_policy: Object.new
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, 'retry_policy must be a Karya::RetryPolicy')
     end
 
     it 'executes a registered callable handler and persists succeeded state' do
@@ -452,13 +479,13 @@ RSpec.describe Karya::Worker do
       queue_store.enqueue(job: submission_job(id: 'job-1'), now:)
       store = queue_store
       failed_once = false
-      allow(store).to receive(:fail_execution).and_wrap_original do |original, reservation_token:, now:|
+      allow(store).to receive(:fail_execution).and_wrap_original do |original, reservation_token:, now:, retry_policy: nil|
         unless failed_once
           failed_once = true
           raise Karya::UnknownReservationError, "reservation #{reservation_token.inspect} was not found"
         end
 
-        original.call(reservation_token:, now:)
+        original.call(reservation_token:, now:, retry_policy:)
       end
       failure_worker = described_class.new(
         queue_store: store,

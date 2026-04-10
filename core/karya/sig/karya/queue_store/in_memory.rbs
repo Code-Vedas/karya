@@ -36,7 +36,7 @@ module Karya
 
       def complete_execution: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
 
-      def fail_execution: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
+      def fail_execution: (reservation_token: Karya::state_name | Integer, now: Time, ?retry_policy: RetryPolicy?) -> Job
 
       def expire_reservations: (now: Time) -> Array[Job]
 
@@ -83,6 +83,8 @@ module Karya
         @rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         @queued_job_ids_by_queue: Hash[String, Array[String]]
+        @retry_pending_job_ids: Array[String]
+        @retry_pending_job_ids_index: Hash[String, bool]
 
         @reservation_tokens_in_order: Array[String]
 
@@ -100,6 +102,7 @@ module Karya
         attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
+        attr_reader retry_pending_job_ids: Array[String]
 
         attr_reader reservation_tokens_in_order: Array[String]
 
@@ -110,6 +113,10 @@ module Karya
         def queue_job_ids_for: (String queue) -> Array[String]
 
         def delete_queue: (String queue) -> Array[String]?
+
+        def register_retry_pending: (String job_id) -> Array[String]
+
+        def delete_retry_pending: (String job_id) -> String?
 
         def rate_limit_admissions_for: (String key) -> Array[Time]
 
@@ -223,7 +230,11 @@ module Karya
 
       def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
 
-      def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed) -> Job
+      def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed, ?retry_policy: RetryPolicy?) -> Job
+
+      def retry_pending_job: (Job running_job, Time now, RetryPolicy retry_policy) -> Job
+
+      def normalize_retry_policy: (RetryPolicy? value) -> RetryPolicy?
 
       def fetch_active_reservation: (String reservation_token, Time now) -> Reservation
 
