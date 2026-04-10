@@ -114,7 +114,8 @@ RSpec.describe Karya::Worker, :integration do
 
     expect(first_result.state).to eq(:retry_pending)
     expect(first_result.next_retry_at).to eq(base_time + 8)
-    expect(stored_job('job-retry').attempt).to eq(2)
+    expect(first_result.attempt).to eq(1)
+    expect(second_result.attempt).to eq(2)
     expect(second_result.state).to eq(:succeeded)
     expect(stored_job('job-retry').state).to eq(:succeeded)
   end
