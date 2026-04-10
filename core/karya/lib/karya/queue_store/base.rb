@@ -43,14 +43,20 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
-      def fail_execution(reservation_token:, now:, retry_policy: nil)
+      def fail_execution(reservation_token:, now:, failure_classification:, retry_policy: nil)
         _reservation_token = reservation_token
         _now = now
         _retry_policy = retry_policy
+        _failure_classification = failure_classification
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
       def expire_reservations(now:)
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def expire_jobs(now:)
         _now = now
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end

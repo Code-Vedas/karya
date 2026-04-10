@@ -56,6 +56,7 @@ module Karya
           handlers: configuration.handlers,
           lease_duration: configuration.lease_duration,
           lifecycle: configuration.lifecycle,
+          default_execution_timeout: configuration.default_execution_timeout,
           state_reporter: method(:report_thread_state)
         )
         worker.run(

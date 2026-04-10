@@ -11,6 +11,7 @@ RSpec.describe 'Karya::Job::Attributes' do
   let(:updated_at) { Time.utc(2026, 3, 26, 12, 5, 0) }
   let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2) }
   let(:next_retry_at) { Time.utc(2026, 3, 26, 12, 10, 0) }
+  let(:expires_at) { Time.utc(2026, 3, 26, 12, 20, 0) }
 
   describe '#to_h' do
     it 'normalizes all job attributes into canonical hash' do
@@ -22,9 +23,12 @@ RSpec.describe 'Karya::Job::Attributes' do
         state: 'queued',
         attempt: 1,
         retry_policy: retry_policy,
+        execution_timeout: 15,
+        expires_at: expires_at,
         created_at: created_at,
         updated_at: updated_at,
-        next_retry_at: next_retry_at
+        next_retry_at: next_retry_at,
+        failure_classification: :timeout
       )
 
       result = attributes.to_h
@@ -36,9 +40,12 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:state]).to eq(:queued)
       expect(result[:attempt]).to eq(1)
       expect(result[:retry_policy]).to eq(retry_policy)
+      expect(result[:execution_timeout]).to eq(15)
+      expect(result[:expires_at]).to eq(expires_at)
       expect(result[:created_at]).to eq(created_at)
       expect(result[:updated_at]).to eq(updated_at)
       expect(result[:next_retry_at]).to eq(next_retry_at)
+      expect(result[:failure_classification]).to eq(:timeout)
     end
 
     it 'defaults attempt to 0 when not provided' do
@@ -70,7 +77,10 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:concurrency_key]).to be_nil
       expect(result[:rate_limit_key]).to be_nil
       expect(result[:retry_policy]).to be_nil
+      expect(result[:execution_timeout]).to be_nil
+      expect(result[:expires_at]).to be_nil
       expect(result[:next_retry_at]).to be_nil
+      expect(result[:failure_classification]).to be_nil
     end
 
     it 'defaults updated_at to created_at when not provided' do
@@ -174,6 +184,48 @@ RSpec.describe 'Karya::Job::Attributes' do
           next_retry_at: 'later'
         ).to_h
       end.to raise_error(Karya::InvalidJobAttributeError, 'next_retry_at must be a Time')
+    end
+
+    it 'raises InvalidJobAttributeError for invalid execution_timeout' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          execution_timeout: 0
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'execution_timeout must be a positive finite number')
+    end
+
+    it 'raises InvalidJobAttributeError for invalid expires_at' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          expires_at: 'later'
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'expires_at must be a Time')
+    end
+
+    it 'raises InvalidJobAttributeError for invalid failure_classification' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          failure_classification: :boom
+        ).to_h
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        'failure_classification must be one of :error, :timeout, or :expired'
+      )
     end
 
     it 'raises InvalidJobAttributeError for negative attempt' do

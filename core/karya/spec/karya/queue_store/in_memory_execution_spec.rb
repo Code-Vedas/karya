@@ -64,6 +64,29 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(reclaimed_reservation.job_id).to eq('job-1')
     end
 
+    it 'fails an expired reserved job before execution starts' do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-1',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :submission,
+          created_at: created_at,
+          expires_at: created_at + 4
+        ),
+        now: created_at + 1
+      )
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      failed_job = store.start_execution(reservation_token: reservation.token, now: created_at + 5)
+
+      expect(failed_job.state).to eq(:failed)
+      expect(failed_job.failure_classification).to eq(:expired)
+      expect(store_state.reservations_by_token).to eq({})
+      expect(store_state.executions_by_token).to eq({})
+      expect(stored_job('job-1').state).to eq(:failed)
+    end
+
     it 'does not activate execution when the running-job transition cannot be persisted' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
@@ -119,10 +142,11 @@ RSpec.describe Karya::QueueStore::InMemory do
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       store.start_execution(reservation_token: reservation.token, now: created_at + 3)
 
-      failed_job = store.fail_execution(reservation_token: reservation.token, now: created_at + 4)
+      failed_job = store.fail_execution(reservation_token: reservation.token, now: created_at + 4, failure_classification: :error)
 
       expect(failed_job.state).to eq(:failed)
       expect(failed_job.attempt).to eq(1)
+      expect(failed_job.failure_classification).to eq(:error)
       expect(stored_job('job-1').state).to eq(:failed)
     end
 
@@ -131,7 +155,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
 
       expect do
-        store.fail_execution(reservation_token: reservation.token, now: created_at + 3)
+        store.fail_execution(reservation_token: reservation.token, now: created_at + 3, failure_classification: :error)
       end.to raise_error(Karya::UnknownReservationError, /was not found/)
     end
 
@@ -141,8 +165,30 @@ RSpec.describe Karya::QueueStore::InMemory do
       store.start_execution(reservation_token: reservation.token, now: created_at + 3)
 
       expect do
-        store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: Object.new)
+        store.fail_execution(
+          reservation_token: reservation.token,
+          now: created_at + 4,
+          retry_policy: Object.new,
+          failure_classification: :error
+        )
       end.to raise_error(Karya::InvalidQueueStoreOperationError, 'retry_policy must be a Karya::RetryPolicy')
+    end
+
+    it 'rejects invalid failure classifications' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      expect do
+        store.fail_execution(
+          reservation_token: reservation.token,
+          now: created_at + 4,
+          failure_classification: :boom
+        )
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        'failure_classification must be one of :error, :timeout, or :expired'
+      )
     end
 
     it 'rejects expired execution leases and requeues the running job' do
@@ -151,7 +197,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       store.start_execution(reservation_token: reservation.token, now: created_at + 2.5)
 
       expect do
-        store.fail_execution(reservation_token: reservation.token, now: created_at + 5)
+        store.fail_execution(reservation_token: reservation.token, now: created_at + 5, failure_classification: :error)
       end.to raise_error(Karya::ExpiredReservationError, /#{reservation.token}/)
 
       expect(stored_job('job-1').state).to eq(:queued)
@@ -163,12 +209,18 @@ RSpec.describe Karya::QueueStore::InMemory do
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       store.start_execution(reservation_token: reservation.token, now: created_at + 3)
 
-      retried_job = store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: retry_policy)
+      retried_job = store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: :timeout
+      )
 
       expect(retried_job.state).to eq(:retry_pending)
       expect(retried_job.attempt).to eq(1)
       expect(retried_job.retry_policy).to eq(retry_policy)
       expect(retried_job.next_retry_at).to eq(created_at + 9)
+      expect(retried_job.failure_classification).to eq(:timeout)
       expect(stored_job('job-1').state).to eq(:retry_pending)
       expect(store_state.retry_pending_job_ids).to eq(['job-1'])
     end
@@ -177,21 +229,37 @@ RSpec.describe Karya::QueueStore::InMemory do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       store.start_execution(reservation_token: reservation.token, now: created_at + 3)
-      store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: retry_policy)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
 
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 9)
       running_job = store.start_execution(reservation_token: reservation.token, now: created_at + 10)
       expect(running_job.attempt).to eq(2)
-      store.fail_execution(reservation_token: reservation.token, now: created_at + 11, retry_policy: retry_policy)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 11,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
 
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 21)
       running_job = store.start_execution(reservation_token: reservation.token, now: created_at + 22)
       expect(running_job.attempt).to eq(3)
 
-      failed_job = store.fail_execution(reservation_token: reservation.token, now: created_at + 23, retry_policy: retry_policy)
+      failed_job = store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 23,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
 
       expect(failed_job.state).to eq(:failed)
       expect(failed_job.next_retry_at).to be_nil
+      expect(failed_job.failure_classification).to eq(:error)
       expect(store_state.retry_pending_job_ids).to eq([])
     end
 
@@ -199,7 +267,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       store.start_execution(reservation_token: reservation.token, now: created_at + 3)
-      store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: retry_policy)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
 
       expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 8)).to be_nil
       expect(stored_job('job-1').state).to eq(:retry_pending)
@@ -209,12 +282,70 @@ RSpec.describe Karya::QueueStore::InMemory do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       store.start_execution(reservation_token: reservation.token, now: created_at + 3)
-      store.fail_execution(reservation_token: reservation.token, now: created_at + 4, retry_policy: retry_policy)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
 
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 9)
 
       expect(reservation.job_id).to eq('job-1')
       expect(stored_job('job-1').state).to eq(:reserved)
+      expect(store_state.retry_pending_job_ids).to eq([])
+      expect(stored_job('job-1').failure_classification).to be_nil
+    end
+  end
+
+  describe '#expire_jobs' do
+    it 'fails queued jobs whose expires_at has passed' do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-1',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :submission,
+          created_at: created_at,
+          expires_at: created_at + 2
+        ),
+        now: created_at + 1
+      )
+
+      expired_jobs = store.expire_jobs(now: created_at + 2)
+
+      expect(expired_jobs.map(&:id)).to eq(['job-1'])
+      expect(stored_job('job-1').state).to eq(:failed)
+      expect(stored_job('job-1').failure_classification).to eq(:expired)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)).to be_nil
+    end
+
+    it 'fails retry_pending jobs whose expires_at passes before the retry is due' do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-1',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :submission,
+          created_at: created_at,
+          expires_at: created_at + 6
+        ),
+        now: created_at + 1
+      )
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
+
+      expired_jobs = store.expire_jobs(now: created_at + 6)
+
+      expect(expired_jobs.map(&:id)).to eq(['job-1'])
+      expect(stored_job('job-1').state).to eq(:failed)
+      expect(stored_job('job-1').failure_classification).to eq(:expired)
       expect(store_state.retry_pending_job_ids).to eq([])
     end
   end

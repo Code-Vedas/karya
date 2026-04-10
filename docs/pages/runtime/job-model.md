@@ -28,8 +28,12 @@ A canonical job instance carries these behavior-level expectations:
 - one canonical current state for the job instance at any point in time
 - optional scheduling metadata such as `priority`, `concurrency_key`, and
   `rate_limit_key` for runtime backpressure decisions
+- optional execution timing metadata such as `execution_timeout` and
+  `expires_at` for worker-side time bounds and queue-side expiration guards
 - optional retry metadata such as `retry_policy` and `next_retry_at` for
   bounded retry scheduling
+- optional failure metadata such as `failure_classification` for operator and
+  retry decisions
 
 Application code defines what the job does. Karya owns the queue placement,
 lifecycle, reservation, execution, and operator-visible state around that work.
@@ -91,8 +95,8 @@ The documented lifecycle covers:
 
 This page does not define:
 
-- jitter, escalation, or failure-classification rules beyond the base
-  `retry_pending` waiting state
+- jitter, escalation, or dead-letter policy beyond the base timing and failure
+  classification model
 - fairness, starvation prevention, or backpressure policy
 - dead-letter recovery behavior such as replay or discard rules
 - bulk-operation semantics beyond acknowledging that bulk actions operate on the
@@ -184,7 +188,11 @@ subscription queue order still decides which queue is scanned first.
 stores apply configured backpressure policies without mutating handler input.
 `retry_policy` is an optional deterministic retry/backoff definition, while
 `next_retry_at` marks when a `retry_pending` job becomes eligible to return to
-`queued`.
+`queued`. `execution_timeout` is an optional per-job execution cap in seconds.
+`expires_at` is an optional absolute boundary after which queued or
+`retry_pending` work fails as expired instead of continuing toward execution.
+`failure_classification` is optional operator-visible metadata set by the
+runtime to one of `:error`, `:timeout`, or `:expired`.
 
 Lifecycle extensions are also explicit. Follow-on runtime work can register a
 new state and link it to the base lifecycle without redefining the canonical

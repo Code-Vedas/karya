@@ -5,6 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require 'timeout'
 require 'monitor'
 require_relative 'base'
 require_relative 'job_lifecycle'
@@ -86,6 +87,10 @@ module Karya
       configuration.retry_policy
     end
 
+    def default_execution_timeout
+      configuration.default_execution_timeout
+    end
+
     def work_once
       result = work_once_result(ShutdownController.inactive)
       case result
@@ -133,9 +138,11 @@ module Karya
       return LEASE_LOST if running_job.equal?(LEASE_LOST)
 
       begin
-        handlers.fetch(running_job.handler).call(arguments: running_job.arguments)
+        execute_handler(running_job)
+      rescue Timeout::Error
+        return fail_execution_job(reservation_token, running_job, failure_classification: :timeout)
       rescue StandardError
-        return fail_execution_job(reservation_token, running_job)
+        return fail_execution_job(reservation_token, running_job, failure_classification: :error)
       end
 
       complete_execution_job(reservation_token)
@@ -216,11 +223,12 @@ module Karya
       LEASE_LOST
     end
 
-    def fail_execution_job(reservation_token, running_job)
+    def fail_execution_job(reservation_token, running_job, failure_classification:)
       job = queue_store.fail_execution(
         reservation_token:,
         now: current_time,
-        retry_policy: effective_retry_policy_for(running_job)
+        retry_policy: effective_retry_policy_for(running_job),
+        failure_classification:
       )
       instrument('worker.job.failed', reservation_token:, job_id: job.id, handler: job.handler, queue: job.queue)
       job
@@ -229,9 +237,15 @@ module Karya
     end
 
     def start_execution_job(reservation_token)
-      report_runtime_state('running')
       job = queue_store.start_execution(reservation_token:, now: current_time)
-      instrument('worker.job.started', reservation_token:, job_id: job.id, handler: job.handler, queue: job.queue)
+      payload = { reservation_token:, job_id: job.id, handler: job.handler, queue: job.queue }
+      if job.state == :failed
+        instrument('worker.job.failed', **payload)
+        return job
+      end
+
+      report_runtime_state('running')
+      instrument('worker.job.started', **payload)
       job
     rescue ExpiredReservationError, UnknownReservationError
       LEASE_LOST
@@ -243,6 +257,21 @@ module Karya
 
     def effective_retry_policy_for(job)
       job.retry_policy || retry_policy
+    end
+
+    def effective_execution_timeout_for(job)
+      job.execution_timeout || default_execution_timeout
+    end
+
+    def execute_handler(job)
+      execution_timeout = effective_execution_timeout_for(job)
+      if execution_timeout
+        Timeout.timeout(execution_timeout) { handlers.fetch(job.handler).call(arguments: job.arguments) }
+      else
+        handlers.fetch(job.handler).call(arguments: job.arguments)
+      end
+
+      nil
     end
 
     def report_runtime_state(state)

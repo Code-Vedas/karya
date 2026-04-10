@@ -23,16 +23,15 @@ module Karya
 
       def build
         env_prefix = helpers.fetch(:normalize_env_prefix_option).call(:env_prefix)
-        resolve_positive_integer_option = helpers.fetch(:resolve_positive_integer_option)
         {
           queue_store:,
-          processes: resolve_positive_integer_option.call(:processes, env_prefix:, defaults:),
-          threads: resolve_positive_integer_option.call(:threads, env_prefix:, defaults:),
+          **resolved_process_settings(env_prefix),
           state_file: options.fetch(:state_file, nil),
           worker_id: options.fetch(:worker_id),
           queues:,
           handlers: HandlerParser.parse(options.fetch(:handler)),
           lease_duration: options.fetch(:lease_duration),
+          default_execution_timeout: options.fetch(:default_execution_timeout, nil),
           poll_interval: options.fetch(:poll_interval),
           max_iterations: helpers.fetch(:coerce_optional_positive_integer_option).call(:max_iterations),
           stop_when_idle: options.fetch(:stop_when_idle),
@@ -43,6 +42,14 @@ module Karya
       private
 
       attr_reader :defaults, :helpers, :options, :queue_store, :queues
+
+      def resolved_process_settings(env_prefix)
+        resolve_positive_integer_option = helpers.fetch(:resolve_positive_integer_option)
+        {
+          processes: resolve_positive_integer_option.call(:processes, env_prefix:, defaults:),
+          threads: resolve_positive_integer_option.call(:threads, env_prefix:, defaults:)
+        }
+      end
     end
   end
 end

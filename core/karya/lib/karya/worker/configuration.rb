@@ -9,7 +9,7 @@ module Karya
   class Worker
     # Validated worker bootstrap configuration.
     class Configuration
-      OPTION_KEYS = %i[worker_id queues handlers lease_duration lifecycle retry_policy].freeze
+      OPTION_KEYS = %i[worker_id queues handlers lease_duration lifecycle retry_policy default_execution_timeout].freeze
 
       def self.from_options(options)
         attributes = OPTION_KEYS.each_with_object({}) do |key, collected|
@@ -18,9 +18,10 @@ module Karya
         new(**attributes)
       end
 
-      attr_reader :handlers, :lease_duration, :lifecycle, :queues, :retry_policy, :subscription, :worker_id
+      attr_reader :default_execution_timeout, :handlers, :lease_duration, :lifecycle, :queues, :retry_policy, :subscription, :worker_id
 
-      def initialize(worker_id:, queues:, handlers:, lease_duration:, lifecycle: JobLifecycle.default_registry, retry_policy: nil)
+      def initialize(worker_id:, queues:, handlers:, lease_duration:, lifecycle: JobLifecycle.default_registry, retry_policy: nil,
+                     default_execution_timeout: nil)
         @worker_id = Primitives::Identifier.new(:worker_id, worker_id, error_class: InvalidWorkerConfigurationError).normalize
         @handlers = handlers.is_a?(HandlerRegistry) ? handlers : HandlerRegistry.new(handlers)
         @subscription = Subscription.new(queues:, handler_names: @handlers.names)
@@ -28,6 +29,7 @@ module Karya
         @lease_duration = Primitives::PositiveFiniteNumber.new(:lease_duration, lease_duration, error_class: InvalidWorkerConfigurationError).normalize
         @lifecycle = Primitives::Lifecycle.new(:lifecycle, lifecycle, error_class: InvalidWorkerConfigurationError).normalize
         @retry_policy = normalize_retry_policy(retry_policy)
+        @default_execution_timeout = normalize_default_execution_timeout(default_execution_timeout)
       end
 
       private
@@ -37,6 +39,16 @@ module Karya
           return retry_policy if retry_policy.is_a?(RetryPolicy)
 
           raise InvalidWorkerConfigurationError, 'retry_policy must be a Karya::RetryPolicy'
+        end
+      end
+
+      def normalize_default_execution_timeout(value)
+        value&.then do
+          Primitives::PositiveFiniteNumber.new(
+            :default_execution_timeout,
+            value,
+            error_class: InvalidWorkerConfigurationError
+          ).normalize
         end
       end
     end

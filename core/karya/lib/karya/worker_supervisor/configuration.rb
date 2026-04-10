@@ -10,6 +10,7 @@ module Karya
     # Validated supervisor bootstrap configuration.
     class Configuration
       OPTION_KEYS = %i[
+        default_execution_timeout
         handlers
         lease_duration
         lifecycle
@@ -41,7 +42,7 @@ module Karya
         Primitives::PositiveInteger.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
       end
 
-      attr_reader :handlers, :lease_duration, :max_iterations,
+      attr_reader :default_execution_timeout, :handlers, :lease_duration, :max_iterations,
                   :lifecycle, :poll_interval, :processes, :queues, :stop_when_idle, :threads, :worker_id
 
       def initialize(attributes)
@@ -96,6 +97,13 @@ module Karya
           attributes.fetch(:lifecycle, JobLifecycle.default_registry),
           error_class: InvalidWorkerSupervisorConfigurationError
         ).normalize
+        @default_execution_timeout = attributes.fetch(:default_execution_timeout, nil)&.then do |value|
+          Primitives::PositiveFiniteNumber.new(
+            :default_execution_timeout,
+            value,
+            error_class: InvalidWorkerSupervisorConfigurationError
+          ).normalize
+        end
         @poll_interval = configuration_class.normalize_poll_interval(attributes.fetch(:poll_interval, Worker::DEFAULT_POLL_INTERVAL))
         @max_iterations = MaxIterationsSetting.new(attributes.fetch(:max_iterations, :unlimited)).normalize
         @stop_when_idle = attributes.fetch(:stop_when_idle, false)

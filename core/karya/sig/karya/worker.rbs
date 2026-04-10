@@ -52,6 +52,7 @@ module Karya
     def lifecycle: () -> JobLifecycle::Registry
 
     def retry_policy: () -> RetryPolicy?
+    def default_execution_timeout: () -> Numeric?
 
     def work_once: () -> Job?
 
@@ -94,13 +95,15 @@ module Karya
 
     def complete_execution_job: (String reservation_token) -> Job?
 
-    def fail_execution_job: (String reservation_token, Job running_job) -> Job?
+    def fail_execution_job: (String reservation_token, Job running_job, failure_classification: failure_classification) -> Job?
 
     def start_execution_job: (String reservation_token) -> Job?
 
     def instrument: (String event, **job_argument | Integer | Array[Integer] payload) -> nil
 
     def effective_retry_policy_for: (Job job) -> RetryPolicy?
+    def effective_execution_timeout_for: (Job job) -> Numeric?
+    def execute_handler: (Job job) -> nil
 
     def raise_unknown_option_error: (symbol_options options) -> void
   end

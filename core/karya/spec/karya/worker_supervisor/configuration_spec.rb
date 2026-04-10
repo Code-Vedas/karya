@@ -20,4 +20,16 @@ RSpec.describe 'Karya::WorkerSupervisor::Configuration' do
     expect(configuration.max_iterations).to eq(:unlimited)
     expect(configuration.bounded_run?).to be(false)
   end
+
+  it 'normalizes optional default_execution_timeout' do
+    configuration = configuration_class.new(
+      worker_id: 'worker-supervisor',
+      queues: ['billing'],
+      handlers: { 'billing_sync' => -> {} },
+      lease_duration: 30,
+      default_execution_timeout: 12
+    )
+
+    expect(configuration.default_execution_timeout).to eq(12)
+  end
 end

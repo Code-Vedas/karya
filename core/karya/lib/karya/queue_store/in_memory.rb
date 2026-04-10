@@ -10,9 +10,13 @@ require 'bigdecimal'
 
 require_relative 'base'
 require_relative 'in_memory/backpressure_support'
+require_relative 'in_memory/expiration_support'
+require_relative 'in_memory/execution_support'
 require_relative 'in_memory/execution_recovery'
 require_relative 'in_memory/handler_matcher'
 require_relative 'in_memory/lease_duration'
+require_relative 'in_memory/recovery_support'
+require_relative 'in_memory/request_support'
 require_relative 'in_memory/reserve_selection_support'
 require_relative 'in_memory/retry_support'
 require_relative 'in_memory/reserve_scan_state'
@@ -30,6 +34,10 @@ module Karya
     class InMemory
       include Base
       include BackpressureSupport
+      include ExecutionSupport
+      include ExpirationSupport
+      include RecoverySupport
+      include RequestSupport
       include ReserveSelectionSupport
       include RetrySupport
 
@@ -104,6 +112,11 @@ module Karya
           reservation = fetch_active_reservation(normalized_token, normalized_now)
           jobs_by_id = state.jobs_by_id
           reserved_job = jobs_by_id.fetch(reservation.job_id)
+          if job_expired?(reserved_job, normalized_now)
+            failed_job = expire_reserved_job(reservation, reserved_job, normalized_now)
+            return failed_job
+          end
+
           running_job = reserved_job.transition_to(:running, updated_at: normalized_now, attempt: reserved_job.attempt + 1)
           jobs_by_id[running_job.id] = running_job
           state.activate_execution(normalized_token, reservation)
@@ -115,8 +128,8 @@ module Karya
         finalize_execution(reservation_token:, now:, next_state: :succeeded)
       end
 
-      def fail_execution(reservation_token:, now:, retry_policy: nil)
-        finalize_execution(reservation_token:, now:, next_state: :failed, retry_policy:)
+      def fail_execution(reservation_token:, now:, failure_classification:, retry_policy: nil)
+        finalize_execution(reservation_token:, now:, next_state: :failed, retry_policy:, failure_classification:)
       end
 
       def expire_reservations(now:)
@@ -124,6 +137,14 @@ module Karya
 
         @mutex.synchronize do
           expire_reservations_locked(normalized_now)
+        end
+      end
+
+      def expire_jobs(now:)
+        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
+
+        @mutex.synchronize do
+          expire_jobs_locked(normalized_now)
         end
       end
 
@@ -138,62 +159,21 @@ module Karya
         raise InvalidEnqueueError, 'job must be in :submission state before enqueue' unless job.state == :submission
       end
 
-      def next_token
-        base_token = normalize_identifier(:token, token_generator.call, error_class: InvalidQueueStoreOperationError)
-        @reservation_token_sequence += 1
-        "#{base_token}:#{@reservation_token_sequence}"
-      end
-
       def expire_reservations_locked(now)
         expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now)
         expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
+        expired_jobs = expire_jobs_locked(now)
         promote_due_retry_pending_jobs(now)
 
         expired_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
         expired_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
         prune_stale_rate_limit_admissions(now)
-        expired_reserved_jobs + expired_running_jobs
+        expired_jobs + expired_reserved_jobs + expired_running_jobs
       end
 
       def perform_reserve_maintenance(now)
         expire_reservations_locked(now)
         build_reserve_scan_state
-      end
-
-      def requeue_reservation(reservation, now)
-        reservation_token = reservation.token
-        jobs_by_id = state.jobs_by_id
-        state.reservations_by_token.delete(reservation_token)
-        state.delete_reservation_token(reservation_token)
-
-        reserved_job = jobs_by_id.fetch(reservation.job_id)
-        queued_job = reserved_job.transition_to(:queued, updated_at: now)
-        queued_job_id = queued_job.id
-        jobs_by_id[queued_job_id] = queued_job
-        state.queue_job_ids_for(queued_job.queue) << queued_job_id
-        queued_job
-      end
-
-      def requeue_expired_reservation(reservation, now)
-        queued_job = requeue_reservation(reservation, now)
-        state.mark_expired(reservation.token)
-        queued_job
-      end
-
-      def requeue_expired_execution(reservation, now)
-        reservation_token = reservation.token
-        jobs_by_id = state.jobs_by_id
-        state.executions_by_token.delete(reservation_token)
-        state.delete_execution_token(reservation_token)
-
-        running_job = jobs_by_id.fetch(reservation.job_id)
-        queued_job = ExecutionRecovery.new(running_job, now).to_queued_job
-        queued_job_id = queued_job.id
-        jobs_by_id[queued_job_id] = queued_job
-        state.queue_job_ids_for(queued_job.queue) << queued_job_id
-        state.delete_retry_pending(queued_job_id)
-        state.mark_expired(reservation_token)
-        queued_job
       end
 
       def normalize_identifier(name, value, error_class:)
@@ -207,44 +187,6 @@ module Karya
         return value if value.is_a?(Time)
 
         raise error_class, "#{name} must be a Time"
-      end
-
-      def build_reservation(reserved_job:, worker_id:, reserved_at:, lease_duration:)
-        reservation_token = next_token
-        ensure_unique_reservation_token(reservation_token)
-
-        Reservation.new(
-          token: reservation_token,
-          job_id: reserved_job.id,
-          queue: reserved_job.queue,
-          worker_id:,
-          reserved_at:,
-          expires_at: reserved_at + lease_duration
-        )
-      end
-
-      def ensure_unique_reservation_token(reservation_token)
-        return unless state.reservation_token_in_use?(reservation_token)
-
-        raise DuplicateReservationTokenError,
-              "reservation token #{reservation_token.inspect} is already in use (active or expired)"
-      end
-
-      def normalize_reserve_queues(queue:, queues:)
-        reserve_queues = queue && queues ? nil : queue || queues
-        raise InvalidQueueStoreOperationError, RESERVE_QUEUES_ERROR_MESSAGE unless reserve_queues
-
-        Primitives::QueueList.new(reserve_queues, error_class: InvalidQueueStoreOperationError).normalize
-      end
-
-      def normalize_reserve_request(worker_id:, lease_duration:, now:, queue:, queues:, handler_names:)
-        {
-          handler_matcher: HandlerMatcher.new(handler_names),
-          lease_duration: LeaseDuration.new(lease_duration).normalize,
-          now: normalize_time(:now, now, error_class: InvalidQueueStoreOperationError),
-          queues: normalize_reserve_queues(queue:, queues:),
-          worker_id: normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
-        }
       end
 
       def reserve_matching_job(reserve_request)
@@ -273,70 +215,7 @@ module Karya
         reservation
       end
 
-      def finalize_execution(reservation_token:, now:, next_state:, retry_policy: nil)
-        normalized_token = normalize_identifier(:reservation_token, reservation_token, error_class: InvalidQueueStoreOperationError)
-        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
-        normalized_retry_policy = normalize_retry_policy(retry_policy)
-
-        @mutex.synchronize do
-          executions_by_token = state.executions_by_token
-          reservation = executions_by_token[normalized_token]
-          reservation_label = normalized_token.inspect
-
-          unless reservation
-            raise_expired_reservation_error(normalized_token, reservation_label)
-            raise UnknownReservationError, "reservation #{reservation_label} was not found"
-          end
-
-          if reservation.expired?(normalized_now)
-            requeue_expired_execution(reservation, normalized_now)
-            raise ExpiredReservationError, "reservation #{reservation_label} has expired"
-          end
-
-          jobs_by_id = state.jobs_by_id
-          running_job = jobs_by_id.fetch(reservation.job_id)
-          finalized_job =
-            if next_state == :failed && normalized_retry_policy&.retry?(running_job.attempt)
-              retry_pending_job(running_job, normalized_now, normalized_retry_policy)
-            else
-              running_job.transition_to(next_state, updated_at: normalized_now, next_retry_at: nil)
-            end
-          jobs_by_id[finalized_job.id] = finalized_job
-          executions_by_token.delete(normalized_token)
-          state.delete_execution_token(normalized_token)
-          finalized_job
-        end
-      end
-
-      def fetch_active_reservation(reservation_token, now)
-        reservation = state.reservations_by_token[reservation_token]
-        reservation_label = reservation_token.inspect
-
-        unless reservation
-          raise_expired_reservation_error(reservation_token, reservation_label)
-          raise UnknownReservationError, "reservation #{reservation_label} was not found"
-        end
-
-        if reservation.expired?(now)
-          requeue_expired_reservation(reservation, now)
-          raise ExpiredReservationError, "reservation #{reservation_label} has expired"
-        end
-
-        reservation
-      end
-
-      def collect_expired_leases(leases_by_token, tokens_in_order, now)
-        self.class.send(:collect_expired_leases, leases_by_token, tokens_in_order, now)
-      end
-
-      def self.collect_expired_leases(leases_by_token, tokens_in_order, now)
-        tokens_in_order.filter_map do |token|
-          reservation = leases_by_token.fetch(token)
-          reservation if reservation.expired?(now)
-        end
-      end
-
-      private_class_method :collect_expired_leases
+      private_constant :ExecutionSupport, :ExpirationSupport, :RecoverySupport, :RequestSupport
 
       def raise_expired_reservation_error(reservation_token, reservation_label)
         return unless state.expired_reservation_tokens.key?(reservation_token)

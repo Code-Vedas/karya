@@ -71,6 +71,19 @@ RSpec.describe Karya::Worker do
       expect(retrying_worker.retry_policy).to be(retry_policy)
     end
 
+    it 'exposes the configured default execution timeout' do
+      timeout_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        default_execution_timeout: 7
+      )
+
+      expect(timeout_worker.default_execution_timeout).to eq(7)
+    end
+
     it 'rejects invalid retry policy configuration' do
       expect do
         described_class.new(
@@ -82,6 +95,19 @@ RSpec.describe Karya::Worker do
           retry_policy: Object.new
         )
       end.to raise_error(Karya::InvalidWorkerConfigurationError, 'retry_policy must be a Karya::RetryPolicy')
+    end
+
+    it 'rejects invalid default execution timeout configuration' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-1',
+          queues: queues,
+          handlers: handlers,
+          lease_duration: 30,
+          default_execution_timeout: 0
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, 'default_execution_timeout must be a positive finite number')
     end
 
     it 'executes a registered callable handler and persists succeeded state' do
@@ -409,6 +435,64 @@ RSpec.describe Karya::Worker do
       expect(stored_job('job-1').state).to eq(:queued)
     end
 
+    it 'returns failed job when expiration is detected before execution starts' do
+      queue_store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-expired-before-start',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :submission,
+          created_at: now - 60,
+          expires_at: now + 1
+        ),
+        now:
+      )
+      reservation = queue_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: now)
+      expiring_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        clock: -> { now + 2 }
+      )
+
+      result = expiring_worker.send(:start_execution_job, reservation.token)
+
+      expect(result.state).to eq(:failed)
+      expect(result.failure_classification).to eq(:expired)
+      expect(stored_job('job-expired-before-start').state).to eq(:failed)
+    end
+
+    it 'marks timed out handlers with timeout failure classification' do
+      queue_store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-timeout',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: { 'account_id' => 42 },
+          state: :submission,
+          created_at: now - 60,
+          execution_timeout: 0.01
+        ),
+        now:
+      )
+      timeout_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers: { 'billing_sync' => ->(account_id:) { sleep 0.02 if account_id == 42 } },
+        lease_duration: 30,
+        clock: -> { now },
+        retry_policy: retry_policy
+      )
+
+      result = timeout_worker.work_once
+
+      expect(result.state).to eq(:retry_pending)
+      expect(result.failure_classification).to eq(:timeout)
+    end
+
     it 'fails handlers that accept arbitrary keyword rest arguments' do
       queue_store.enqueue(
         job: submission_job(id: 'job-1', arguments: { account_id: 42 }),
@@ -479,13 +563,13 @@ RSpec.describe Karya::Worker do
       queue_store.enqueue(job: submission_job(id: 'job-1'), now:)
       store = queue_store
       failed_once = false
-      allow(store).to receive(:fail_execution).and_wrap_original do |original, reservation_token:, now:, retry_policy: nil|
+      allow(store).to receive(:fail_execution).and_wrap_original do |original, reservation_token:, now:, failure_classification:, retry_policy: nil|
         unless failed_once
           failed_once = true
           raise Karya::UnknownReservationError, "reservation #{reservation_token.inspect} was not found"
         end
 
-        original.call(reservation_token:, now:, retry_policy:)
+        original.call(reservation_token:, now:, retry_policy:, failure_classification:)
       end
       failure_worker = described_class.new(
         queue_store: store,

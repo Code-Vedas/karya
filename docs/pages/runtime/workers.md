@@ -41,6 +41,16 @@ Karya documents worker behavior around:
 Workers extend the canonical job lifecycle; they do not introduce a separate
 execution state model.
 
+Execution timing is explicit in the core runtime:
+
+- `job.execution_timeout` sets a per-job execution cap in seconds
+- `default_execution_timeout` on the worker is used only when the job does not
+  define its own timeout
+- `job.expires_at` prevents queued or retry-pending work from executing after
+  its expiration boundary
+- a reservation that reaches `job.expires_at` before execution starts is failed
+  as `:expired` instead of running the handler
+
 The runtime uses a supervisor-owned process model. `karya worker` starts a
 supervisor process that maintains the configured number of child worker
 processes, and each child process executes the queue loop through a thread
@@ -110,6 +120,10 @@ Backpressure policies are configured on the queue store, not through `karya work
 flags in this milestone. Jobs may carry `priority`,
 `concurrency_key`, and `rate_limit_key`, and the queue store decides whether a
 matching policy exists for those keys.
+
+Workers classify execution failures into three base cases in this milestone:
+normal handler errors (`:error`), execution timeouts (`:timeout`), and job
+expiration (`:expired`).
 
 `Karya.configure_logger` and `Karya.configure_instrumenter` define process-wide
 defaults. If a process hosts multiple runtimes, inject explicit `logger:` and

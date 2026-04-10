@@ -11,6 +11,8 @@ detectors:
   TooManyMethods:
     enabled: true
     max_methods: 30
+    exclude:
+      - Karya::Worker
   BooleanParameter:
     enabled: false
   ControlParameter:
@@ -23,13 +25,12 @@ detectors:
     max_params: 10
     exclude:
       - Karya::Worker::Configuration#initialize
-      - Karya::Job::Attributes#normalized_attributes
   TooManyInstanceVariables:
     enabled: true
     max_instance_variables: 10
     exclude:
       - Karya::QueueStore::InMemory::StoreState
-      - Karya::Worker::Configuration
+      - Karya::WorkerSupervisor::Configuration
   DataClump:
     enabled: false
   FeatureEnvy:
@@ -40,17 +41,28 @@ detectors:
       - Karya::WorkerSupervisor::ChildProcessRunner#mark_thread_stopped
       - Karya::QueueStore::InMemory::HandlerMatcher#normalize_present_handler_names
       - Karya::QueueStore::InMemory::RetrySupport#retry_pending_job
-      - Karya::QueueStore::InMemory::RetrySupport#normalize_retry_policy
       - Karya::RetryPolicy#normalize_attempt
       - Karya::RetryPolicy#normalize_max_attempts
       - Karya::RetryPolicy#normalize_multiplier
       - Karya::RetryPolicy#normalize_non_negative_numeric
-      - Karya::Worker::Configuration#normalize_retry_policy
+      - Karya::Worker#execute_handler
+      - Karya::QueueStore::InMemory::ExecutionSupport#finalized_execution_job
   UtilityFunction:
     enabled: true
     exclude:
       - Karya::JobLifecycle::StateManager#initialize_base_transitions
       - Karya::JobLifecycle::StateManager#canonical_state?
+      - Karya::Worker::Configuration#normalize_default_execution_timeout
+      - Karya::QueueStore::InMemory::ExpirationSupport#job_expired?
+      - Karya::QueueStore::InMemory::ExpirationSupport#build_expired_job
+      - Karya::QueueStore::InMemory::ExecutionSupport#collect_expired_leases
+  DuplicateMethodCall:
+    exclude:
+      - Karya::Worker#execute_handler
+      - Karya::QueueStore::InMemory::ExecutionSupport#finalize_execution
+  NestedIterators:
+    exclude:
+      - Karya::QueueStore::InMemory::ExpirationSupport#expire_queued_jobs
   NilCheck:
     exclude:
       - Karya::QueueStore::InMemory::HandlerMatcher#initialize

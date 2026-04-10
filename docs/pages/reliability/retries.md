@@ -21,19 +21,22 @@ individual jobs.
 - worker-default retry policy with optional per-job override
 - `retry_pending` as explicit waiting state between failed attempt and requeue
 - lazy due-retry promotion during queue-store maintenance and reservation
+- base failure classification persisted as `:error`, `:timeout`, or `:expired`
 
 ## Deferred Follow-on Work
 
 - jitter strategies and retry spread control
 - escalation rules and dead-letter integration
-- failure classification and richer operator recovery semantics
+- richer operator recovery semantics beyond the base classifications
 - named reusable retry policies
 
 ## Operator Expectations
 
 Operators need to distinguish:
 
-- normal retryable failures
+- `:error` failures, which remain retry-eligible when policy allows
+- `:timeout` failures, which also remain retry-eligible when policy allows
+- `:expired` failures, which are terminal in the current core runtime
 - failed attempts that transition into `retry_pending`
 - escalated failure states
 - conditions that should move work into dead-letter or governed recovery flows
@@ -57,7 +60,8 @@ Retry state needs to be visible, explainable, and bounded.
 In the current core runtime, `next_retry_at` is the scheduling boundary that
 controls when a `retry_pending` job can return to `queued`. Due retries are
 promoted lazily when the queue store performs maintenance work such as
-reservation scans.
+reservation scans. When a job reaches `expires_at` before that promotion point,
+it is failed as `:expired` instead of returning to `queued`.
 
 ## Related Concepts
 

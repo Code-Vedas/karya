@@ -19,9 +19,16 @@ module Karya
 
       def complete_execution: (reservation_token: String, now: Time) -> Job
 
-      def fail_execution: (reservation_token: String, now: Time, ?retry_policy: RetryPolicy?) -> Job
+      def fail_execution: (
+        reservation_token: String,
+        now: Time,
+        ?retry_policy: RetryPolicy?,
+        failure_classification: failure_classification
+      ) -> Job
 
       def expire_reservations: (now: Time) -> Array[Job]
+
+      def expire_jobs: (now: Time) -> Array[Job]
     end
   end
 end

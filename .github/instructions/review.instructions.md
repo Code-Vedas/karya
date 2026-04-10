@@ -3,6 +3,15 @@
 Use these instructions when reviewing pull requests in this repository. Favor
 high-signal semantic review over generic style feedback.
 
+## Scope Of This File
+
+- This file is for review work, not primary implementation guidance.
+- For coding instructions, prefer:
+  - `AGENTS.md`
+  - `.github/copilot-instructions.md`
+- When reviewing, use those files as context for intended repository shape, but
+  keep this file as the source of truth for review posture and review checks.
+
 ## Future-State Docs
 
 - Treat `README.md` files and everything under `docs/` as future-state product
@@ -18,11 +27,16 @@ high-signal semantic review over generic style feedback.
 - This repository is a monorepo. When changes touch shared contracts, check for
   drift across sibling packages under `core/`, adapters, and framework
   integrations.
+- `core/karya` is the canonical runtime. New shared semantics should land there
+  first, then flow outward to adapters and framework packages.
 - When reviewing runtime, queue-store, or lifecycle changes in `core/karya`,
   cross-check any impacted README/docs examples and package-level scripts.
 - When reviewing dashboard, framework integration, or backend-facing changes,
   verify the owning package still reflects the same public surface and naming as
   `core/karya`.
+- When reviewing refactors, prefer responsibility-based extraction over
+  arbitrary file splitting. A large file becoming smaller is not enough by
+  itself; the extracted code should have a clear ownership boundary.
 
 ## Required Review Checks
 
@@ -98,6 +112,8 @@ For any user input (CLI, API, config):
 - Look for mismatches where accepted types do not match validated or consumed
   types
 - **Required:** Document type at each layer, flag any coercion gaps
+- For Ruby changes with RBS, also trace whether the mirrored signature reflects
+  the same accepted and returned types.
 
 ### Validation Order vs Normalization
 
@@ -133,6 +149,8 @@ For any code examples in README/docs:
   - Do option combinations work?
   - Are types correct?
   - Do code snippets match actual APIs?
+  - Do docs and README files still match the current package ownership and
+    naming?
 - **Required:** Flag any example that would fail if run as shown
 
 ### API Surface Consistency
@@ -145,6 +163,20 @@ For any public constants/methods:
 - Look for pattern violations where some internal constants are marked private
   but others with similar scope are left public
 - **Required:** Verify ALL implementation details are consistently scoped
+- When a refactor extracts support modules or support classes, verify those new
+  objects are not accidentally exposed as public extension points.
+
+### RBS Truthfulness
+
+For any Ruby change that has a mirrored file under `sig/`:
+
+- Check whether the RBS changed with the Ruby code.
+- Verify ownership matches reality after refactors. If a method moved from a
+  class to a support module, the signature should move too.
+- Verify visibility, argument names, optionality, return types, and nested
+  module/class structure all still match runtime behavior.
+- Flag stale signatures for removed methods, removed modules, or old constants.
+- **Required:** Treat RBS drift as a correctness issue, not documentation debt.
 
 ## Architecture Guidelines Review
 
@@ -173,6 +205,8 @@ These checks enforce architecture guidelines. Apply them to every code change.
 - **No leaking internals:** Flag cases where internal normalizers, validators,
   or support objects are reachable from outside their owning module without
   explicit intent.
+- **Support module extraction:** When a large class is split, verify the new
+  modules are named after concrete responsibilities, not generic “helpers”.
 
 ### Configuration and Boot Policy
 
@@ -280,6 +314,11 @@ These checks enforce architecture guidelines. Apply them to every code change.
   - helper methods exposed as public unintentionally
   - helper constants or modules that become externally visible without intent
   - value-object helpers that leak internal normalization entrypoints
+- Flag signature drift. In particular:
+  - Ruby moved but mirrored RBS did not
+  - method visibility differs between Ruby and RBS
+  - signatures remain under the old owner after support-module extraction
+  - optionality or return types are broadened without behavioral justification
 - Flag memory-risk patterns. In particular:
   - interning or symbolizing arbitrary user or application input
   - caches or registries that can grow from unbounded input
@@ -309,6 +348,7 @@ These checks enforce architecture guidelines. Apply them to every code change.
 ## Good Review Targets
 
 - accidental public helpers or leaked internal classes
+- RBS drift from the actual Ruby implementation
 - incorrect or incomplete state-machine invariants
 - memory growth from normalization or cache behavior
 - cross-package contract drift
@@ -318,6 +358,7 @@ These checks enforce architecture guidelines. Apply them to every code change.
 - ambiguous error messages that hinder debugging
 - duplicate or redundant logic that reduces clarity
 - incomplete test coverage for validation paths
+- refactors that split files without creating clear responsibility boundaries
 - TOCTOU races (state changes between check and action)
 - unreachable code paths (blocking operations prevent fallthrough)
 - error handling side effects (rescue/retry creates new problems)
@@ -350,3 +391,5 @@ These checks enforce architecture guidelines. Apply them to every code change.
   unambiguous
 - flagging file count or line count without identifying a specific
   responsibility violation
+- demanding RBS churn when runtime behavior did not change and the existing
+  signature is already true
