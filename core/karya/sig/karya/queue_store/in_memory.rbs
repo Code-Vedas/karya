@@ -3,6 +3,7 @@ module Karya
     # Single-process reference implementation for queue submission and reservation behavior.
     class InMemory
       @token_generator: Method | Proc
+      @policy_set: Backpressure::PolicySet
 
       @reservation_token_sequence: Integer
 
@@ -16,7 +17,7 @@ module Karya
 
       RESERVE_QUEUES_ERROR_MESSAGE: String
 
-      def initialize: (?(Method | Proc) token_generator, ?Integer expired_tombstone_limit) -> void
+      def initialize: (?token_generator: (Method | Proc), ?expired_tombstone_limit: Integer, ?policy_set: Backpressure::PolicySet) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
 
@@ -40,6 +41,8 @@ module Karya
       def expire_reservations: (now: Time) -> Array[Job]
 
       private
+
+      attr_reader policy_set: Backpressure::PolicySet
 
       attr_reader state: StoreState
 
@@ -77,6 +80,7 @@ module Karya
         @expired_tombstone_limit: Integer
 
         @jobs_by_id: Hash[String, Job]
+        @rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         @queued_job_ids_by_queue: Hash[String, Array[String]]
 
@@ -93,6 +97,7 @@ module Karya
         attr_reader expired_reservation_tokens_in_order: Array[String]
 
         attr_reader jobs_by_id: Hash[String, Job]
+        attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
 
@@ -105,6 +110,10 @@ module Karya
         def queue_job_ids_for: (String queue) -> Array[String]
 
         def delete_queue: (String queue) -> Array[String]?
+
+        def rate_limit_admissions_for: (String key) -> Array[Time]
+
+        def delete_rate_limit_key: (String key) -> Array[Time]?
 
         def reserve: (Reservation reservation) -> Array[String]
 
@@ -138,11 +147,22 @@ module Karya
         def valid?: () -> bool
       end
 
+      # Snapshot of backpressure state reused during one reserve scan.
+      class ReserveScanState
+        def initialize: (policy_set: Backpressure::PolicySet, state: StoreState) -> void
+
+        def concurrency_blocked?: (Job job) -> bool
+
+        def rate_limited?: (Job job) -> bool
+      end
+
       def validate_enqueue: (Job job) -> nil
 
       def next_token: () -> ::String
 
       def expire_reservations_locked: (Time now) -> Array[Job]
+
+      def perform_reserve_maintenance: (Time now) -> ReserveScanState
 
       def requeue_reservation: (Reservation reservation, Time now) -> Job
 
@@ -158,11 +178,50 @@ module Karya
 
       def ensure_unique_reservation_token: (String reservation_token) -> nil
 
+      def build_reserve_scan_state: () -> ReserveScanState
+
       def normalize_reserve_queues: (queue: Karya::state_name?, queues: Array[Karya::state_name]?) -> Array[String]
 
-      def find_reserved_job: (Array[String] queues, HandlerMatcher handler_matcher) -> [String, Integer, String]?
+      def normalize_reserve_request: (
+        worker_id: Karya::state_name | Integer,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        ?queue: Karya::state_name?,
+        ?queues: Array[Karya::state_name]?,
+        ?handler_names: Array[Karya::state_name]?
+      ) -> {
+        handler_matcher: HandlerMatcher,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        queues: Array[String],
+        worker_id: String
+      }
 
-      def matching_job_for: (String queue, HandlerMatcher handler_matcher) -> [Integer, String]?
+      def reserve_matching_job: ({
+        handler_matcher: HandlerMatcher,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        queues: Array[String],
+        worker_id: String
+      } reserve_request) -> Reservation?
+
+      def find_reserved_job: (
+        Array[String] queues,
+        HandlerMatcher handler_matcher,
+        ReserveScanState reserve_scan_state
+      ) -> [String, Integer, String]?
+
+      def matching_job_for: (
+        String queue,
+        HandlerMatcher handler_matcher,
+        ReserveScanState reserve_scan_state
+      ) -> [Integer, String]?
+
+      def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
+
+      def prune_stale_rate_limit_admissions: (Time now) -> void
+
+      def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
 
       def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed) -> Job
 

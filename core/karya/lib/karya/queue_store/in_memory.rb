@@ -9,25 +9,38 @@ require 'securerandom'
 require 'bigdecimal'
 
 require_relative 'base'
+require_relative 'in_memory/backpressure_support'
+require_relative 'in_memory/handler_matcher'
+require_relative 'in_memory/lease_duration'
+require_relative 'in_memory/reserve_scan_state'
+require_relative 'in_memory/store_state'
 require_relative '../job'
 require_relative '../primitives/identifier'
 require_relative '../primitives/queue_list'
 require_relative '../reservation'
+require_relative '../backpressure'
 
 module Karya
   module QueueStore
     # Single-process reference implementation for queue submission and reservation behavior.
     class InMemory
       include Base
+      include BackpressureSupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
 
-      def initialize(token_generator: -> { SecureRandom.uuid }, expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
+      def initialize(
+        token_generator: -> { SecureRandom.uuid },
+        expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT,
+        policy_set: Backpressure::PolicySet.new
+      )
         valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
         raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
+        raise InvalidQueueStoreOperationError, 'policy_set must be a Karya::Backpressure::PolicySet' unless policy_set.is_a?(Backpressure::PolicySet)
 
         @token_generator = token_generator
+        @policy_set = policy_set
         @reservation_token_sequence = 0
         @mutex = Mutex.new
         @state = StoreState.new(expired_tombstone_limit:)
@@ -55,35 +68,16 @@ module Karya
       end
 
       def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: nil)
-        normalized_queues = normalize_reserve_queues(queue:, queues:)
-        handler_matcher = HandlerMatcher.new(handler_names)
-        normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
-        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
-        normalized_lease_duration = LeaseDuration.new(lease_duration).normalize
+        reserve_request = normalize_reserve_request(
+          worker_id:,
+          lease_duration:,
+          now:,
+          queue:,
+          queues:,
+          handler_names:
+        )
 
-        @mutex.synchronize do
-          expire_reservations_locked(normalized_now)
-
-          matched_queue, matched_job_index, matched_job_id = find_reserved_job(normalized_queues, handler_matcher)
-          return nil unless matched_job_id
-
-          jobs_by_id = state.jobs_by_id
-          queue_job_ids = state.queued_job_ids_by_queue.fetch(matched_queue)
-          queued_job = jobs_by_id.fetch(matched_job_id)
-          reserved_job = queued_job.transition_to(:reserved, updated_at: normalized_now)
-          reservation = build_reservation(
-            reserved_job:,
-            worker_id: normalized_worker_id,
-            reserved_at: normalized_now,
-            lease_duration: normalized_lease_duration
-          )
-
-          queue_job_ids.delete_at(matched_job_index)
-          state.delete_queue(matched_queue) if queue_job_ids.empty?
-          jobs_by_id[reserved_job.id] = reserved_job
-          state.reserve(reservation)
-          reservation
-        end
+        @mutex.synchronize { reserve_matching_job(reserve_request) }
       end
 
       def release(reservation_token:, now:)
@@ -129,146 +123,9 @@ module Karya
 
       private
 
-      attr_reader :state, :token_generator
+      attr_reader :policy_set, :state, :token_generator
 
-      # Encapsulates subscription handler matching for reservation scans.
-      class HandlerMatcher
-        def initialize(handler_names)
-          if handler_names.nil?
-            @match_all = true
-            @handler_names = {}.freeze
-            return
-          end
-
-          raise InvalidQueueStoreOperationError, 'handler_names must be an Array' unless handler_names.is_a?(Array)
-
-          @match_all = false
-          @handler_names = normalize_present_handler_names(handler_names)
-        end
-
-        def include?(handler_name)
-          match_all || handler_names.include?(handler_name)
-        end
-
-        private
-
-        attr_reader :handler_names, :match_all
-
-        def normalize_present_handler_names(handler_names)
-          normalized_names = handler_names.map do |name|
-            Primitives::Identifier.new(:handler, name, error_class: InvalidQueueStoreOperationError).normalize
-          end
-          raise InvalidQueueStoreOperationError, 'handler_names must be present' if normalized_names.empty?
-
-          normalized_names.to_h { |name| [name, true] }.freeze
-        end
-      end
-
-      # Internal mutable state for the single-process queue store.
-      class StoreState
-        attr_reader :executions_by_token,
-                    :execution_tokens_in_order,
-                    :expired_reservation_tokens,
-                    :expired_reservation_tokens_in_order,
-                    :jobs_by_id,
-                    :queued_job_ids_by_queue,
-                    :reservation_tokens_in_order,
-                    :reservations_by_token
-
-        def initialize(expired_tombstone_limit:)
-          @executions_by_token = {}
-          @execution_tokens_in_order = []
-          @expired_reservation_tokens = {}
-          @expired_reservation_tokens_in_order = []
-          @expired_tombstone_limit = expired_tombstone_limit
-          @jobs_by_id = {}
-          @queued_job_ids_by_queue = {}
-          @reservation_tokens_in_order = []
-          @reservations_by_token = {}
-        end
-
-        def queue_job_ids_for(queue)
-          queued_job_ids_by_queue[queue] ||= []
-        end
-
-        def delete_queue(queue)
-          queued_job_ids_by_queue.delete(queue)
-        end
-
-        def reserve(reservation)
-          reservation_token = reservation.token
-          reservations_by_token[reservation_token] = reservation
-          reservation_tokens_in_order << reservation_token
-        end
-
-        def activate_execution(reservation_token, reservation)
-          reservations_by_token.delete(reservation_token)
-          delete_reservation_token(reservation_token)
-          executions_by_token[reservation_token] = reservation
-          execution_tokens_in_order << reservation_token
-        end
-
-        def delete_reservation_token(reservation_token)
-          reservation_index = reservation_tokens_in_order.index(reservation_token)
-          reservation_tokens_in_order.delete_at(reservation_index) if reservation_index
-        end
-
-        def delete_execution_token(reservation_token)
-          execution_index = execution_tokens_in_order.index(reservation_token)
-          execution_tokens_in_order.delete_at(execution_index) if execution_index
-        end
-
-        def mark_expired(reservation_token)
-          return if expired_reservation_tokens.key?(reservation_token)
-
-          expired_reservation_tokens[reservation_token] = true
-          expired_reservation_tokens_in_order << reservation_token
-          prune_expired_reservation_tokens
-        end
-
-        def reservation_token_in_use?(reservation_token)
-          reservations_by_token.key?(reservation_token) ||
-            executions_by_token.key?(reservation_token) ||
-            expired_reservation_tokens.key?(reservation_token)
-        end
-
-        private
-
-        def prune_expired_reservation_tokens
-          while expired_reservation_tokens_in_order.length > @expired_tombstone_limit
-            oldest_token = expired_reservation_tokens_in_order.shift
-            expired_reservation_tokens.delete(oldest_token)
-          end
-        end
-      end
-
-      # Validates and normalizes lease durations accepted by the queue store.
-      class LeaseDuration
-        def initialize(value)
-          @value = value
-        end
-
-        def normalize
-          raise InvalidQueueStoreOperationError, 'lease_duration must be a positive number' unless valid?
-
-          value
-        end
-
-        private
-
-        attr_reader :value
-
-        def valid?
-          case value
-          when Integer, Float, Rational, BigDecimal
-            value.positive? && (value.is_a?(Integer) || value.finite?)
-          else
-            false
-          end
-        end
-      end
-
-      private_constant :LeaseDuration
+      private_constant :LeaseDuration, :HandlerMatcher, :ReserveScanState
 
       def validate_enqueue(job)
         raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)
@@ -287,7 +144,13 @@ module Karya
 
         expired_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
         expired_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
+        prune_stale_rate_limit_admissions(now)
         expired_reserved_jobs + expired_running_jobs
+      end
+
+      def perform_reserve_maintenance(now)
+        expire_reservations_locked(now)
+        build_reserve_scan_state
       end
 
       def requeue_reservation(reservation, now)
@@ -366,23 +229,73 @@ module Karya
         Primitives::QueueList.new(reserve_queues, error_class: InvalidQueueStoreOperationError).normalize
       end
 
-      def find_reserved_job(queues, handler_matcher)
+      def normalize_reserve_request(worker_id:, lease_duration:, now:, queue:, queues:, handler_names:)
+        {
+          handler_matcher: HandlerMatcher.new(handler_names),
+          lease_duration: LeaseDuration.new(lease_duration).normalize,
+          now: normalize_time(:now, now, error_class: InvalidQueueStoreOperationError),
+          queues: normalize_reserve_queues(queue:, queues:),
+          worker_id: normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
+        }
+      end
+
+      def reserve_matching_job(reserve_request)
+        now = reserve_request.fetch(:now)
+        reserve_scan_state = perform_reserve_maintenance(now)
+        matched_queue, matched_job_index, matched_job_id =
+          find_reserved_job(reserve_request.fetch(:queues), reserve_request.fetch(:handler_matcher), reserve_scan_state)
+        return nil unless matched_job_id
+
+        jobs_by_id = state.jobs_by_id
+        queue_job_ids = state.queued_job_ids_by_queue.fetch(matched_queue)
+        queued_job = jobs_by_id.fetch(matched_job_id)
+        reserved_job = queued_job.transition_to(:reserved, updated_at: now)
+        reservation = build_reservation(
+          reserved_job:,
+          worker_id: reserve_request.fetch(:worker_id),
+          reserved_at: now,
+          lease_duration: reserve_request.fetch(:lease_duration)
+        )
+
+        queue_job_ids.delete_at(matched_job_index)
+        state.delete_queue(matched_queue) if queue_job_ids.empty?
+        jobs_by_id[reserved_job.id] = reserved_job
+        record_rate_limit_admission(reserved_job, now)
+        state.reserve(reservation)
+        reservation
+      end
+
+      def find_reserved_job(queues, handler_matcher, reserve_scan_state)
         queues.each do |queue|
-          matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher)
+          matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher, reserve_scan_state)
           return [queue, matched_job_index, matched_job_id] if matched_job_id
         end
 
         nil
       end
 
-      def matching_job_for(queue, handler_matcher)
+      def matching_job_for(queue, handler_matcher, reserve_scan_state)
         queue_job_ids = state.queued_job_ids_by_queue.fetch(queue, [])
+        selected_job_id = nil
+        selected_job_index = nil
+        selected_job_priority = nil
+
         queue_job_ids.each_with_index do |job_id, index|
           queued_job = state.jobs_by_id.fetch(job_id)
-          return [index, job_id] if handler_matcher.include?(queued_job.handler)
+          queued_job_priority = queued_job.priority
+          next unless handler_matcher.include?(queued_job.handler)
+          next if reserve_scan_state.concurrency_blocked?(queued_job)
+          next if reserve_scan_state.rate_limited?(queued_job)
+          next if selected_job_priority && queued_job_priority <= selected_job_priority
+
+          selected_job_id = job_id
+          selected_job_index = index
+          selected_job_priority = queued_job_priority
         end
 
-        nil
+        return nil unless selected_job_id
+
+        [selected_job_index, selected_job_id]
       end
 
       def finalize_execution(reservation_token:, now:, next_state:)

@@ -31,6 +31,28 @@ RSpec.describe Karya::QueueStore::InMemory do
   end
 
   describe '#initialize' do
+    it 'supports default initialization' do
+      store = described_class.new
+
+      expect(store).to be_a(described_class)
+    end
+
+    it 'uses the default token generator when reserving jobs' do
+      store = described_class.new
+      job = Karya::Job.new(
+        id: 'job-1',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :submission,
+        created_at: created_at
+      )
+
+      store.enqueue(job:, now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect(reservation.token).to match(/\A[\w-]+:1\z/)
+    end
+
     it 'rejects negative expired tombstone limits' do
       expect do
         described_class.new(expired_tombstone_limit: -1)
@@ -47,6 +69,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         described_class.new(expired_tombstone_limit: Float::INFINITY)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /finite non-negative Integer/)
+    end
+
+    it 'rejects invalid policy_set values' do
+      expect do
+        described_class.new(policy_set: Object.new)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /policy_set must be a Karya::Backpressure::PolicySet/)
     end
   end
 

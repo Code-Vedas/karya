@@ -16,11 +16,18 @@ behavior under constrained capacity.
 - starvation prevention
 - concurrency groups and scoped rate limits
 - overload handling and automated recovery hooks
+- queue-local priority ordering inside otherwise eligible work
 
 ## Operator Expectations
 
 Operators need to understand whether delay comes from queue pressure,
 rate limits, concurrency caps, paused state, or backend-specific constraints.
+
+In `core/karya`, backpressure policy is modeled through
+`Karya::Backpressure::PolicySet`. Concurrency policies cap active `reserved` and
+`running` jobs sharing one `concurrency_key`. Rate-limit policies use rolling
+(sliding) windows keyed by `rate_limit_key`, evaluating capacity over the most
+recent period and consuming capacity when reservation succeeds.
 
 ## Common Scenarios
 

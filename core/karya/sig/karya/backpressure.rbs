@@ -1,0 +1,44 @@
+module Karya
+  module Backpressure
+    class InvalidPolicyError < Error
+    end
+
+    class ConcurrencyPolicy
+      @key: String
+      @limit: Integer
+
+      attr_reader key: String
+      attr_reader limit: Integer
+
+      def initialize: (key: Karya::state_name | Integer, limit: Integer) -> void
+    end
+
+    class RateLimitPolicy
+      @key: String
+      @limit: Integer
+      @period: Karya::lease_duration_value
+
+      attr_reader key: String
+      attr_reader limit: Integer
+      attr_reader period: Karya::lease_duration_value
+
+      def initialize: (key: Karya::state_name | Integer, limit: Integer, period: Karya::lease_duration_value) -> void
+    end
+
+    class PolicySet
+      @concurrency: Hash[String, ConcurrencyPolicy]
+      @rate_limits: Hash[String, RateLimitPolicy]
+
+      attr_reader concurrency: Hash[String, ConcurrencyPolicy]
+      attr_reader rate_limits: Hash[String, RateLimitPolicy]
+
+      def initialize: (
+        ?concurrency: Hash[Karya::state_name | Integer, ConcurrencyPolicy | Hash[Symbol | String, Integer]],
+        ?rate_limits: Hash[Karya::state_name | Integer, RateLimitPolicy | Hash[Symbol | String, Integer | Karya::lease_duration_value]]
+      ) -> void
+
+      def concurrency_policy_for: ((Karya::state_name | Integer)? key) -> ConcurrencyPolicy?
+      def rate_limit_policy_for: ((Karya::state_name | Integer)? key) -> RateLimitPolicy?
+    end
+  end
+end

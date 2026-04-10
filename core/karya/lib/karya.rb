@@ -10,6 +10,7 @@ require_relative 'karya/internal/null_logger'
 require_relative 'karya/version'
 
 require_relative 'karya/job_lifecycle'
+require_relative 'karya/backpressure'
 require_relative 'karya/job'
 require_relative 'karya/reservation'
 require_relative 'karya/queue_store'

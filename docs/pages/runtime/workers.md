@@ -14,7 +14,9 @@ Routing stays explicit through `job.queue`. Worker subscription is the
 combination of an ordered queue list and a handler registry. A worker reserves
 only jobs whose queue and handler both match that subscription. Unmatched jobs
 stay queued until a compatible worker exists. Queue order is subscription
-preference, not a fairness guarantee.
+preference, not a fairness guarantee. Within one queue, higher-priority jobs may
+be selected ahead of lower-priority jobs when the queue store supports
+priorities.
 
 ## Worker Responsibilities
 
@@ -23,6 +25,8 @@ preference, not a fairness guarantee.
 - move jobs from `queued` to `reserved` and then into `running` only through
   valid lifecycle transitions
 - execute work while respecting timeouts, expirations, and cancellation
+- skip jobs blocked by active concurrency caps or rate-limit windows when an
+  eligible queued job still exists
 - participate in graceful shutdown and drain behavior
 
 ## Supervision And Lifecycle
@@ -101,6 +105,11 @@ Use multiple processes or threads only with a queue store that is safe to
 share across processes and thread-safe handlers.
 `Karya::QueueStore::InMemory` is single-process and is shown here only for local
 examples.
+
+Backpressure policies are configured on the queue store, not through `karya worker`
+flags in this milestone. Jobs may carry `priority`,
+`concurrency_key`, and `rate_limit_key`, and the queue store decides whether a
+matching policy exists for those keys.
 
 `Karya.configure_logger` and `Karya.configure_instrumenter` define process-wide
 defaults. If a process hosts multiple runtimes, inject explicit `logger:` and
