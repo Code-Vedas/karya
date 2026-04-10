@@ -44,11 +44,13 @@ RSpec.describe Karya::QueueStore::InMemory do
     end
 
     it 'does not duplicate retry-pending job ids' do
-      store_state.register_retry_pending('job-1')
+      expect(store_state.register_retry_pending('job-1')).to eq(['job-1'])
 
       expect do
         store_state.register_retry_pending('job-1')
       end.not_to(change(store_state, :retry_pending_job_ids))
+
+      expect(store_state.register_retry_pending('job-1')).to eq(['job-1'])
     end
 
     it 'rejects reservation tokens that collide with active or expired tracking' do
