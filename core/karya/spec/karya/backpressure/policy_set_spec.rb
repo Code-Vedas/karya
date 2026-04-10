@@ -59,6 +59,12 @@ RSpec.describe Karya::Backpressure::PolicySet do
     end.to raise_error(Karya::Backpressure::InvalidPolicyError, /policy attribute keys must be Symbols or Strings/)
   end
 
+  it 'rejects duplicate normalized policy keys' do
+    expect do
+      described_class.new(concurrency: { :account_sync => { limit: 1 }, ' account_sync ' => { limit: 2 } })
+    end.to raise_error(Karya::Backpressure::InvalidPolicyError, /duplicate concurrency key "account_sync" after normalization/)
+  end
+
   it 'rejects non-hash policy registries' do
     expect do
       described_class.new(concurrency: [])

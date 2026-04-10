@@ -100,6 +100,7 @@ module Karya
 
         source.each_with_object({}) do |(key, raw_policy), normalized|
           policy = PolicyNormalizer.new(key, raw_policy, policy_class).normalize
+          reject_duplicate_policy_key(policy, normalized)
           normalized[policy.key] = policy
         end.freeze
       end
@@ -107,6 +108,20 @@ module Karya
       private
 
       attr_reader :invalid_type_message, :policy_class, :source
+
+      def reject_duplicate_policy_key(policy, normalized)
+        normalized_key = policy.key
+        return unless normalized.key?(normalized_key)
+
+        raise InvalidPolicyError, "duplicate #{policy_label} key #{normalized_key.inspect} after normalization"
+      end
+
+      def policy_label
+        policy_class.name.split('::').last
+                    .delete_suffix('Policy')
+                    .gsub(/([a-z0-9])([A-Z])/, '\1 \2')
+                    .downcase
+      end
     end
 
     # Immutable concurrency-cap policy keyed by a job concurrency group.
