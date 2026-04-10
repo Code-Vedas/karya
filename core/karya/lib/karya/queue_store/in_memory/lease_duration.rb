@@ -26,11 +26,21 @@ module Karya
 
         def valid?
           case value
-          when Integer, Float, Rational, BigDecimal
-            value.positive? && (value.is_a?(Integer) || value.finite?)
+          when Integer, Rational
+            positive_rational_or_integer?
+          when Float, BigDecimal
+            positive_finite_float_or_decimal?
           else
             false
           end
+        end
+
+        def positive_rational_or_integer?
+          value.positive?
+        end
+
+        def positive_finite_float_or_decimal?
+          value.positive? && value.finite?
         end
       end
     end
