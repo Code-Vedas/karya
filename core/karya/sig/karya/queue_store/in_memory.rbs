@@ -84,6 +84,7 @@ module Karya
 
         @queued_job_ids_by_queue: Hash[String, Array[String]]
         @retry_pending_job_ids: Array[String]
+        @retry_pending_job_ids_index: Hash[String, bool]
 
         @reservation_tokens_in_order: Array[String]
 
