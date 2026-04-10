@@ -121,10 +121,16 @@ module Karya
 
       def normalize_failure_classification
         optional(:failure_classification, nil)&.then do |value|
-          normalized_value = value.to_sym
-          return normalized_value if %i[error timeout expired].include?(normalized_value)
-
-          raise InvalidJobAttributeError, 'failure_classification must be one of :error, :timeout, or :expired'
+          case value
+          when :error, 'error'
+            :error
+          when :timeout, 'timeout'
+            :timeout
+          when :expired, 'expired'
+            :expired
+          else
+            raise InvalidJobAttributeError, 'failure_classification must be one of :error, :timeout, or :expired'
+          end
         end
       end
 

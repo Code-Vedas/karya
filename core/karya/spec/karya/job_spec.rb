@@ -281,4 +281,38 @@ RSpec.describe Karya::Job do
       expect(queued_job.terminal?).to be(false)
     end
   end
+
+  describe 'failure classification validation' do
+    it 'rejects non-string non-symbol values' do
+      expect do
+        described_class.new(
+          id: 'job_123',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :failed,
+          created_at:,
+          failure_classification: 123
+        )
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        'failure_classification must be one of :error, :timeout, or :expired'
+      )
+    end
+
+    it 'rejects arbitrary strings without symbolizing them' do
+      expect do
+        described_class.new(
+          id: 'job_123',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :failed,
+          created_at:,
+          failure_classification: 'arbitrary_string'
+        )
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        'failure_classification must be one of :error, :timeout, or :expired'
+      )
+    end
+  end
 end

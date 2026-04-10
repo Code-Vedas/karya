@@ -79,10 +79,16 @@ module Karya
         end
 
         def normalize_failure_classification(name, value)
-          normalized_value = value.to_sym
-          return normalized_value if %i[error timeout expired].include?(normalized_value)
-
-          raise InvalidQueueStoreOperationError, "#{name} must be one of :error, :timeout, or :expired"
+          case value
+          when :error, 'error'
+            :error
+          when :timeout, 'timeout'
+            :timeout
+          when :expired, 'expired'
+            :expired
+          else
+            raise InvalidQueueStoreOperationError, "#{name} must be one of :error, :timeout, or :expired"
+          end
         end
 
         def collect_expired_leases(leases_by_token, tokens_in_order, now)

@@ -464,6 +464,42 @@ RSpec.describe Karya::Worker do
       expect(stored_job('job-expired-before-start').state).to eq(:failed)
     end
 
+    it 'does not execute handler code when a reserved job expires before execution starts' do
+      handler_calls = 0
+      queue_store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-expired-before-handler',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :submission,
+          created_at: now - 60,
+          expires_at: now + 1
+        ),
+        now:
+      )
+      reservation = queue_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: now)
+      expiring_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers: { 'billing_sync' => -> { handler_calls += 1 } },
+        lease_duration: 30,
+        clock: -> { now + 2 }
+      )
+      shutdown_controller = Object.new
+      shutdown_controller.define_singleton_method(:stop_before_reserve?) { false }
+      shutdown_controller.define_singleton_method(:stop_after_reserve?) { false }
+      shutdown_controller.define_singleton_method(:synchronize_pre_execution) { |&block| block.call }
+      allow(expiring_worker).to receive(:reserve_next).and_return(reservation)
+
+      result = expiring_worker.send(:work_once_result, shutdown_controller)
+
+      expect(result.state).to eq(:failed)
+      expect(result.failure_classification).to eq(:expired)
+      expect(handler_calls).to eq(0)
+      expect(stored_job('job-expired-before-handler').state).to eq(:failed)
+    end
+
     it 'marks timed out handlers with timeout failure classification' do
       queue_store.enqueue(
         job: Karya::Job.new(

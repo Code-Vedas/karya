@@ -136,6 +136,7 @@ module Karya
       running_job = acquire_running_job(shutdown_controller, reservation_token)
       return running_job if running_job.equal?(NO_WORK_AVAILABLE)
       return LEASE_LOST if running_job.equal?(LEASE_LOST)
+      return running_job if running_job.state == :failed
 
       begin
         execute_handler(running_job)

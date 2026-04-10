@@ -191,6 +191,40 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
     end
 
+    it 'rejects invalid failure classification types' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      expect do
+        store.fail_execution(
+          reservation_token: reservation.token,
+          now: created_at + 4,
+          failure_classification: 123
+        )
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        'failure_classification must be one of :error, :timeout, or :expired'
+      )
+    end
+
+    it 'accepts string expired classification and keeps it terminal' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      failed_job = store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: 'expired'
+      )
+
+      expect(failed_job.state).to eq(:failed)
+      expect(failed_job.failure_classification).to eq(:expired)
+      expect(store_state.retry_pending_job_ids).to eq([])
+    end
+
     it 'rejects expired execution leases and requeues the running job' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 2)
