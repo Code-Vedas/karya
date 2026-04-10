@@ -11,10 +11,11 @@ module Karya
       @lease_duration: Numeric
 
       @lifecycle: Karya::lifecycle
+      @retry_policy: RetryPolicy?
 
       @subscription: Worker::Subscription
 
-      OPTION_KEYS: ::Array[:worker_id | :queues | :handlers | :lease_duration | :lifecycle]
+      OPTION_KEYS: ::Array[:worker_id | :queues | :handlers | :lease_duration | :lifecycle | :retry_policy]
 
       def self.from_options: (symbol_options options) -> Configuration
 
@@ -23,6 +24,8 @@ module Karya
       attr_reader lease_duration: Numeric
 
       attr_reader lifecycle: Karya::lifecycle
+
+      attr_reader retry_policy: RetryPolicy?
 
       attr_reader queues: Array[String]
 
@@ -35,7 +38,8 @@ module Karya
         queues: Array[state_name],
         handlers: handler_mapping | Worker::HandlerRegistry,
         lease_duration: Numeric,
-        ?lifecycle: Karya::lifecycle
+        ?lifecycle: Karya::lifecycle,
+        ?retry_policy: RetryPolicy?
       ) -> void
     end
   end

@@ -17,6 +17,7 @@ module Karya
                     :jobs_by_id,
                     :rate_limit_admissions_by_key,
                     :queued_job_ids_by_queue,
+                    :retry_pending_job_ids,
                     :reservation_tokens_in_order,
                     :reservations_by_token
 
@@ -29,6 +30,7 @@ module Karya
           @jobs_by_id = {}
           @rate_limit_admissions_by_key = {}
           @queued_job_ids_by_queue = {}
+          @retry_pending_job_ids = []
           @reservation_tokens_in_order = []
           @reservations_by_token = {}
         end
@@ -39,6 +41,14 @@ module Karya
 
         def delete_queue(queue)
           queued_job_ids_by_queue.delete(queue)
+        end
+
+        def register_retry_pending(job_id)
+          retry_pending_job_ids << job_id unless retry_pending_job_ids.include?(job_id)
+        end
+
+        def delete_retry_pending(job_id)
+          retry_pending_job_ids.delete(job_id)
         end
 
         def rate_limit_admissions_for(key)

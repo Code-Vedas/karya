@@ -21,10 +21,12 @@ module Karya
       @priority: Integer
       @concurrency_key: String?
       @rate_limit_key: String?
+      @retry_policy: RetryPolicy?
 
       attr_reader priority: Integer
       attr_reader concurrency_key: String?
       attr_reader rate_limit_key: String?
+      attr_reader retry_policy: RetryPolicy?
     end
 
     class LifecycleState
@@ -32,12 +34,14 @@ module Karya
       @attempt: Integer
       @created_at: Time
       @updated_at: Time
+      @next_retry_at: Time?
       @lifecycle: JobLifecycle::Registry
 
       attr_reader state: state_name
       attr_reader attempt: Integer
       attr_reader created_at: Time
       attr_reader updated_at: Time
+      attr_reader next_retry_at: Time?
       attr_reader lifecycle: JobLifecycle::Registry
     end
 
@@ -59,10 +63,12 @@ module Karya
 
     attr_reader queue: String
     attr_reader rate_limit_key: String?
+    attr_reader retry_policy: RetryPolicy?
 
     attr_reader state: state_name
 
     attr_reader updated_at: Time
+    attr_reader next_retry_at: Time?
 
     def initialize: (
       id: state_name,
@@ -72,16 +78,18 @@ module Karya
       ?priority: Integer,
       ?concurrency_key: state_name?,
       ?rate_limit_key: state_name?,
+      ?retry_policy: RetryPolicy?,
       state: state_name,
       ?attempt: Integer,
       created_at: Time,
       ?lifecycle: JobLifecycle::Registry,
-      ?updated_at: Time
+      ?updated_at: Time,
+      ?next_retry_at: Time?
     ) -> void
 
     def can_transition_to?: (state_name next_state) -> bool
 
-    def transition_to: (state_name next_state, updated_at: Time, ?attempt: Integer) -> Job
+    def transition_to: (state_name next_state, updated_at: Time, ?attempt: Integer, ?retry_policy: RetryPolicy?, ?next_retry_at: Time?) -> Job
 
     def terminal?: () -> bool
 

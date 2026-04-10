@@ -52,11 +52,13 @@ module Karya
           priority:,
           concurrency_key: normalize_optional_identifier(:concurrency_key),
           rate_limit_key: normalize_optional_identifier(:rate_limit_key),
+          retry_policy: normalize_retry_policy,
           lifecycle:,
           state: lifecycle.normalize_state(required(:state)),
           attempt:,
           created_at:,
-          updated_at: normalize_updated_at(created_at)
+          updated_at: normalize_updated_at(created_at),
+          next_retry_at: normalize_optional_time(:next_retry_at)
         }
       end
 
@@ -82,6 +84,12 @@ module Karya
         TimestampNormalizer.new(:updated_at, optional(:updated_at, created_at)).normalize
       end
 
+      def normalize_optional_time(name)
+        optional(name, nil)&.then do |value|
+          TimestampNormalizer.new(name, value).normalize
+        end
+      end
+
       def normalize_lifecycle
         Primitives::Lifecycle.new(
           :lifecycle,
@@ -92,6 +100,14 @@ module Karya
 
       def normalize_optional_identifier(name)
         OptionalIdentifierNormalizer.new(name, optional(name, nil)).normalize
+      end
+
+      def normalize_retry_policy
+        optional(:retry_policy, nil)&.then do |retry_policy|
+          return retry_policy if retry_policy.is_a?(RetryPolicy)
+
+          raise InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy'
+        end
       end
 
       # Normalizes required identifier-like fields into frozen, non-blank strings.

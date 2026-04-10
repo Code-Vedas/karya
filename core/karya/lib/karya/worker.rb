@@ -81,6 +81,10 @@ module Karya
       configuration.lifecycle
     end
 
+    def retry_policy
+      configuration.retry_policy
+    end
+
     def work_once
       result = work_once_result(ShutdownController.inactive)
       case result
@@ -130,7 +134,7 @@ module Karya
       begin
         handlers.fetch(running_job.handler).call(arguments: running_job.arguments)
       rescue StandardError
-        return fail_execution_job(reservation_token)
+        return fail_execution_job(reservation_token, running_job)
       end
 
       complete_execution_job(reservation_token)
@@ -211,8 +215,12 @@ module Karya
       LEASE_LOST
     end
 
-    def fail_execution_job(reservation_token)
-      job = queue_store.fail_execution(reservation_token:, now: current_time)
+    def fail_execution_job(reservation_token, running_job)
+      job = queue_store.fail_execution(
+        reservation_token:,
+        now: current_time,
+        retry_policy: effective_retry_policy_for(running_job)
+      )
       instrument('worker.job.failed', reservation_token:, job_id: job.id, handler: job.handler, queue: job.queue)
       job
     rescue ExpiredReservationError, UnknownReservationError
@@ -230,6 +238,10 @@ module Karya
 
     def instrument(event, **payload)
       runtime.instrument(event, payload.merge(worker_id:))
+    end
+
+    def effective_retry_policy_for(job)
+      job.retry_policy || retry_policy
     end
 
     def report_runtime_state(state)

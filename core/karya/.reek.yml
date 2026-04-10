@@ -21,9 +21,15 @@ detectors:
   LongParameterList:
     enabled: true
     max_params: 10
+    exclude:
+      - Karya::Worker::Configuration#initialize
+      - Karya::Job::Attributes#normalized_attributes
   TooManyInstanceVariables:
     enabled: true
     max_instance_variables: 10
+    exclude:
+      - Karya::QueueStore::InMemory::StoreState
+      - Karya::Worker::Configuration
   DataClump:
     enabled: false
   FeatureEnvy:
@@ -33,6 +39,13 @@ detectors:
       - Karya::JobLifecycle::StateManager#merge_extension_transitions
       - Karya::WorkerSupervisor::ChildProcessRunner#mark_thread_stopped
       - Karya::QueueStore::InMemory::HandlerMatcher#normalize_present_handler_names
+      - Karya::QueueStore::InMemory::RetrySupport#retry_pending_job
+      - Karya::QueueStore::InMemory::RetrySupport#normalize_retry_policy
+      - Karya::RetryPolicy#normalize_attempt
+      - Karya::RetryPolicy#normalize_max_attempts
+      - Karya::RetryPolicy#normalize_multiplier
+      - Karya::RetryPolicy#normalize_non_negative_numeric
+      - Karya::Worker::Configuration#normalize_retry_policy
   UtilityFunction:
     enabled: true
     exclude:
