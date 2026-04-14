@@ -48,7 +48,7 @@ jobs:
           bundler-cache: true
           working-directory: ${{ github.workspace }}/core/karya
       - name: Configure RubyGems Credentials
-        uses: rubygems/configure-rubygems-credentials@3d549bd0e55c3910ffb5515bf38d6e7f3e5be570
+        uses: rubygems/configure-rubygems-credentials@6f94374a7eb4cdf600b093bbcd94079187872fac
       - name: Build and push gem
         working-directory: ${{ github.workspace }}/core/karya
         run: |
@@ -78,7 +78,7 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
       - name: Configure RubyGems Credentials
-        uses: rubygems/configure-rubygems-credentials@3d549bd0e55c3910ffb5515bf38d6e7f3e5be570
+        uses: rubygems/configure-rubygems-credentials@6f94374a7eb4cdf600b093bbcd94079187872fac
       - name: Install frontend dependencies
         working-directory: ${{ github.workspace }}/gems/karya-dashboard
         run: corepack yarn install --immutable
