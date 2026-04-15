@@ -25,6 +25,9 @@ module Karya
   type handler_dispatch_mode = :none | :positional_hash | :keywords
   type job_argument = nil | Numeric | String | Symbol | bool | Time | Array[job_argument] | Hash[String, job_argument]
   type job_argument_graph = job_argument | Hash[state_name, job_argument]
+  type worker_loop_sentinel = Object
+  type worker_iteration_result = Job | worker_loop_sentinel
+  type worker_loop_result = Job | worker_loop_sentinel | nil
   type lease_duration_value = Integer | Float | Rational | BigDecimal
   type retry_policy = RetryPolicy
   type failure_classification = :error | :timeout | :expired

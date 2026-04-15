@@ -28,6 +28,12 @@ module Karya
 
     DEFAULT_POLL_INTERVAL: 1
 
+    CONTINUE_RUNNING: Object
+
+    LEASE_LOST: Object
+
+    NO_WORK_AVAILABLE: Object
+
     NOOP_SUBSCRIPTION: ^() -> nil
 
     SIGNALS: ::Array["INT" | "TERM"]
@@ -71,7 +77,7 @@ module Karya
 
     attr_reader runtime: Worker::Runtime
 
-    def work_once_result: (_ShutdownController shutdown_controller) -> Job?
+    def work_once_result: (_ShutdownController shutdown_controller) -> Karya::worker_iteration_result
 
     def reserve_next: () -> Reservation?
 
@@ -79,25 +85,25 @@ module Karya
 
     def with_shutdown_handlers: (ShutdownController shutdown_controller) { () -> Job? } -> Job?
 
-    def register_shutdown_restorers: (Array[^() -> nil] restorers, ShutdownController shutdown_controller) -> Array[^() -> nil]
+    def register_shutdown_restorers: (Array[^() -> nil] restorers, ShutdownController shutdown_controller) -> ::Array[String]
 
-    def release_reserved_job: (String reservation_token) -> Job?
+    def release_reserved_job: (String reservation_token) -> Karya::worker_loop_sentinel
 
-    def release_reserved_job_if_stopping_after_reserve: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def release_reserved_job_if_stopping_after_reserve: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_loop_sentinel?
 
-    def release_reserved_job_if_stopping_before_execution: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def release_reserved_job_if_stopping_before_execution: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_loop_sentinel?
 
-    def acquire_running_job: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def acquire_running_job: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_iteration_result
 
-    def pre_execution_transition: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def pre_execution_transition: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_iteration_result
 
-    def release_reserved_job_if_stopping: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def release_reserved_job_if_stopping: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_loop_sentinel?
 
-    def complete_execution_job: (String reservation_token) -> Job?
+    def complete_execution_job: (String reservation_token) -> Karya::worker_iteration_result
 
-    def fail_execution_job: (String reservation_token, Job running_job, failure_classification: failure_classification) -> Job?
+    def fail_execution_job: (String reservation_token, Job running_job, failure_classification: failure_classification) -> Karya::worker_iteration_result
 
-    def start_execution_job: (String reservation_token) -> Job?
+    def start_execution_job: (String reservation_token) -> Karya::worker_iteration_result
 
     def instrument: (String event, **job_argument | Integer | Array[Integer] payload) -> nil
 
