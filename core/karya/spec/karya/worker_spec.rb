@@ -529,6 +529,40 @@ RSpec.describe Karya::Worker do
       expect(result.failure_classification).to eq(:timeout)
     end
 
+    it 'does not let handlers swallow worker timeouts by rescuing Timeout::Error' do
+      queue_store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-timeout-rescue',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: {},
+          state: :submission,
+          created_at: now - 60,
+          execution_timeout: 0.01
+        ),
+        now:
+      )
+      timeout_rescue_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers: {
+          'billing_sync' => lambda do
+            sleep 0.02
+          rescue Timeout::Error
+            nil
+          end
+        },
+        lease_duration: 30,
+        clock: -> { now }
+      )
+
+      result = timeout_rescue_worker.work_once
+
+      expect(result.state).to eq(:failed)
+      expect(result.failure_classification).to eq(:timeout)
+    end
+
     it 'marks handler-raised timeout errors as error failures' do
       queue_store.enqueue(job: submission_job(id: 'job-handler-timeout-error'), now:)
       timeout_error_worker = described_class.new(

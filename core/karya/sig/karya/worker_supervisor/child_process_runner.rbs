@@ -60,6 +60,8 @@ module Karya
       def subscribe_signal: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
 
       def report_thread_state: (worker_id: String, state: String) -> nil
+
+      def mark_thread_stopped: (process_pid: Integer, worker_id: String) -> nil
     end
   end
 end

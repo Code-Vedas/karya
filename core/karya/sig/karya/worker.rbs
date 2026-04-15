@@ -40,7 +40,7 @@ module Karya
     class NoWorkAvailable
     end
 
-    class WorkerExecutionTimeoutError < Timeout::Error
+    class WorkerExecutionTimeoutError < StandardError
       DEFAULT_MESSAGE: String
     end
 

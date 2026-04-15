@@ -50,7 +50,7 @@ module Karya
     # Sentinel class for an iteration with no executable work.
     NoWorkAvailable = Class.new
     # Raised only by worker-enforced execution timeout guards.
-    class WorkerExecutionTimeoutError < Timeout::Error
+    class WorkerExecutionTimeoutError < StandardError
       DEFAULT_MESSAGE = 'worker execution timed out'
     end
 
