@@ -6,7 +6,25 @@ module Karya
 
       def initialize: (Hash[Symbol, Karya::job_attribute_value] attributes) -> void
 
-      def to_h: () -> { id: String, queue: String, handler: String, arguments: Karya::job_arguments, priority: Integer, concurrency_key: String?, rate_limit_key: String?, retry_policy: Karya::retry_policy?, lifecycle: Karya::lifecycle, state: Karya::state_name, attempt: Integer, created_at: Time, updated_at: Time, next_retry_at: Time? }
+      def to_h: () -> {
+        id: String,
+        queue: String,
+        handler: String,
+        arguments: Karya::job_arguments,
+        priority: Integer,
+        concurrency_key: String?,
+        rate_limit_key: String?,
+        retry_policy: Karya::retry_policy?,
+        execution_timeout: Numeric?,
+        expires_at: Time?,
+        lifecycle: Karya::lifecycle,
+        state: Karya::state_name,
+        attempt: Integer,
+        created_at: Time,
+        updated_at: Time,
+        next_retry_at: Time?,
+        failure_classification: Karya::failure_classification?
+      }
 
       private
 
@@ -14,7 +32,52 @@ module Karya
 
       def required: (Symbol name) -> Karya::job_attribute_value
 
-      def optional: (Symbol name, Karya::job_argument | Integer | Time | Karya::lifecycle | Karya::state_name?) -> (Karya::job_argument | Integer | Time | Karya::lifecycle | Karya::state_name?)
+      def optional: (Symbol name, Karya::job_attribute_value? default) -> Karya::job_attribute_value?
+
+      def normalized_attributes: (
+        created_at: Time,
+        lifecycle: Karya::lifecycle,
+        attempt: Integer,
+        priority: Integer
+      ) -> {
+        id: String,
+        queue: String,
+        handler: String,
+        arguments: Karya::job_arguments,
+        priority: Integer,
+        concurrency_key: String?,
+        rate_limit_key: String?,
+        retry_policy: Karya::retry_policy?,
+        execution_timeout: Numeric?,
+        expires_at: Time?,
+        lifecycle: Karya::lifecycle,
+        state: Karya::state_name,
+        attempt: Integer,
+        created_at: Time,
+        updated_at: Time,
+        next_retry_at: Time?,
+        failure_classification: Karya::failure_classification?
+      }
+
+      def normalize_attempt: () -> Integer
+
+      def normalize_priority: () -> Integer
+
+      def normalize_created_at: () -> Time
+
+      def normalize_updated_at: (Time created_at) -> Time
+
+      def normalize_optional_time: (Symbol name) -> Time?
+
+      def normalize_lifecycle: () -> Karya::lifecycle
+
+      def normalize_optional_positive_finite_number: (Symbol name) -> Numeric?
+
+      def normalize_optional_identifier: (Symbol name) -> String?
+
+      def normalize_retry_policy: () -> Karya::retry_policy?
+
+      def normalize_failure_classification: () -> Karya::failure_classification?
 
       # Normalizes required identifier-like fields into frozen, non-blank strings.
       class IdentifierNormalizer
@@ -57,6 +120,12 @@ module Karya
         def initialize: (Symbol name, Karya::state_name? value) -> void
 
         def normalize: () -> String?
+
+        private
+
+        attr_reader name: Symbol
+
+        attr_reader value: Karya::state_name?
       end
     end
   end
