@@ -69,6 +69,8 @@ module Karya
       attr_reader queue_store: QueueStore::Base
 
       attr_reader queues: Array[String]
+
+      def resolved_process_settings: (String? env_prefix) -> { processes: Integer, threads: Integer }
     end
   end
 end
