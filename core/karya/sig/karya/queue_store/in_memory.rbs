@@ -176,16 +176,6 @@ module Karya
 
       def perform_reserve_maintenance: (Time now) -> ReserveScanState
 
-      def expire_jobs_locked: (Time now) -> Array[Job]
-
-      def expire_reserved_job: (Reservation reservation, Job reserved_job, Time now) -> Job
-
-      def expire_queued_job?: (String job_id, Time now, Array[Job] expired_jobs) -> bool
-
-      def job_expired?: (Job job, Time now) -> bool
-
-      def expired_job: (Job job, Time now) -> Job
-
       def normalize_identifier: (Symbol name, Karya::state_name | Integer value, error_class: Karya::error_class) -> String
 
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time

@@ -228,6 +228,38 @@ RSpec.describe 'Karya::Job::Attributes' do
       )
     end
 
+    it 'raises InvalidJobAttributeError for non-string non-symbol failure_classification' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          failure_classification: 123
+        ).to_h
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        'failure_classification must be one of :error, :timeout, or :expired'
+      )
+    end
+
+    it 'raises InvalidJobAttributeError for arbitrary string failure_classification' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          failure_classification: 'arbitrary'
+        ).to_h
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        'failure_classification must be one of :error, :timeout, or :expired'
+      )
+    end
+
     it 'raises InvalidJobAttributeError for negative attempt' do
       expect do
         attributes_class.new(
