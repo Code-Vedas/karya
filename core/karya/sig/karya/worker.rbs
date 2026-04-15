@@ -26,13 +26,22 @@ module Karya
 
     @runtime: Worker::Runtime
 
+    class ContinueRunning
+    end
+
+    class LeaseLost
+    end
+
+    class NoWorkAvailable
+    end
+
     DEFAULT_POLL_INTERVAL: 1
 
-    CONTINUE_RUNNING: Object
+    CONTINUE_RUNNING: ContinueRunning
 
-    LEASE_LOST: Object
+    LEASE_LOST: LeaseLost
 
-    NO_WORK_AVAILABLE: Object
+    NO_WORK_AVAILABLE: NoWorkAvailable
 
     NOOP_SUBSCRIPTION: ^() -> nil
 
@@ -87,23 +96,23 @@ module Karya
 
     def register_shutdown_restorers: (Array[^() -> nil] restorers, ShutdownController shutdown_controller) -> ::Array[String]
 
-    def release_reserved_job: (String reservation_token) -> Karya::worker_loop_sentinel
+    def release_reserved_job: (String reservation_token) -> Karya::worker_idle_result
 
-    def release_reserved_job_if_stopping_after_reserve: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_loop_sentinel?
+    def release_reserved_job_if_stopping_after_reserve: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_idle_result?
 
-    def release_reserved_job_if_stopping_before_execution: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_loop_sentinel?
+    def release_reserved_job_if_stopping_before_execution: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_idle_result?
 
     def acquire_running_job: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_iteration_result
 
     def pre_execution_transition: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_iteration_result
 
-    def release_reserved_job_if_stopping: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_loop_sentinel?
+    def release_reserved_job_if_stopping: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_idle_result?
 
-    def complete_execution_job: (String reservation_token) -> Karya::worker_iteration_result
+    def complete_execution_job: (String reservation_token) -> (Job | Karya::worker_lease_lost)
 
-    def fail_execution_job: (String reservation_token, Job running_job, failure_classification: failure_classification) -> Karya::worker_iteration_result
+    def fail_execution_job: (String reservation_token, Job running_job, failure_classification: failure_classification) -> (Job | Karya::worker_lease_lost)
 
-    def start_execution_job: (String reservation_token) -> Karya::worker_iteration_result
+    def start_execution_job: (String reservation_token) -> (Job | Karya::worker_lease_lost)
 
     def instrument: (String event, **job_argument | Integer | Array[Integer] payload) -> nil
 

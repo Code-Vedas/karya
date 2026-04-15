@@ -43,10 +43,17 @@ module Karya
 
   # Single-process worker that reserves jobs, dispatches handlers, and persists outcomes.
   class Worker
+    # Sentinel class for a loop iteration that should keep polling.
+    ContinueRunning = Class.new
+    # Sentinel class for work released after a lease loss.
+    LeaseLost = Class.new
+    # Sentinel class for an iteration with no executable work.
+    NoWorkAvailable = Class.new
+
     DEFAULT_POLL_INTERVAL = 1
-    CONTINUE_RUNNING = Object.new
-    LEASE_LOST = Object.new
-    NO_WORK_AVAILABLE = Object.new
+    CONTINUE_RUNNING = ContinueRunning.new.freeze
+    LEASE_LOST = LeaseLost.new.freeze
+    NO_WORK_AVAILABLE = NoWorkAvailable.new.freeze
     NOOP_SUBSCRIPTION = -> {}.freeze
     SIGNALS = %w[INT TERM].freeze
 
@@ -287,14 +294,17 @@ module Karya
     end
 
     private_constant :CallableExecution,
+                     :ContinueRunning,
                      :CONTINUE_RUNNING,
                      :Configuration,
                      :HandlerExecution,
                      :HandlerRegistry,
                      :InactiveShutdownController,
+                     :LeaseLost,
                      :LEASE_LOST,
                      :MethodDispatcher,
                      :MutableGraphCopy,
+                     :NoWorkAvailable,
                      :NOOP_SUBSCRIPTION,
                      :NO_WORK_AVAILABLE,
                      :PerformExecution,
