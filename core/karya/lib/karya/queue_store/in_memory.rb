@@ -9,7 +9,7 @@ require 'securerandom'
 require 'bigdecimal'
 
 require_relative 'base'
-require_relative '../failure_classification'
+require_relative '../internal/failure_classification'
 require_relative 'in_memory/backpressure_support'
 require_relative 'in_memory/expiration_support'
 require_relative 'in_memory/execution_support'

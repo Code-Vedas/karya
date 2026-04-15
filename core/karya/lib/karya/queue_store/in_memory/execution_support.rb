@@ -18,7 +18,7 @@ module Karya
           normalized_retry_policy = normalize_retry_policy(retry_policy)
           normalized_failure_classification = nil
           if next_state == :failed
-            normalized_failure_classification = FailureClassification.normalize(
+            normalized_failure_classification = Internal::FailureClassification.normalize(
               failure_classification,
               error_class: InvalidQueueStoreOperationError
             )

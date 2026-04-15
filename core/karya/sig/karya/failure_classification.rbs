@@ -1,8 +1,0 @@
-module Karya
-  # Normalizes the closed failure taxonomy without symbolizing arbitrary input.
-  module FailureClassification
-    MESSAGE: String
-
-    def self.normalize: (failure_classification_input value, error_class: Karya::error_class) -> failure_classification
-  end
-end

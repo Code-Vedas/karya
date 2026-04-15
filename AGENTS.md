@@ -18,6 +18,12 @@ Use this file as the repo-root coding baseline.
 - RBS must be 100% true to Ruby behavior. Mirror ownership, visibility,
   optionality, arguments, and return types. Remove stale signatures when code
   moves or disappears.
+- RBS is whole-implementation for `core/karya`: shared internal helpers live
+  under `Karya::Internal`, with Ruby files in `lib/karya/internal/**` and
+  signatures in `sig/karya/internal/**`. These constants are visible for
+  implementation wiring but unsupported as public API.
+- Owner-local internals stay nested under their owning class/module and may be
+  typed inside that owner RBS file rather than as one RBS file per Ruby file.
 - For `core/karya` work, normally run:
 
 ```bash

@@ -37,6 +37,19 @@ Dashboard work additionally uses:
 - `bin/prepackage-build`
 - `bin/firefox-e2e`
 
+## RBS And Internals
+
+`core/karya` uses RBS as a whole-implementation correctness contract. Public
+runtime types and internal implementation helpers should both stay true to the
+Ruby code they describe.
+
+Shared internal helpers belong under `Karya::Internal`, with Ruby files under
+`core/karya/lib/karya/internal/` and signatures under
+`core/karya/sig/karya/internal/`. These constants are visible for runtime
+wiring, but they are not supported public API. Owner-local helpers can remain
+nested under their owning class or module and may be typed inside that owner’s
+RBS file instead of having a one-to-one file mapping.
+
 ## Documentation Workflow
 
 The docs site under `docs/` is the source of truth for:

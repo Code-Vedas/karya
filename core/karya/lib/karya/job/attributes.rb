@@ -5,7 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require_relative '../failure_classification'
+require_relative '../internal/failure_classification'
 require_relative '../primitives/lifecycle'
 
 module Karya
@@ -122,7 +122,7 @@ module Karya
 
       def normalize_failure_classification
         optional(:failure_classification, nil)&.then do |value|
-          FailureClassification.normalize(value, error_class: InvalidJobAttributeError)
+          Internal::FailureClassification.normalize(value, error_class: InvalidJobAttributeError)
         end
       end
 

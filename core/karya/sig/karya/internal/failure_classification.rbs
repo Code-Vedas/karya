@@ -1,0 +1,10 @@
+module Karya
+  module Internal
+    # Internal implementation helper. Typed for whole-implementation RBS, not public API.
+    module FailureClassification
+      MESSAGE: String
+
+      def self.normalize: (failure_classification_input value, error_class: Karya::error_class) -> failure_classification
+    end
+  end
+end
