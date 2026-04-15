@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   # The CLI class defines the command-line interface for the Karya gem. It uses Thor to handle command parsing and execution.
   class CLI < Thor
