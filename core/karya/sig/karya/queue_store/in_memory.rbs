@@ -40,7 +40,7 @@ module Karya
         reservation_token: Karya::state_name | Integer,
         now: Time,
         ?retry_policy: RetryPolicy?,
-        failure_classification: failure_classification
+        failure_classification: failure_classification_input
       ) -> Job
 
       def expire_reservations: (now: Time) -> Array[Job]
@@ -218,7 +218,7 @@ module Karya
           now: Time,
           next_state: :succeeded | :failed,
           ?retry_policy: RetryPolicy?,
-          ?failure_classification: failure_classification?
+          ?failure_classification: failure_classification_input?
         ) -> Job
 
         def finalized_execution_job: (
@@ -230,11 +230,6 @@ module Karya
         ) -> Job
 
         def fetch_active_reservation: (String reservation_token, Time now) -> Reservation
-
-        def normalize_failure_classification: (
-          Symbol name,
-          Karya::state_name | Symbol value
-        ) -> failure_classification
 
         def collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now) -> Array[Reservation]
       end

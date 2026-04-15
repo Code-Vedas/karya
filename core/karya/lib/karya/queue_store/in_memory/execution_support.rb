@@ -16,7 +16,13 @@ module Karya
           normalized_token = normalize_identifier(:reservation_token, reservation_token, error_class: InvalidQueueStoreOperationError)
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
           normalized_retry_policy = normalize_retry_policy(retry_policy)
-          normalized_failure_classification = failure_classification && normalize_failure_classification(:failure_classification, failure_classification)
+          normalized_failure_classification = nil
+          if next_state == :failed
+            normalized_failure_classification = FailureClassification.normalize(
+              failure_classification,
+              error_class: InvalidQueueStoreOperationError
+            )
+          end
 
           @mutex.synchronize do
             executions_by_token = state.executions_by_token
@@ -76,19 +82,6 @@ module Karya
           end
 
           reservation
-        end
-
-        def normalize_failure_classification(name, value)
-          case value
-          when :error, 'error'
-            :error
-          when :timeout, 'timeout'
-            :timeout
-          when :expired, 'expired'
-            :expired
-          else
-            raise InvalidQueueStoreOperationError, "#{name} must be one of :error, :timeout, or :expired"
-          end
         end
 
         def collect_expired_leases(leases_by_token, tokens_in_order, now)

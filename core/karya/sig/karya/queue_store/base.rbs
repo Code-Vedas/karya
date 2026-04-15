@@ -23,7 +23,7 @@ module Karya
         reservation_token: String,
         now: Time,
         ?retry_policy: RetryPolicy?,
-        failure_classification: failure_classification
+        failure_classification: failure_classification_input
       ) -> Job
 
       def expire_reservations: (now: Time) -> Array[Job]

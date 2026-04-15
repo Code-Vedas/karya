@@ -208,6 +208,23 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
     end
 
+    it 'requires failure classification when finalizing a failed execution' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      expect do
+        store.fail_execution(
+          reservation_token: reservation.token,
+          now: created_at + 4,
+          failure_classification: nil
+        )
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        'failure_classification must be one of :error, :timeout, or :expired'
+      )
+    end
+
     it 'accepts string expired classification and keeps it terminal' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)

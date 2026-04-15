@@ -96,7 +96,7 @@ module Karya
       ?lifecycle: JobLifecycle::Registry,
       ?updated_at: Time,
       ?next_retry_at: Time?,
-      ?failure_classification: failure_classification?
+      ?failure_classification: failure_classification_input?
     ) -> void
 
     def can_transition_to?: (state_name next_state) -> bool
@@ -107,7 +107,7 @@ module Karya
       ?attempt: Integer,
       ?retry_policy: RetryPolicy?,
       ?next_retry_at: Time?,
-      ?failure_classification: failure_classification?,
+      ?failure_classification: failure_classification_input?,
       ?execution_timeout: Numeric?,
       ?expires_at: Time?
     ) -> Job
