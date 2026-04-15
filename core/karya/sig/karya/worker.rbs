@@ -46,11 +46,11 @@ module Karya
 
     DEFAULT_POLL_INTERVAL: 1
 
-    CONTINUE_RUNNING: singleton(Worker::CONTINUE_RUNNING)
+    CONTINUE_RUNNING: singleton(Karya::Worker::ContinueRunning)
 
-    LEASE_LOST: singleton(Worker::LEASE_LOST)
+    LEASE_LOST: singleton(Karya::Worker::LeaseLost)
 
-    NO_WORK_AVAILABLE: singleton(Worker::NO_WORK_AVAILABLE)
+    NO_WORK_AVAILABLE: singleton(Karya::Worker::NoWorkAvailable)
 
     NOOP_SUBSCRIPTION: ^() -> nil
 

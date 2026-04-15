@@ -55,9 +55,9 @@ module Karya
     end
 
     DEFAULT_POLL_INTERVAL = 1
-    CONTINUE_RUNNING = ContinueRunning.new.freeze
-    LEASE_LOST = LeaseLost.new.freeze
-    NO_WORK_AVAILABLE = NoWorkAvailable.new.freeze
+    CONTINUE_RUNNING = ContinueRunning
+    LEASE_LOST = LeaseLost
+    NO_WORK_AVAILABLE = NoWorkAvailable
     NOOP_SUBSCRIPTION = -> {}.freeze
     SIGNALS = %w[INT TERM].freeze
 
@@ -104,12 +104,9 @@ module Karya
 
     def work_once
       result = work_once_result(ShutdownController.inactive)
-      case result
-      when NO_WORK_AVAILABLE, LEASE_LOST
-        nil
-      else
-        result
-      end
+      return nil if [NO_WORK_AVAILABLE, LEASE_LOST].include?(result)
+
+      result
     end
 
     def run(poll_interval: DEFAULT_POLL_INTERVAL, max_iterations: nil, stop_when_idle: false, shutdown_controller: nil)
