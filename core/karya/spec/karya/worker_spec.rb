@@ -529,6 +529,23 @@ RSpec.describe Karya::Worker do
       expect(result.failure_classification).to eq(:timeout)
     end
 
+    it 'marks handler-raised timeout errors as error failures' do
+      queue_store.enqueue(job: submission_job(id: 'job-handler-timeout-error'), now:)
+      timeout_error_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers: { 'billing_sync' => -> { raise Timeout::Error, 'handler timeout' } },
+        lease_duration: 30,
+        clock: -> { now }
+      )
+
+      result = timeout_error_worker.work_once
+
+      expect(result.state).to eq(:failed)
+      expect(result.failure_classification).to eq(:error)
+    end
+
     it 'fails handlers that accept arbitrary keyword rest arguments' do
       queue_store.enqueue(
         job: submission_job(id: 'job-1', arguments: { account_id: 42 }),

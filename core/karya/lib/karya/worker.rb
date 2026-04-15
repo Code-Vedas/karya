@@ -49,6 +49,10 @@ module Karya
     LeaseLost = Class.new
     # Sentinel class for an iteration with no executable work.
     NoWorkAvailable = Class.new
+    # Raised only by worker-enforced execution timeout guards.
+    class WorkerExecutionTimeoutError < Timeout::Error
+      DEFAULT_MESSAGE = 'worker execution timed out'
+    end
 
     DEFAULT_POLL_INTERVAL = 1
     CONTINUE_RUNNING = ContinueRunning.new.freeze
@@ -147,7 +151,7 @@ module Karya
 
       begin
         execute_handler(running_job)
-      rescue Timeout::Error
+      rescue WorkerExecutionTimeoutError
         return fail_execution_job(reservation_token, running_job, failure_classification: :timeout)
       rescue StandardError
         return fail_execution_job(reservation_token, running_job, failure_classification: :error)
@@ -274,7 +278,9 @@ module Karya
     def execute_handler(job)
       execution_timeout = effective_execution_timeout_for(job)
       if execution_timeout
-        Timeout.timeout(execution_timeout) { handlers.fetch(job.handler).call(arguments: job.arguments) }
+        Timeout.timeout(execution_timeout, WorkerExecutionTimeoutError, WorkerExecutionTimeoutError::DEFAULT_MESSAGE) do
+          handlers.fetch(job.handler).call(arguments: job.arguments)
+        end
       else
         handlers.fetch(job.handler).call(arguments: job.arguments)
       end
@@ -313,6 +319,7 @@ module Karya
                      :RunLoopDecision,
                      :SIGNALS,
                      :ShutdownController,
-                     :UnsupportedExecution
+                     :UnsupportedExecution,
+                     :WorkerExecutionTimeoutError
   end
 end
