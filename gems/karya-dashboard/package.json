@@ -13,8 +13,8 @@
     "firefox:e2e": "yarn prepackage-build && yarn exec -- playwright test --project=firefox"
   },
   "dependencies": {
-    "react": "^19.2.4",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "react": "^19.2.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
