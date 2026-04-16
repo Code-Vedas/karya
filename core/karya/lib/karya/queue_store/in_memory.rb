@@ -215,9 +215,11 @@ module Karya
       end
 
       def normalize_identifier(name, value, error_class:)
-        if value.instance_of?(String)
+        value_class = value.class
+
+        if value_class <= String
           Primitives::Identifier.new(name, value, error_class:).normalize
-        elsif value.instance_of?(NilClass)
+        elsif value_class <= NilClass
           raise error_class, "#{name} must be present"
         else
           raise error_class, "#{name} must be a String"

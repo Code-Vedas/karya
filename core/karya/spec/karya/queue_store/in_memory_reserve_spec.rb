@@ -12,6 +12,7 @@ RSpec.describe Karya::QueueStore::InMemory do
   let(:token_generator) { -> { token_sequence.next } }
   let(:created_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
   let(:policy_set) { Karya::Backpressure::PolicySet.new }
+  let(:tagged_string_class) { Class.new(String) }
 
   def submission_job(id:, queue:, created_at:, handler: 'billing_sync', priority: 0, concurrency_key: nil, rate_limit_key: nil)
     Karya::Job.new(
@@ -127,6 +128,20 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(reservation.job_id).to eq('email-1')
+    end
+
+    it 'accepts String subclasses for queue and worker_id' do
+      store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:), now: created_at + 1)
+
+      reservation = store.reserve(
+        queue: tagged_string_class.new('billing'),
+        worker_id: tagged_string_class.new('worker-1'),
+        lease_duration: 30,
+        now: created_at + 2
+      )
+
+      expect(reservation.job_id).to eq('billing-1')
+      expect(reservation.worker_id).to eq('worker-1')
     end
 
     it 'skips unsupported handlers in same queue without mutating queued jobs' do

@@ -173,6 +173,19 @@ RSpec.describe 'Karya::Job::Attributes' do
       end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy')
     end
 
+    it 'raises InvalidJobAttributeError for false retry_policy' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          retry_policy: false
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy')
+    end
+
     it 'raises InvalidJobAttributeError for invalid next_retry_at' do
       expect do
         attributes_class.new(

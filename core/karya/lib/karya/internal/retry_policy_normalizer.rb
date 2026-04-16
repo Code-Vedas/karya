@@ -15,11 +15,12 @@ module Karya
       end
 
       def normalize
-        value&.then do |retry_policy|
-          return retry_policy if retry_policy.is_a?(RetryPolicy)
+        value_class = value.class
 
-          raise error_class, 'retry_policy must be a Karya::RetryPolicy'
-        end
+        return value if value_class <= RetryPolicy
+        return if value_class <= NilClass
+
+        raise error_class, 'retry_policy must be a Karya::RetryPolicy'
       end
 
       private
