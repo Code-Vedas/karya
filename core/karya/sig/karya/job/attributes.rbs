@@ -22,6 +22,9 @@ module Karya
         retry_policy: Karya::retry_policy?,
         execution_timeout: Numeric?,
         expires_at: Time?,
+        idempotency_key: String?,
+        uniqueness_key: String?,
+        uniqueness_scope: Karya::uniqueness_scope?,
         lifecycle: Karya::lifecycle,
         state: Karya::state_name,
         attempt: Integer,
@@ -55,6 +58,9 @@ module Karya
         retry_policy: Karya::retry_policy?,
         execution_timeout: Numeric?,
         expires_at: Time?,
+        idempotency_key: String?,
+        uniqueness_key: String?,
+        uniqueness_scope: Karya::uniqueness_scope?,
         lifecycle: Karya::lifecycle,
         state: Karya::state_name,
         attempt: Integer,
@@ -83,6 +89,10 @@ module Karya
       def normalize_retry_policy: () -> Karya::retry_policy?
 
       def normalize_failure_classification: () -> Karya::failure_classification?
+
+      def normalize_uniqueness_scope: () -> Karya::uniqueness_scope?
+
+      def normalize_uniqueness_scope_value: (Karya::state_name uniqueness_scope) -> Karya::uniqueness_scope
 
       # Normalizes timestamps into frozen copies so jobs cannot mutate caller-owned Time objects.
       class TimestampNormalizer

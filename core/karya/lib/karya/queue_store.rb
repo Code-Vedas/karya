@@ -17,6 +17,9 @@ module Karya
   # queue store expectations.
   class InvalidEnqueueError < InvalidQueueStoreOperationError; end
 
+  # Raised when enqueue intent conflicts with an existing uniqueness key.
+  class DuplicateUniquenessKeyError < InvalidEnqueueError; end
+
   # Raised when a reservation token is unknown to the queue store.
   class UnknownReservationError < Error; end
 

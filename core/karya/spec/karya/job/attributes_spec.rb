@@ -25,6 +25,9 @@ RSpec.describe 'Karya::Job::Attributes' do
         retry_policy: retry_policy,
         execution_timeout: 15,
         expires_at: expires_at,
+        idempotency_key: 'submit-123',
+        uniqueness_key: 'billing:account-42',
+        uniqueness_scope: :active,
         created_at: created_at,
         updated_at: updated_at,
         next_retry_at: next_retry_at,
@@ -42,6 +45,9 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:retry_policy]).to eq(retry_policy)
       expect(result[:execution_timeout]).to eq(15)
       expect(result[:expires_at]).to eq(expires_at)
+      expect(result[:idempotency_key]).to eq('submit-123')
+      expect(result[:uniqueness_key]).to eq('billing:account-42')
+      expect(result[:uniqueness_scope]).to eq(:active)
       expect(result[:created_at]).to eq(created_at)
       expect(result[:updated_at]).to eq(updated_at)
       expect(result[:next_retry_at]).to eq(next_retry_at)
@@ -79,6 +85,9 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:retry_policy]).to be_nil
       expect(result[:execution_timeout]).to be_nil
       expect(result[:expires_at]).to be_nil
+      expect(result[:idempotency_key]).to be_nil
+      expect(result[:uniqueness_key]).to be_nil
+      expect(result[:uniqueness_scope]).to be_nil
       expect(result[:next_retry_at]).to be_nil
       expect(result[:failure_classification]).to be_nil
     end
@@ -171,6 +180,93 @@ RSpec.describe 'Karya::Job::Attributes' do
           retry_policy: 'not-a-policy'
         ).to_h
       end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy')
+    end
+
+    it 'raises InvalidJobAttributeError for blank idempotency_key' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          idempotency_key: ' '
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'idempotency_key must be present')
+    end
+
+    it 'raises InvalidJobAttributeError for blank uniqueness_key' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          uniqueness_key: ''
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'uniqueness_key must be present')
+    end
+
+    it 'raises InvalidJobAttributeError for invalid uniqueness_scope' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: :forever
+        ).to_h
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        'uniqueness_scope must be one of :queued, :active, or :until_terminal'
+      )
+    end
+
+    it 'raises InvalidJobAttributeError for non-string non-symbol uniqueness_scope' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: 123
+        ).to_h
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        'uniqueness_scope must be one of :queued, :active, or :until_terminal'
+      )
+    end
+
+    it 'raises InvalidJobAttributeError when uniqueness_scope is set without uniqueness_key' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          uniqueness_scope: :queued
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'uniqueness_scope requires uniqueness_key')
+    end
+
+    it 'normalizes string uniqueness_scope input' do
+      result = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'queued',
+        created_at: created_at,
+        uniqueness_key: 'billing:account-42',
+        uniqueness_scope: 'until_terminal'
+      ).to_h
+
+      expect(result[:uniqueness_scope]).to eq(:until_terminal)
     end
 
     it 'raises InvalidJobAttributeError for false retry_policy' do

@@ -26,7 +26,14 @@ module Karya
               next_retry_at: nil,
               failure_classification: nil
             )
-            jobs_by_id[job_id] = queued_job
+            store_job(
+              job: queued_job,
+              job_id: job_id,
+              uniqueness_key: queued_job.uniqueness_key,
+              uniqueness_scope: queued_job.uniqueness_scope,
+              state_name: queued_job.state,
+              terminal: queued_job.terminal?
+            )
             state.queue_job_ids_for(queued_job.queue) << job_id
             state.delete_retry_pending(job_id)
           end

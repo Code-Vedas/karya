@@ -15,6 +15,8 @@ module Karya
   class Job
     # Normalizes constructor input without leaking validation helpers onto the public job API.
     class Attributes
+      VALID_UNIQUENESS_SCOPES = %i[queued active until_terminal].freeze
+
       def initialize(attributes)
         @attributes = attributes
       end
@@ -59,6 +61,9 @@ module Karya
           retry_policy: normalize_retry_policy,
           execution_timeout: normalize_optional_positive_finite_number(:execution_timeout),
           expires_at: normalize_optional_time(:expires_at),
+          idempotency_key: normalize_optional_identifier(:idempotency_key),
+          uniqueness_key: normalize_optional_identifier(:uniqueness_key),
+          uniqueness_scope: normalize_uniqueness_scope,
           lifecycle:,
           state: lifecycle.normalize_state(required(:state)),
           attempt:,
@@ -127,6 +132,30 @@ module Karya
         end
       end
 
+      def normalize_uniqueness_scope
+        uniqueness_scope = optional(:uniqueness_scope, nil)
+        return nil unless uniqueness_scope
+
+        normalized_scope = normalize_uniqueness_scope_value(uniqueness_scope)
+        return normalized_scope if normalize_optional_identifier(:uniqueness_key)
+
+        raise InvalidJobAttributeError, 'uniqueness_scope requires uniqueness_key'
+      end
+
+      def normalize_uniqueness_scope_value(uniqueness_scope)
+        normalized_scope =
+          case uniqueness_scope
+          when Symbol
+            uniqueness_scope
+          when String
+            uniqueness_scope.strip.to_sym
+          end
+
+        return normalized_scope if VALID_UNIQUENESS_SCOPES.include?(normalized_scope)
+
+        raise InvalidJobAttributeError, 'uniqueness_scope must be one of :queued, :active, or :until_terminal'
+      end
+
       # Normalizes timestamps into frozen copies so jobs cannot mutate caller-owned Time objects.
       class TimestampNormalizer
         def initialize(name, value)
@@ -145,7 +174,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      private_constant :TimestampNormalizer
+      private_constant :TimestampNormalizer, :VALID_UNIQUENESS_SCOPES
     end
   end
 end

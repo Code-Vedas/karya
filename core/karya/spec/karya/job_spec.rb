@@ -25,6 +25,9 @@ RSpec.describe Karya::Job do
         retry_policy: retry_policy,
         execution_timeout: 15,
         expires_at: expires_at,
+        idempotency_key: 'submit-123',
+        uniqueness_key: 'billing:account-42',
+        uniqueness_scope: :active,
         state: 'retry-pending',
         attempt: 2,
         created_at:,
@@ -49,6 +52,9 @@ RSpec.describe Karya::Job do
       expect(job.retry_policy).to eq(retry_policy)
       expect(job.execution_timeout).to eq(15)
       expect(job.expires_at).to eq(expires_at)
+      expect(job.idempotency_key).to eq('submit-123')
+      expect(job.uniqueness_key).to eq('billing:account-42')
+      expect(job.uniqueness_scope).to eq(:active)
       expect(job.state).to eq(:retry_pending)
       expect(job.attempt).to eq(2)
       expect(job.created_at).to eq(created_at)
@@ -201,6 +207,9 @@ RSpec.describe Karya::Job do
         retry_policy: retry_policy,
         execution_timeout: 12,
         expires_at: expires_at,
+        idempotency_key: 'submit-123',
+        uniqueness_key: 'billing:account-9',
+        uniqueness_scope: :until_terminal,
         state: :reserved,
         created_at:,
         next_retry_at: next_retry_at
@@ -214,7 +223,29 @@ RSpec.describe Karya::Job do
       expect(transitioned_job.retry_policy).to eq(retry_policy)
       expect(transitioned_job.execution_timeout).to eq(12)
       expect(transitioned_job.expires_at).to eq(expires_at)
+      expect(transitioned_job.idempotency_key).to eq('submit-123')
+      expect(transitioned_job.uniqueness_key).to eq('billing:account-9')
+      expect(transitioned_job.uniqueness_scope).to eq(:until_terminal)
       expect(transitioned_job.next_retry_at).to eq(next_retry_at)
+    end
+
+    it 'preserves uniqueness metadata when expiring a job' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        idempotency_key: 'submit-123',
+        uniqueness_key: 'billing:account-9',
+        uniqueness_scope: :queued,
+        state: :queued,
+        created_at:
+      )
+
+      expired_job = job.expire(updated_at: updated_at)
+
+      expect(expired_job.idempotency_key).to eq('submit-123')
+      expect(expired_job.uniqueness_key).to eq('billing:account-9')
+      expect(expired_job.uniqueness_scope).to eq(:queued)
     end
 
     it 'allows overriding retry metadata and failure classification during transition' do

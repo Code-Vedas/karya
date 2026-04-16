@@ -78,15 +78,24 @@ module Karya
           validate_enqueue(job)
 
           job_id = job.id
+          uniqueness_key = job.uniqueness_key
           jobs_by_id = state.jobs_by_id
           raise DuplicateJobError, "job #{job_id.inspect} is already present in the queue store" if jobs_by_id.key?(job_id)
 
           expire_reservations_locked(normalized_now)
+          raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:) if uniqueness_conflict?(job)
 
           queued_job = job.transition_to(:queued, updated_at: normalized_now)
           queued_job_id = queued_job.id
           queue_job_ids = state.queue_job_ids_for(queued_job.queue)
-          jobs_by_id[queued_job_id] = queued_job
+          store_job(
+            job: queued_job,
+            job_id: queued_job_id,
+            uniqueness_key: queued_job.uniqueness_key,
+            uniqueness_scope: queued_job.uniqueness_scope,
+            state_name: queued_job.state,
+            terminal: queued_job.terminal?
+          )
           queue_job_ids << queued_job_id
           queued_job
         end
@@ -129,7 +138,14 @@ module Karya
           end
 
           running_job = reserved_job.transition_to(:running, updated_at: normalized_now, attempt: reserved_job.attempt + 1)
-          jobs_by_id[running_job.id] = running_job
+          store_job(
+            job: running_job,
+            job_id: running_job.id,
+            uniqueness_key: running_job.uniqueness_key,
+            uniqueness_scope: running_job.uniqueness_scope,
+            state_name: running_job.state,
+            terminal: running_job.terminal?
+          )
           state.activate_execution(normalized_token, reservation)
           running_job
         end
@@ -183,6 +199,77 @@ module Karya
       def validate_enqueue(job)
         raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)
         raise InvalidEnqueueError, 'job must be in :submission state before enqueue' unless job.state == :submission
+      end
+
+      def store_job(job:, job_id:, uniqueness_key:, uniqueness_scope:, state_name:, terminal:)
+        state.jobs_by_id[job_id] = job
+        synchronize_uniqueness_state(
+          job_id:,
+          uniqueness_key:,
+          uniqueness_scope:,
+          state_name:,
+          terminal:
+        )
+        job
+      end
+
+      def synchronize_uniqueness_state(job_id:, uniqueness_key:, uniqueness_scope:, state_name:, terminal:)
+        return unless uniqueness_key
+
+        blocks_uniqueness =
+          case uniqueness_scope
+          when :queued
+            %i[queued retry_pending].include?(state_name)
+          when :active
+            %i[queued reserved running retry_pending].include?(state_name)
+          when :until_terminal
+            !terminal
+          else
+            false
+          end
+
+        if blocks_uniqueness
+          state.register_uniqueness_job(uniqueness_key, job_id)
+        else
+          state.delete_uniqueness_job(uniqueness_key, job_id)
+        end
+      end
+
+      def uniqueness_conflict?(job)
+        uniqueness_key = job.uniqueness_key
+        return false unless uniqueness_key
+
+        uniqueness_job_id_by_key = state.uniqueness_job_id_by_key
+        duplicate_job_id = uniqueness_job_id_by_key[uniqueness_key]
+        return false unless duplicate_job_id
+
+        duplicate_job = state.jobs_by_id[duplicate_job_id]
+        unless duplicate_job
+          uniqueness_job_id_by_key.delete(uniqueness_key)
+          return false
+        end
+
+        duplicate_job_state = duplicate_job.state
+        duplicate_blocks_uniqueness =
+          case duplicate_job.uniqueness_scope
+          when :queued
+            %i[queued retry_pending].include?(duplicate_job_state)
+          when :active
+            %i[queued reserved running retry_pending].include?(duplicate_job_state)
+          when :until_terminal
+            !duplicate_job.terminal?
+          else
+            false
+          end
+        return true if duplicate_blocks_uniqueness
+
+        state.delete_uniqueness_job(uniqueness_key, duplicate_job_id)
+        false
+      end
+
+      def raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:)
+        raise DuplicateUniquenessKeyError,
+              "job #{job_id.inspect} conflicts with uniqueness_key #{uniqueness_key.inspect}"
       end
 
       def expire_reservations_locked(now)

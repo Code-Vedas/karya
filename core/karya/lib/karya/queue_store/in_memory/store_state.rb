@@ -19,7 +19,8 @@ module Karya
                     :queued_job_ids_by_queue,
                     :retry_pending_job_ids,
                     :reservation_tokens_in_order,
-                    :reservations_by_token
+                    :reservations_by_token,
+                    :uniqueness_job_id_by_key
 
         def initialize(expired_tombstone_limit:)
           @executions_by_token = {}
@@ -34,6 +35,7 @@ module Karya
           @retry_pending_job_ids_index = {}
           @reservation_tokens_in_order = []
           @reservations_by_token = {}
+          @uniqueness_job_id_by_key = {}
         end
 
         def queue_job_ids_for(queue)
@@ -101,6 +103,14 @@ module Karya
           reservations_by_token.key?(reservation_token) ||
             executions_by_token.key?(reservation_token) ||
             expired_reservation_tokens.key?(reservation_token)
+        end
+
+        def register_uniqueness_job(uniqueness_key, job_id)
+          uniqueness_job_id_by_key[uniqueness_key] = job_id
+        end
+
+        def delete_uniqueness_job(uniqueness_key, job_id)
+          uniqueness_job_id_by_key.delete(uniqueness_key) if uniqueness_job_id_by_key[uniqueness_key] == job_id
         end
 
         private

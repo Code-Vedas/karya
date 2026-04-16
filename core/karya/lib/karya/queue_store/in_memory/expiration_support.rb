@@ -36,7 +36,14 @@ module Karya
             next unless job_expired?(job, now)
 
             expired_retry_job = build_expired_job(job, now)
-            jobs_by_id[job_id] = expired_retry_job
+            store_job(
+              job: expired_retry_job,
+              job_id: job_id,
+              uniqueness_key: expired_retry_job.uniqueness_key,
+              uniqueness_scope: expired_retry_job.uniqueness_scope,
+              state_name: expired_retry_job.state,
+              terminal: expired_retry_job.terminal?
+            )
             state.delete_retry_pending(job_id)
             expired_jobs << expired_retry_job
           end
@@ -49,7 +56,14 @@ module Karya
           state.mark_expired(reservation_token)
 
           failed_job = build_expired_job(reserved_job, now)
-          state.jobs_by_id[failed_job.id] = failed_job
+          store_job(
+            job: failed_job,
+            job_id: failed_job.id,
+            uniqueness_key: failed_job.uniqueness_key,
+            uniqueness_scope: failed_job.uniqueness_scope,
+            state_name: failed_job.state,
+            terminal: failed_job.terminal?
+          )
           failed_job
         end
 
@@ -59,7 +73,14 @@ module Karya
           return false unless job_expired?(job, now)
 
           expired_queued_job = build_expired_job(job, now)
-          jobs_by_id[job_id] = expired_queued_job
+          store_job(
+            job: expired_queued_job,
+            job_id: job_id,
+            uniqueness_key: expired_queued_job.uniqueness_key,
+            uniqueness_scope: expired_queued_job.uniqueness_scope,
+            state_name: expired_queued_job.state,
+            terminal: expired_queued_job.terminal?
+          )
           expired_jobs << expired_queued_job
           true
         end

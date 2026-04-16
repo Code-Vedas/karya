@@ -109,8 +109,9 @@ suitable for local examples and bootstrapping only.
 Queue stores acknowledge `enqueue` only after the canonical queued job state is
 stored. A durable backend must persist the job identity, queue, handler,
 arguments, scheduling fields, lifecycle fields, attempts, retry state,
-expiration, active reservation or execution lease token, worker id, lease
-timestamps, and expired-token tombstones needed for safe restart or takeover.
+expiration, idempotency key, uniqueness key, uniqueness scope, active
+reservation or execution lease token, worker id, lease timestamps, and
+expired-token tombstones needed for safe restart or takeover.
 
 Successful queue-store method returns are acknowledgment boundaries. `enqueue`
 is successful only after the job is durably visible for later reservation and
@@ -118,6 +119,13 @@ recovery. SQL backends should return after transaction commit; acknowledged
 write stores should return after the write acknowledgment that makes the state
 visible to later commands. Validation errors, duplicate enqueue attempts, and
 failed lease operations must not leave partial state behind.
+
+Uniqueness is explicit and opt-in. `idempotency_key` is caller intent metadata.
+`uniqueness_key` plus `uniqueness_scope` drive duplicate rejection at enqueue
+time. The current foundation milestone is reject-only: conflicting enqueue
+raises `Karya::DuplicateUniquenessKeyError` and must not mutate the existing
+job, queue, lease, retry, or uniqueness state. Jobs without `uniqueness_key`
+keep current enqueue behavior.
 
 Reservation and execution transitions are acknowledgment boundaries. `reserve`
 returns only after the reservation lease is durable. `start_execution` returns
@@ -127,9 +135,9 @@ or retry state is durable.
 
 Recovery invariants are persisted-state invariants. Job identity, routing,
 arguments, scheduling fields, lifecycle state, attempt count, timestamps, retry
-state, failure classification, expiration, active lease state, and required
-tombstones must survive interruption. Recovery must not depend on worker
-objects, process-local queues, or thread state.
+state, failure classification, expiration, uniqueness metadata, active lease
+state, and required tombstones must survive interruption. Recovery must not
+depend on worker objects, process-local queues, or thread state.
 
 `recover_in_flight(now:)` is the backend-facing recovery pass. It expires
 already-expired queued or retry-pending jobs, requeues expired reserved and

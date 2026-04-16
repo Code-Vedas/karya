@@ -46,11 +46,30 @@ module Karya
               retry_policy: normalized_retry_policy,
               failure_classification: normalized_failure_classification
             )
-            state.jobs_by_id[finalized_job.id] = finalized_job
-            executions_by_token.delete(normalized_token)
-            state.delete_execution_token(normalized_token)
+            persist_finalized_execution(
+              finalized_job:,
+              normalized_token:,
+              job_id: finalized_job.id,
+              uniqueness_key: finalized_job.uniqueness_key,
+              uniqueness_scope: finalized_job.uniqueness_scope,
+              state_name: finalized_job.state,
+              terminal: finalized_job.terminal?
+            )
             finalized_job
           end
+        end
+
+        def persist_finalized_execution(finalized_job:, normalized_token:, job_id:, uniqueness_key:, uniqueness_scope:, state_name:, terminal:)
+          store_job(
+            job: finalized_job,
+            job_id:,
+            uniqueness_key:,
+            uniqueness_scope:,
+            state_name:,
+            terminal:
+          )
+          state.executions_by_token.delete(normalized_token)
+          state.delete_execution_token(normalized_token)
         end
 
         def finalized_execution_job(running_job:, next_state:, now:, retry_policy:, failure_classification:)
