@@ -7,6 +7,7 @@
 
 require_relative '../internal/failure_classification'
 require_relative '../primitives/lifecycle'
+require_relative '../primitives/positive_finite_number'
 
 module Karya
   class Job
