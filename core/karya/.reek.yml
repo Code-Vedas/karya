@@ -39,14 +39,14 @@ detectors:
       - Karya::WorkerSupervisor#reap_tracked_children
       - Karya::JobLifecycle::StateManager#merge_extension_transitions
       - Karya::WorkerSupervisor::ChildProcessRunner#mark_thread_stopped
-      - Karya::QueueStore::InMemory::HandlerMatcher#normalize_present_handler_names
-      - Karya::QueueStore::InMemory::RetrySupport#retry_pending_job
       - Karya::RetryPolicy#normalize_attempt
       - Karya::RetryPolicy#normalize_max_attempts
       - Karya::RetryPolicy#normalize_multiplier
       - Karya::RetryPolicy#normalize_non_negative_numeric
       - Karya::Worker#execute_handler
       - Karya::QueueStore::InMemory::ExecutionSupport#finalized_execution_job
+      - Karya::QueueStore::InMemory#store_and_requeue_if_needed
+      - Karya::QueueStore::InMemory::UniquenessSupport#duplicate_exists_for?
   UtilityFunction:
     enabled: true
     exclude:
@@ -56,10 +56,12 @@ detectors:
       - Karya::QueueStore::InMemory::ExpirationSupport#job_expired?
       - Karya::QueueStore::InMemory::ExpirationSupport#build_expired_job
       - Karya::QueueStore::InMemory::ExecutionSupport#collect_expired_leases
+      - Karya::QueueStore::InMemory::UniquenessSupport#uniqueness_scope_blocks_state?
+      - Karya::QueueStore::InMemory::UniquenessSupport#incoming_uniqueness_state
+      - Karya::QueueStore::InMemory::UniquenessSupport#reentry_conflict_job
   DuplicateMethodCall:
     exclude:
       - Karya::Worker#execute_handler
-      - Karya::QueueStore::InMemory::ExecutionSupport#finalize_execution
   NestedIterators:
     exclude:
       - Karya::QueueStore::InMemory::ExpirationSupport#expire_queued_jobs

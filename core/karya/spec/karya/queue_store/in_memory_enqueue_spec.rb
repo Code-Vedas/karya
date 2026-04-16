@@ -95,6 +95,39 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
     end
 
+    it 'does not recover expired reservations before raising duplicate uniqueness errors' do
+      store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: :queued
+        ),
+        now: created_at + 1
+      )
+      store.enqueue(job: submission_job(id: 'job-2', queue: 'shipping', created_at: created_at + 1), now: created_at + 2)
+      reservation = store.reserve(queue: 'shipping', worker_id: 'worker-1', lease_duration: 2, now: created_at + 3)
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-3',
+            queue: 'billing',
+            created_at: created_at + 4,
+            uniqueness_key: 'billing:account-42',
+            uniqueness_scope: :active
+          ),
+          now: created_at + 6
+        )
+      end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
+
+      expect(stored_job('job-2').state).to eq(:reserved)
+      expect { store.release(reservation_token: reservation.token, now: created_at + 7) }.to raise_error(Karya::ExpiredReservationError)
+      next_reservation = store.reserve(queue: 'shipping', worker_id: 'worker-2', lease_duration: 30, now: created_at + 8)
+      expect(next_reservation.job_id).to eq('job-2')
+    end
+
     it 'rejects duplicate idempotency keys' do
       original_job = store.enqueue(
         job: submission_job(
@@ -120,6 +153,37 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(stored_job('job-1')).to eq(original_job)
       expect(store_state.jobs_by_id.keys).to eq(['job-1'])
+    end
+
+    it 'does not recover expired reservations before raising duplicate idempotency errors' do
+      store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          idempotency_key: 'submit-123'
+        ),
+        now: created_at + 1
+      )
+      store.enqueue(job: submission_job(id: 'job-2', queue: 'shipping', created_at: created_at + 1), now: created_at + 2)
+      reservation = store.reserve(queue: 'shipping', worker_id: 'worker-1', lease_duration: 2, now: created_at + 3)
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-3',
+            queue: 'billing',
+            created_at: created_at + 4,
+            idempotency_key: 'submit-123'
+          ),
+          now: created_at + 6
+        )
+      end.to raise_error(Karya::DuplicateIdempotencyKeyError, /submit-123/)
+
+      expect(stored_job('job-2').state).to eq(:reserved)
+      expect { store.release(reservation_token: reservation.token, now: created_at + 7) }.to raise_error(Karya::ExpiredReservationError)
+      next_reservation = store.reserve(queue: 'shipping', worker_id: 'worker-2', lease_duration: 30, now: created_at + 8)
+      expect(next_reservation.job_id).to eq('job-2')
     end
 
     it 'rejects duplicate ids before checking uniqueness conflicts' do

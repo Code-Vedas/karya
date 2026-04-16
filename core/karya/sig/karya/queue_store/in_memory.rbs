@@ -217,6 +217,8 @@ module Karya
 
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
 
+      def store_and_requeue_if_needed: (Job job) -> Job
+
       def build_reserve_scan_state: () -> ReserveScanState
 
       def reserve_matching_job: ({

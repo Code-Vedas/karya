@@ -49,7 +49,6 @@ module Karya
             (existing_currently_blocks && uniqueness_scope_blocks_state?(existing_scope, incoming_state))
         end
 
-        # :reek:UtilityFunction
         def uniqueness_scope_blocks_state?(scope, state)
           case scope
           when :queued
@@ -63,13 +62,11 @@ module Karya
           end
         end
 
-        # :reek:UtilityFunction
         def incoming_uniqueness_state(job)
           state_name = job.state
           state_name == :submission ? :queued : state_name
         end
 
-        # :reek:FeatureEnvy
         def duplicate_exists_for?(job, key:, exclude_job_id:)
           return false unless key
 
@@ -90,7 +87,6 @@ module Karya
           reentry_conflict_job(job)
         end
 
-        # :reek:UtilityFunction
         def reentry_conflict_job(job)
           updated_at = job.updated_at
           if job.can_transition_to?(:failed)

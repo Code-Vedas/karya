@@ -85,9 +85,9 @@ module Karya
           jobs_by_id = state.jobs_by_id
           raise DuplicateJobError, "job #{job_id.inspect} is already present in the queue store" if jobs_by_id.key?(job_id)
 
-          expire_reservations_locked(normalized_now)
           raise_duplicate_idempotency_key_error(job_id:, idempotency_key:) if idempotency_conflict?(job)
           raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:) if uniqueness_conflict?(job)
+          expire_reservations_locked(normalized_now)
 
           queued_job = job.transition_to(:queued, updated_at: normalized_now)
           queued_job_id = queued_job.id
@@ -236,6 +236,12 @@ module Karya
         return value if value.is_a?(Time)
 
         raise error_class, "#{name} must be a Time"
+      end
+
+      def store_and_requeue_if_needed(job)
+        store_job(job:)
+        state.queue_job_ids_for(job.queue) << job.id if job.state == :queued
+        job
       end
 
       def reserve_matching_job(reserve_request)
