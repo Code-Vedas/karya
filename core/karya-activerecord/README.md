@@ -16,6 +16,8 @@ This package bridges the Karya runtime to Active Record-backed persistence and
 backend wiring. It participates in the supported platform contracts for:
 
 - backend selection and capability reporting
+- durable `Karya::QueueStore::Base` enqueue, lease, execution, and recovery
+  semantics when SQL-backed queue stores are implemented
 - persistence for jobs, workflows, schedules, audit-relevant state, and operator
   inspection data
 - parity with the shared runtime and operator model

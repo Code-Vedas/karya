@@ -1,0 +1,25 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    type retry_policy_normalizer_value = RetryPolicy | String | Symbol | Integer | nil
+
+    # Shared validation for optional retry policy collaborators.
+    class RetryPolicyNormalizer
+      @value: retry_policy_normalizer_value
+      @error_class: Karya::error_class
+
+      def initialize: (retry_policy_normalizer_value value, error_class: Karya::error_class) -> void
+
+      def normalize: () -> RetryPolicy?
+
+      private
+
+      attr_reader error_class: Karya::error_class
+      attr_reader value: retry_policy_normalizer_value
+    end
+  end
+end

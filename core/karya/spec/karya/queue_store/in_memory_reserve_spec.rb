@@ -589,6 +589,16 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /worker_id must be present/)
     end
 
+    it 'rejects non-string identifiers for reserve input' do
+      expect do
+        store.reserve(queue: 123, worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /queue must be a String/)
+
+      expect do
+        store.reserve(queue: 'billing', worker_id: 123, lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /worker_id must be a String/)
+    end
+
     it 'rejects invalid timestamps for reserve input' do
       expect do
         store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: '2026-03-27T12:00:02Z')
@@ -605,6 +615,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.reserve(queues: ['billing'], handler_names: 'billing_sync', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /handler_names must be an Array/)
+    end
+
+    it 'rejects non-string handler names for subscription-aware reserve input' do
+      expect do
+        store.reserve(queues: ['billing'], handler_names: [123], worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /handler_names entries must be Strings/)
     end
 
     it 'rejects reserve input that provides both queue and queues' do

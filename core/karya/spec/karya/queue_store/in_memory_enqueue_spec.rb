@@ -39,14 +39,19 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(queued_job.state).to eq(:queued)
       expect(queued_job.updated_at).to eq(Time.utc(2026, 3, 27, 12, 0, 5))
+      expect(stored_job('job-1')).to eq(queued_job)
+      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
     end
 
     it 'rejects duplicate job ids' do
-      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      original_job = store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
 
       expect do
         store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 2)
       end.to raise_error(Karya::DuplicateJobError, /job-1/)
+
+      expect(stored_job('job-1')).to eq(original_job)
+      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
     end
 
     it 'rejects jobs not in submission state' do
@@ -61,6 +66,9 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.enqueue(job: queued_job, now: created_at + 1)
       end.to raise_error(Karya::InvalidEnqueueError, /submission/)
+
+      expect(store_state.jobs_by_id).to eq({})
+      expect(store_state.queued_job_ids_by_queue).to eq({})
     end
 
     it 'rejects non-job values' do

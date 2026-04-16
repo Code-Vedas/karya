@@ -117,6 +117,8 @@ module Karya
       ?expires_at: Time?
     ) -> Job
 
+    def expire: (updated_at: Time) -> Job
+
     def terminal?: () -> bool
 
     private

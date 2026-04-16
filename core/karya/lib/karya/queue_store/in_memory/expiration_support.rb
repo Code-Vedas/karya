@@ -35,7 +35,7 @@ module Karya
             job = jobs_by_id.fetch(job_id)
             next unless job_expired?(job, now)
 
-            expired_retry_job = expired_job(job, now)
+            expired_retry_job = build_expired_job(job, now)
             jobs_by_id[job_id] = expired_retry_job
             state.delete_retry_pending(job_id)
             expired_jobs << expired_retry_job
@@ -48,7 +48,7 @@ module Karya
           state.delete_reservation_token(reservation_token)
           state.mark_expired(reservation_token)
 
-          failed_job = expired_job(reserved_job, now)
+          failed_job = build_expired_job(reserved_job, now)
           state.jobs_by_id[failed_job.id] = failed_job
           failed_job
         end
@@ -58,7 +58,7 @@ module Karya
           job = jobs_by_id.fetch(job_id)
           return false unless job_expired?(job, now)
 
-          expired_queued_job = expired_job(job, now)
+          expired_queued_job = build_expired_job(job, now)
           jobs_by_id[job_id] = expired_queued_job
           expired_jobs << expired_queued_job
           true
@@ -69,30 +69,8 @@ module Karya
           expires_at && expires_at <= now
         end
 
-        def expired_job(job, now)
-          build_expired_job(job, now)
-        end
-
         def build_expired_job(job, now)
-          Job.new(
-            id: job.id,
-            queue: job.queue,
-            handler: job.handler,
-            arguments: job.arguments,
-            priority: job.priority,
-            concurrency_key: job.concurrency_key,
-            rate_limit_key: job.rate_limit_key,
-            retry_policy: job.retry_policy,
-            execution_timeout: job.execution_timeout,
-            expires_at: job.expires_at,
-            lifecycle: job.send(:lifecycle),
-            state: :failed,
-            attempt: job.attempt,
-            created_at: job.created_at,
-            updated_at: now,
-            next_retry_at: nil,
-            failure_classification: :expired
-          )
+          job.expire(updated_at: now)
         end
       end
     end

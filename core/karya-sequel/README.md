@@ -14,6 +14,8 @@ This package binds the shared Karya runtime contracts to Sequel-backed
 deployments and supports the platform documentation for:
 
 - backend capability and parity expectations
+- durable `Karya::QueueStore::Base` enqueue, lease, execution, and recovery
+  semantics when SQL-backed queue stores are implemented
 - persistence for execution, workflow, schedule, and audit-oriented state
 - framework-native integration for Sequel-based hosts
 

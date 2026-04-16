@@ -92,7 +92,7 @@ RSpec.describe Karya::Worker do
           queues: queues,
           handlers: handlers,
           lease_duration: 30,
-          retry_policy: Object.new
+          retry_policy: 'not-a-policy'
         )
       end.to raise_error(Karya::InvalidWorkerConfigurationError, 'retry_policy must be a Karya::RetryPolicy')
     end
@@ -936,6 +936,27 @@ RSpec.describe Karya::Worker do
   describe '#run' do
     it 'stops cleanly when asked to stop on idle' do
       expect(worker.run(stop_when_idle: true)).to be_nil
+    end
+
+    it 'recovers orphaned work for the worker before polling' do
+      events = []
+      queue_store.enqueue(job: submission_job(id: 'job-1'), now:)
+      queue_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: now - 30)
+      recovering_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        clock: -> { now },
+        sleeper: ->(_duration) {},
+        instrumenter: ->(event, payload) { events << [event, payload] }
+      )
+
+      recovering_worker.run(max_iterations: 1)
+
+      expect(stored_job('job-1').state).to eq(:succeeded)
+      expect(events).to include(['worker.recovery.orphaned_jobs', include(recovered_jobs: 1, worker_id: 'worker-1')])
     end
 
     it 'does not stop on lease loss when work is requeued' do

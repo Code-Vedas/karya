@@ -7,14 +7,48 @@
 
 module Karya
   module QueueStore
-    # Backend-facing contract for queue persistence and reservation behavior.
+    # Backend-facing contract for durable queue persistence and reservation behavior.
+    #
+    # Durability contract:
+    # - Every successful public method return is an acknowledgment boundary.
+    # - `enqueue` is acknowledged only after the queued job is durable and
+    #   visible to later `reserve`, `recover_in_flight`, and process takeover.
+    # - `reserve`, `release`, `start_execution`, `complete_execution`, and
+    #   `fail_execution` must each persist their full state transition
+    #   atomically before returning.
+    # - SQL backends must return after transaction commit. Acknowledged-write
+    #   stores such as Redis must return only after the write acknowledgment
+    #   that makes the state visible to subsequent commands.
+    # - Failed validation, duplicate enqueue, unknown lease, expired lease, and
+    #   backend errors must not leave partial queue, lease, execution, retry, or
+    #   tombstone state behind.
+    #
+    # Restart and takeover recovery invariants:
+    # - Job identity, queue, handler, arguments, scheduling fields, lifecycle
+    #   state, attempt count, created_at, updated_at, retry state, failure
+    #   classification, and expiration must survive process interruption.
+    # - Active reservation and execution lease state must survive interruption:
+    #   token, job_id, queue, worker_id, reserved_at, and expires_at.
+    # - Expired-token tombstones needed to reject stale worker acknowledgments
+    #   must survive for the backend's documented tombstone window.
+    # - Recovery must be derivable from persisted state alone; in-memory worker
+    #   objects, process-local queues, and thread state are never authoritative.
     module Base
+      # Enqueue must be atomic and acknowledged only after the canonical queued
+      # job state is durable. SQL backends should return after transaction
+      # commit; acknowledged-write stores should return after the write
+      # acknowledgment that makes the job visible to later reserve and recovery
+      # calls. Duplicate or invalid enqueue must not mutate existing state.
       def enqueue(job:, now:)
         _job = job
         _now = now
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Reserve must atomically move one durable queued job to reserved and
+      # persist its lease token, worker id, reserved_at, and expires_at before
+      # returning the reservation. A returned reservation is the only
+      # acknowledgment that the worker owns the lease.
       def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: nil)
         _worker_id = worker_id
         _lease_duration = lease_duration
@@ -25,29 +59,60 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Release must atomically remove the active reservation lease and durably
+      # requeue the job before returning.
       def release(reservation_token:, now:)
         _reservation_token = reservation_token
         _now = now
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Start execution must atomically move the job from reserved to running,
+      # increment attempt, and persist the active execution lease before the job
+      # handler is allowed to run.
       def start_execution(reservation_token:, now:)
         _reservation_token = reservation_token
         _now = now
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Complete execution must atomically remove the active execution lease and
+      # persist the terminal succeeded state before returning.
       def complete_execution(reservation_token:, now:)
         _reservation_token = reservation_token
         _now = now
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Fail execution must atomically remove the active execution lease and
+      # persist either failed or retry_pending state before returning.
       def fail_execution(reservation_token:, now:, failure_classification:, retry_policy: nil)
         _reservation_token = reservation_token
         _now = now
         _retry_policy = retry_policy
         _failure_classification = failure_classification
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Recover expired in-flight leases for a known worker at worker startup or
+      # takeover. Backends with liveness metadata may additionally treat leases
+      # from a dead worker as orphaned; otherwise recovery is lease-expiry based.
+      def recover_orphaned_jobs(worker_id:, now:)
+        _worker_id = worker_id
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Recover expired reserved/running leases and report what changed.
+      #
+      # Durable backends must persist job identity, queue, handler, arguments,
+      # scheduling fields, lifecycle state, attempt count, retry state,
+      # expiration, active reservation/execution lease token, worker id, lease
+      # timestamps, and expired-token tombstones. After crash or takeover, every
+      # active lease must be recoverable from persisted state without relying on
+      # process memory.
+      def recover_in_flight(now:)
+        _now = now
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 

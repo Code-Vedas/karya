@@ -84,10 +84,9 @@ module Karya
 
       def normalize_failure_classification: () -> Karya::failure_classification?
 
-      # Normalizes required identifier-like fields into frozen, non-blank strings.
+      # Backward-compatible owner-local wrapper around the shared identifier primitive.
       class IdentifierNormalizer
         @name: Symbol
-
         @value: Karya::state_name | Integer
 
         def initialize: (Symbol name, Karya::state_name | Integer value) -> void
@@ -97,7 +96,6 @@ module Karya
         private
 
         attr_reader name: Symbol
-
         attr_reader value: Karya::state_name | Integer
       end
 
@@ -118,20 +116,6 @@ module Karya
         attr_reader value: Time
       end
 
-      class OptionalIdentifierNormalizer
-        @name: Symbol
-        @value: Karya::state_name?
-
-        def initialize: (Symbol name, Karya::state_name? value) -> void
-
-        def normalize: () -> String?
-
-        private
-
-        attr_reader name: Symbol
-
-        attr_reader value: Karya::state_name?
-      end
     end
   end
 end

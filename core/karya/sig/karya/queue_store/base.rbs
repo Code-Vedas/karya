@@ -31,6 +31,10 @@ module Karya
         ?retry_policy: RetryPolicy?
       ) -> Job
 
+      def recover_orphaned_jobs: (worker_id: String, now: Time) -> Array[Job]
+
+      def recover_in_flight: (now: Time) -> RecoveryReport
+
       def expire_reservations: (now: Time) -> Array[Job]
 
       def expire_jobs: (now: Time) -> Array[Job]

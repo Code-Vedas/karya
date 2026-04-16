@@ -1,0 +1,48 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    type recovery_report_job_group_input = Array[Job] | Array[String] | nil
+
+    # Immutable result for one in-flight recovery pass.
+    class RecoveryReport
+      @recovered_at: Time
+      @expired_jobs: Array[Job]
+      @recovered_reserved_jobs: Array[Job]
+      @recovered_running_jobs: Array[Job]
+
+      attr_reader recovered_at: Time
+      attr_reader expired_jobs: Array[Job]
+      attr_reader recovered_reserved_jobs: Array[Job]
+      attr_reader recovered_running_jobs: Array[Job]
+
+      def initialize: (
+        recovered_at: Time,
+        expired_jobs: Array[Job],
+        recovered_reserved_jobs: Array[Job],
+        recovered_running_jobs: Array[Job]
+      ) -> void
+
+      def jobs: () -> Array[Job]
+
+      private
+
+      class JobGroup
+        @name: Symbol
+        @jobs: recovery_report_job_group_input
+
+        def initialize: (Symbol name, recovery_report_job_group_input jobs) -> void
+
+        def to_a: () -> Array[Job]
+
+        private
+
+        attr_reader jobs: recovery_report_job_group_input
+        attr_reader name: Symbol
+      end
+    end
+  end
+end
