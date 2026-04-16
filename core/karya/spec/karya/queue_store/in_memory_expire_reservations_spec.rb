@@ -241,6 +241,27 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(stored_job('job-worker-2').state).to eq(:reserved)
     end
 
+    it 'does not expire unrelated queued jobs during worker-scoped orphan recovery' do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-expired',
+          queue: 'email',
+          handler: 'billing_sync',
+          state: :submission,
+          created_at:,
+          expires_at: created_at + 4
+        ),
+        now: created_at + 1
+      )
+      store.enqueue(job: submission_job(id: 'job-worker-1', queue: 'billing', created_at: created_at + 1), now: created_at + 2)
+      store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 3)
+
+      recovered_jobs = store.recover_orphaned_jobs(worker_id: 'worker-1', now: created_at + 8)
+
+      expect(recovered_jobs.map(&:id)).to eq(['job-worker-1'])
+      expect(stored_job('job-expired').state).to eq(:queued)
+    end
+
     it 'tombstones recovered reserved and running tokens' do
       store.enqueue(job: submission_job(id: 'job-reserved', queue: 'billing', created_at:), now: created_at + 1)
       store.enqueue(job: submission_job(id: 'job-running', queue: 'billing', created_at:), now: created_at + 2)

@@ -5,8 +5,6 @@
 
 module Karya
   module QueueStore
-    type recovery_report_job_group_input = Array[Job] | Array[String] | nil
-
     # Immutable result for one in-flight recovery pass.
     class RecoveryReport
       @recovered_at: Time
@@ -27,20 +25,21 @@ module Karya
       ) -> void
 
       def jobs: () -> Array[Job]
+      def recovered_jobs: () -> Array[Job]
 
       private
 
       class JobGroup
         @name: Symbol
-        @jobs: recovery_report_job_group_input
+        @jobs: Array[Job]
 
-        def initialize: (Symbol name, recovery_report_job_group_input jobs) -> void
+        def initialize: (Symbol name, Array[Job] jobs) -> void
 
         def to_a: () -> Array[Job]
 
         private
 
-        attr_reader jobs: recovery_report_job_group_input
+        attr_reader jobs: Array[Job]
         attr_reader name: Symbol
       end
     end

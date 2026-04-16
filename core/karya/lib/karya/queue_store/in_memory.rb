@@ -147,7 +147,13 @@ module Karya
         normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
-        @mutex.synchronize { recover_in_flight_locked(normalized_now, worker_id: normalized_worker_id).jobs }
+        @mutex.synchronize do
+          recover_in_flight_locked(
+            normalized_now,
+            worker_id: normalized_worker_id,
+            include_global_maintenance: false
+          ).recovered_jobs
+        end
       end
 
       def recover_in_flight(now:)
@@ -183,15 +189,18 @@ module Karya
         recover_in_flight_locked(now).jobs
       end
 
-      def recover_in_flight_locked(now, worker_id: nil)
+      def recover_in_flight_locked(now, worker_id: nil, include_global_maintenance: true)
         expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now, worker_id:)
         expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now, worker_id:)
-        expired_jobs = expire_jobs_locked(now)
-        promote_due_retry_pending_jobs(now)
+        expired_jobs = []
+        if include_global_maintenance
+          expired_jobs = expire_jobs_locked(now)
+          promote_due_retry_pending_jobs(now)
+        end
 
         recovered_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
         recovered_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
-        prune_stale_rate_limit_admissions(now)
+        prune_stale_rate_limit_admissions(now) if include_global_maintenance
         RecoveryReport.new(
           recovered_at: now,
           expired_jobs:,

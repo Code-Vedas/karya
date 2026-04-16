@@ -597,6 +597,10 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.reserve(queue: 'billing', worker_id: 123, lease_duration: 30, now: created_at + 2)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /worker_id must be a String/)
+
+      expect do
+        store.reserve(queues: [123], worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /queues entries must be Strings/)
     end
 
     it 'rejects invalid timestamps for reserve input' do

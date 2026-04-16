@@ -48,6 +48,10 @@ module Karya
         expired_jobs + recovered_reserved_jobs + recovered_running_jobs
       end
 
+      def recovered_jobs
+        recovered_reserved_jobs + recovered_running_jobs
+      end
+
       private_constant :JobGroup
     end
   end
