@@ -8,100 +8,101 @@
 module Karya
   module QueueStore
     class InMemory
-      # Idempotency and uniqueness index helpers.
+      # Idempotency and uniqueness checks over canonical stored jobs.
       module UniquenessSupport
+        UNIQUENESS_REENTRY_FAILURE_CLASSIFICATION = :error
+        UNIQUENESS_TERMINAL_STATES = %i[succeeded cancelled failed].freeze
+
         private
 
-        # :reek:FeatureEnvy
         def store_job(job:)
-          job_id = job.id
-          state.jobs_by_id[job_id] = job
-          synchronize_idempotency_state(job_id:, idempotency_key: job.idempotency_key)
-          synchronize_uniqueness_state(
-            job_id:,
-            uniqueness_key: job.uniqueness_key,
-            uniqueness_scope: job.uniqueness_scope,
-            state_name: job.state,
-            terminal: job.terminal?
-          )
+          state.jobs_by_id[job.id] = job
           job
         end
 
-        def synchronize_idempotency_state(job_id:, idempotency_key:)
-          return unless idempotency_key
+        def uniqueness_conflict?(job, exclude_job_id: nil)
+          duplicate_exists_for?(job, key: job.uniqueness_key, exclude_job_id:) do |existing_job, candidate_job|
+            next false unless existing_job.uniqueness_key == candidate_job.uniqueness_key
+            next false unless existing_job.uniqueness_scope && candidate_job.uniqueness_scope
 
-          state.register_idempotency_job(idempotency_key, job_id)
+            uniqueness_conflict_between?(existing_job, candidate_job)
+          end
         end
 
-        def synchronize_uniqueness_state(job_id:, uniqueness_key:, uniqueness_scope:, state_name:, terminal:)
-          return unless uniqueness_key
+        def idempotency_conflict?(job, exclude_job_id: nil)
+          duplicate_exists_for?(job, key: job.idempotency_key, exclude_job_id:) do |existing_job, candidate_job|
+            next false unless existing_job.idempotency_key == candidate_job.idempotency_key
 
-          blocks_uniqueness =
-            case uniqueness_scope
-            when :queued
-              %i[queued retry_pending].include?(state_name)
-            when :active
-              %i[queued reserved running retry_pending].include?(state_name)
-            when :until_terminal
-              !terminal
-            else
-              false
-            end
+            true
+          end
+        end
 
-          if blocks_uniqueness
-            state.register_uniqueness_job(uniqueness_key, job_id)
+        def uniqueness_conflict_between?(existing_job, incoming_job)
+          incoming_state = incoming_uniqueness_state(incoming_job)
+          existing_state = existing_job.state
+          incoming_scope = incoming_job.uniqueness_scope
+          existing_scope = existing_job.uniqueness_scope
+          incoming_currently_blocks = uniqueness_scope_blocks_state?(incoming_scope, incoming_state)
+          existing_currently_blocks = uniqueness_scope_blocks_state?(existing_scope, existing_state)
+
+          (incoming_currently_blocks && uniqueness_scope_blocks_state?(incoming_scope, existing_state)) ||
+            (existing_currently_blocks && uniqueness_scope_blocks_state?(existing_scope, incoming_state))
+        end
+
+        # :reek:UtilityFunction
+        def uniqueness_scope_blocks_state?(scope, state)
+          case scope
+          when :queued
+            %i[queued retry_pending].include?(state)
+          when :active
+            %i[queued reserved running retry_pending].include?(state)
+          when :until_terminal
+            !UNIQUENESS_TERMINAL_STATES.include?(state)
           else
-            state.delete_uniqueness_job(uniqueness_key, job_id)
+            false
           end
         end
 
-        def uniqueness_conflict?(job)
-          uniqueness_key = job.uniqueness_key
-          return false unless uniqueness_key
+        # :reek:UtilityFunction
+        def incoming_uniqueness_state(job)
+          state_name = job.state
+          state_name == :submission ? :queued : state_name
+        end
 
-          uniqueness_job_id_by_key = state.uniqueness_job_id_by_key
-          duplicate_job_id = uniqueness_job_id_by_key[uniqueness_key]
-          return false unless duplicate_job_id
+        # :reek:FeatureEnvy
+        def duplicate_exists_for?(job, key:, exclude_job_id:)
+          return false unless key
 
-          duplicate_job = state.jobs_by_id[duplicate_job_id]
-          unless duplicate_job
-            uniqueness_job_id_by_key.delete(uniqueness_key)
-            return false
+          jobs_by_id = state.jobs_by_id
+          jobs_by_id.each_value do |existing_job|
+            existing_job_id = existing_job.id
+            next if existing_job_id == exclude_job_id || existing_job_id == job.id
+            return true if yield(existing_job, job)
           end
 
-          duplicate_job_state = duplicate_job.state
-          duplicate_blocks_uniqueness =
-            case duplicate_job.uniqueness_scope
-            when :queued
-              %i[queued retry_pending].include?(duplicate_job_state)
-            when :active
-              %i[queued reserved running retry_pending].include?(duplicate_job_state)
-            when :until_terminal
-              !duplicate_job.terminal?
-            else
-              false
-            end
-          return true if duplicate_blocks_uniqueness
-
-          state.delete_uniqueness_job(uniqueness_key, duplicate_job_id)
           false
         end
 
-        def idempotency_conflict?(job)
-          idempotency_key = job.idempotency_key
-          return false unless idempotency_key
+        def resolve_reentry_uniqueness(job)
+          return job unless uniqueness_scope_blocks_state?(job.uniqueness_scope, job.state)
+          return job unless uniqueness_conflict?(job, exclude_job_id: job.id)
 
-          idempotency_job_id_by_key = state.idempotency_job_id_by_key
-          duplicate_job_id = idempotency_job_id_by_key[idempotency_key]
-          return false unless duplicate_job_id
+          reentry_conflict_job(job)
+        end
 
-          duplicate_job = state.jobs_by_id[duplicate_job_id]
-          unless duplicate_job
-            idempotency_job_id_by_key.delete(idempotency_key)
-            return false
+        # :reek:UtilityFunction
+        def reentry_conflict_job(job)
+          updated_at = job.updated_at
+          if job.can_transition_to?(:failed)
+            return job.transition_to(
+              :failed,
+              updated_at:,
+              next_retry_at: nil,
+              failure_classification: UNIQUENESS_REENTRY_FAILURE_CLASSIFICATION
+            )
           end
 
-          true
+          job.transition_to(:cancelled, updated_at:, next_retry_at: nil, failure_classification: nil)
         end
 
         def raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:)

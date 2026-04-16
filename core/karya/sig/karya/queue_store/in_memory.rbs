@@ -95,10 +95,8 @@ module Karya
 
         @expired_tombstone_limit: Integer
 
-        @idempotency_job_id_by_key: Hash[String, String]
         @jobs_by_id: Hash[String, Job]
         @rate_limit_admissions_by_key: Hash[String, Array[Time]]
-        @uniqueness_job_id_by_key: Hash[String, String]
 
         @queued_job_ids_by_queue: Hash[String, Array[String]]
         @retry_pending_job_ids: Array[String]
@@ -116,10 +114,8 @@ module Karya
 
         attr_reader expired_reservation_tokens_in_order: Array[String]
 
-        attr_reader idempotency_job_id_by_key: Hash[String, String]
         attr_reader jobs_by_id: Hash[String, Job]
         attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
-        attr_reader uniqueness_job_id_by_key: Hash[String, String]
 
         attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
         attr_reader retry_pending_job_ids: Array[String]
@@ -154,12 +150,6 @@ module Karya
 
         def reservation_token_in_use?: (String reservation_token) -> bool
 
-        def register_uniqueness_job: (String uniqueness_key, String job_id) -> String
-
-        def delete_uniqueness_job: (String uniqueness_key, String job_id) -> String?
-
-        def register_idempotency_job: (String idempotency_key, String job_id) -> String
-
         private
 
         def prune_expired_reservation_tokens: () -> bool?
@@ -193,22 +183,25 @@ module Karya
 
       def store_job: (job: Job) -> Job
 
-      def synchronize_idempotency_state: (
-        job_id: String,
-        idempotency_key: String?
-      ) -> (String | nil)
+      def uniqueness_conflict?: (Job job, ?exclude_job_id: String?) -> bool
 
-      def synchronize_uniqueness_state: (
-        job_id: String,
-        uniqueness_key: String?,
-        uniqueness_scope: Karya::uniqueness_scope?,
-        state_name: Karya::state_name,
-        terminal: bool
-      ) -> (String | nil)
+      def idempotency_conflict?: (Job job, ?exclude_job_id: String?) -> bool
 
-      def uniqueness_conflict?: (Job job) -> bool
+      def uniqueness_conflict_between?: (Job existing_job, Job incoming_job) -> bool
 
-      def idempotency_conflict?: (Job job) -> bool
+      def uniqueness_scope_blocks_state?: (Karya::uniqueness_scope? scope, Karya::state_name state) -> bool
+
+      def incoming_uniqueness_state: (Job job) -> Karya::state_name
+
+      def duplicate_exists_for?: (
+        Job job,
+        key: String?,
+        ?exclude_job_id: String?
+      ) { (Job, Job) -> bool } -> bool
+
+      def resolve_reentry_uniqueness: (Job job) -> Job
+
+      def reentry_conflict_job: (Job job) -> Job
 
       def raise_duplicate_uniqueness_key_error: (job_id: String, uniqueness_key: String?) -> nil
 

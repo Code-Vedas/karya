@@ -19,11 +19,12 @@ module Karya
           state.delete_reservation_token(reservation_token)
 
           reserved_job = jobs_by_id.fetch(reservation.job_id)
-          queued_job = reserved_job.transition_to(:queued, updated_at: now, failure_classification: nil)
+          queued_job = resolve_reentry_uniqueness(
+            reserved_job.transition_to(:queued, updated_at: now, failure_classification: nil)
+          )
           queued_job_id = queued_job.id
-          queued_job_queue = queued_job.queue
           store_job(job: queued_job)
-          state.queue_job_ids_for(queued_job_queue) << queued_job_id
+          state.queue_job_ids_for(queued_job.queue) << queued_job_id if queued_job.state == :queued
           queued_job
         end
 
@@ -40,11 +41,10 @@ module Karya
           state.delete_execution_token(reservation_token)
 
           running_job = jobs_by_id.fetch(reservation.job_id)
-          queued_job = ExecutionRecovery.new(running_job, now).to_queued_job
+          queued_job = resolve_reentry_uniqueness(ExecutionRecovery.new(running_job, now).to_queued_job)
           queued_job_id = queued_job.id
-          queued_job_queue = queued_job.queue
           store_job(job: queued_job)
-          state.queue_job_ids_for(queued_job_queue) << queued_job_id
+          state.queue_job_ids_for(queued_job.queue) << queued_job_id if queued_job.state == :queued
           state.delete_retry_pending(queued_job_id)
           state.mark_expired(reservation_token)
           queued_job

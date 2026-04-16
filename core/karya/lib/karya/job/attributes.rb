@@ -141,11 +141,9 @@ module Karya
         uniqueness_scope = optional(:uniqueness_scope, nil)
         uniqueness_scope_class = uniqueness_scope.class
         return nil if uniqueness_scope_class <= NilClass
+        raise InvalidJobAttributeError, 'uniqueness_scope requires uniqueness_key' unless optional(:uniqueness_key, nil)
 
-        normalized_scope = normalize_uniqueness_scope_value(uniqueness_scope)
-        return normalized_scope if normalize_optional_identifier(:uniqueness_key)
-
-        raise InvalidJobAttributeError, 'uniqueness_scope requires uniqueness_key'
+        normalize_uniqueness_scope_value(uniqueness_scope)
       end
 
       def normalize_uniqueness_scope_value(uniqueness_scope)
@@ -154,7 +152,7 @@ module Karya
           when Symbol
             uniqueness_scope
           when String
-            VALID_UNIQUENESS_SCOPE_STRINGS[uniqueness_scope.strip]
+            VALID_UNIQUENESS_SCOPE_STRINGS[uniqueness_scope]
           end
 
         return normalized_scope if VALID_UNIQUENESS_SCOPES.include?(normalized_scope)

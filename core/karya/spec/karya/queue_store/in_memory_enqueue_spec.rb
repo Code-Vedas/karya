@@ -93,7 +93,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(stored_job('job-1')).to eq(original_job)
       expect(store_state.jobs_by_id.keys).to eq(['job-1'])
       expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
-      expect(store_state.uniqueness_job_id_by_key).to eq('billing:account-42' => 'job-1')
     end
 
     it 'rejects duplicate idempotency keys' do
@@ -121,6 +120,53 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(stored_job('job-1')).to eq(original_job)
       expect(store_state.jobs_by_id.keys).to eq(['job-1'])
+    end
+
+    it 'rejects duplicate ids before checking uniqueness conflicts' do
+      original_job = store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          uniqueness_key: 'key-a',
+          uniqueness_scope: :active
+        ),
+        now: created_at + 1
+      )
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-1',
+            queue: 'billing',
+            created_at: created_at + 1,
+            uniqueness_key: 'key-b',
+            uniqueness_scope: :active
+          ),
+          now: created_at + 2
+        )
+      end.to raise_error(Karya::DuplicateJobError, /job-1/)
+
+      expect(stored_job('job-1')).to eq(original_job)
+    end
+
+    it 'accepts long idempotency and uniqueness keys with control and unicode characters' do
+      composite_key = "#{'x' * 4096}\nsnowman-\u2603"
+
+      queued_job = store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          idempotency_key: composite_key,
+          uniqueness_key: composite_key,
+          uniqueness_scope: :active
+        ),
+        now: created_at + 1
+      )
+
+      expect(queued_job.idempotency_key).to eq(composite_key)
+      expect(queued_job.uniqueness_key).to eq(composite_key)
     end
 
     it 'rejects jobs not in submission state' do

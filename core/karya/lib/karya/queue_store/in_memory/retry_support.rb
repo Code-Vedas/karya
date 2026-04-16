@@ -40,14 +40,16 @@ module Karya
             failure_classification:
           )
           next_retry_at = now + retry_policy.delay_for(failed_job.attempt)
-          retry_pending_job = failed_job.transition_to(
-            :retry_pending,
-            updated_at: now,
-            next_retry_at: next_retry_at,
-            retry_policy:,
-            failure_classification:
+          retry_pending_job = resolve_reentry_uniqueness(
+            failed_job.transition_to(
+              :retry_pending,
+              updated_at: now,
+              next_retry_at: next_retry_at,
+              retry_policy:,
+              failure_classification:
+            )
           )
-          state.register_retry_pending(retry_pending_job.id)
+          state.register_retry_pending(retry_pending_job.id) if retry_pending_job.state == :retry_pending
           retry_pending_job
         end
       end

@@ -120,12 +120,15 @@ write stores should return after the write acknowledgment that makes the state
 visible to later commands. Validation errors, duplicate enqueue attempts, and
 failed lease operations must not leave partial state behind.
 
-Uniqueness is explicit and opt-in. `idempotency_key` is caller intent metadata.
-`uniqueness_key` plus `uniqueness_scope` drive duplicate rejection at enqueue
-time. The current foundation milestone is reject-only: conflicting enqueue
-raises `Karya::DuplicateUniquenessKeyError` and must not mutate the existing
-job, queue, lease, retry, or uniqueness state. Jobs without `uniqueness_key`
-keep current enqueue behavior.
+Uniqueness is explicit and opt-in. `idempotency_key` and `uniqueness_key`
+participate in duplicate rejection at enqueue time, but they serve different
+contracts. `idempotency_key` rejects later submissions for the same caller
+intent with `Karya::DuplicateIdempotencyKeyError`. `uniqueness_key` plus
+`uniqueness_scope` reject concurrent or not-yet-released work with
+`Karya::DuplicateUniquenessKeyError`. The current foundation milestone is
+reject-only: conflicting enqueue must not mutate the existing job, queue,
+lease, retry, or uniqueness state. Jobs without `idempotency_key` and without
+`uniqueness_key` keep current enqueue behavior.
 
 Reservation and execution transitions are acknowledgment boundaries. `reserve`
 returns only after the reservation lease is durable. `start_execution` returns
