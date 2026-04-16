@@ -353,6 +353,7 @@ RSpec.describe Karya::WorkerSupervisor do
         queues: ['billing'],
         handlers: satisfy { |value| value.respond_to?(:fetch) },
         lease_duration: 30,
+        default_execution_timeout: nil,
         lifecycle: Karya::JobLifecycle.default_registry,
         state_reporter: respond_to(:call)
       )

@@ -67,6 +67,7 @@ module Karya
     method_option :env_prefix, type: :string
     method_option :worker_id, type: :string, default: "worker-#{Process.pid}"
     method_option :lease_duration, type: :numeric, default: 30
+    method_option :default_execution_timeout, type: :numeric
     method_option :poll_interval, type: :numeric, default: Karya::Worker::DEFAULT_POLL_INTERVAL
     method_option :handler, type: :array, default: []
     method_option :require, type: :array, default: []

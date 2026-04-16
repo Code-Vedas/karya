@@ -20,21 +20,32 @@ module Karya
             next_retry_at = retry_pending_job.next_retry_at
             next unless next_retry_at && next_retry_at <= now
 
-            queued_job = retry_pending_job.transition_to(:queued, updated_at: now, next_retry_at: nil)
+            queued_job = retry_pending_job.transition_to(
+              :queued,
+              updated_at: now,
+              next_retry_at: nil,
+              failure_classification: nil
+            )
             jobs_by_id[job_id] = queued_job
             state.queue_job_ids_for(queued_job.queue) << job_id
             state.delete_retry_pending(job_id)
           end
         end
 
-        def retry_pending_job(running_job, now, retry_policy)
-          failed_job = running_job.transition_to(:failed, updated_at: now, next_retry_at: nil)
+        def retry_pending_job(running_job, now, retry_policy, failure_classification)
+          failed_job = running_job.transition_to(
+            :failed,
+            updated_at: now,
+            next_retry_at: nil,
+            failure_classification:
+          )
           next_retry_at = now + retry_policy.delay_for(failed_job.attempt)
           retry_pending_job = failed_job.transition_to(
             :retry_pending,
             updated_at: now,
             next_retry_at: next_retry_at,
-            retry_policy:
+            retry_policy:,
+            failure_classification:
           )
           state.register_retry_pending(retry_pending_job.id)
           retry_pending_job

@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   class Worker
     # Encapsulates the worker polling loop and associated runtime-state updates.
@@ -14,13 +19,13 @@ module Karya
 
       private
 
-      def run_iteration: () -> Job?
+      def run_iteration: () -> Karya::worker_iteration_result
 
-      def resolve_loop_result: (Job? result) -> Job?
+      def resolve_loop_result: (Karya::worker_iteration_result result) -> Karya::worker_loop_result
 
-      def report_loop_state: (Job? loop_result, Job? result) -> nil
+      def report_loop_state: (Karya::worker_loop_result loop_result, Karya::worker_iteration_result result) -> nil
 
-      def sleep_if_needed: (Job? result) -> nil
+      def sleep_if_needed: (Karya::worker_iteration_result result) -> nil
 
       def stop_loop: () -> nil
     end

@@ -52,7 +52,7 @@ RSpec.describe Karya::QueueStore do
 
   it 'requires fail_execution to be implemented' do
     expect do
-      store.fail_execution(reservation_token: 'lease-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+      store.fail_execution(reservation_token: 'lease-1', now: Time.utc(2026, 3, 27, 12, 0, 0), failure_classification: :error)
     end.to raise_error(NotImplementedError, /implement #fail_execution/)
   end
 
@@ -60,5 +60,11 @@ RSpec.describe Karya::QueueStore do
     expect do
       store.expire_reservations(now: Time.utc(2026, 3, 27, 12, 0, 0))
     end.to raise_error(NotImplementedError, /implement #expire_reservations/)
+  end
+
+  it 'requires expire_jobs to be implemented' do
+    expect do
+      store.expire_jobs(now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #expire_jobs/)
   end
 end

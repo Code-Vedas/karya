@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   # Raised when a canonical job attribute is invalid.
   class InvalidJobAttributeError < Error
@@ -22,11 +27,15 @@ module Karya
       @concurrency_key: String?
       @rate_limit_key: String?
       @retry_policy: RetryPolicy?
+      @execution_timeout: Numeric?
+      @expires_at: Time?
 
       attr_reader priority: Integer
       attr_reader concurrency_key: String?
       attr_reader rate_limit_key: String?
       attr_reader retry_policy: RetryPolicy?
+      attr_reader execution_timeout: Numeric?
+      attr_reader expires_at: Time?
     end
 
     class LifecycleState
@@ -35,6 +44,7 @@ module Karya
       @created_at: Time
       @updated_at: Time
       @next_retry_at: Time?
+      @failure_classification: failure_classification?
       @lifecycle: JobLifecycle::Registry
 
       attr_reader state: state_name
@@ -42,6 +52,7 @@ module Karya
       attr_reader created_at: Time
       attr_reader updated_at: Time
       attr_reader next_retry_at: Time?
+      attr_reader failure_classification: failure_classification?
       attr_reader lifecycle: JobLifecycle::Registry
     end
 
@@ -64,11 +75,14 @@ module Karya
     attr_reader queue: String
     attr_reader rate_limit_key: String?
     attr_reader retry_policy: RetryPolicy?
+    attr_reader execution_timeout: Numeric?
+    attr_reader expires_at: Time?
 
     attr_reader state: state_name
 
     attr_reader updated_at: Time
     attr_reader next_retry_at: Time?
+    attr_reader failure_classification: failure_classification?
 
     def initialize: (
       id: state_name,
@@ -79,17 +93,29 @@ module Karya
       ?concurrency_key: state_name?,
       ?rate_limit_key: state_name?,
       ?retry_policy: RetryPolicy?,
+      ?execution_timeout: Numeric?,
+      ?expires_at: Time?,
       state: state_name,
       ?attempt: Integer,
       created_at: Time,
       ?lifecycle: JobLifecycle::Registry,
       ?updated_at: Time,
-      ?next_retry_at: Time?
+      ?next_retry_at: Time?,
+      ?failure_classification: failure_classification_input?
     ) -> void
 
     def can_transition_to?: (state_name next_state) -> bool
 
-    def transition_to: (state_name next_state, updated_at: Time, ?attempt: Integer, ?retry_policy: RetryPolicy?, ?next_retry_at: Time?) -> Job
+    def transition_to: (
+      state_name next_state,
+      updated_at: Time,
+      ?attempt: Integer,
+      ?retry_policy: RetryPolicy?,
+      ?next_retry_at: Time?,
+      ?failure_classification: failure_classification_input?,
+      ?execution_timeout: Numeric?,
+      ?expires_at: Time?
+    ) -> Job
 
     def terminal?: () -> bool
 

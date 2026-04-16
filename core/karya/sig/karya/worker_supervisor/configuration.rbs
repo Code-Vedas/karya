@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   class WorkerSupervisor
     # Validated supervisor bootstrap configuration.
@@ -9,6 +14,7 @@ module Karya
       @handlers: Karya::handler_mapping
 
       @lease_duration: Numeric
+      @default_execution_timeout: Numeric?
 
       @lifecycle: Karya::lifecycle
 
@@ -22,7 +28,7 @@ module Karya
 
       @threads: Integer
 
-      OPTION_KEYS: ::Array[:handlers | :lease_duration | :lifecycle | :max_iterations | :poll_interval | :processes | :queues | :stop_when_idle | :threads | :worker_id]
+      OPTION_KEYS: ::Array[:default_execution_timeout | :handlers | :lease_duration | :lifecycle | :max_iterations | :poll_interval | :processes | :queues | :stop_when_idle | :threads | :worker_id]
 
       def self.from_options: (Karya::symbol_options options) -> Configuration
 
@@ -33,6 +39,8 @@ module Karya
       attr_reader handlers: Karya::handler_mapping
 
       attr_reader lease_duration: Numeric
+
+      attr_reader default_execution_timeout: Numeric?
 
       attr_reader max_iterations: Integer | :unlimited
 

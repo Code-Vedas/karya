@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   class Worker
     # Validated worker bootstrap configuration.
@@ -12,10 +17,11 @@ module Karya
 
       @lifecycle: Karya::lifecycle
       @retry_policy: RetryPolicy?
+      @default_execution_timeout: Numeric?
 
       @subscription: Worker::Subscription
 
-      OPTION_KEYS: ::Array[:worker_id | :queues | :handlers | :lease_duration | :lifecycle | :retry_policy]
+      OPTION_KEYS: ::Array[:worker_id | :queues | :handlers | :lease_duration | :lifecycle | :retry_policy | :default_execution_timeout]
 
       def self.from_options: (symbol_options options) -> Configuration
 
@@ -24,6 +30,8 @@ module Karya
       attr_reader lease_duration: Numeric
 
       attr_reader lifecycle: Karya::lifecycle
+
+      attr_reader default_execution_timeout: Numeric?
 
       attr_reader retry_policy: RetryPolicy?
 
@@ -39,8 +47,15 @@ module Karya
         handlers: handler_mapping | Worker::HandlerRegistry,
         lease_duration: Numeric,
         ?lifecycle: Karya::lifecycle,
-        ?retry_policy: RetryPolicy?
+        ?retry_policy: RetryPolicy?,
+        ?default_execution_timeout: Numeric?
       ) -> void
+
+      private
+
+      def normalize_retry_policy: (RetryPolicy? value) -> RetryPolicy?
+
+      def normalize_default_execution_timeout: (Numeric? value) -> Numeric?
     end
   end
 end

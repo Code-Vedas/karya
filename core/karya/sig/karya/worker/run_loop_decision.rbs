@@ -1,14 +1,19 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   class Worker
     # Decides whether the run loop should continue, return a result, or stop.
     class RunLoopDecision
-      @result: Job?
+      @result: Karya::worker_iteration_result
 
       @state: { idle: bool, iteration_limit: Internal::RuntimeSupport::IterationLimit, iterations: Integer, lease_lost: bool, shutdown_controller: Worker::_ShutdownController, stop_when_idle: bool }
 
-      def initialize: (result: Job?, state: { idle: bool, iteration_limit: Internal::RuntimeSupport::IterationLimit, iterations: Integer, lease_lost: bool, shutdown_controller: Worker::_ShutdownController, stop_when_idle: bool }) -> void
+      def initialize: (result: Karya::worker_iteration_result, state: { idle: bool, iteration_limit: Internal::RuntimeSupport::IterationLimit, iterations: Integer, lease_lost: bool, shutdown_controller: Worker::_ShutdownController, stop_when_idle: bool }) -> void
 
-      def resolve: () -> Job?
+      def resolve: () -> Karya::worker_loop_result
 
       private
 

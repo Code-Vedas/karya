@@ -5,7 +5,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative '../internal/failure_classification'
 require_relative '../primitives/lifecycle'
+require_relative '../primitives/positive_finite_number'
 
 module Karya
   class Job
@@ -53,12 +55,15 @@ module Karya
           concurrency_key: normalize_optional_identifier(:concurrency_key),
           rate_limit_key: normalize_optional_identifier(:rate_limit_key),
           retry_policy: normalize_retry_policy,
+          execution_timeout: normalize_optional_positive_finite_number(:execution_timeout),
+          expires_at: normalize_optional_time(:expires_at),
           lifecycle:,
           state: lifecycle.normalize_state(required(:state)),
           attempt:,
           created_at:,
           updated_at: normalize_updated_at(created_at),
-          next_retry_at: normalize_optional_time(:next_retry_at)
+          next_retry_at: normalize_optional_time(:next_retry_at),
+          failure_classification: normalize_failure_classification
         }
       end
 
@@ -98,6 +103,12 @@ module Karya
         ).normalize
       end
 
+      def normalize_optional_positive_finite_number(name)
+        optional(name, nil)&.then do |value|
+          Primitives::PositiveFiniteNumber.new(name, value, error_class: InvalidJobAttributeError).normalize
+        end
+      end
+
       def normalize_optional_identifier(name)
         OptionalIdentifierNormalizer.new(name, optional(name, nil)).normalize
       end
@@ -107,6 +118,12 @@ module Karya
           return retry_policy if retry_policy.is_a?(RetryPolicy)
 
           raise InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy'
+        end
+      end
+
+      def normalize_failure_classification
+        optional(:failure_classification, nil)&.then do |value|
+          Internal::FailureClassification.normalize(value, error_class: InvalidJobAttributeError)
         end
       end
 

@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   # Raised when worker bootstrap input is invalid.
   class InvalidWorkerConfigurationError < Error
@@ -26,7 +31,26 @@ module Karya
 
     @runtime: Worker::Runtime
 
+    class ContinueRunning
+    end
+
+    class LeaseLost
+    end
+
+    class NoWorkAvailable
+    end
+
+    class WorkerExecutionTimeoutError < StandardError
+      DEFAULT_MESSAGE: String
+    end
+
     DEFAULT_POLL_INTERVAL: 1
+
+    CONTINUE_RUNNING: singleton(::Karya::Worker::ContinueRunning)
+
+    LEASE_LOST: singleton(::Karya::Worker::LeaseLost)
+
+    NO_WORK_AVAILABLE: singleton(::Karya::Worker::NoWorkAvailable)
 
     NOOP_SUBSCRIPTION: ^() -> nil
 
@@ -52,6 +76,7 @@ module Karya
     def lifecycle: () -> JobLifecycle::Registry
 
     def retry_policy: () -> RetryPolicy?
+    def default_execution_timeout: () -> Numeric?
 
     def work_once: () -> Job?
 
@@ -70,7 +95,7 @@ module Karya
 
     attr_reader runtime: Worker::Runtime
 
-    def work_once_result: (_ShutdownController shutdown_controller) -> Job?
+    def work_once_result: (_ShutdownController shutdown_controller) -> Karya::worker_iteration_result
 
     def reserve_next: () -> Reservation?
 
@@ -78,29 +103,33 @@ module Karya
 
     def with_shutdown_handlers: (ShutdownController shutdown_controller) { () -> Job? } -> Job?
 
-    def register_shutdown_restorers: (Array[^() -> nil] restorers, ShutdownController shutdown_controller) -> Array[^() -> nil]
+    def register_shutdown_restorers: (Array[^() -> nil] restorers, ShutdownController shutdown_controller) -> ::Array[String]
 
-    def release_reserved_job: (String reservation_token) -> Job?
+    def release_reserved_job: (String reservation_token) -> Karya::worker_idle_result
 
-    def release_reserved_job_if_stopping_after_reserve: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def release_reserved_job_if_stopping_after_reserve: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_idle_result?
 
-    def release_reserved_job_if_stopping_before_execution: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def release_reserved_job_if_stopping_before_execution: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_idle_result?
 
-    def acquire_running_job: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def acquire_running_job: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_iteration_result
 
-    def pre_execution_transition: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def pre_execution_transition: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_iteration_result
 
-    def release_reserved_job_if_stopping: (_ShutdownController shutdown_controller, String reservation_token) -> Job?
+    def release_reserved_job_if_stopping: (_ShutdownController shutdown_controller, String reservation_token) -> Karya::worker_idle_result?
 
-    def complete_execution_job: (String reservation_token) -> Job?
+    def complete_execution_job: (String reservation_token) -> (Job | Karya::worker_lease_lost)
 
-    def fail_execution_job: (String reservation_token, Job running_job) -> Job?
+    def fail_execution_job: (String reservation_token, Job running_job, failure_classification: failure_classification) -> (Job | Karya::worker_lease_lost)
 
-    def start_execution_job: (String reservation_token) -> Job?
+    def start_execution_job: (String reservation_token) -> (Job | Karya::worker_lease_lost)
 
     def instrument: (String event, **job_argument | Integer | Array[Integer] payload) -> nil
 
     def effective_retry_policy_for: (Job job) -> RetryPolicy?
+    def effective_execution_timeout_for: (Job job) -> Numeric?
+    def execute_handler: (Job job) -> nil
+
+    def report_runtime_state: (String state) -> nil
 
     def raise_unknown_option_error: (symbol_options options) -> void
   end

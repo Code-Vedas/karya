@@ -20,9 +20,9 @@ module Karya
     # Canonical immutable routing payload for one job instance.
     Identity = Struct.new(:id, :queue, :handler, :arguments)
     # Canonical immutable scheduling metadata for job selection policies.
-    Scheduling = Struct.new(:priority, :concurrency_key, :rate_limit_key, :retry_policy)
+    Scheduling = Struct.new(:priority, :concurrency_key, :rate_limit_key, :retry_policy, :execution_timeout, :expires_at)
     # Canonical immutable lifecycle state for one job instance.
-    LifecycleState = Struct.new(:state, :attempt, :created_at, :updated_at, :next_retry_at, :lifecycle)
+    LifecycleState = Struct.new(:state, :attempt, :created_at, :updated_at, :next_retry_at, :failure_classification, :lifecycle)
     # Groups normalized constructor fields into lifecycle-safe components.
     class Components
       def initialize(attributes)
@@ -43,7 +43,9 @@ module Karya
           attributes.fetch(:priority),
           attributes.fetch(:concurrency_key),
           attributes.fetch(:rate_limit_key),
-          attributes.fetch(:retry_policy)
+          attributes.fetch(:retry_policy),
+          attributes.fetch(:execution_timeout),
+          attributes.fetch(:expires_at)
         ).freeze
       end
 
@@ -54,6 +56,7 @@ module Karya
           attributes.fetch(:created_at),
           attributes.fetch(:updated_at),
           attributes.fetch(:next_retry_at),
+          attributes.fetch(:failure_classification),
           attributes.fetch(:lifecycle)
         ).freeze
       end
@@ -79,7 +82,16 @@ module Karya
       false
     end
 
-    def transition_to(next_state, updated_at:, attempt: self.attempt, retry_policy: self.retry_policy, next_retry_at: self.next_retry_at)
+    def transition_to(
+      next_state,
+      updated_at:,
+      attempt: self.attempt,
+      retry_policy: self.retry_policy,
+      next_retry_at: self.next_retry_at,
+      failure_classification: self.failure_classification,
+      execution_timeout: self.execution_timeout,
+      expires_at: self.expires_at
+    )
       normalized_next_state = lifecycle.validate_transition!(from: state, to: next_state)
 
       self.class.new(
@@ -91,12 +103,15 @@ module Karya
         concurrency_key:,
         rate_limit_key:,
         retry_policy:,
+        execution_timeout:,
+        expires_at:,
         lifecycle:,
         state: normalized_next_state,
         attempt:,
         created_at:,
         updated_at:,
-        next_retry_at:
+        next_retry_at:,
+        failure_classification:
       )
     end
 
@@ -112,11 +127,14 @@ module Karya
     def concurrency_key = scheduling.concurrency_key
     def rate_limit_key = scheduling.rate_limit_key
     def retry_policy = scheduling.retry_policy
+    def execution_timeout = scheduling.execution_timeout
+    def expires_at = scheduling.expires_at
     def state = lifecycle_state.state
     def attempt = lifecycle_state.attempt
     def created_at = lifecycle_state.created_at
     def updated_at = lifecycle_state.updated_at
     def next_retry_at = lifecycle_state.next_retry_at
+    def failure_classification = lifecycle_state.failure_classification
 
     private_constant :Attributes, :Components, :ImmutableArguments
 

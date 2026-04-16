@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   module QueueStore
     # Single-process reference implementation for queue submission and reservation behavior.
@@ -36,9 +41,16 @@ module Karya
 
       def complete_execution: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
 
-      def fail_execution: (reservation_token: Karya::state_name | Integer, now: Time, ?retry_policy: RetryPolicy?) -> Job
+      def fail_execution: (
+        reservation_token: Karya::state_name | Integer,
+        now: Time,
+        failure_classification: failure_classification_input,
+        ?retry_policy: RetryPolicy?
+      ) -> Job
 
       def expire_reservations: (now: Time) -> Array[Job]
+
+      def expire_jobs: (now: Time) -> Array[Job]
 
       private
 
@@ -165,44 +177,15 @@ module Karya
 
       def validate_enqueue: (Job job) -> nil
 
-      def next_token: () -> ::String
-
       def expire_reservations_locked: (Time now) -> Array[Job]
 
       def perform_reserve_maintenance: (Time now) -> ReserveScanState
-
-      def requeue_reservation: (Reservation reservation, Time now) -> Job
-
-      def requeue_expired_reservation: (Reservation reservation, Time now) -> Job
-
-      def requeue_expired_execution: (Reservation reservation, Time now) -> Job
 
       def normalize_identifier: (Symbol name, Karya::state_name | Integer value, error_class: Karya::error_class) -> String
 
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
 
-      def build_reservation: (reserved_job: Job, worker_id: String, reserved_at: Time, lease_duration: Karya::lease_duration_value) -> Reservation
-
-      def ensure_unique_reservation_token: (String reservation_token) -> nil
-
       def build_reserve_scan_state: () -> ReserveScanState
-
-      def normalize_reserve_queues: (queue: Karya::state_name?, queues: Array[Karya::state_name]?) -> Array[String]
-
-      def normalize_reserve_request: (
-        worker_id: Karya::state_name | Integer,
-        lease_duration: Karya::lease_duration_value,
-        now: Time,
-        ?queue: Karya::state_name?,
-        ?queues: Array[Karya::state_name]?,
-        ?handler_names: Array[Karya::state_name]?
-      ) -> {
-        handler_matcher: HandlerMatcher,
-        lease_duration: Karya::lease_duration_value,
-        now: Time,
-        queues: Array[String],
-        worker_id: String
-      }
 
       def reserve_matching_job: ({
         handler_matcher: HandlerMatcher,
@@ -230,19 +213,98 @@ module Karya
 
       def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
 
-      def finalize_execution: (reservation_token: Karya::state_name | Integer, now: Time, next_state: :succeeded | :failed, ?retry_policy: RetryPolicy?) -> Job
-
-      def retry_pending_job: (Job running_job, Time now, RetryPolicy retry_policy) -> Job
-
-      def normalize_retry_policy: (RetryPolicy? value) -> RetryPolicy?
-
-      def fetch_active_reservation: (String reservation_token, Time now) -> Reservation
-
-      def collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now) -> Array[Reservation]
-
-      def self.collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now) -> Array[Reservation]
-
       def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
+
+      module ExecutionSupport
+        private
+
+        def finalize_execution: (
+          reservation_token: Karya::state_name | Integer,
+          now: Time,
+          next_state: :succeeded | :failed,
+          ?retry_policy: RetryPolicy?,
+          ?failure_classification: failure_classification_input?
+        ) -> Job
+
+        def finalized_execution_job: (
+          running_job: Job,
+          next_state: :succeeded | :failed,
+          now: Time,
+          retry_policy: RetryPolicy?,
+          failure_classification: failure_classification?
+        ) -> Job
+
+        def fetch_active_reservation: (String reservation_token, Time now) -> Reservation
+
+        def collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now) -> Array[Reservation]
+      end
+
+      module ExpirationSupport
+        private
+
+        def expire_jobs_locked: (Time now) -> Array[Job]
+
+        def expire_queued_jobs: (Time now, Array[Job] expired_jobs) -> void
+
+        def expire_retry_pending_jobs: (Time now, Array[Job] expired_jobs) -> void
+
+        def expire_reserved_job: (Reservation reservation, Job reserved_job, Time now) -> Job
+
+        def expire_queued_job?: (String job_id, Time now, Array[Job] expired_jobs) -> bool
+
+        def job_expired?: (Job job, Time now) -> bool
+
+        def expired_job: (Job job, Time now) -> Job
+
+        def build_expired_job: (Job job, Time now) -> Job
+      end
+
+      module RecoverySupport
+        private
+
+        def requeue_reservation: (Reservation reservation, Time now) -> Job
+
+        def requeue_expired_reservation: (Reservation reservation, Time now) -> Job
+
+        def requeue_expired_execution: (Reservation reservation, Time now) -> Job
+      end
+
+      module RequestSupport
+        private
+
+        def next_token: () -> ::String
+
+        def build_reservation: (reserved_job: Job, worker_id: String, reserved_at: Time, lease_duration: Karya::lease_duration_value) -> Reservation
+
+        def ensure_unique_reservation_token: (String reservation_token) -> nil
+
+        def normalize_reserve_queues: (queue: Karya::state_name?, queues: Array[Karya::state_name]?) -> Array[String]
+
+        def normalize_reserve_request: (
+          worker_id: Karya::state_name | Integer,
+          lease_duration: Karya::lease_duration_value,
+          now: Time,
+          ?queue: Karya::state_name?,
+          ?queues: Array[Karya::state_name]?,
+          ?handler_names: Array[Karya::state_name]?
+        ) -> {
+          handler_matcher: HandlerMatcher,
+          lease_duration: Karya::lease_duration_value,
+          now: Time,
+          queues: Array[String],
+          worker_id: String
+        }
+      end
+
+      module RetrySupport
+        private
+
+        def promote_due_retry_pending_jobs: (Time now) -> Array[String]
+
+        def retry_pending_job: (Job running_job, Time now, RetryPolicy retry_policy, failure_classification) -> Job
+
+        def normalize_retry_policy: (RetryPolicy? value) -> RetryPolicy?
+      end
 
       # Rebuilds a running job as queued when execution lease recovery is required.
       class ExecutionRecovery

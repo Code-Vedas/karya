@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "lint": "yarn exec -- eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.ts\" && stylelint \"src/**/*.scss\"",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && node ./node_modules/vite/bin/vite.js build",
     "prepackage-build": "yarn build && node scripts/verify-dist.mjs",
-    "dev": "vite dev --host 0.0.0.0 --port 4173",
-    "preview": "vite preview --host 127.0.0.1 --port 4273",
+    "dev": "node ./node_modules/vite/bin/vite.js dev --host 0.0.0.0 --port 4173",
+    "preview": "node ./node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4273",
     "firefox:e2e": "yarn prepackage-build && yarn exec -- playwright test --project=firefox"
   },
   "dependencies": {

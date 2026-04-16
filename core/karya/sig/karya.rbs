@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   interface _Lifecycle
     def normalize_state: (state_name state) -> state_name
@@ -25,8 +30,16 @@ module Karya
   type handler_dispatch_mode = :none | :positional_hash | :keywords
   type job_argument = nil | Numeric | String | Symbol | bool | Time | Array[job_argument] | Hash[String, job_argument]
   type job_argument_graph = job_argument | Hash[state_name, job_argument]
+  type worker_continue_running = singleton(::Karya::Worker::ContinueRunning)
+  type worker_lease_lost = singleton(::Karya::Worker::LeaseLost)
+  type worker_no_work_available = singleton(::Karya::Worker::NoWorkAvailable)
+  type worker_idle_result = worker_lease_lost | worker_no_work_available
+  type worker_iteration_result = Job | worker_idle_result
+  type worker_loop_result = Job | worker_continue_running | nil
   type lease_duration_value = Integer | Float | Rational | BigDecimal
   type retry_policy = RetryPolicy
+  type failure_classification = :error | :timeout | :expired
+  type failure_classification_input = failure_classification | "error" | "timeout" | "expired"
   type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
   type handler_mapping = ::Hash[String, Worker::_Handler]
   type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | retry_policy | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
@@ -45,6 +58,6 @@ module Karya
   type cli_env_prefix_normalizer = ^(Symbol) -> String?
   type cli_optional_integer_coercer = ^(Symbol) -> Integer?
   type cli_positive_integer_resolver = ^(Symbol, env_prefix: String?, defaults: cli_defaults) -> Integer
-  type job_attribute_value = job_argument | Integer | Time | retry_policy | lifecycle | state_name
+  type job_attribute_value = job_argument | Integer | Time | retry_policy | lifecycle | state_name | failure_classification_input
   type reservation_attribute_value = state_name | Integer | Time
 end

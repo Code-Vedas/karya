@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   module QueueStore
     # Backend-facing contract for queue persistence and reservation behavior.
@@ -19,9 +24,16 @@ module Karya
 
       def complete_execution: (reservation_token: String, now: Time) -> Job
 
-      def fail_execution: (reservation_token: String, now: Time, ?retry_policy: RetryPolicy?) -> Job
+      def fail_execution: (
+        reservation_token: String,
+        now: Time,
+        failure_classification: failure_classification_input,
+        ?retry_policy: RetryPolicy?
+      ) -> Job
 
       def expire_reservations: (now: Time) -> Array[Job]
+
+      def expire_jobs: (now: Time) -> Array[Job]
     end
   end
 end

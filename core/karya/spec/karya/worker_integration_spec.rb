@@ -79,6 +79,7 @@ RSpec.describe Karya::Worker, :integration do
 
     expect(result.state).to eq(:failed)
     expect(result.attempt).to eq(1)
+    expect(result.failure_classification).to eq(:error)
     expect(stored_job('job-failure').state).to eq(:failed)
   end
 
@@ -113,11 +114,106 @@ RSpec.describe Karya::Worker, :integration do
     second_result = worker.work_once
 
     expect(first_result.state).to eq(:retry_pending)
+    expect(first_result.failure_classification).to eq(:error)
     expect(first_result.next_retry_at).to eq(base_time + 8)
     expect(first_result.attempt).to eq(1)
     expect(second_result.attempt).to eq(2)
     expect(second_result.state).to eq(:succeeded)
     expect(stored_job('job-retry').state).to eq(:succeeded)
+  end
+
+  it 'uses job execution timeout over worker default timeout' do
+    queue_store.enqueue(
+      job: Karya::Job.new(
+        id: 'job-timeout',
+        queue: queue_name,
+        handler: 'billing_sync',
+        arguments: { 'account_id' => 42 },
+        execution_timeout: 0.01,
+        state: :submission,
+        created_at: base_time
+      ),
+      now: base_time
+    )
+
+    worker = described_class.new(
+      queue_store: queue_store,
+      worker_id: worker_id,
+      queues: [queue_name],
+      handlers: {
+        'billing_sync' => lambda do |account_id:|
+          expect(account_id).to eq(42)
+          sleep 0.02
+        end
+      },
+      lease_duration: 30,
+      default_execution_timeout: 1,
+      retry_policy: retry_policy,
+      clock: -> { base_time + 1 }
+    )
+
+    result = worker.work_once
+
+    expect(result.state).to eq(:retry_pending)
+    expect(result.failure_classification).to eq(:timeout)
+  end
+
+  it 'uses worker default execution timeout when the job does not set one' do
+    enqueue_submission_job(id: 'job-default-timeout')
+
+    worker = described_class.new(
+      queue_store: queue_store,
+      worker_id: worker_id,
+      queues: [queue_name],
+      handlers: {
+        'billing_sync' => lambda do |account_id:|
+          expect(account_id).to eq(42)
+          sleep 0.02
+        end
+      },
+      lease_duration: 30,
+      default_execution_timeout: 0.01,
+      retry_policy: retry_policy,
+      clock: -> { base_time + 1 }
+    )
+
+    result = worker.work_once
+
+    expect(result.state).to eq(:retry_pending)
+    expect(result.failure_classification).to eq(:timeout)
+  end
+
+  it 'fails an expired job before start without executing the handler' do
+    handler_calls = 0
+    queue_store.enqueue(
+      job: Karya::Job.new(
+        id: 'job-expired-before-start',
+        queue: queue_name,
+        handler: 'billing_sync',
+        arguments: { 'account_id' => 42 },
+        state: :submission,
+        created_at: base_time,
+        expires_at: base_time + 1
+      ),
+      now: base_time
+    )
+    expiring_clock = [base_time, base_time + 2].each
+    worker = described_class.new(
+      queue_store:,
+      worker_id:,
+      queues: [queue_name],
+      handlers: { 'billing_sync' => ->(account_id:) { handler_calls += 1 if account_id == 42 } },
+      lease_duration: 30,
+      clock: -> { expiring_clock.next }
+    )
+
+    result = worker.work_once
+
+    expect(result.state).to eq(:failed)
+    expect(result.failure_classification).to eq(:expired)
+    expect(handler_calls).to eq(0)
+    expect(stored_job('job-expired-before-start').state).to eq(:failed)
+    expect(stored_job('job-expired-before-start').failure_classification).to eq(:expired)
   end
 
   it 'prefers job retry policy over worker retry policy' do

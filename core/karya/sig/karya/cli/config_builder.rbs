@@ -1,3 +1,8 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   class CLI < Thor
     # Normalizes CLI worker boot options into a supervisor configuration hash.
@@ -18,7 +23,21 @@ module Karya
         queue_store: QueueStore::Base,
         defaults: Karya::cli_defaults,
         helpers: { coerce_optional_positive_integer_option: Karya::cli_optional_integer_coercer, normalize_env_prefix_option: Karya::cli_env_prefix_normalizer, resolve_positive_integer_option: Karya::cli_positive_integer_resolver }
-      ) -> { queue_store: QueueStore::Base, processes: Integer, threads: Integer, worker_id: String, queues: Array[String], handlers: Karya::handler_mapping, lease_duration: Numeric, poll_interval: Numeric, max_iterations: Integer?, stop_when_idle: bool, signal_subscriber: Method }
+      ) -> {
+        queue_store: QueueStore::Base,
+        processes: Integer,
+        threads: Integer,
+        state_file: String?,
+        worker_id: String,
+        queues: Array[String],
+        handlers: Karya::handler_mapping,
+        lease_duration: Numeric,
+        default_execution_timeout: Numeric?,
+        poll_interval: Numeric,
+        max_iterations: Integer?,
+        stop_when_idle: bool,
+        signal_subscriber: Method
+      }
 
       def initialize: (
         options: Karya::cli_options,
@@ -32,10 +51,12 @@ module Karya
         queue_store: QueueStore::Base,
         processes: Integer,
         threads: Integer,
+        state_file: String?,
         worker_id: String,
         queues: Array[String],
         handlers: Karya::handler_mapping,
         lease_duration: Numeric,
+        default_execution_timeout: Numeric?,
         poll_interval: Numeric,
         max_iterations: Integer?,
         stop_when_idle: bool,
@@ -53,6 +74,8 @@ module Karya
       attr_reader queue_store: QueueStore::Base
 
       attr_reader queues: Array[String]
+
+      def resolved_process_settings: (String? env_prefix) -> { processes: Integer, threads: Integer }
     end
   end
 end
