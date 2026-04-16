@@ -16,9 +16,16 @@ const baseDir = join(__dirname, "..");
 const distIndex = join(baseDir, "dist", "index.html");
 const viteManifestPath = join(baseDir, "dist", ".vite", "manifest.json");
 const dashboardManifestPath = join(baseDir, "dist", "asset-manifest.json");
+const dashboardMountId = "karya-dashboard-root";
 
 await access(distIndex);
 await access(viteManifestPath);
+
+const distIndexHtml = await readFile(distIndex, "utf8");
+
+if (!distIndexHtml.includes(`id="${dashboardMountId}"`)) {
+  throw new Error(`Missing dashboard mount element #${dashboardMountId}`);
+}
 
 const viteManifest = JSON.parse(await readFile(viteManifestPath, "utf8"));
 const dashboardEntry = viteManifest["index.html"];
@@ -65,7 +72,7 @@ const dashboardManifest = {
       html: "/index.html",
       scripts: dashboardAssets.scripts.map((assetPath) => `/${assetPath}`),
       styles: dashboardAssets.styles.map((assetPath) => `/${assetPath}`),
-      mount_id: "karya-dashboard-root",
+      mount_id: dashboardMountId,
     },
   },
 };

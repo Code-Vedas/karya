@@ -12,10 +12,11 @@ import { createRoot } from "react-dom/client";
 
 import App from "./app/App";
 
-const rootElement = document.getElementById("root");
+const dashboardMountId = "karya-dashboard-root";
+const rootElement = document.getElementById(dashboardMountId);
 
 if (rootElement === null) {
-  throw new Error("Dashboard root element #root was not found.");
+  throw new Error(`Dashboard root element #${dashboardMountId} was not found.`);
 }
 
 createRoot(rootElement).render(
