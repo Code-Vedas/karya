@@ -215,10 +215,13 @@ module Karya
       end
 
       def normalize_identifier(name, value, error_class:)
-        normalized_value = Primitives::Identifier.new(name, value, error_class:).normalize
-        raise error_class, "#{name} must be a String" unless value.is_a?(String)
-
-        normalized_value
+        if value.instance_of?(String)
+          Primitives::Identifier.new(name, value, error_class:).normalize
+        elsif value.instance_of?(NilClass)
+          raise error_class, "#{name} must be present"
+        else
+          raise error_class, "#{name} must be a String"
+        end
       end
 
       def normalize_time(name, value, error_class:)
