@@ -13,8 +13,8 @@
     "firefox:e2e": "yarn prepackage-build && yarn exec -- playwright test --project=firefox"
   },
   "dependencies": {
-    "react-dom": "^19.2.5",
-    "react": "^19.2.5"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -28,7 +28,7 @@
     "eslint": "^10.2.0",
     "eslint-plugin-simple-import-sort": "^13.0.0",
     "globals": "^17.5.0",
-    "postcss": "^8.5.9",
+    "postcss": "^8.5.10",
     "sass": "^1.99.0",
     "semver": "^7.7.4",
     "stylelint": "^17.8.0",
