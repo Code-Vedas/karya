@@ -9,7 +9,7 @@ module Karya
   module QueueStore
     # Immutable result for one in-flight recovery pass.
     class RecoveryReport
-      attr_reader :expired_jobs, :recovered_at, :recovered_reserved_jobs, :recovered_running_jobs
+      attr_reader :expired_jobs, :jobs, :recovered_at, :recovered_jobs, :recovered_reserved_jobs, :recovered_running_jobs
 
       # Validates and freezes one recovery report job group.
       class JobGroup
@@ -40,18 +40,11 @@ module Karya
         @expired_jobs = JobGroup.new(:expired_jobs, expired_jobs).to_a
         @recovered_reserved_jobs = JobGroup.new(:recovered_reserved_jobs, recovered_reserved_jobs).to_a
         @recovered_running_jobs = JobGroup.new(:recovered_running_jobs, recovered_running_jobs).to_a
+        @jobs = (@expired_jobs + @recovered_reserved_jobs + @recovered_running_jobs).freeze
+        @recovered_jobs = (@recovered_reserved_jobs + @recovered_running_jobs).freeze
 
         freeze
       end
-
-      def jobs
-        expired_jobs + recovered_reserved_jobs + recovered_running_jobs
-      end
-
-      def recovered_jobs
-        recovered_reserved_jobs + recovered_running_jobs
-      end
-
       private_constant :JobGroup
     end
   end

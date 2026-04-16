@@ -11,6 +11,8 @@ module Karya
       @expired_jobs: Array[Job]
       @recovered_reserved_jobs: Array[Job]
       @recovered_running_jobs: Array[Job]
+      @jobs: Array[Job]
+      @recovered_jobs: Array[Job]
 
       attr_reader recovered_at: Time
       attr_reader expired_jobs: Array[Job]

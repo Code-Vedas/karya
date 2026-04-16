@@ -84,21 +84,6 @@ module Karya
 
       def normalize_failure_classification: () -> Karya::failure_classification?
 
-      # Backward-compatible owner-local wrapper around the shared identifier primitive.
-      class IdentifierNormalizer
-        @name: Symbol
-        @value: Karya::state_name | Integer
-
-        def initialize: (Symbol name, Karya::state_name | Integer value) -> void
-
-        def normalize: () -> String
-
-        private
-
-        attr_reader name: Symbol
-        attr_reader value: Karya::state_name | Integer
-      end
-
       # Normalizes timestamps into frozen copies so jobs cannot mutate caller-owned Time objects.
       class TimestampNormalizer
         @name: Symbol

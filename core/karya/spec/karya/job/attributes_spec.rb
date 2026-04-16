@@ -290,39 +290,6 @@ RSpec.describe 'Karya::Job::Attributes' do
     end
   end
 
-  describe 'IdentifierNormalizer' do
-    let(:identifier_normalizer_class) { Karya::Job.const_get(:Attributes, false).const_get(:IdentifierNormalizer, false) }
-
-    describe '#normalize' do
-      it 'converts to string and strips whitespace' do
-        normalizer = identifier_normalizer_class.new(:id, '  job123  ')
-        expect(normalizer.normalize).to eq('job123')
-      end
-
-      it 'converts symbol to string' do
-        normalizer = identifier_normalizer_class.new(:queue, :billing)
-        expect(normalizer.normalize).to eq('billing')
-      end
-
-      it 'freezes the result' do
-        normalizer = identifier_normalizer_class.new(:handler, 'BillingSync')
-        expect(normalizer.normalize).to be_frozen
-      end
-
-      it 'raises InvalidJobAttributeError for blank value' do
-        expect do
-          identifier_normalizer_class.new(:id, '   ').normalize
-        end.to raise_error(Karya::InvalidJobAttributeError, 'id must be present')
-      end
-
-      it 'raises InvalidJobAttributeError for empty string' do
-        expect do
-          identifier_normalizer_class.new(:queue, '').normalize
-        end.to raise_error(Karya::InvalidJobAttributeError, 'queue must be present')
-      end
-    end
-  end
-
   describe 'TimestampNormalizer' do
     let(:timestamp_normalizer_class) { Karya::Job.const_get(:Attributes, false).const_get(:TimestampNormalizer, false) }
 

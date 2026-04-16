@@ -36,7 +36,14 @@ RSpec.describe Karya::QueueStore::RecoveryReport do
     expect(report.recovered_at).to be_frozen
     expect(report.expired_jobs).to eq([expired_job])
     expect(report.expired_jobs).to be_frozen
+    expect(report.jobs).to be_frozen
+    expect(report.recovered_jobs).to be_frozen
     expect(report.jobs).to eq([expired_job, reserved_job, running_job])
+    expect(report.recovered_jobs).to eq([reserved_job, running_job])
+    combined_jobs = report.jobs
+    combined_recovered_jobs = report.recovered_jobs
+    expect(report.jobs.object_id).to eq(combined_jobs.object_id)
+    expect(report.recovered_jobs.object_id).to eq(combined_recovered_jobs.object_id)
   end
 
   it 'rejects invalid recovered_at values' do

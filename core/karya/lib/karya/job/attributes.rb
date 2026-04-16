@@ -127,22 +127,6 @@ module Karya
         end
       end
 
-      # Backward-compatible owner-local wrapper around the shared identifier primitive.
-      class IdentifierNormalizer
-        def initialize(name, value)
-          @name = name
-          @value = value
-        end
-
-        def normalize
-          Primitives::Identifier.new(name, value, error_class: InvalidJobAttributeError).normalize
-        end
-
-        private
-
-        attr_reader :name, :value
-      end
-
       # Normalizes timestamps into frozen copies so jobs cannot mutate caller-owned Time objects.
       class TimestampNormalizer
         def initialize(name, value)
@@ -161,7 +145,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      private_constant :IdentifierNormalizer, :TimestampNormalizer
+      private_constant :TimestampNormalizer
     end
   end
 end
