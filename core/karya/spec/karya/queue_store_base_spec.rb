@@ -56,6 +56,18 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #fail_execution/)
   end
 
+  it 'requires recover_orphaned_jobs to be implemented' do
+    expect do
+      store.recover_orphaned_jobs(worker_id: 'worker-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #recover_orphaned_jobs/)
+  end
+
+  it 'requires recover_in_flight to be implemented' do
+    expect do
+      store.recover_in_flight(now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #recover_in_flight/)
+  end
+
   it 'requires expire_reservations to be implemented' do
     expect do
       store.expire_reservations(now: Time.utc(2026, 3, 27, 12, 0, 0))

@@ -104,6 +104,49 @@ Use multiple processes or threads only with a queue store backed by shared
 process-safe storage and thread-safe handlers. `Karya::QueueStore::InMemory` is
 suitable for local examples and bootstrapping only.
 
+## Queue Durability And Recovery
+
+Queue stores acknowledge `enqueue` only after the canonical queued job state is
+stored. A durable backend must persist the job identity, queue, handler,
+arguments, scheduling fields, lifecycle fields, attempts, retry state,
+expiration, active reservation or execution lease token, worker id, lease
+timestamps, and expired-token tombstones needed for safe restart or takeover.
+
+Successful queue-store method returns are acknowledgment boundaries. `enqueue`
+is successful only after the job is durably visible for later reservation and
+recovery. SQL backends should return after transaction commit; acknowledged
+write stores should return after the write acknowledgment that makes the state
+visible to later commands. Validation errors, duplicate enqueue attempts, and
+failed lease operations must not leave partial state behind.
+
+Reservation and execution transitions are acknowledgment boundaries. `reserve`
+returns only after the reservation lease is durable. `start_execution` returns
+only after the running state and attempt increment are durable. Completion or
+failure returns only after the active execution lease is removed and the final
+or retry state is durable.
+
+Recovery invariants are persisted-state invariants. Job identity, routing,
+arguments, scheduling fields, lifecycle state, attempt count, timestamps, retry
+state, failure classification, expiration, active lease state, and required
+tombstones must survive interruption. Recovery must not depend on worker
+objects, process-local queues, or thread state.
+
+`recover_in_flight(now:)` is the backend-facing recovery pass. It expires
+already-expired queued or retry-pending jobs, requeues expired reserved and
+running leases, tombstones recovered lease tokens, and returns a
+`Karya::QueueStore::RecoveryReport` with separate expired, recovered reserved,
+and recovered running job lists. `recover_orphaned_jobs(worker_id:, now:)` is
+the startup/takeover hook used by workers to recover expired leases owned by
+that worker id. Backends that persist worker liveness may also classify leases
+from dead workers as orphaned; otherwise orphan recovery is lease-expiry based.
+`expire_reservations(now:)` remains as the compatibility array-returning form of
+the same recovery behavior.
+
+`Karya::QueueStore::InMemory` implements these semantics for the current
+process and is useful as the reference contract. It is intentionally ephemeral:
+jobs, reservations, executions, queue indexes, and tombstones are lost when the
+process exits. Shared durable storage is backend work.
+
 `Karya.configure_logger` and `Karya.configure_instrumenter` set process-wide
 defaults. When multiple runtimes share the same process, pass explicit
 `logger:` and `instrumenter:` collaborators to keep runtime boundaries isolated.

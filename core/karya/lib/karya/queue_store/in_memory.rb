@@ -10,6 +10,8 @@ require 'bigdecimal'
 
 require_relative 'base'
 require_relative '../internal/failure_classification'
+require_relative '../internal/retry_policy_normalizer'
+require_relative 'recovery_report'
 require_relative 'in_memory/backpressure_support'
 require_relative 'in_memory/expiration_support'
 require_relative 'in_memory/execution_support'
@@ -32,6 +34,14 @@ require_relative '../backpressure'
 module Karya
   module QueueStore
     # Single-process reference implementation for queue submission and reservation behavior.
+    #
+    # InMemory is intentionally ephemeral and suitable for development, tests,
+    # examples, and as the executable reference for `QueueStore::Base`
+    # semantics. It is not a durable backend: jobs, queue indexes, reservations,
+    # active executions, retry state, and expired-token tombstones live only in
+    # process memory and are lost on restart. Production deployments that need
+    # durable enqueue acknowledgment or restart/takeover recovery must use a
+    # shared persistent backend implementing the Base durability contract.
     class InMemory
       include Base
       include BackpressureSupport
@@ -133,12 +143,27 @@ module Karya
         finalize_execution(reservation_token:, now:, next_state: :failed, retry_policy:, failure_classification:)
       end
 
-      def expire_reservations(now:)
+      def recover_orphaned_jobs(worker_id:, now:)
+        normalized_worker_id = normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
         @mutex.synchronize do
-          expire_reservations_locked(normalized_now)
+          recover_in_flight_locked(
+            normalized_now,
+            worker_id: normalized_worker_id,
+            include_global_maintenance: false
+          ).recovered_jobs
         end
+      end
+
+      def recover_in_flight(now:)
+        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
+
+        @mutex.synchronize { recover_in_flight_locked(normalized_now) }
+      end
+
+      def expire_reservations(now:)
+        recover_in_flight(now:).jobs
       end
 
       def expire_jobs(now:)
@@ -161,15 +186,27 @@ module Karya
       end
 
       def expire_reservations_locked(now)
-        expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now)
-        expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
-        expired_jobs = expire_jobs_locked(now)
-        promote_due_retry_pending_jobs(now)
+        recover_in_flight_locked(now).jobs
+      end
 
-        expired_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
-        expired_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
-        prune_stale_rate_limit_admissions(now)
-        expired_jobs + expired_reserved_jobs + expired_running_jobs
+      def recover_in_flight_locked(now, worker_id: nil, include_global_maintenance: true)
+        expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now, worker_id:)
+        expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now, worker_id:)
+        expired_jobs = []
+        if include_global_maintenance
+          expired_jobs = expire_jobs_locked(now)
+          promote_due_retry_pending_jobs(now)
+        end
+
+        recovered_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
+        recovered_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
+        prune_stale_rate_limit_admissions(now) if include_global_maintenance
+        RecoveryReport.new(
+          recovered_at: now,
+          expired_jobs:,
+          recovered_reserved_jobs:,
+          recovered_running_jobs:
+        )
       end
 
       def perform_reserve_maintenance(now)
@@ -178,10 +215,15 @@ module Karya
       end
 
       def normalize_identifier(name, value, error_class:)
-        normalized_value = value.to_s.strip
-        raise error_class, "#{name} must be present" if normalized_value.empty?
+        value_class = value.class
 
-        normalized_value
+        if value_class <= String
+          Primitives::Identifier.new(name, value, error_class:).normalize
+        elsif value_class <= NilClass
+          raise error_class, "#{name} must be present"
+        else
+          raise error_class, "#{name} must be a String"
+        end
       end
 
       def normalize_time(name, value, error_class:)

@@ -76,6 +76,15 @@ RSpec.describe Karya::QueueStore::InMemory do
         described_class.new(policy_set: Object.new)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /policy_set must be a Karya::Backpressure::PolicySet/)
     end
+
+    it 'rejects non-string generated reservation tokens' do
+      token_store = described_class.new(token_generator: -> { 123 })
+      token_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+
+      expect do
+        token_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /token must be a String/)
+    end
   end
 
   describe 'internal state helpers' do

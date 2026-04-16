@@ -15,7 +15,7 @@ module Karya
         def finalize_execution(reservation_token:, now:, next_state:, retry_policy: nil, failure_classification: nil)
           normalized_token = normalize_identifier(:reservation_token, reservation_token, error_class: InvalidQueueStoreOperationError)
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
-          normalized_retry_policy = normalize_retry_policy(retry_policy)
+          normalized_retry_policy = Internal::RetryPolicyNormalizer.new(retry_policy, error_class: InvalidQueueStoreOperationError).normalize
           normalized_failure_classification = nil
           if next_state == :failed
             normalized_failure_classification = Internal::FailureClassification.normalize(
@@ -84,10 +84,10 @@ module Karya
           reservation
         end
 
-        def collect_expired_leases(leases_by_token, tokens_in_order, now)
+        def collect_expired_leases(leases_by_token, tokens_in_order, now, worker_id: nil)
           tokens_in_order.filter_map do |token|
             reservation = leases_by_token.fetch(token)
-            reservation if reservation.expired?(now)
+            reservation if reservation.expired?(now) && (!worker_id || reservation.worker_id == worker_id)
           end
         end
       end

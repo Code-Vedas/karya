@@ -1,0 +1,33 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    # Immutable result for one in-flight recovery pass.
+    class RecoveryReport
+      @recovered_at: Time
+      @expired_jobs: Array[Job]
+      @recovered_reserved_jobs: Array[Job]
+      @recovered_running_jobs: Array[Job]
+      @jobs: Array[Job]
+      @recovered_jobs: Array[Job]
+
+      attr_reader recovered_at: Time
+      attr_reader expired_jobs: Array[Job]
+      attr_reader recovered_reserved_jobs: Array[Job]
+      attr_reader recovered_running_jobs: Array[Job]
+
+      def initialize: (
+        recovered_at: Time,
+        expired_jobs: Array[Job],
+        recovered_reserved_jobs: Array[Job],
+        recovered_running_jobs: Array[Job]
+      ) -> void
+
+      def jobs: () -> Array[Job]
+      def recovered_jobs: () -> Array[Job]
+    end
+  end
+end

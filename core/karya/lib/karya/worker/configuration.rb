@@ -28,19 +28,11 @@ module Karya
         @queues = @subscription.queues
         @lease_duration = Primitives::PositiveFiniteNumber.new(:lease_duration, lease_duration, error_class: InvalidWorkerConfigurationError).normalize
         @lifecycle = Primitives::Lifecycle.new(:lifecycle, lifecycle, error_class: InvalidWorkerConfigurationError).normalize
-        @retry_policy = normalize_retry_policy(retry_policy)
+        @retry_policy = Internal::RetryPolicyNormalizer.new(retry_policy, error_class: InvalidWorkerConfigurationError).normalize
         @default_execution_timeout = normalize_default_execution_timeout(default_execution_timeout)
       end
 
       private
-
-      def normalize_retry_policy(value)
-        value&.then do |retry_policy|
-          return retry_policy if retry_policy.is_a?(RetryPolicy)
-
-          raise InvalidWorkerConfigurationError, 'retry_policy must be a Karya::RetryPolicy'
-        end
-      end
 
       def normalize_default_execution_timeout(value)
         value&.then do

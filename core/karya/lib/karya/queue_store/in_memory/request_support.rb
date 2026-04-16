@@ -43,6 +43,11 @@ module Karya
           reserve_queues = queue && queues ? nil : queue || queues
           raise InvalidQueueStoreOperationError, RESERVE_QUEUES_ERROR_MESSAGE unless reserve_queues
 
+          queue_type_error_message = queue ? 'queue must be a String' : 'queues entries must be Strings'
+          Array(reserve_queues).each do |value|
+            raise InvalidQueueStoreOperationError, queue_type_error_message unless value.is_a?(String)
+          end
+
           Primitives::QueueList.new(reserve_queues, error_class: InvalidQueueStoreOperationError).normalize
         end
 

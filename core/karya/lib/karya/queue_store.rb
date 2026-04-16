@@ -30,5 +30,6 @@ module Karya
   module QueueStore
     autoload :Base, 'karya/queue_store/base'
     autoload :InMemory, 'karya/queue_store/in_memory'
+    autoload :RecoveryReport, 'karya/queue_store/recovery_report'
   end
 end

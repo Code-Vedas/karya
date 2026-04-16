@@ -168,7 +168,20 @@ RSpec.describe 'Karya::Job::Attributes' do
           handler: 'BillingSync',
           state: 'queued',
           created_at: created_at,
-          retry_policy: Object.new
+          retry_policy: 'not-a-policy'
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy')
+    end
+
+    it 'raises InvalidJobAttributeError for false retry_policy' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          retry_policy: false
         ).to_h
       end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy')
     end
@@ -290,39 +303,6 @@ RSpec.describe 'Karya::Job::Attributes' do
     end
   end
 
-  describe 'IdentifierNormalizer' do
-    let(:identifier_normalizer_class) { Karya::Job.const_get(:Attributes, false).const_get(:IdentifierNormalizer, false) }
-
-    describe '#normalize' do
-      it 'converts to string and strips whitespace' do
-        normalizer = identifier_normalizer_class.new(:id, '  job123  ')
-        expect(normalizer.normalize).to eq('job123')
-      end
-
-      it 'converts symbol to string' do
-        normalizer = identifier_normalizer_class.new(:queue, :billing)
-        expect(normalizer.normalize).to eq('billing')
-      end
-
-      it 'freezes the result' do
-        normalizer = identifier_normalizer_class.new(:handler, 'BillingSync')
-        expect(normalizer.normalize).to be_frozen
-      end
-
-      it 'raises InvalidJobAttributeError for blank value' do
-        expect do
-          identifier_normalizer_class.new(:id, '   ').normalize
-        end.to raise_error(Karya::InvalidJobAttributeError, 'id must be present')
-      end
-
-      it 'raises InvalidJobAttributeError for empty string' do
-        expect do
-          identifier_normalizer_class.new(:queue, '').normalize
-        end.to raise_error(Karya::InvalidJobAttributeError, 'queue must be present')
-      end
-    end
-  end
-
   describe 'TimestampNormalizer' do
     let(:timestamp_normalizer_class) { Karya::Job.const_get(:Attributes, false).const_get(:TimestampNormalizer, false) }
 
@@ -348,6 +328,44 @@ RSpec.describe 'Karya::Job::Attributes' do
           timestamp_normalizer_class.new(:updated_at, 1_234_567_890).normalize
         end.to raise_error(Karya::InvalidJobAttributeError, 'updated_at must be a Time')
       end
+    end
+  end
+
+  describe 'expiration copy' do
+    it 'builds a failed expired copy without changing durable identity and scheduling fields' do
+      job = Karya::Job.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        arguments: { 'account_id' => 42 },
+        state: 'retry_pending',
+        attempt: 2,
+        priority: 10,
+        retry_policy: retry_policy,
+        execution_timeout: 15,
+        expires_at: expires_at,
+        created_at: created_at,
+        updated_at: updated_at,
+        next_retry_at: next_retry_at,
+        failure_classification: :timeout
+      )
+
+      expired_job = job.expire(updated_at: updated_at + 60)
+
+      expect(expired_job.id).to eq('job123')
+      expect(expired_job.queue).to eq('billing')
+      expect(expired_job.handler).to eq('BillingSync')
+      expect(expired_job.arguments).to eq('account_id' => 42)
+      expect(expired_job.priority).to eq(10)
+      expect(expired_job.retry_policy).to eq(retry_policy)
+      expect(expired_job.execution_timeout).to eq(15)
+      expect(expired_job.expires_at).to eq(expires_at)
+      expect(expired_job.state).to eq(:failed)
+      expect(expired_job.attempt).to eq(2)
+      expect(expired_job.created_at).to eq(created_at)
+      expect(expired_job.updated_at).to eq(updated_at + 60)
+      expect(expired_job.next_retry_at).to be_nil
+      expect(expired_job.failure_classification).to eq(:expired)
     end
   end
 end

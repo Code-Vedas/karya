@@ -12,6 +12,7 @@ RSpec.describe Karya::QueueStore::InMemory do
   let(:token_generator) { -> { token_sequence.next } }
   let(:created_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
   let(:policy_set) { Karya::Backpressure::PolicySet.new }
+  let(:tagged_string_class) { Class.new(String) }
 
   def submission_job(id:, queue:, created_at:, handler: 'billing_sync', priority: 0, concurrency_key: nil, rate_limit_key: nil)
     Karya::Job.new(
@@ -127,6 +128,20 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(reservation.job_id).to eq('email-1')
+    end
+
+    it 'accepts String subclasses for queue and worker_id' do
+      store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:), now: created_at + 1)
+
+      reservation = store.reserve(
+        queue: tagged_string_class.new('billing'),
+        worker_id: tagged_string_class.new('worker-1'),
+        lease_duration: 30,
+        now: created_at + 2
+      )
+
+      expect(reservation.job_id).to eq('billing-1')
+      expect(reservation.worker_id).to eq('worker-1')
     end
 
     it 'skips unsupported handlers in same queue without mutating queued jobs' do
@@ -589,6 +604,20 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /worker_id must be present/)
     end
 
+    it 'rejects non-string identifiers for reserve input' do
+      expect do
+        store.reserve(queue: 123, worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /queue must be a String/)
+
+      expect do
+        store.reserve(queue: 'billing', worker_id: 123, lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /worker_id must be a String/)
+
+      expect do
+        store.reserve(queues: [123], worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /queues entries must be Strings/)
+    end
+
     it 'rejects invalid timestamps for reserve input' do
       expect do
         store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: '2026-03-27T12:00:02Z')
@@ -605,6 +634,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.reserve(queues: ['billing'], handler_names: 'billing_sync', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /handler_names must be an Array/)
+    end
+
+    it 'rejects non-string handler names for subscription-aware reserve input' do
+      expect do
+        store.reserve(queues: ['billing'], handler_names: [123], worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /handler_names entries must be Strings/)
     end
 
     it 'rejects reserve input that provides both queue and queues' do

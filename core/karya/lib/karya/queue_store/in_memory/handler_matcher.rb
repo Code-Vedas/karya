@@ -33,6 +33,8 @@ module Karya
 
         def normalize_present_handler_names(handler_names)
           normalized_names = handler_names.map do |name|
+            raise InvalidQueueStoreOperationError, 'handler_names entries must be Strings' unless name.is_a?(String)
+
             Primitives::Identifier.new(:handler, name, error_class: InvalidQueueStoreOperationError).normalize
           end
           raise InvalidQueueStoreOperationError, 'handler_names must be present' if normalized_names.empty?

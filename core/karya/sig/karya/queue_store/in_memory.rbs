@@ -27,26 +27,30 @@ module Karya
       def enqueue: (job: Job, now: Time) -> Job
 
       def reserve: (
-        worker_id: Karya::state_name | Integer,
+        worker_id: String,
         lease_duration: Karya::lease_duration_value,
         now: Time,
-        ?queue: Karya::state_name?,
-        ?queues: Array[Karya::state_name]?,
-        ?handler_names: Array[Karya::state_name]?
+        ?queue: String?,
+        ?queues: Array[String]?,
+        ?handler_names: Array[String]?
       ) -> Reservation?
 
-      def release: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
+      def release: (reservation_token: String, now: Time) -> Job
 
-      def start_execution: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
+      def start_execution: (reservation_token: String, now: Time) -> Job
 
-      def complete_execution: (reservation_token: Karya::state_name | Integer, now: Time) -> Job
+      def complete_execution: (reservation_token: String, now: Time) -> Job
 
       def fail_execution: (
-        reservation_token: Karya::state_name | Integer,
+        reservation_token: String,
         now: Time,
         failure_classification: failure_classification_input,
         ?retry_policy: RetryPolicy?
       ) -> Job
+
+      def recover_orphaned_jobs: (worker_id: String, now: Time) -> Array[Job]
+
+      def recover_in_flight: (now: Time) -> RecoveryReport
 
       def expire_reservations: (now: Time) -> Array[Job]
 
@@ -179,9 +183,11 @@ module Karya
 
       def expire_reservations_locked: (Time now) -> Array[Job]
 
+      def recover_in_flight_locked: (Time now, ?worker_id: String?, ?include_global_maintenance: bool) -> RecoveryReport
+
       def perform_reserve_maintenance: (Time now) -> ReserveScanState
 
-      def normalize_identifier: (Symbol name, Karya::state_name | Integer value, error_class: Karya::error_class) -> String
+      def normalize_identifier: (Symbol name, String value, error_class: Karya::error_class) -> String
 
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
 
@@ -219,7 +225,7 @@ module Karya
         private
 
         def finalize_execution: (
-          reservation_token: Karya::state_name | Integer,
+          reservation_token: String,
           now: Time,
           next_state: :succeeded | :failed,
           ?retry_policy: RetryPolicy?,
@@ -236,7 +242,7 @@ module Karya
 
         def fetch_active_reservation: (String reservation_token, Time now) -> Reservation
 
-        def collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now) -> Array[Reservation]
+        def collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now, ?worker_id: String?) -> Array[Reservation]
       end
 
       module ExpirationSupport
@@ -253,8 +259,6 @@ module Karya
         def expire_queued_job?: (String job_id, Time now, Array[Job] expired_jobs) -> bool
 
         def job_expired?: (Job job, Time now) -> bool
-
-        def expired_job: (Job job, Time now) -> Job
 
         def build_expired_job: (Job job, Time now) -> Job
       end
@@ -278,15 +282,15 @@ module Karya
 
         def ensure_unique_reservation_token: (String reservation_token) -> nil
 
-        def normalize_reserve_queues: (queue: Karya::state_name?, queues: Array[Karya::state_name]?) -> Array[String]
+        def normalize_reserve_queues: (queue: String?, queues: Array[String]?) -> Array[String]
 
         def normalize_reserve_request: (
-          worker_id: Karya::state_name | Integer,
+          worker_id: String,
           lease_duration: Karya::lease_duration_value,
           now: Time,
-          ?queue: Karya::state_name?,
-          ?queues: Array[Karya::state_name]?,
-          ?handler_names: Array[Karya::state_name]?
+          ?queue: String?,
+          ?queues: Array[String]?,
+          ?handler_names: Array[String]?
         ) -> {
           handler_matcher: HandlerMatcher,
           lease_duration: Karya::lease_duration_value,
@@ -299,11 +303,10 @@ module Karya
       module RetrySupport
         private
 
-        def promote_due_retry_pending_jobs: (Time now) -> Array[String]
+        def promote_due_retry_pending_jobs: (Time now) -> void
 
         def retry_pending_job: (Job running_job, Time now, RetryPolicy retry_policy, failure_classification) -> Job
 
-        def normalize_retry_policy: (RetryPolicy? value) -> RetryPolicy?
       end
 
       # Rebuilds a running job as queued when execution lease recovery is required.

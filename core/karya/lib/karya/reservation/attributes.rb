@@ -7,6 +7,7 @@
 
 require_relative 'identifier_normalizer'
 require_relative 'timestamp_normalizer'
+require_relative '../primitives/identifier'
 
 module Karya
   class Reservation

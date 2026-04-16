@@ -101,6 +101,8 @@ module Karya
 
     def current_time: () -> Time
 
+    def recover_orphaned_jobs: () -> Array[Job]
+
     def with_shutdown_handlers: (ShutdownController shutdown_controller) { () -> Job? } -> Job?
 
     def register_shutdown_restorers: (Array[^() -> nil] restorers, ShutdownController shutdown_controller) -> ::Array[String]

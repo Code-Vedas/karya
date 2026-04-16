@@ -6,6 +6,8 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative '../internal/failure_classification'
+require_relative '../internal/retry_policy_normalizer'
+require_relative '../primitives/identifier'
 require_relative '../primitives/lifecycle'
 require_relative '../primitives/positive_finite_number'
 
@@ -47,9 +49,9 @@ module Karya
 
       def normalized_attributes(created_at:, lifecycle:, attempt:, priority:)
         {
-          id: IdentifierNormalizer.new(:id, required(:id)).normalize,
-          queue: IdentifierNormalizer.new(:queue, required(:queue)).normalize,
-          handler: IdentifierNormalizer.new(:handler, required(:handler)).normalize,
+          id: Primitives::Identifier.new(:id, required(:id), error_class: InvalidJobAttributeError).normalize,
+          queue: Primitives::Identifier.new(:queue, required(:queue), error_class: InvalidJobAttributeError).normalize,
+          handler: Primitives::Identifier.new(:handler, required(:handler), error_class: InvalidJobAttributeError).normalize,
           arguments: ImmutableArguments.new(optional(:arguments, {})).normalize,
           priority:,
           concurrency_key: normalize_optional_identifier(:concurrency_key),
@@ -110,40 +112,19 @@ module Karya
       end
 
       def normalize_optional_identifier(name)
-        OptionalIdentifierNormalizer.new(name, optional(name, nil)).normalize
+        optional(name, nil)&.then do |value|
+          Primitives::Identifier.new(name, value, error_class: InvalidJobAttributeError).normalize
+        end
       end
 
       def normalize_retry_policy
-        optional(:retry_policy, nil)&.then do |retry_policy|
-          return retry_policy if retry_policy.is_a?(RetryPolicy)
-
-          raise InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy'
-        end
+        Internal::RetryPolicyNormalizer.new(optional(:retry_policy, nil), error_class: InvalidJobAttributeError).normalize
       end
 
       def normalize_failure_classification
         optional(:failure_classification, nil)&.then do |value|
           Internal::FailureClassification.normalize(value, error_class: InvalidJobAttributeError)
         end
-      end
-
-      # Normalizes required identifier-like fields into frozen, non-blank strings.
-      class IdentifierNormalizer
-        def initialize(name, value)
-          @name = name
-          @value = value
-        end
-
-        def normalize
-          normalized_value = value.to_s.strip
-          return normalized_value.freeze unless normalized_value.empty?
-
-          raise InvalidJobAttributeError, "#{name} must be present"
-        end
-
-        private
-
-        attr_reader :name, :value
       end
 
       # Normalizes timestamps into frozen copies so jobs cannot mutate caller-owned Time objects.
@@ -164,28 +145,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      # Normalizes optional identifier-like fields into frozen, non-blank strings or nil.
-      class OptionalIdentifierNormalizer
-        def initialize(name, value)
-          @name = name
-          @value = value
-        end
-
-        def normalize
-          value&.then do
-            normalized_value = value.to_s.strip
-            return normalized_value.freeze unless normalized_value.empty?
-
-            raise InvalidJobAttributeError, "#{name} must be present"
-          end
-        end
-
-        private
-
-        attr_reader :name, :value
-      end
-
-      private_constant :IdentifierNormalizer, :OptionalIdentifierNormalizer, :TimestampNormalizer
+      private_constant :TimestampNormalizer
     end
   end
 end

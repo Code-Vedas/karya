@@ -15,10 +15,7 @@ module Karya
       end
 
       def normalize
-        normalized_value = value.to_s.strip
-        return normalized_value.freeze unless normalized_value.empty?
-
-        raise InvalidReservationAttributeError, "#{name} must be present"
+        Primitives::Identifier.new(name, value, error_class: InvalidReservationAttributeError).normalize
       end
 
       private

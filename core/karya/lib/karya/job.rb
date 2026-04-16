@@ -115,6 +115,28 @@ module Karya
       )
     end
 
+    def expire(updated_at:)
+      self.class.new(
+        id:,
+        queue:,
+        handler:,
+        arguments:,
+        priority:,
+        concurrency_key:,
+        rate_limit_key:,
+        retry_policy:,
+        execution_timeout:,
+        expires_at:,
+        lifecycle:,
+        state: :failed,
+        attempt:,
+        created_at:,
+        updated_at:,
+        next_retry_at: nil,
+        failure_classification: :expired
+      )
+    end
+
     def terminal?
       lifecycle.terminal?(state)
     end

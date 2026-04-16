@@ -168,7 +168,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.fail_execution(
           reservation_token: reservation.token,
           now: created_at + 4,
-          retry_policy: Object.new,
+          retry_policy: 'not-a-policy',
           failure_classification: :error
         )
       end.to raise_error(Karya::InvalidQueueStoreOperationError, 'retry_policy must be a Karya::RetryPolicy')

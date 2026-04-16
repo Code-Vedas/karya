@@ -53,8 +53,6 @@ module Karya
 
       private
 
-      def normalize_retry_policy: (RetryPolicy? value) -> RetryPolicy?
-
       def normalize_default_execution_timeout: (Numeric? value) -> Numeric?
     end
   end

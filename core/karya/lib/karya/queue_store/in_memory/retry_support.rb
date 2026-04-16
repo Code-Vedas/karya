@@ -50,14 +50,6 @@ module Karya
           state.register_retry_pending(retry_pending_job.id)
           retry_pending_job
         end
-
-        def normalize_retry_policy(value)
-          value&.then do |retry_policy|
-            return retry_policy if retry_policy.is_a?(RetryPolicy)
-
-            raise InvalidQueueStoreOperationError, 'retry_policy must be a Karya::RetryPolicy'
-          end
-        end
       end
     end
   end

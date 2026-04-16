@@ -9,6 +9,7 @@ require 'timeout'
 require 'monitor'
 require_relative 'base'
 require_relative 'job_lifecycle'
+require_relative 'internal/retry_policy_normalizer'
 require_relative 'internal/runtime_support/iteration_limit'
 require_relative 'internal/runtime_support/signal_restorer'
 require_relative 'primitives/lifecycle'
@@ -122,10 +123,14 @@ module Karya
       )
       shutdown_controller ||= ShutdownController.new
       run_loop = RunSession.new(worker: self, iteration_limit:, normalized_poll_interval:, shutdown_controller:, stop_when_idle:).method(:call)
+      run_session = lambda do
+        recover_orphaned_jobs
+        run_loop.call
+      end
 
-      return run_loop.call unless shutdown_controller.is_a?(ShutdownController)
+      return run_session.call unless shutdown_controller.is_a?(ShutdownController)
 
-      with_shutdown_handlers(shutdown_controller, &run_loop)
+      with_shutdown_handlers(shutdown_controller, &run_session)
     end
 
     private
@@ -173,6 +178,12 @@ module Karya
 
     def current_time
       runtime.current_time
+    end
+
+    def recover_orphaned_jobs
+      jobs = queue_store.recover_orphaned_jobs(worker_id:, now: current_time)
+      instrument('worker.recovery.orphaned_jobs', recovered_jobs: jobs.length)
+      jobs
     end
 
     def with_shutdown_handlers(shutdown_controller)
