@@ -14,6 +14,7 @@ module Karya
                     :execution_tokens_in_order,
                     :expired_reservation_tokens,
                     :expired_reservation_tokens_in_order,
+                    :idempotency_job_id_by_key,
                     :jobs_by_id,
                     :rate_limit_admissions_by_key,
                     :queued_job_ids_by_queue,
@@ -28,6 +29,7 @@ module Karya
           @expired_reservation_tokens = {}
           @expired_reservation_tokens_in_order = []
           @expired_tombstone_limit = expired_tombstone_limit
+          @idempotency_job_id_by_key = {}
           @jobs_by_id = {}
           @rate_limit_admissions_by_key = {}
           @queued_job_ids_by_queue = {}
@@ -111,6 +113,10 @@ module Karya
 
         def delete_uniqueness_job(uniqueness_key, job_id)
           uniqueness_job_id_by_key.delete(uniqueness_key) if uniqueness_job_id_by_key[uniqueness_key] == job_id
+        end
+
+        def register_idempotency_job(idempotency_key, job_id)
+          idempotency_job_id_by_key[idempotency_key] = job_id
         end
 
         private

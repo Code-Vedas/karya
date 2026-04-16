@@ -47,6 +47,24 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
     end
 
+    it 'allows a duplicate once a queued-scope job becomes reserved' do
+      store.enqueue(job: submission_job(id: 'job-1', uniqueness_scope: :queued, created_at:), now: created_at + 1)
+      store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect do
+        store.enqueue(job: submission_job(id: 'job-2', uniqueness_scope: :queued, created_at: created_at + 2), now: created_at + 3)
+      end.not_to raise_error
+    end
+
+    it 'keeps blocking a duplicate once an active-scope job becomes reserved' do
+      store.enqueue(job: submission_job(id: 'job-1', uniqueness_scope: :active, created_at:), now: created_at + 1)
+      store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect do
+        store.enqueue(job: submission_job(id: 'job-2', uniqueness_scope: :active, created_at: created_at + 2), now: created_at + 3)
+      end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
+    end
+
     it 'blocks a duplicate while the original is retry_pending for queued scope' do
       store.enqueue(job: submission_job(id: 'job-1', uniqueness_scope: :queued, created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
@@ -218,6 +236,58 @@ RSpec.describe Karya::QueueStore::InMemory do
           now: created_at + 2
         )
       end.not_to raise_error
+    end
+
+    it 'rejects duplicate idempotency keys even after the original succeeds' do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-1',
+          queue: 'billing',
+          handler: 'billing_sync',
+          idempotency_key: 'submit-123',
+          state: :submission,
+          created_at:
+        ),
+        now: created_at + 1
+      )
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.complete_execution(reservation_token: reservation.token, now: created_at + 4)
+
+      expect do
+        store.enqueue(
+          job: Karya::Job.new(
+            id: 'job-2',
+            queue: 'billing',
+            handler: 'billing_sync',
+            idempotency_key: 'submit-123',
+            state: :submission,
+            created_at: created_at + 4
+          ),
+          now: created_at + 5
+        )
+      end.to raise_error(Karya::DuplicateIdempotencyKeyError, /submit-123/)
+    end
+
+    it 'drops stale idempotency mappings before enqueueing a replacement job' do
+      store_state = store.instance_variable_get(:@state)
+      store_state.idempotency_job_id_by_key['submit-123'] = 'missing-job'
+
+      expect do
+        store.enqueue(
+          job: Karya::Job.new(
+            id: 'job-2',
+            queue: 'billing',
+            handler: 'billing_sync',
+            idempotency_key: 'submit-123',
+            state: :submission,
+            created_at:
+          ),
+          now: created_at + 1
+        )
+      end.not_to raise_error
+
+      expect(store_state.idempotency_job_id_by_key).to eq('submit-123' => 'job-2')
     end
   end
 end

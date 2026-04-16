@@ -48,26 +48,14 @@ module Karya
             )
             persist_finalized_execution(
               finalized_job:,
-              normalized_token:,
-              job_id: finalized_job.id,
-              uniqueness_key: finalized_job.uniqueness_key,
-              uniqueness_scope: finalized_job.uniqueness_scope,
-              state_name: finalized_job.state,
-              terminal: finalized_job.terminal?
+              normalized_token:
             )
             finalized_job
           end
         end
 
-        def persist_finalized_execution(finalized_job:, normalized_token:, job_id:, uniqueness_key:, uniqueness_scope:, state_name:, terminal:)
-          store_job(
-            job: finalized_job,
-            job_id:,
-            uniqueness_key:,
-            uniqueness_scope:,
-            state_name:,
-            terminal:
-          )
+        def persist_finalized_execution(finalized_job:, normalized_token:)
+          store_job(job: finalized_job)
           state.executions_by_token.delete(normalized_token)
           state.delete_execution_token(normalized_token)
         end

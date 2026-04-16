@@ -242,6 +242,23 @@ RSpec.describe 'Karya::Job::Attributes' do
       )
     end
 
+    it 'raises InvalidJobAttributeError for false uniqueness_scope' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: false
+        ).to_h
+      end.to raise_error(
+        Karya::InvalidJobAttributeError,
+        'uniqueness_scope must be one of :queued, :active, or :until_terminal'
+      )
+    end
+
     it 'raises InvalidJobAttributeError when uniqueness_scope is set without uniqueness_key' do
       expect do
         attributes_class.new(

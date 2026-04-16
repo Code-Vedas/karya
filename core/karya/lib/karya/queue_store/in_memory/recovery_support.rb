@@ -22,14 +22,7 @@ module Karya
           queued_job = reserved_job.transition_to(:queued, updated_at: now, failure_classification: nil)
           queued_job_id = queued_job.id
           queued_job_queue = queued_job.queue
-          store_job(
-            job: queued_job,
-            job_id: queued_job_id,
-            uniqueness_key: reserved_job.uniqueness_key,
-            uniqueness_scope: reserved_job.uniqueness_scope,
-            state_name: :queued,
-            terminal: false
-          )
+          store_job(job: queued_job)
           state.queue_job_ids_for(queued_job_queue) << queued_job_id
           queued_job
         end
@@ -50,14 +43,7 @@ module Karya
           queued_job = ExecutionRecovery.new(running_job, now).to_queued_job
           queued_job_id = queued_job.id
           queued_job_queue = queued_job.queue
-          store_job(
-            job: queued_job,
-            job_id: queued_job_id,
-            uniqueness_key: running_job.uniqueness_key,
-            uniqueness_scope: running_job.uniqueness_scope,
-            state_name: :queued,
-            terminal: false
-          )
+          store_job(job: queued_job)
           state.queue_job_ids_for(queued_job_queue) << queued_job_id
           state.delete_retry_pending(queued_job_id)
           state.mark_expired(reservation_token)

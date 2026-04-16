@@ -95,6 +95,7 @@ module Karya
 
         @expired_tombstone_limit: Integer
 
+        @idempotency_job_id_by_key: Hash[String, String]
         @jobs_by_id: Hash[String, Job]
         @rate_limit_admissions_by_key: Hash[String, Array[Time]]
         @uniqueness_job_id_by_key: Hash[String, String]
@@ -115,6 +116,7 @@ module Karya
 
         attr_reader expired_reservation_tokens_in_order: Array[String]
 
+        attr_reader idempotency_job_id_by_key: Hash[String, String]
         attr_reader jobs_by_id: Hash[String, Job]
         attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
         attr_reader uniqueness_job_id_by_key: Hash[String, String]
@@ -156,6 +158,8 @@ module Karya
 
         def delete_uniqueness_job: (String uniqueness_key, String job_id) -> String?
 
+        def register_idempotency_job: (String idempotency_key, String job_id) -> String
+
         private
 
         def prune_expired_reservation_tokens: () -> bool?
@@ -187,14 +191,12 @@ module Karya
 
       def validate_enqueue: (Job job) -> nil
 
-      def store_job: (
-        job: Job,
+      def store_job: (job: Job) -> Job
+
+      def synchronize_idempotency_state: (
         job_id: String,
-        uniqueness_key: String?,
-        uniqueness_scope: Karya::uniqueness_scope?,
-        state_name: Karya::state_name,
-        terminal: bool
-      ) -> Job
+        idempotency_key: String?
+      ) -> (String | nil)
 
       def synchronize_uniqueness_state: (
         job_id: String,
@@ -206,7 +208,11 @@ module Karya
 
       def uniqueness_conflict?: (Job job) -> bool
 
+      def idempotency_conflict?: (Job job) -> bool
+
       def raise_duplicate_uniqueness_key_error: (job_id: String, uniqueness_key: String?) -> nil
+
+      def raise_duplicate_idempotency_key_error: (job_id: String, idempotency_key: String?) -> nil
 
       def expire_reservations_locked: (Time now) -> Array[Job]
 
@@ -227,6 +233,20 @@ module Karya
         queues: Array[String],
         worker_id: String
       } reserve_request) -> Reservation?
+
+      def reserve_job: (
+        matched_queue: String,
+        matched_job_id: String,
+        matched_job_index: Integer,
+        reserve_request: {
+          handler_matcher: HandlerMatcher,
+          lease_duration: Karya::lease_duration_value,
+          now: Time,
+          queues: Array[String],
+          worker_id: String
+        },
+        now: Time
+      ) -> Reservation
 
       def find_reserved_job: (
         Array[String] queues,
@@ -269,12 +289,7 @@ module Karya
 
         def persist_finalized_execution: (
           finalized_job: Job,
-          normalized_token: String,
-          job_id: String,
-          uniqueness_key: String?,
-          uniqueness_scope: Karya::uniqueness_scope?,
-          state_name: Karya::state_name,
-          terminal: bool
+          normalized_token: String
         ) -> String?
 
         def fetch_active_reservation: (String reservation_token, Time now) -> Reservation

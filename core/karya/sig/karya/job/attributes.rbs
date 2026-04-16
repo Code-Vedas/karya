@@ -92,7 +92,7 @@ module Karya
 
       def normalize_uniqueness_scope: () -> Karya::uniqueness_scope?
 
-      def normalize_uniqueness_scope_value: (Karya::state_name uniqueness_scope) -> Karya::uniqueness_scope
+      def normalize_uniqueness_scope_value: (Karya::uniqueness_scope_input uniqueness_scope) -> Karya::uniqueness_scope
 
       # Normalizes timestamps into frozen copies so jobs cannot mutate caller-owned Time objects.
       class TimestampNormalizer

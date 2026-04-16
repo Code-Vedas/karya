@@ -106,7 +106,7 @@ module Karya
       ?expires_at: Time?,
       ?idempotency_key: state_name?,
       ?uniqueness_key: state_name?,
-      ?uniqueness_scope: uniqueness_scope?,
+      ?uniqueness_scope: uniqueness_scope_input?,
       state: state_name,
       ?attempt: Integer,
       created_at: Time,

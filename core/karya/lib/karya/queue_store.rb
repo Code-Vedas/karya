@@ -20,6 +20,9 @@ module Karya
   # Raised when enqueue intent conflicts with an existing uniqueness key.
   class DuplicateUniquenessKeyError < InvalidEnqueueError; end
 
+  # Raised when enqueue intent conflicts with an existing idempotency key.
+  class DuplicateIdempotencyKeyError < InvalidEnqueueError; end
+
   # Raised when a reservation token is unknown to the queue store.
   class UnknownReservationError < Error; end
 

@@ -16,6 +16,11 @@ module Karya
     # Normalizes constructor input without leaking validation helpers onto the public job API.
     class Attributes
       VALID_UNIQUENESS_SCOPES = %i[queued active until_terminal].freeze
+      VALID_UNIQUENESS_SCOPE_STRINGS = {
+        'queued' => :queued,
+        'active' => :active,
+        'until_terminal' => :until_terminal
+      }.freeze
 
       def initialize(attributes)
         @attributes = attributes
@@ -134,7 +139,8 @@ module Karya
 
       def normalize_uniqueness_scope
         uniqueness_scope = optional(:uniqueness_scope, nil)
-        return nil unless uniqueness_scope
+        uniqueness_scope_class = uniqueness_scope.class
+        return nil if uniqueness_scope_class <= NilClass
 
         normalized_scope = normalize_uniqueness_scope_value(uniqueness_scope)
         return normalized_scope if normalize_optional_identifier(:uniqueness_key)
@@ -148,7 +154,7 @@ module Karya
           when Symbol
             uniqueness_scope
           when String
-            uniqueness_scope.strip.to_sym
+            VALID_UNIQUENESS_SCOPE_STRINGS[uniqueness_scope.strip]
           end
 
         return normalized_scope if VALID_UNIQUENESS_SCOPES.include?(normalized_scope)
@@ -174,7 +180,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      private_constant :TimestampNormalizer, :VALID_UNIQUENESS_SCOPES
+      private_constant :TimestampNormalizer, :VALID_UNIQUENESS_SCOPES, :VALID_UNIQUENESS_SCOPE_STRINGS
     end
   end
 end
