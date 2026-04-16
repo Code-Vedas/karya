@@ -28,22 +28,6 @@ module Karya
 
       def jobs: () -> Array[Job]
       def recovered_jobs: () -> Array[Job]
-
-      private
-
-      class JobGroup
-        @name: Symbol
-        @jobs: Array[Job]
-
-        def initialize: (Symbol name, Array[Job] jobs) -> void
-
-        def to_a: () -> Array[Job]
-
-        private
-
-        attr_reader jobs: Array[Job]
-        attr_reader name: Symbol
-      end
     end
   end
 end

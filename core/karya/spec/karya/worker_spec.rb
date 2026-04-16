@@ -1285,6 +1285,28 @@ RSpec.describe Karya::Worker do
       expect(restorers).to all(have_received(:call))
     end
 
+    it 'installs shutdown handlers before orphan recovery runs' do
+      subscriptions = {}
+      recovering_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues:,
+        handlers:,
+        lease_duration: 30,
+        clock: -> { now },
+        signal_subscriber: lambda do |signal, handler|
+          subscriptions[signal] = handler
+          -> {}
+        end
+      )
+      allow(queue_store).to receive(:recover_orphaned_jobs).and_wrap_original do |original, *args, **kwargs|
+        expect(subscriptions.keys.sort).to eq(%w[INT TERM])
+        original.call(*args, **kwargs)
+      end
+
+      recovering_worker.run(stop_when_idle: true)
+    end
+
     it 'uses an externally managed shutdown controller without subscribing to process signals' do
       queue_store.enqueue(job: submission_job(id: 'job-1'), now:)
       external_shutdown_controller = instance_double(

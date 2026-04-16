@@ -122,12 +122,15 @@ module Karya
         error_class: InvalidWorkerConfigurationError
       )
       shutdown_controller ||= ShutdownController.new
-      recover_orphaned_jobs
       run_loop = RunSession.new(worker: self, iteration_limit:, normalized_poll_interval:, shutdown_controller:, stop_when_idle:).method(:call)
+      run_session = lambda do
+        recover_orphaned_jobs
+        run_loop.call
+      end
 
-      return run_loop.call unless shutdown_controller.is_a?(ShutdownController)
+      return run_session.call unless shutdown_controller.is_a?(ShutdownController)
 
-      with_shutdown_handlers(shutdown_controller, &run_loop)
+      with_shutdown_handlers(shutdown_controller, &run_session)
     end
 
     private
