@@ -61,8 +61,9 @@ The base lifecycle vocabulary for queued job instances is:
 | `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                     |
 
 `dead-letter` is not defined here as a base lifecycle state. It is treated as a
-later extension boundary that may be reached from failure or retry exhaustion,
-but its detailed recovery semantics are defined elsewhere.
+later extension boundary that may be reached from failure or retry exhaustion.
+The reliability docs describe that isolation and recovery layer alongside the
+canonical lifecycle that dead-letter handling extends.
 
 `retry_pending` is the base-lifecycle extension point where later dead-letter
 behavior can attach. The table above lists only concrete base-state transitions
@@ -98,7 +99,7 @@ This page does not define:
 - jitter, escalation, or dead-letter policy beyond the base timing and failure
   classification model
 - fairness, starvation prevention, or backpressure policy
-- dead-letter recovery behavior such as replay or discard rules
+- dead-letter recovery workflows such as replay or discard rules
 - bulk-operation semantics beyond acknowledging that bulk actions operate on the
   same lifecycle states
 
@@ -233,5 +234,7 @@ Karya::JobLifecycle.validate_state!(dead_letter_job.state)
 - [Controls](/runtime/controls/): inspect and intervene in runtime state
 - [Retries](/reliability/retries/): understand how failed jobs re-enter the
   runtime
+- [Dead Letters](/reliability/dead-letters/): see how isolation extends the
+  base lifecycle after bounded retry
 - [Workflow Basics](/workflows/basics/): see when a single job becomes a
   workflow

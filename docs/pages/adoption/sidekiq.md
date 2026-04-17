@@ -13,7 +13,8 @@ workflows into the Karya model.
 ## Guidance
 
 - map queues and workers to the Karya runtime model
-- map retries, uniqueness, and dead-letter handling to the reliability model
+- map retries, uniqueness, dead-letter isolation, and governed recovery to the
+  reliability model
 - treat dashboard adoption as an operator workflow change, not only a backend
   swap
 
@@ -28,7 +29,7 @@ current_system: sidekiq
 current_queue: billing
 target_runtime: karya
 target_queue: billing
-migration_focus: retries, uniqueness, operator workflows
+migration_focus: retries, isolation, uniqueness, operator workflows
 ```
 
 The goal is to preserve familiar operational concepts while moving into the

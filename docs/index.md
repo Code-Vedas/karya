@@ -63,8 +63,8 @@ workflows, framework hosts, operator tooling, and governed production rollout.
   and initial platform evaluation
 - [Runtime](/runtime/): job model, workers, control surfaces, and
   execution semantics
-- [Reliability](/reliability/): retries, uniqueness, dead letters,
-  and backpressure
+- [Reliability](/reliability/): retries, uniqueness, dead-letter isolation,
+  governed recovery, and backpressure
 - [Workflows](/workflows/): orchestration, replay, signals, child
   workflows, and versioning
 - [Backends](/backends/): selection guidance, tiers, and capability

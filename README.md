@@ -15,7 +15,7 @@ Karya brings the operational surfaces that Ruby teams usually assemble from
 multiple tools into one platform:
 
 - durable job execution with explicit routing, retries, backpressure, recovery,
-  and dead-letter handling
+  dead-letter isolation, and governed recovery
 - workflow orchestration with replay, compensation, child workflows, signals,
   queries, approval checkpoints, and versioning
 - framework-native integration for plain Ruby, Rails, Sinatra, Roda, and Hanami

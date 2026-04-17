@@ -12,22 +12,27 @@ behavior under constrained capacity.
 
 ## Covered Behavior
 
-- fairness between queues and workers
+- routing-aware fairness between queues and workers
 - starvation prevention
 - concurrency groups and scoped rate limits
-- overload handling and automated recovery hooks
+- overload handling and recovery boundaries
 - queue-local priority ordering inside otherwise eligible work
 
 ## Operator Expectations
 
 Operators need to understand whether delay comes from queue pressure,
-rate limits, concurrency caps, paused state, or backend-specific constraints.
+rate limits, concurrency caps, routing mismatches, or backend-specific
+constraints.
 
-In `core/karya`, backpressure policy is modeled through
-`Karya::Backpressure::PolicySet`. Concurrency policies cap active `reserved` and
-`running` jobs sharing one `concurrency_key`. Rate-limit policies use rolling
-(sliding) windows keyed by `rate_limit_key`, evaluating capacity over the most
-recent period and consuming capacity when reservation succeeds.
+Backpressure is not only about raw queue depth. It also depends on whether
+workers are subscribed to the right queues, whether handlers match the routed
+work, and whether the selected work is allowed through the current policy
+window.
+
+Concurrency policies cap active work sharing one `concurrency_key`.
+Rate-limit policies constrain reservation over a scoped rolling window keyed by
+`rate_limit_key`. Priority influences selection among otherwise eligible work
+inside a queue, but it does not replace explicit routing or eliminate pressure.
 
 ## Common Scenarios
 
@@ -39,18 +44,21 @@ Backpressure should read as an operational state, not an unexplained slowdown:
 queue: billing
 status: throttled
 reason: concurrency-group-limit
+subscription: billing + billing_sync
 running_jobs: 25
 waiting_jobs: 140
 ```
 
 What matters is that delayed work is explainable. Operators need to
-tell whether pressure comes from limits, congestion, or a paused execution
-path.
+tell whether pressure comes from limits, congestion, or routing and
+subscription shape.
 
 ## Related Concepts
 
 - [Workers](/runtime/workers/): worker throughput and drain behavior affect
   pressure directly
+- [Retries](/reliability/retries/): pressure and failure handling meet at the
+  retry boundary
 - [Search And Drilldowns](/operator/search-drilldowns/): operators need to
   drill into the queues under pressure
 - [Backends](/backends/): backend characteristics shape how pressure is felt

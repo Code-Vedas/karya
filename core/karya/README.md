@@ -19,7 +19,8 @@ The core package owns the platform-wide behavior for:
 
 - job and queue lifecycle
 - worker bootstrap, graceful drain, and runtime supervision
-- routing, retries, deadlines, uniqueness, dead-letter handling, and recovery
+- routing, retries, deadlines, uniqueness, dead-letter isolation, and governed
+  recovery
 - workflow composition, replay, compensation, checkpoints, and evolution
 - operator-facing control and inspection boundaries
 - shared plugin, configuration, and backend selection contracts

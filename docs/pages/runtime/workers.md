@@ -10,7 +10,7 @@ permalink: /runtime/workers/
 Workers are responsible for reserving work, executing jobs, and participating in
 coordinated runtime lifecycle behavior.
 
-Routing stays explicit through `job.queue`. Worker subscription is the
+`job.queue` keeps routing explicit. Worker subscription is the
 combination of an ordered queue list and a handler registry. A worker reserves
 only jobs whose queue and handler both match that subscription. Unmatched jobs
 stay queued until a compatible worker exists. Queue order is subscription
@@ -35,7 +35,7 @@ Karya documents worker behavior around:
 
 - bootstrap and execution flow
 - drain-safe shutdown
-- pause and resume interactions with queue state
+- routing-aware reservation and execution flow
 - runtime supervision hooks used by operators and automation
 
 Workers extend the canonical job lifecycle; they do not introduce a separate
@@ -121,6 +121,9 @@ flags in this milestone. Jobs may carry `priority`,
 `concurrency_key`, and `rate_limit_key`, and the queue store decides whether a
 matching policy exists for those keys.
 
+The selected worker must subscribe to the right queue and handler, and the job
+must still clear policy gates before it moves from `queued` to `reserved`.
+
 Workers classify execution failures into three base cases in this milestone:
 normal handler errors (`:error`), execution timeouts (`:timeout`), and job
 expiration (`:expired`).
@@ -135,5 +138,7 @@ defaults. If a process hosts multiple runtimes, inject explicit `logger:` and
 - [Controls](/runtime/controls/): operators supervise workers through shared surfaces
 - [Backpressure](/reliability/backpressure/): rate limits and queue pressure
   shape worker behavior
+- [Retries](/reliability/retries/): failed execution returns to the same
+  lifecycle through explicit retry state
 - [Dashboard](/operator/dashboard/): worker state must stay visible to
   operators

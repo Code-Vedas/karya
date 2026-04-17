@@ -75,19 +75,19 @@ next move: verify host route and asset path alignment
 
 When work is stuck, backlogged, or repeatedly failing, review:
 
-- queue pause/resume state
+- routing and worker-subscription alignment
 - supervisor runtime state and worker topology
-- rate-limit or concurrency-group conditions
-- dead-letter or poison-job status
-- workflow checkpoint, replay, or approval state
+- retry, rate-limit, or concurrency-group conditions
+- dead-letter isolation or governed recovery status
+- workflow replay, checkpoint, or approval state
 - backend-specific caveats documented in the support matrix
 
 ### Common Scenario
 
 ```text
 symptom: queue grows while operators see little progress
-first checks: queue pause state, supervisor phase, worker activity, concurrency or rate limits
-next move: confirm whether the issue is pressure, drain behavior, failure, or backend behavior
+first checks: routing match, supervisor phase, worker activity, concurrency or rate limits
+next move: confirm whether the issue is pressure, routing mismatch, retry churn, or backend behavior
 ```
 
 ### Runtime Inspection Checklist
