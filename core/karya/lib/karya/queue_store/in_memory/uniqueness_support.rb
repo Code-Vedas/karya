@@ -20,12 +20,14 @@ module Karya
           job
         end
 
-        def uniqueness_conflict?(job, exclude_job_id: nil)
+        def uniqueness_conflict?(job, exclude_job_id: nil, now: nil)
           duplicate_exists_for?(job, key: job.uniqueness_key, exclude_job_id:) do |existing_job, candidate_job|
-            next false unless existing_job.uniqueness_key == candidate_job.uniqueness_key
-            next false unless existing_job.uniqueness_scope && candidate_job.uniqueness_scope
+            effective_existing_job = effective_uniqueness_job(existing_job, now)
+            next false unless effective_existing_job
+            next false unless effective_existing_job.uniqueness_key == candidate_job.uniqueness_key
+            next false unless effective_existing_job.uniqueness_scope && candidate_job.uniqueness_scope
 
-            uniqueness_conflict_between?(existing_job, candidate_job)
+            uniqueness_conflict_between?(effective_existing_job, candidate_job)
           end
         end
 
@@ -67,6 +69,25 @@ module Karya
           state_name == :submission ? :queued : state_name
         end
 
+        def effective_uniqueness_job(job, now)
+          return job unless now
+
+          state_name = job.state
+
+          case state_name
+          when :queued
+            effective_queued_uniqueness_job(job, now)
+          when :retry_pending
+            effective_retry_pending_uniqueness_job(job, now)
+          when :reserved
+            effective_reserved_uniqueness_job(job, now)
+          when :running
+            effective_running_uniqueness_job(job, now)
+          else
+            job
+          end
+        end
+
         def duplicate_exists_for?(job, key:, exclude_job_id:)
           return false unless key
 
@@ -80,11 +101,48 @@ module Karya
           false
         end
 
+        def effective_queued_uniqueness_job(job, now)
+          job_expired?(job, now) ? nil : job
+        end
+
+        def effective_retry_pending_uniqueness_job(job, now)
+          expired = job_expired?(job, now)
+          return nil if expired
+
+          next_retry_at = job.next_retry_at
+          return job unless next_retry_at && next_retry_at <= now
+
+          job.transition_to(:queued, updated_at: now, next_retry_at: nil, failure_classification: nil)
+        end
+
+        def effective_reserved_uniqueness_job(job, now)
+          return job unless lease_expired_for_uniqueness?(state.reservations_by_token, job.id, now)
+
+          job.transition_to(:queued, updated_at: now, failure_classification: nil)
+        end
+
+        def effective_running_uniqueness_job(job, now)
+          return job unless lease_expired_for_uniqueness?(state.executions_by_token, job.id, now)
+
+          ExecutionRecovery.new(job, now).to_queued_job
+        end
+
+        def lease_expired_for_uniqueness?(leases_by_token, job_id, now)
+          leases_by_token.each_value.any? do |lease|
+            lease_job_id = lease.job_id
+            lease_job_id == job_id && lease.expired?(now)
+          end
+        end
+
         def resolve_reentry_uniqueness(job)
           return job unless uniqueness_scope_blocks_state?(job.uniqueness_scope, job.state)
           return job unless uniqueness_conflict?(job, exclude_job_id: job.id)
 
           reentry_conflict_job(job)
+        end
+
+        def resolve_reentry_and_store(job)
+          store_and_requeue_if_needed(resolve_reentry_uniqueness(job))
         end
 
         def reentry_conflict_job(job)

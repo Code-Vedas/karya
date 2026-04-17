@@ -47,6 +47,7 @@ detectors:
       - Karya::QueueStore::InMemory::ExecutionSupport#finalized_execution_job
       - Karya::QueueStore::InMemory#store_and_requeue_if_needed
       - Karya::QueueStore::InMemory::UniquenessSupport#duplicate_exists_for?
+      - Karya::QueueStore::InMemory::UniquenessSupport#effective_retry_pending_uniqueness_job
   UtilityFunction:
     enabled: true
     exclude:
@@ -59,6 +60,7 @@ detectors:
       - Karya::QueueStore::InMemory::UniquenessSupport#uniqueness_scope_blocks_state?
       - Karya::QueueStore::InMemory::UniquenessSupport#incoming_uniqueness_state
       - Karya::QueueStore::InMemory::UniquenessSupport#reentry_conflict_job
+      - Karya::QueueStore::InMemory::UniquenessSupport#lease_expired_for_uniqueness?
   DuplicateMethodCall:
     exclude:
       - Karya::Worker#execute_handler

@@ -26,7 +26,7 @@ module Karya
               next_retry_at: nil,
               failure_classification: nil
             )
-            store_and_requeue_if_needed(queued_job)
+            resolve_reentry_and_store(queued_job)
             state.delete_retry_pending(job_id)
           end
         end

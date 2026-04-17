@@ -86,7 +86,7 @@ module Karya
           raise DuplicateJobError, "job #{job_id.inspect} is already present in the queue store" if jobs_by_id.key?(job_id)
 
           raise_duplicate_idempotency_key_error(job_id:, idempotency_key:) if idempotency_conflict?(job)
-          raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:) if uniqueness_conflict?(job)
+          raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:) if uniqueness_conflict?(job, now: normalized_now)
           expire_reservations_locked(normalized_now)
 
           queued_job = job.transition_to(:queued, updated_at: normalized_now)

@@ -183,7 +183,7 @@ module Karya
 
       def store_job: (job: Job) -> Job
 
-      def uniqueness_conflict?: (Job job, ?exclude_job_id: String?) -> bool
+      def uniqueness_conflict?: (Job job, ?exclude_job_id: String?, ?now: Time?) -> bool
 
       def idempotency_conflict?: (Job job, ?exclude_job_id: String?) -> bool
 
@@ -193,13 +193,27 @@ module Karya
 
       def incoming_uniqueness_state: (Job job) -> Karya::state_name
 
+      def effective_uniqueness_job: (Job job, Time now) -> Job?
+
+      def effective_queued_uniqueness_job: (Job job, Time now) -> Job?
+
+      def effective_retry_pending_uniqueness_job: (Job job, Time now) -> Job?
+
+      def effective_reserved_uniqueness_job: (Job job, Time now) -> Job
+
+      def effective_running_uniqueness_job: (Job job, Time now) -> Job
+
       def duplicate_exists_for?: (
         Job job,
         key: String?,
         ?exclude_job_id: String?
       ) { (Job, Job) -> bool } -> bool
 
+      def lease_expired_for_uniqueness?: (Hash[String, Reservation] leases_by_token, String job_id, Time now) -> bool
+
       def resolve_reentry_uniqueness: (Job job) -> Job
+
+      def resolve_reentry_and_store: (Job job) -> Job
 
       def reentry_conflict_job: (Job job) -> Job
 

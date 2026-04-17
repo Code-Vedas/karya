@@ -233,6 +233,170 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(queued_job.uniqueness_key).to eq(composite_key)
     end
 
+    it 'expires queued uniqueness jobs before deciding a later enqueue conflict' do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-1',
+          queue: 'billing',
+          handler: 'billing_sync',
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: :active,
+          expires_at: created_at + 2,
+          state: :submission,
+          created_at:
+        ),
+        now: created_at + 1
+      )
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-2',
+            queue: 'billing',
+            created_at: created_at + 2,
+            uniqueness_key: 'billing:account-42',
+            uniqueness_scope: :active
+          ),
+          now: created_at + 3
+        )
+      end.not_to raise_error
+
+      expect(stored_job('job-1').state).to eq(:failed)
+      expect(stored_job('job-1').failure_classification).to eq(:expired)
+      expect(stored_job('job-2').state).to eq(:queued)
+    end
+
+    it 'treats expired queued-scope reservations as requeued blockers during duplicate checks' do
+      store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: :queued
+        ),
+        now: created_at + 1
+      )
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 2, now: created_at + 2)
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-2',
+            queue: 'billing',
+            created_at: created_at + 3,
+            uniqueness_key: 'billing:account-42',
+            uniqueness_scope: :queued
+          ),
+          now: created_at + 5
+        )
+      end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
+
+      expect(stored_job('job-1').state).to eq(:reserved)
+      expect { store.release(reservation_token: reservation.token, now: created_at + 6) }.to raise_error(Karya::ExpiredReservationError)
+    end
+
+    it 'treats due retry-pending uniqueness jobs as queued blockers during duplicate checks' do
+      retry_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 1, multiplier: 1)
+      store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: :queued
+        ),
+        now: created_at + 1
+      )
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-2',
+            queue: 'billing',
+            created_at: created_at + 4,
+            uniqueness_key: 'billing:account-42',
+            uniqueness_scope: :queued
+          ),
+          now: created_at + 5
+        )
+      end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
+    end
+
+    it 'ignores expired retry-pending uniqueness jobs during duplicate checks' do
+      retry_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 1)
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-1',
+          queue: 'billing',
+          handler: 'billing_sync',
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: :queued,
+          expires_at: created_at + 5,
+          state: :submission,
+          created_at:
+        ),
+        now: created_at + 1
+      )
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-2',
+            queue: 'billing',
+            created_at: created_at + 5,
+            uniqueness_key: 'billing:account-42',
+            uniqueness_scope: :queued
+          ),
+          now: created_at + 6
+        )
+      end.not_to raise_error
+    end
+
+    it 'treats expired running uniqueness jobs as requeued blockers during duplicate checks' do
+      store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: :active
+        ),
+        now: created_at + 1
+      )
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 2, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-2',
+            queue: 'billing',
+            created_at: created_at + 4,
+            uniqueness_key: 'billing:account-42',
+            uniqueness_scope: :active
+          ),
+          now: created_at + 5
+        )
+      end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
+    end
+
     it 'rejects jobs not in submission state' do
       queued_job = Karya::Job.new(
         id: 'job-1',
