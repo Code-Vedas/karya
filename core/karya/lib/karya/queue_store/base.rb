@@ -13,6 +13,8 @@ module Karya
     # - Every successful public method return is an acknowledgment boundary.
     # - `enqueue` is acknowledged only after the queued job is durable and
     #   visible to later `reserve`, `recover_in_flight`, and process takeover.
+    # - Durable uniqueness or idempotency checks must be evaluated against
+    #   persisted uniqueness state before `enqueue` returns success.
     # - `reserve`, `release`, `start_execution`, `complete_execution`, and
     #   `fail_execution` must each persist their full state transition
     #   atomically before returning.
@@ -26,7 +28,8 @@ module Karya
     # Restart and takeover recovery invariants:
     # - Job identity, queue, handler, arguments, scheduling fields, lifecycle
     #   state, attempt count, created_at, updated_at, retry state, failure
-    #   classification, and expiration must survive process interruption.
+    #   classification, expiration, idempotency_key, uniqueness_key, and
+    #   uniqueness_scope must survive process interruption.
     # - Active reservation and execution lease state must survive interruption:
     #   token, job_id, queue, worker_id, reserved_at, and expires_at.
     # - Expired-token tombstones needed to reject stale worker acknowledgments
@@ -38,7 +41,8 @@ module Karya
       # job state is durable. SQL backends should return after transaction
       # commit; acknowledged-write stores should return after the write
       # acknowledgment that makes the job visible to later reserve and recovery
-      # calls. Duplicate or invalid enqueue must not mutate existing state.
+      # calls. Duplicate id or uniqueness conflicts and invalid enqueue must
+      # not mutate existing state.
       def enqueue(job:, now:)
         _job = job
         _now = now
@@ -107,10 +111,10 @@ module Karya
       #
       # Durable backends must persist job identity, queue, handler, arguments,
       # scheduling fields, lifecycle state, attempt count, retry state,
-      # expiration, active reservation/execution lease token, worker id, lease
-      # timestamps, and expired-token tombstones. After crash or takeover, every
-      # active lease must be recoverable from persisted state without relying on
-      # process memory.
+      # expiration, uniqueness metadata, active reservation/execution lease
+      # token, worker id, lease timestamps, and expired-token tombstones. After
+      # crash or takeover, every active lease and uniqueness decision must be
+      # recoverable from persisted state without relying on process memory.
       def recover_in_flight(now:)
         _now = now
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"

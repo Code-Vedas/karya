@@ -24,6 +24,7 @@ require_relative 'in_memory/reserve_selection_support'
 require_relative 'in_memory/retry_support'
 require_relative 'in_memory/reserve_scan_state'
 require_relative 'in_memory/store_state'
+require_relative 'in_memory/uniqueness_support'
 require_relative '../job'
 require_relative '../primitives/identifier'
 require_relative '../primitives/queue_list'
@@ -51,6 +52,7 @@ module Karya
       include RequestSupport
       include ReserveSelectionSupport
       include RetrySupport
+      include UniquenessSupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
@@ -78,15 +80,19 @@ module Karya
           validate_enqueue(job)
 
           job_id = job.id
+          idempotency_key = job.idempotency_key
+          uniqueness_key = job.uniqueness_key
           jobs_by_id = state.jobs_by_id
           raise DuplicateJobError, "job #{job_id.inspect} is already present in the queue store" if jobs_by_id.key?(job_id)
 
+          raise_duplicate_idempotency_key_error(job_id:, idempotency_key:) if idempotency_conflict?(job)
+          raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:) if uniqueness_conflict?(job, now: normalized_now)
           expire_reservations_locked(normalized_now)
 
           queued_job = job.transition_to(:queued, updated_at: normalized_now)
           queued_job_id = queued_job.id
           queue_job_ids = state.queue_job_ids_for(queued_job.queue)
-          jobs_by_id[queued_job_id] = queued_job
+          store_job(job: queued_job)
           queue_job_ids << queued_job_id
           queued_job
         end
@@ -129,7 +135,7 @@ module Karya
           end
 
           running_job = reserved_job.transition_to(:running, updated_at: normalized_now, attempt: reserved_job.attempt + 1)
-          jobs_by_id[running_job.id] = running_job
+          store_job(job: running_job)
           state.activate_execution(normalized_token, reservation)
           running_job
         end
@@ -232,6 +238,12 @@ module Karya
         raise error_class, "#{name} must be a Time"
       end
 
+      def store_and_requeue_if_needed(job)
+        store_job(job:)
+        state.queue_job_ids_for(job.queue) << job.id if job.state == :queued
+        job
+      end
+
       def reserve_matching_job(reserve_request)
         now = reserve_request.fetch(:now)
         reserve_scan_state = perform_reserve_maintenance(now)
@@ -239,9 +251,18 @@ module Karya
           find_reserved_job(reserve_request.fetch(:queues), reserve_request.fetch(:handler_matcher), reserve_scan_state)
         return nil unless matched_job_id
 
-        jobs_by_id = state.jobs_by_id
+        reserve_job(
+          matched_queue:,
+          matched_job_id:,
+          matched_job_index:,
+          reserve_request:,
+          now:
+        )
+      end
+
+      def reserve_job(matched_queue:, matched_job_id:, matched_job_index:, reserve_request:, now:)
         queue_job_ids = state.queued_job_ids_by_queue.fetch(matched_queue)
-        queued_job = jobs_by_id.fetch(matched_job_id)
+        queued_job = state.jobs_by_id.fetch(matched_job_id)
         reserved_job = queued_job.transition_to(:reserved, updated_at: now)
         reservation = build_reservation(
           reserved_job:,
@@ -252,7 +273,7 @@ module Karya
 
         queue_job_ids.delete_at(matched_job_index)
         state.delete_queue(matched_queue) if queue_job_ids.empty?
-        jobs_by_id[reserved_job.id] = reserved_job
+        store_job(job: reserved_job)
         record_rate_limit_admission(reserved_job, now)
         state.reserve(reservation)
         reservation

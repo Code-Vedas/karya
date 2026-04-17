@@ -15,6 +15,13 @@ module Karya
   class Job
     # Normalizes constructor input without leaking validation helpers onto the public job API.
     class Attributes
+      VALID_UNIQUENESS_SCOPES = %i[queued active until_terminal].freeze
+      VALID_UNIQUENESS_SCOPE_STRINGS = {
+        'queued' => :queued,
+        'active' => :active,
+        'until_terminal' => :until_terminal
+      }.freeze
+
       def initialize(attributes)
         @attributes = attributes
       end
@@ -59,6 +66,9 @@ module Karya
           retry_policy: normalize_retry_policy,
           execution_timeout: normalize_optional_positive_finite_number(:execution_timeout),
           expires_at: normalize_optional_time(:expires_at),
+          idempotency_key: normalize_optional_identifier(:idempotency_key),
+          uniqueness_key: normalize_optional_identifier(:uniqueness_key),
+          uniqueness_scope: normalize_uniqueness_scope,
           lifecycle:,
           state: lifecycle.normalize_state(required(:state)),
           attempt:,
@@ -127,6 +137,32 @@ module Karya
         end
       end
 
+      def normalize_uniqueness_scope
+        uniqueness_scope = optional(:uniqueness_scope, nil)
+        uniqueness_scope_class = uniqueness_scope.class
+        return nil if uniqueness_scope_class <= NilClass
+
+        uniqueness_key = optional(:uniqueness_key, nil)
+        uniqueness_key_class = uniqueness_key.class
+        raise InvalidJobAttributeError, 'uniqueness_scope requires uniqueness_key' if uniqueness_key_class <= NilClass
+
+        normalize_uniqueness_scope_value(uniqueness_scope)
+      end
+
+      def normalize_uniqueness_scope_value(uniqueness_scope)
+        normalized_scope =
+          case uniqueness_scope
+          when Symbol
+            uniqueness_scope
+          when String
+            VALID_UNIQUENESS_SCOPE_STRINGS[uniqueness_scope]
+          end
+
+        return normalized_scope if VALID_UNIQUENESS_SCOPES.include?(normalized_scope)
+
+        raise InvalidJobAttributeError, 'uniqueness_scope must be one of :queued, :active, or :until_terminal'
+      end
+
       # Normalizes timestamps into frozen copies so jobs cannot mutate caller-owned Time objects.
       class TimestampNormalizer
         def initialize(name, value)
@@ -145,7 +181,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      private_constant :TimestampNormalizer
+      private_constant :TimestampNormalizer, :VALID_UNIQUENESS_SCOPES, :VALID_UNIQUENESS_SCOPE_STRINGS
     end
   end
 end

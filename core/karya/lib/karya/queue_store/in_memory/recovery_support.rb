@@ -19,11 +19,10 @@ module Karya
           state.delete_reservation_token(reservation_token)
 
           reserved_job = jobs_by_id.fetch(reservation.job_id)
-          queued_job = reserved_job.transition_to(:queued, updated_at: now, failure_classification: nil)
-          queued_job_id = queued_job.id
-          jobs_by_id[queued_job_id] = queued_job
-          state.queue_job_ids_for(queued_job.queue) << queued_job_id
-          queued_job
+          resolve_reentry_and_store(
+            reserved_job.transition_to(:queued, updated_at: now, failure_classification: nil),
+            now:
+          )
         end
 
         def requeue_expired_reservation(reservation, now)
@@ -40,12 +39,9 @@ module Karya
 
           running_job = jobs_by_id.fetch(reservation.job_id)
           queued_job = ExecutionRecovery.new(running_job, now).to_queued_job
-          queued_job_id = queued_job.id
-          jobs_by_id[queued_job_id] = queued_job
-          state.queue_job_ids_for(queued_job.queue) << queued_job_id
-          state.delete_retry_pending(queued_job_id)
+          state.delete_retry_pending(queued_job.id)
           state.mark_expired(reservation_token)
-          queued_job
+          resolve_reentry_and_store(queued_job, now:)
         end
       end
     end

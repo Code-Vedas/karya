@@ -20,7 +20,17 @@ module Karya
     # Canonical immutable routing payload for one job instance.
     Identity = Struct.new(:id, :queue, :handler, :arguments)
     # Canonical immutable scheduling metadata for job selection policies.
-    Scheduling = Struct.new(:priority, :concurrency_key, :rate_limit_key, :retry_policy, :execution_timeout, :expires_at)
+    Scheduling = Struct.new(
+      :priority,
+      :concurrency_key,
+      :rate_limit_key,
+      :retry_policy,
+      :execution_timeout,
+      :expires_at,
+      :idempotency_key,
+      :uniqueness_key,
+      :uniqueness_scope
+    )
     # Canonical immutable lifecycle state for one job instance.
     LifecycleState = Struct.new(:state, :attempt, :created_at, :updated_at, :next_retry_at, :failure_classification, :lifecycle)
     # Groups normalized constructor fields into lifecycle-safe components.
@@ -45,7 +55,10 @@ module Karya
           attributes.fetch(:rate_limit_key),
           attributes.fetch(:retry_policy),
           attributes.fetch(:execution_timeout),
-          attributes.fetch(:expires_at)
+          attributes.fetch(:expires_at),
+          attributes.fetch(:idempotency_key),
+          attributes.fetch(:uniqueness_key),
+          attributes.fetch(:uniqueness_scope)
         ).freeze
       end
 
@@ -105,6 +118,9 @@ module Karya
         retry_policy:,
         execution_timeout:,
         expires_at:,
+        idempotency_key: idempotency_key,
+        uniqueness_key: uniqueness_key,
+        uniqueness_scope: uniqueness_scope,
         lifecycle:,
         state: normalized_next_state,
         attempt:,
@@ -127,6 +143,9 @@ module Karya
         retry_policy:,
         execution_timeout:,
         expires_at:,
+        idempotency_key:,
+        uniqueness_key:,
+        uniqueness_scope:,
         lifecycle:,
         state: :failed,
         attempt:,
@@ -151,6 +170,9 @@ module Karya
     def retry_policy = scheduling.retry_policy
     def execution_timeout = scheduling.execution_timeout
     def expires_at = scheduling.expires_at
+    def idempotency_key = scheduling.idempotency_key
+    def uniqueness_key = scheduling.uniqueness_key
+    def uniqueness_scope = scheduling.uniqueness_scope
     def state = lifecycle_state.state
     def attempt = lifecycle_state.attempt
     def created_at = lifecycle_state.created_at

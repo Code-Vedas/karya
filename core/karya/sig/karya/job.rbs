@@ -29,6 +29,9 @@ module Karya
       @retry_policy: RetryPolicy?
       @execution_timeout: Numeric?
       @expires_at: Time?
+      @idempotency_key: String?
+      @uniqueness_key: String?
+      @uniqueness_scope: uniqueness_scope?
 
       attr_reader priority: Integer
       attr_reader concurrency_key: String?
@@ -36,6 +39,9 @@ module Karya
       attr_reader retry_policy: RetryPolicy?
       attr_reader execution_timeout: Numeric?
       attr_reader expires_at: Time?
+      attr_reader idempotency_key: String?
+      attr_reader uniqueness_key: String?
+      attr_reader uniqueness_scope: uniqueness_scope?
     end
 
     class LifecycleState
@@ -77,6 +83,9 @@ module Karya
     attr_reader retry_policy: RetryPolicy?
     attr_reader execution_timeout: Numeric?
     attr_reader expires_at: Time?
+    attr_reader idempotency_key: String?
+    attr_reader uniqueness_key: String?
+    attr_reader uniqueness_scope: uniqueness_scope?
 
     attr_reader state: state_name
 
@@ -95,6 +104,9 @@ module Karya
       ?retry_policy: RetryPolicy?,
       ?execution_timeout: Numeric?,
       ?expires_at: Time?,
+      ?idempotency_key: job_attribute_value?,
+      ?uniqueness_key: job_attribute_value?,
+      ?uniqueness_scope: uniqueness_scope_input?,
       state: state_name,
       ?attempt: Integer,
       created_at: Time,

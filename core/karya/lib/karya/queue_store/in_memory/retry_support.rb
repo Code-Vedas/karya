@@ -26,8 +26,7 @@ module Karya
               next_retry_at: nil,
               failure_classification: nil
             )
-            jobs_by_id[job_id] = queued_job
-            state.queue_job_ids_for(queued_job.queue) << job_id
+            resolve_reentry_and_store(queued_job, now:)
             state.delete_retry_pending(job_id)
           end
         end
@@ -40,14 +39,17 @@ module Karya
             failure_classification:
           )
           next_retry_at = now + retry_policy.delay_for(failed_job.attempt)
-          retry_pending_job = failed_job.transition_to(
-            :retry_pending,
-            updated_at: now,
-            next_retry_at: next_retry_at,
-            retry_policy:,
-            failure_classification:
+          retry_pending_job = resolve_reentry_uniqueness(
+            failed_job.transition_to(
+              :retry_pending,
+              updated_at: now,
+              next_retry_at: next_retry_at,
+              retry_policy:,
+              failure_classification:
+            ),
+            now:
           )
-          state.register_retry_pending(retry_pending_job.id)
+          state.register_retry_pending(retry_pending_job.id) if retry_pending_job.state == :retry_pending
           retry_pending_job
         end
       end
