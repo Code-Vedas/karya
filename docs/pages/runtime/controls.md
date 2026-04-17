@@ -18,8 +18,8 @@ CLI surfaces.
 - retry, isolation, replay, and governed recovery actions across aligned
   operator surfaces
 - operator-visible state used for safe intervention across `queued`,
-  `reserved`, `running`, `failed`, `retry_pending`, `dead_letter`, and
-  `cancelled` job states
+  `reserved`, `running`, `failed`, `retry_pending`, `cancelled`, and extension
+  states such as `dead_letter` when they are registered
 
 ## Surface Model
 
@@ -40,7 +40,7 @@ job model rather than redefining job state per interface.
 
 ### Taking A Runtime Action
 
-Runtime controls should read consistently across UI, API, and CLI surfaces:
+Illustrative vocabulary across UI, API, and CLI surfaces:
 
 ```text
 dashboard action: retry failed job <job-id>

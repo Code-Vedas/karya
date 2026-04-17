@@ -12,7 +12,7 @@ runtime lifecycle with explicit isolation and governed recovery flows.
 
 ## Covered Behavior
 
-- dead-letter isolation after bounded retry or policy-based escalation in an
+- dead-letter isolation after bounded retry or policy-based isolation in an
   extension layer
 - operator-visible reasons why work left the normal retry path
 - governed replay, discard, and controlled retry paths
