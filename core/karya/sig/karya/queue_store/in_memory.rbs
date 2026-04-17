@@ -179,6 +179,8 @@ module Karya
         def rate_limited?: (Job job) -> bool
       end
 
+      private
+
       def validate_enqueue: (Job job) -> nil
 
       def store_job: (job: Job) -> Job
