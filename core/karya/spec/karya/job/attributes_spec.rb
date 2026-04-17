@@ -272,6 +272,21 @@ RSpec.describe 'Karya::Job::Attributes' do
       end.to raise_error(Karya::InvalidJobAttributeError, 'uniqueness_scope requires uniqueness_key')
     end
 
+    it 'normalizes false uniqueness_key when uniqueness_scope is set' do
+      result = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'queued',
+        created_at: created_at,
+        uniqueness_key: false,
+        uniqueness_scope: :queued
+      ).to_h
+
+      expect(result[:uniqueness_key]).to eq('false')
+      expect(result[:uniqueness_scope]).to eq(:queued)
+    end
+
     it 'normalizes string uniqueness_scope input' do
       result = attributes_class.new(
         id: 'job123',
