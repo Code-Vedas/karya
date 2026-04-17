@@ -60,7 +60,7 @@ The base lifecycle vocabulary for queued job instances is:
 | `retry_pending` | the job remains in the lifecycle and is waiting to re-enter queue execution under retry rules | `queued`, `cancelled`              |
 | `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                     |
 
-`dead-letter` is not defined here as a base lifecycle state. It is treated as a
+`dead_letter` is not defined here as a base lifecycle state. It is treated as a
 later extension boundary that may be reached from failure or retry exhaustion.
 The reliability docs describe that isolation and recovery layer alongside the
 canonical lifecycle that dead-letter handling extends.

@@ -18,7 +18,7 @@ CLI surfaces.
 - retry, isolation, replay, and governed recovery actions across aligned
   operator surfaces
 - operator-visible state used for safe intervention across `queued`,
-  `reserved`, `running`, `failed`, `retry_pending`, `dead-letter`, and
+  `reserved`, `running`, `failed`, `retry_pending`, `dead_letter`, and
   `cancelled` job states
 
 ## Surface Model
@@ -43,10 +43,10 @@ job model rather than redefining job state per interface.
 Runtime controls should read consistently across UI, API, and CLI surfaces:
 
 ```text
-retry failed job <job-id>
-inspect dead-letter job <job-id>
-replay isolated job <job-id>
-inspect worker <worker-id>
+dashboard action: retry failed job <job-id>
+dashboard action: inspect dead_letter job <job-id>
+operator API action: replay isolated job <job-id>
+CLI action: karya runtime inspect --state-file /tmp/karya-runtime-billing.json
 ```
 
 Dashboard, operator API, and CLI workflows use the same runtime vocabulary for
