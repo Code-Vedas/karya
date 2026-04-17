@@ -339,7 +339,7 @@ module Karya
           Job job,
           key: String?,
           key_name: :idempotency_key | :uniqueness_key,
-          ?exclude_job_id: String?
+          exclude_job_id: String?
         ) { (Job, Job) -> bool } -> bool
 
         def lease_expired_for_uniqueness?: (Hash[String, Reservation] leases_by_token, String job_id, Time now) -> bool
@@ -350,9 +350,9 @@ module Karya
 
         def reentry_conflict_job: (Job job) -> Job
 
-        def raise_duplicate_uniqueness_key_error: (job_id: String, uniqueness_key: String?) -> nil
+        def raise_duplicate_uniqueness_key_error: (job_id: String, uniqueness_key: String) -> nil
 
-        def raise_duplicate_idempotency_key_error: (job_id: String, idempotency_key: String?) -> nil
+        def raise_duplicate_idempotency_key_error: (job_id: String, idempotency_key: String) -> nil
       end
 
       module RequestSupport
