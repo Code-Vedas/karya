@@ -13,6 +13,12 @@ RSpec.describe Karya::QueueStore::InMemory do
   let(:created_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
   let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2) }
 
+  around do |example|
+    Karya::JobLifecycle.send(:clear_extensions!)
+    example.run
+    Karya::JobLifecycle.send(:clear_extensions!)
+  end
+
   def stored_job(id)
     store.instance_variable_get(:@state).jobs_by_id.fetch(id)
   end
@@ -348,7 +354,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
     end
 
-    it 'releases until-terminal uniqueness after a non-retriable failure' do
+    it 'keeps until-terminal uniqueness after a non-retriable failure' do
       store.enqueue(job: submission_job(id: 'job-1', uniqueness_scope: :until_terminal, created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       store.start_execution(reservation_token: reservation.token, now: created_at + 3)
@@ -360,10 +366,10 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect do
         store.enqueue(job: submission_job(id: 'job-2', uniqueness_scope: :until_terminal, created_at: created_at + 4), now: created_at + 5)
-      end.not_to raise_error
+      end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
     end
 
-    it 'releases until-terminal uniqueness after expiration to failed' do
+    it 'keeps until-terminal uniqueness after expiration to failed' do
       store.enqueue(
         job: Karya::Job.new(
           id: 'job-1',
@@ -382,6 +388,28 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect do
         store.enqueue(job: submission_job(id: 'job-2', uniqueness_scope: :until_terminal, created_at: created_at + 4), now: created_at + 5)
+      end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
+    end
+
+    it 'releases until-terminal uniqueness after an extension terminal state' do
+      Karya::JobLifecycle.register_state(:dead_letter, terminal: true)
+      Karya::JobLifecycle.register_transition(from: :retry_pending, to: 'dead_letter')
+
+      dead_letter_job = Karya::Job.new(
+        id: 'job-1',
+        queue: 'billing',
+        handler: 'billing_sync',
+        uniqueness_key: 'billing:account-42',
+        uniqueness_scope: :until_terminal,
+        state: 'dead_letter',
+        created_at:,
+        updated_at: created_at + 1
+      )
+
+      store.send(:store_job, job: dead_letter_job)
+
+      expect do
+        store.enqueue(job: submission_job(id: 'job-2', uniqueness_scope: :until_terminal, created_at: created_at + 1), now: created_at + 2)
       end.not_to raise_error
     end
 

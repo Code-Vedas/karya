@@ -11,7 +11,6 @@ module Karya
       # Idempotency and uniqueness checks over canonical stored jobs.
       module UniquenessSupport
         UNIQUENESS_REENTRY_FAILURE_CLASSIFICATION = :error
-        UNIQUENESS_TERMINAL_STATES = %i[succeeded cancelled failed].freeze
 
         private
 
@@ -58,7 +57,7 @@ module Karya
           when :active
             %i[queued reserved running retry_pending].include?(state)
           when :until_terminal
-            !UNIQUENESS_TERMINAL_STATES.include?(state)
+            !JobLifecycle.terminal?(state)
           else
             false
           end
