@@ -75,7 +75,7 @@ next move: verify host route and asset path alignment
 
 When work is stuck, backlogged, or repeatedly failing, review:
 
-- routing and worker-subscription alignment
+- routing and worker subscription alignment
 - supervisor runtime state and worker topology
 - retry, rate-limit, or concurrency-group conditions
 - dead-letter isolation or governed recovery status

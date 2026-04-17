@@ -24,11 +24,11 @@ Dead-letter handling should prevent endless retry loops while still preserving
 clear recovery options and historical context.
 
 Dead-letter handling begins after work leaves the ordinary retry path. The
-canonical lifecycle covers `queued`, `reserved`, `running`, `failed`, and
-`retry_pending`; dead-letter handling covers the isolated path that follows.
-The base runtime provides the extension boundary. Adapters, queue stores, or
-higher-level operator workflows provide the dead-letter policy and recovery
-actions built on top of it.
+non-terminal execution and retry states include `queued`, `reserved`,
+`running`, `failed`, and `retry_pending`; dead-letter handling covers the
+isolated path that follows. The base runtime provides the extension boundary.
+Adapters, queue stores, or higher-level operator workflows provide the
+dead-letter policy and recovery actions built on top of it.
 
 ## Common Scenarios
 
