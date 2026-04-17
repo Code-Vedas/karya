@@ -193,7 +193,7 @@ module Karya
 
       def incoming_uniqueness_state: (Job job) -> Karya::state_name
 
-      def effective_uniqueness_job: (Job job, Time now) -> Job?
+      def effective_uniqueness_job: (Job job, Time? now) -> Job?
 
       def effective_queued_uniqueness_job: (Job job, Time now) -> Job?
 
@@ -211,9 +211,9 @@ module Karya
 
       def lease_expired_for_uniqueness?: (Hash[String, Reservation] leases_by_token, String job_id, Time now) -> bool
 
-      def resolve_reentry_uniqueness: (Job job) -> Job
+      def resolve_reentry_uniqueness: (Job job, ?now: Time?) -> Job
 
-      def resolve_reentry_and_store: (Job job) -> Job
+      def resolve_reentry_and_store: (Job job, ?now: Time?) -> Job
 
       def reentry_conflict_job: (Job job) -> Job
 

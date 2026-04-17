@@ -26,7 +26,7 @@ module Karya
               next_retry_at: nil,
               failure_classification: nil
             )
-            resolve_reentry_and_store(queued_job)
+            resolve_reentry_and_store(queued_job, now:)
             state.delete_retry_pending(job_id)
           end
         end
@@ -46,7 +46,8 @@ module Karya
               next_retry_at: next_retry_at,
               retry_policy:,
               failure_classification:
-            )
+            ),
+            now:
           )
           state.register_retry_pending(retry_pending_job.id) if retry_pending_job.state == :retry_pending
           retry_pending_job

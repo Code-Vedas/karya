@@ -20,7 +20,8 @@ module Karya
 
           reserved_job = jobs_by_id.fetch(reservation.job_id)
           resolve_reentry_and_store(
-            reserved_job.transition_to(:queued, updated_at: now, failure_classification: nil)
+            reserved_job.transition_to(:queued, updated_at: now, failure_classification: nil),
+            now:
           )
         end
 
@@ -40,7 +41,7 @@ module Karya
           queued_job = ExecutionRecovery.new(running_job, now).to_queued_job
           state.delete_retry_pending(queued_job.id)
           state.mark_expired(reservation_token)
-          resolve_reentry_and_store(queued_job)
+          resolve_reentry_and_store(queued_job, now:)
         end
       end
     end

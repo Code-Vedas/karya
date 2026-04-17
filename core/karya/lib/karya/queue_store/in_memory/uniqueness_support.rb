@@ -134,15 +134,15 @@ module Karya
           end
         end
 
-        def resolve_reentry_uniqueness(job)
+        def resolve_reentry_uniqueness(job, now: nil)
           return job unless uniqueness_scope_blocks_state?(job.uniqueness_scope, job.state)
-          return job unless uniqueness_conflict?(job, exclude_job_id: job.id)
+          return job unless uniqueness_conflict?(job, exclude_job_id: job.id, now:)
 
           reentry_conflict_job(job)
         end
 
-        def resolve_reentry_and_store(job)
-          store_and_requeue_if_needed(resolve_reentry_uniqueness(job))
+        def resolve_reentry_and_store(job, now: nil)
+          store_and_requeue_if_needed(resolve_reentry_uniqueness(job, now:))
         end
 
         def reentry_conflict_job(job)

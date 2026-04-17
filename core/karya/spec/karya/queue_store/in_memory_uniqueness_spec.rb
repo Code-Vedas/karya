@@ -323,6 +323,22 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(recovered_job&.state).to eq(:cancelled)
     end
 
+    it 'fails queued reentry when a conflicting reservation has already expired at the reentry time' do
+      store.enqueue(job: submission_job(id: 'job-1', uniqueness_scope: :queued, created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      conflicting_job = submission_job(id: 'job-2', uniqueness_scope: :queued, created_at: created_at + 2)
+      store.enqueue(job: conflicting_job, now: created_at + 3)
+      conflicting_reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 2, now: created_at + 4)
+
+      released_job = store.release(reservation_token: reservation.token, now: created_at + 7)
+
+      expect(released_job.state).to eq(:cancelled)
+      expect { store.release(reservation_token: conflicting_reservation.token, now: created_at + 8) }
+        .to raise_error(Karya::ExpiredReservationError)
+      next_reservation = store.reserve(queue: 'billing', worker_id: 'worker-3', lease_duration: 30, now: created_at + 9)
+      expect(next_reservation&.job_id).to eq('job-2')
+    end
+
     it 'blocks an active-scope enqueue against an existing reserved queued-scope job' do
       store.enqueue(job: submission_job(id: 'job-1', uniqueness_scope: :queued, created_at:), now: created_at + 1)
       store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
@@ -414,6 +430,12 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(conflict_job.state).to eq(:failed)
       expect(conflict_job.failure_classification).to eq(:error)
+    end
+
+    it 'returns the original job for uniqueness evaluation when no effective-state time is provided' do
+      queued_job = submission_job(id: 'job-1', uniqueness_scope: :queued, created_at:).transition_to(:queued, updated_at: created_at + 1)
+
+      expect(store.send(:effective_uniqueness_job, queued_job, nil)).to eq(queued_job)
     end
   end
 end
