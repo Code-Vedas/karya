@@ -118,4 +118,55 @@ RSpec.describe Karya::CLI, :e2e, :integration do
       end
     end
   end
+
+  it 'retries a failed job and succeeds on a later attempt through exe/karya worker' do
+    Dir.mktmpdir('karya-cli-retry-e2e') do |directory|
+      state_file = File.join(directory, 'runtime.json')
+      marker_file = File.join(directory, 'attempts.json')
+      boot_file = write_boot_file(
+        directory:,
+        handler_class_name: 'CliWorkerRetryHandler',
+        marker_path: marker_file,
+        prelude_source: "attempts = 0\n",
+        job_attributes_source: <<~RUBY.strip,
+          arguments: { 'account_id' => 42, 'marker_path' => #{marker_file.inspect} },
+          retry_policy: Karya::RetryPolicy.new(max_attempts: 2, base_delay: 0, multiplier: 1),
+          state: :submission,
+          created_at: now
+        RUBY
+        handler_body: <<~RUBY.strip
+          attempts = (File.exist?(marker_path) ? JSON.parse(File.read(marker_path)).fetch('attempts') : 0) + 1
+          File.write(marker_path, JSON.generate('account_id' => account_id, 'attempts' => attempts))
+          raise 'boom' if attempts == 1
+        RUBY
+      )
+
+      stdout, stderr, status = run_cli(
+        'worker',
+        'billing',
+        '--require',
+        boot_file,
+        '--handler',
+        'billing_sync=CliWorkerRetryHandler',
+        '--worker-id',
+        'worker-cli-retry-e2e',
+        '--processes',
+        '1',
+        '--threads',
+        '1',
+        '--poll-interval',
+        '0',
+        '--max-iterations',
+        '2',
+        '--state-file',
+        state_file
+      )
+
+      expect(status.exitstatus).to eq(0), -> { "stdout:\n#{stdout}\n\nstderr:\n#{stderr}" }
+      expect(JSON.parse(File.read(marker_file))).to include('account_id' => 42, 'attempts' => 2)
+
+      runtime_state = read_runtime_state(state_file)
+      expect(runtime_state.fetch('snapshot').fetch('phase')).to eq('stopped')
+    end
+  end
 end
