@@ -19,9 +19,23 @@ module KaryaE2EHelpers
     ['bundle', 'exec', RbConfig.ruby, '-Ilib', 'exe/karya', *args]
   end
 
-  def write_boot_file(directory:, handler_class_name:, handler_body:, marker_path: nil, queue: 'billing', job_id: 'job-1')
+  def write_boot_file(
+    directory:,
+    handler_class_name:,
+    handler_body:,
+    marker_path: nil,
+    queue: 'billing',
+    job_id: 'job-1',
+    job_attributes_source: nil,
+    prelude_source: nil
+  )
     handler_file = File.join(directory, 'worker_boot.rb')
     marker_literal = marker_path&.inspect || 'nil'
+    job_attributes = job_attributes_source || <<~RUBY.strip
+      arguments: { 'account_id' => 42, 'marker_path' => #{marker_literal} },
+      state: :submission,
+      created_at: now
+    RUBY
     File.write(
       handler_file,
       <<~RUBY
@@ -30,14 +44,13 @@ module KaryaE2EHelpers
         now = Time.utc(2026, 4, 7, 12, 0, 0)
         queue_store = Karya::QueueStore::InMemory.new(token_generator: -> { 'lease-token' })
         Karya.configure_queue_store(queue_store)
+        #{prelude_source}
         queue_store.enqueue(
           job: Karya::Job.new(
             id: #{job_id.inspect},
             queue: #{queue.inspect},
             handler: 'billing_sync',
-            arguments: { 'account_id' => 42, 'marker_path' => #{marker_literal} },
-            state: :submission,
-            created_at: now
+            #{job_attributes}
           ),
           now: now
         )

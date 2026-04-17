@@ -311,4 +311,48 @@ RSpec.describe Karya::Worker, :integration do
     expect(state.jobs_by_id.fetch('job-blocked-queued').state).to eq(:queued)
     expect(state.jobs_by_id.fetch('job-eligible').state).to eq(:succeeded)
   end
+
+  it 'reserves from later subscribed queue when earlier queue only has unsupported handlers' do
+    queue_store.enqueue(
+      job: Karya::Job.new(
+        id: 'job-unsupported',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: { 'account_id' => 42 },
+        state: :submission,
+        created_at: base_time
+      ),
+      now: base_time
+    )
+    queue_store.enqueue(
+      job: Karya::Job.new(
+        id: 'job-supported',
+        queue: 'email',
+        handler: 'email_sync',
+        arguments: { 'account_id' => 42 },
+        state: :submission,
+        created_at: base_time + 1
+      ),
+      now: base_time + 1
+    )
+
+    worker = described_class.new(
+      queue_store:,
+      worker_id:,
+      queues: %w[billing email],
+      handlers: {
+        'email_sync' => lambda do |account_id:|
+          expect(account_id).to eq(42)
+        end
+      },
+      lease_duration: 30,
+      clock: -> { current_time.next }
+    )
+
+    result = worker.work_once
+
+    expect(result.id).to eq('job-supported')
+    expect(stored_job('job-supported').state).to eq(:succeeded)
+    expect(stored_job('job-unsupported').state).to eq(:queued)
+  end
 end
