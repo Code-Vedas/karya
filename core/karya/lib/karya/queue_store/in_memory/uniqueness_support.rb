@@ -116,6 +116,7 @@ module Karya
         end
 
         def effective_reserved_uniqueness_job(job, now)
+          return nil if job_expired?(job, now)
           return job unless lease_expired_for_uniqueness?(state.reservations_by_token, job.id, now)
 
           job.transition_to(:queued, updated_at: now, failure_classification: nil)
