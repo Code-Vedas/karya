@@ -127,9 +127,9 @@ RSpec.describe Karya::CLI, :e2e, :integration do
         directory:,
         handler_class_name: 'CliWorkerRetryHandler',
         marker_path: marker_file,
-        prelude_source: "attempts = 0\n",
+        prelude_source: "INITIAL_ACCOUNT_ID = 42\n",
         job_attributes_source: <<~RUBY.strip,
-          arguments: { 'account_id' => 42, 'marker_path' => #{marker_file.inspect} },
+          arguments: { 'account_id' => INITIAL_ACCOUNT_ID, 'marker_path' => #{marker_file.inspect} },
           retry_policy: Karya::RetryPolicy.new(max_attempts: 2, base_delay: 0, multiplier: 1),
           state: :submission,
           created_at: now

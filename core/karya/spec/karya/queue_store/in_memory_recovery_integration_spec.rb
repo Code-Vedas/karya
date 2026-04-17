@@ -93,6 +93,7 @@ RSpec.describe Karya::QueueStore::InMemory, :integration do
     end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
 
     replacement = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 5, now: base_time + 6)
+    expect(replacement.job_id).to eq('job-1')
     store.start_execution(reservation_token: replacement.token, now: base_time + 6.5)
     store.complete_execution(reservation_token: replacement.token, now: base_time + 7)
 
