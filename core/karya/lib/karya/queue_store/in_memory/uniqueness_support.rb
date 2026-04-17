@@ -11,6 +11,30 @@ module Karya
       # Idempotency and uniqueness checks over canonical stored jobs.
       module UniquenessSupport
         UNIQUENESS_REENTRY_FAILURE_CLASSIFICATION = :error
+        # Compact duplicate-key log formatting that avoids dumping arbitrarily long keys.
+        class DuplicateKeySummary
+          MAX_PREVIEW_LENGTH = 64
+
+          def initialize(key)
+            @key = key
+          end
+
+          def to_s
+            "#{preview.inspect} (length=#{key.length})"
+          end
+
+          private
+
+          attr_reader :key
+
+          def preview
+            return key unless key.length > MAX_PREVIEW_LENGTH
+
+            "#{key[0, MAX_PREVIEW_LENGTH]}..."
+          end
+        end
+
+        private_constant :DuplicateKeySummary
 
         private
 
@@ -20,10 +44,14 @@ module Karya
         end
 
         def uniqueness_conflict?(job, exclude_job_id: nil, now: nil)
-          duplicate_exists_for?(job, key: job.uniqueness_key, exclude_job_id:) do |existing_job, candidate_job|
+          duplicate_exists_for?(
+            job,
+            key: job.uniqueness_key,
+            key_name: :uniqueness_key,
+            exclude_job_id:
+          ) do |existing_job, candidate_job|
             effective_existing_job = effective_uniqueness_job(existing_job, now)
             next false unless effective_existing_job
-            next false unless effective_existing_job.uniqueness_key == candidate_job.uniqueness_key
             next false unless effective_existing_job.uniqueness_scope && candidate_job.uniqueness_scope
 
             uniqueness_conflict_between?(effective_existing_job, candidate_job)
@@ -31,11 +59,7 @@ module Karya
         end
 
         def idempotency_conflict?(job, exclude_job_id: nil)
-          duplicate_exists_for?(job, key: job.idempotency_key, exclude_job_id:) do |existing_job, candidate_job|
-            next false unless existing_job.idempotency_key == candidate_job.idempotency_key
-
-            true
-          end
+          duplicate_exists_for?(job, key: job.idempotency_key, key_name: :idempotency_key, exclude_job_id:) { true }
         end
 
         def uniqueness_conflict_between?(existing_job, incoming_job)
@@ -87,13 +111,14 @@ module Karya
           end
         end
 
-        def duplicate_exists_for?(job, key:, exclude_job_id:)
+        def duplicate_exists_for?(job, key:, key_name:, exclude_job_id:)
           return false unless key
 
           jobs_by_id = state.jobs_by_id
           jobs_by_id.each_value do |existing_job|
             existing_job_id = existing_job.id
             next if existing_job_id == exclude_job_id || existing_job_id == job.id
+            next unless existing_job.public_send(key_name) == key
             return true if yield(existing_job, job)
           end
 
@@ -161,12 +186,12 @@ module Karya
 
         def raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:)
           raise DuplicateUniquenessKeyError,
-                "job #{job_id.inspect} conflicts with uniqueness_key #{uniqueness_key.inspect}"
+                "job #{job_id.inspect} conflicts with uniqueness_key #{DuplicateKeySummary.new(uniqueness_key)}"
         end
 
         def raise_duplicate_idempotency_key_error(job_id:, idempotency_key:)
           raise DuplicateIdempotencyKeyError,
-                "job #{job_id.inspect} conflicts with idempotency_key #{idempotency_key.inspect}"
+                "job #{job_id.inspect} conflicts with idempotency_key #{DuplicateKeySummary.new(idempotency_key)}"
         end
       end
     end

@@ -297,6 +297,20 @@ module Karya
       end
 
       module UniquenessSupport
+        class DuplicateKeySummary
+          MAX_PREVIEW_LENGTH: Integer
+
+          def initialize: (String key) -> void
+
+          def to_s: () -> String
+
+          private
+
+          attr_reader key: String
+
+          def preview: () -> String
+        end
+
         private
 
         def store_job: (job: Job) -> Job
@@ -324,6 +338,7 @@ module Karya
         def duplicate_exists_for?: (
           Job job,
           key: String?,
+          key_name: :idempotency_key | :uniqueness_key,
           ?exclude_job_id: String?
         ) { (Job, Job) -> bool } -> bool
 

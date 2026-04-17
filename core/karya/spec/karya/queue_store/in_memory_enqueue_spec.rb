@@ -95,6 +95,35 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
     end
 
+    it 'includes compact short-key uniqueness details in duplicate error messages' do
+      store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          uniqueness_key: 'billing:account-42',
+          uniqueness_scope: :queued
+        ),
+        now: created_at + 1
+      )
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-2',
+            queue: 'billing',
+            created_at: created_at + 1,
+            uniqueness_key: 'billing:account-42',
+            uniqueness_scope: :queued
+          ),
+          now: created_at + 2
+        )
+      end.to raise_error(Karya::DuplicateUniquenessKeyError) { |error|
+        expect(error.message).to include('"billing:account-42"')
+        expect(error.message).to include('length=18')
+      }
+    end
+
     it 'does not recover expired reservations before raising duplicate uniqueness errors' do
       store.enqueue(
         job: submission_job(
@@ -231,6 +260,35 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(queued_job.idempotency_key).to eq(composite_key)
       expect(queued_job.uniqueness_key).to eq(composite_key)
+    end
+
+    it 'truncates duplicate key error messages for long keys' do
+      long_key = "#{'x' * 4096}\nsnowman-\u2603"
+      store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          idempotency_key: long_key
+        ),
+        now: created_at + 1
+      )
+
+      expect do
+        store.enqueue(
+          job: submission_job(
+            id: 'job-2',
+            queue: 'billing',
+            created_at: created_at + 1,
+            idempotency_key: long_key
+          ),
+          now: created_at + 2
+        )
+      end.to raise_error(Karya::DuplicateIdempotencyKeyError) { |error|
+        expect(error.message).to include('length=4106')
+        expect(error.message.length).to be < 256
+        expect(error.message).not_to include(long_key)
+      }
     end
 
     it 'expires queued uniqueness jobs before deciding a later enqueue conflict' do
