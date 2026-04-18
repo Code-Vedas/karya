@@ -41,6 +41,12 @@ RSpec.describe Karya::RetryPolicySet do
       end.to raise_error(Karya::InvalidRetryPolicyError, 'duplicate retry policy key "slow" after normalization')
     end
 
+    it 'rejects non-string non-symbol policy keys' do
+      expect do
+        described_class.new(policies: { Object.new => { max_attempts: 3, base_delay: 5, multiplier: 2 } })
+      end.to raise_error(Karya::InvalidRetryPolicyError, 'retry_policy key must be a String or Symbol')
+    end
+
     it 'rejects invalid source types' do
       expect do
         described_class.new(policies: [])

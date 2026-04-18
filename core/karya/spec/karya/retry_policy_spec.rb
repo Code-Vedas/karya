@@ -56,6 +56,12 @@ RSpec.describe Karya::RetryPolicy do
       end.to raise_error(Karya::InvalidRetryPolicyError, 'jitter_strategy must be one of :none, :full, or :equal')
     end
 
+    it 'rejects unknown retry policy options' do
+      expect do
+        described_class.new(max_attempts: 3, base_delay: 5, multiplier: 2, unknown: true)
+      end.to raise_error(Karya::InvalidRetryPolicyError, 'unknown retry policy options: :unknown')
+    end
+
     it 'rejects non-string non-symbol jitter_strategy values' do
       expect do
         described_class.new(max_attempts: 3, base_delay: 5, multiplier: 2, jitter_strategy: 123)
@@ -192,6 +198,14 @@ RSpec.describe Karya::RetryPolicy do
 
       expect do
         policy.decision_for(attempt: 1, failure_classification: :error, jitter_key: nil)
+      end.to raise_error(Karya::InvalidRetryPolicyError, 'jitter_key must be a non-empty String or Symbol')
+    end
+
+    it 'rejects empty string jitter_key values' do
+      policy = described_class.new(max_attempts: 3, base_delay: 10, multiplier: 2)
+
+      expect do
+        policy.decision_for(attempt: 1, failure_classification: :error, jitter_key: '')
       end.to raise_error(Karya::InvalidRetryPolicyError, 'jitter_key must be a non-empty String or Symbol')
     end
 

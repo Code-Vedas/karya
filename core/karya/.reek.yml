@@ -25,7 +25,6 @@ detectors:
     max_params: 10
     exclude:
       - Karya::Worker::Configuration#initialize
-      - Karya::RetryPolicy#initialize
   TooManyInstanceVariables:
     enabled: true
     max_instance_variables: 10
@@ -41,7 +40,6 @@ detectors:
       - Karya::JobLifecycle::StateManager#merge_extension_transitions
       - Karya::WorkerSupervisor::ChildProcessRunner#mark_thread_stopped
       - Karya::RetryPolicy#normalize_attempt
-      - Karya::RetryPolicy#normalize_jitter_key
       - Karya::RetryPolicy#normalize_max_attempts
       - Karya::RetryPolicy#normalize_multiplier
       - Karya::RetryPolicy#normalize_non_negative_numeric
@@ -56,9 +54,6 @@ detectors:
       - Karya::JobLifecycle::StateManager#initialize_base_transitions
       - Karya::JobLifecycle::StateManager#canonical_state?
       - Karya::Worker::Configuration#normalize_default_execution_timeout
-      - Karya::RetryPolicy#normalize_failure_classification
-      - Karya::RetryPolicySet#normalize_policy_key
-      - Karya::RetryPolicySet#build_policy_from_attributes
       - Karya::QueueStore::InMemory::ExpirationSupport#job_expired?
       - Karya::QueueStore::InMemory::ExpirationSupport#build_expired_job
       - Karya::QueueStore::InMemory::ExecutionSupport#collect_expired_leases
@@ -69,7 +64,6 @@ detectors:
   DuplicateMethodCall:
     exclude:
       - Karya::Worker#execute_handler
-      - Karya::RetryPolicySet#normalize_policy
   NestedIterators:
     exclude:
       - Karya::QueueStore::InMemory::ExpirationSupport#expire_queued_jobs

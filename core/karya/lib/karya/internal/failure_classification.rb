@@ -10,6 +10,7 @@ module Karya
     # Normalizes the closed failure taxonomy without symbolizing arbitrary input.
     module FailureClassification
       MESSAGE = 'failure_classification must be one of :error, :timeout, or :expired'
+      LIST_MESSAGE = 'escalate_on must be an Array of failure classifications'
 
       def self.normalize(value, error_class:)
         case value
@@ -22,6 +23,12 @@ module Karya
         else
           raise error_class, MESSAGE
         end
+      end
+
+      def self.normalize_list(values, error_class:)
+        raise error_class, LIST_MESSAGE unless values.is_a?(Array)
+
+        values.map { |value| normalize(value, error_class:) }.uniq.freeze
       end
     end
   end

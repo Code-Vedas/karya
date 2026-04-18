@@ -23,6 +23,7 @@ module Karya
     INVALID_POLICY_MESSAGE = 'retry policy must be built from a Hash or Karya::RetryPolicy'
     INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE =
       "unsupported retry policy attribute; supported keys are: #{SUPPORTED_ATTRIBUTE_KEYS.join(', ')}".freeze
+    INVALID_POLICY_KEY_MESSAGE = 'retry_policy key must be a String or Symbol'
 
     attr_reader :policies
 
@@ -30,7 +31,13 @@ module Karya
       raise InvalidRetryPolicyError, 'retry policies must be a Hash' unless policies.is_a?(Hash)
 
       @policies = policies.each_with_object({}) do |(key, raw_policy), normalized|
-        normalized_key = normalize_policy_key(key)
+        normalized_key =
+          case key
+          when String, Symbol
+            Primitives::Identifier.new(:retry_policy, key, error_class: InvalidRetryPolicyError).normalize
+          else
+            raise InvalidRetryPolicyError, INVALID_POLICY_KEY_MESSAGE
+          end
         raise InvalidRetryPolicyError, "duplicate retry policy key #{normalized_key.inspect} after normalization" if normalized.key?(normalized_key)
 
         normalized[normalized_key] = normalize_policy(raw_policy)
@@ -42,7 +49,7 @@ module Karya
     def policy_for(key)
       case key
       when String, Symbol
-        policies[normalize_policy_key(key)]
+        policies[Primitives::Identifier.new(:retry_policy, key, error_class: InvalidRetryPolicyError).normalize]
       when nil
         nil
       else
@@ -52,25 +59,17 @@ module Karya
 
     private
 
-    def normalize_policy_key(key)
-      Primitives::Identifier.new(:retry_policy, key, error_class: InvalidRetryPolicyError).normalize
-    end
-
     def normalize_policy(raw_policy)
       case raw_policy
       when RetryPolicy
         raw_policy
       when Hash
-        build_policy_from_attributes(raw_policy)
+        RetryPolicy.new(**normalize_policy_attributes(raw_policy))
       else
-        raise InvalidRetryPolicyError, INVALID_POLICY_MESSAGE
+        invalid_policy_error
       end
     rescue ArgumentError, TypeError
-      raise InvalidRetryPolicyError, INVALID_POLICY_MESSAGE
-    end
-
-    def build_policy_from_attributes(raw_policy)
-      RetryPolicy.new(**normalize_policy_attributes(raw_policy))
+      invalid_policy_error
     end
 
     def normalize_policy_attributes(raw_policy)
@@ -96,6 +95,10 @@ module Karya
       ATTRIBUTE_KEYS.fetch(attribute_key)
     rescue KeyError
       raise InvalidRetryPolicyError, INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE
+    end
+
+    def invalid_policy_error
+      raise InvalidRetryPolicyError, INVALID_POLICY_MESSAGE
     end
   end
 end

@@ -37,13 +37,21 @@ module Karya
 
     attr_reader :base_delay, :escalate_on, :jitter_strategy, :max_attempts, :max_delay, :multiplier
 
-    def initialize(max_attempts:, base_delay:, multiplier:, max_delay: nil, jitter_strategy: :none, escalate_on: [])
+    OPTIONAL_CONFIGURATION_KEYS = %i[max_delay jitter_strategy escalate_on].freeze
+
+    def initialize(max_attempts:, base_delay:, multiplier:, **options)
+      unexpected_keys = options.keys - OPTIONAL_CONFIGURATION_KEYS
+      raise InvalidRetryPolicyError, "unknown retry policy options: #{unexpected_keys.map(&:inspect).join(', ')}" unless unexpected_keys.empty?
+
       @max_attempts = normalize_max_attempts(max_attempts)
       @base_delay = normalize_non_negative_numeric(:base_delay, base_delay)
       @multiplier = normalize_multiplier(multiplier)
-      @max_delay = normalize_optional_max_delay(max_delay)
-      @jitter_strategy = normalize_jitter_strategy(jitter_strategy)
-      @escalate_on = normalize_escalate_on(escalate_on)
+      @max_delay = normalize_optional_max_delay(options.fetch(:max_delay, nil))
+      @jitter_strategy = normalize_jitter_strategy(options.fetch(:jitter_strategy, :none))
+      @escalate_on = Internal::FailureClassification.normalize_list(
+        options.fetch(:escalate_on, []),
+        error_class: InvalidRetryPolicyError
+      )
 
       freeze
     end
@@ -63,7 +71,15 @@ module Karya
         failure_classification,
         error_class: InvalidRetryPolicyError
       )
-      normalized_jitter_key = normalize_jitter_key(jitter_key)
+      normalized_jitter_key =
+        case jitter_key
+        when String
+          jitter_key unless jitter_key.empty?
+        when Symbol
+          converted_key = jitter_key.to_s
+          converted_key unless converted_key.empty?
+        end
+      raise InvalidRetryPolicyError, 'jitter_key must be a non-empty String or Symbol' unless normalized_jitter_key
 
       return RetryDecision.new(action: :stop, delay: nil, reason: nil) if normalized_failure_classification == :expired
 
@@ -124,23 +140,6 @@ module Karya
       raise InvalidRetryPolicyError, 'jitter_strategy must be one of :none, :full, or :equal'
     end
 
-    def normalize_escalate_on(value)
-      raise InvalidRetryPolicyError, 'escalate_on must be an Array of failure classifications' unless value.is_a?(Array)
-
-      value.map { |failure_classification| normalize_failure_classification(failure_classification) }.uniq.freeze
-    end
-
-    def normalize_jitter_key(value)
-      return value if value.is_a?(String) && !value.empty?
-
-      if value.is_a?(Symbol)
-        normalized_value = value.to_s
-        return normalized_value unless normalized_value.empty?
-      end
-
-      raise InvalidRetryPolicyError, 'jitter_key must be a non-empty String or Symbol'
-    end
-
     def raw_delay_for(attempt)
       base_delay * (multiplier**(attempt - 1))
     end
@@ -169,10 +168,6 @@ module Karya
       return delay unless max_delay
 
       [delay, max_delay].min
-    end
-
-    def normalize_failure_classification(value)
-      Internal::FailureClassification.normalize(value, error_class: InvalidRetryPolicyError)
     end
   end
 end
