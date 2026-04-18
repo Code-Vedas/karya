@@ -39,7 +39,7 @@ Dead-letter state should make recovery intent obvious:
 ```text
 # persisted job attributes
 job: email-991
-status: dead_letter
+state: dead_letter
 
 # operator/UI metadata
 reason: retry-policy-exhausted

@@ -47,7 +47,7 @@ Retry behavior should be understandable from an operator point of view:
 # persisted job attributes
 job: billing-123
 attempt: 3
-status: retry_pending
+state: retry_pending
 next_retry_at: 2026-03-26T14:05:00Z
 failure_classification: timeout
 ```
@@ -56,7 +56,8 @@ Retry state needs to be visible, explainable, and bounded.
 
 - `failed` records the current attempt outcome
 - `retry_pending` means the same job instance is still under retry policy
-- `next_retry_at` marks the next planned re-entry into queued execution
+- `next_retry_at` marks when the job becomes eligible to be promoted back to
+  `queued` during queue-store maintenance or reservation scans
 - when retries are exhausted, the core runtime returns the job to `failed`
 - dead-letter isolation requires additional lifecycle or queue-store behavior
   beyond the base retry model
