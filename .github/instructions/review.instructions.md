@@ -172,7 +172,10 @@ For any code examples in README/docs:
 - For `docs/`, do not treat lack of current implementation as a failure by
   itself. Only flag examples that are contradictory, internally impossible, or
   inconsistent with the intended future-state product story.
-- **Required:** Flag any example that would fail if run as shown
+- **Required:** Flag any example that would fail if run as shown, except in
+  `docs/` where you should only flag examples that are contradictory,
+  internally impossible, or inconsistent with the intended future-state
+  product story.
 
 ### API Surface Consistency
 
