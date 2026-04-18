@@ -35,7 +35,7 @@ Dead-letter state should make recovery intent obvious:
 
 ```text
 job: email-991
-status: dead-letter
+state: dead_letter
 
 reason: retry-policy-exhausted
 last_state: retry_pending
