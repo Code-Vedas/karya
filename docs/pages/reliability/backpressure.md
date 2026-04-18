@@ -44,7 +44,8 @@ Backpressure should read as an operational state, not an unexplained slowdown:
 queue: billing
 status: throttled
 reason: concurrency-group-limit
-subscription: billing + billing_sync
+queues: [billing]
+handlers: [billing_sync]
 running_jobs: 25
 waiting_jobs: 140
 ```

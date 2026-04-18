@@ -7,13 +7,12 @@ permalink: /reliability/dead-letters/
 
 # Dead Letters
 
-Karya reserves dead-letter handling for reliability layers that extend the base
-runtime lifecycle with explicit isolation and governed recovery flows.
+Karya isolates unrecoverable or unsafe work through explicit dead-letter
+handling and governed recovery flows.
 
 ## Covered Behavior
 
-- dead-letter isolation after bounded retry or policy-based isolation in an
-  extension layer
+- dead-letter isolation after bounded retry or policy-based isolation
 - operator-visible reasons why work left the normal retry path
 - governed replay, discard, and controlled retry paths
 - operator investigation and audit-oriented recovery workflows
@@ -26,9 +25,7 @@ clear recovery options and historical context.
 Dead-letter handling begins after work leaves the ordinary retry path. The
 non-terminal execution and retry states include `queued`, `reserved`,
 `running`, `failed`, and `retry_pending`; dead-letter handling covers the
-isolated path that follows. The base runtime provides the extension boundary.
-Adapters, queue stores, or higher-level operator workflows provide the
-dead-letter policy and recovery actions built on top of it.
+isolated path that follows.
 
 ## Common Scenarios
 
@@ -37,11 +34,9 @@ dead-letter policy and recovery actions built on top of it.
 Dead-letter state should make recovery intent obvious:
 
 ```text
-# persisted job attributes
 job: email-991
-state: dead_letter
+status: dead-letter
 
-# operator/UI metadata
 reason: retry-policy-exhausted
 last_state: retry_pending
 recovery_boundary: governed

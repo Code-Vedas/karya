@@ -22,8 +22,8 @@ bolted onto individual jobs.
 - worker-default retry policy with optional per-job override
 - `retry_pending` as explicit waiting state between failed attempt and requeue
 - operator-visible failure classification and retry timing
-- a handoff point where extensions or higher-level operator workflows may
-  isolate work after bounded retry stops being the right path
+- explicit escalation from bounded retry into dead-letter isolation or other
+  governed recovery paths when policy says work is no longer safe to continue
 
 ## Operator Expectations
 
@@ -31,11 +31,11 @@ Operators need to distinguish:
 
 - failures that remain retry-eligible when policy allows
 - failures that should wait in `retry_pending` until the next retry window
-- failures that stop normal retry and remain `failed` until another lifecycle
-  extension or higher-level recovery workflow takes over
+- failures that should stop normal retry and move into dead-letter isolation
+  or other governed recovery flows
 - failed attempts that transition into `retry_pending`
-- the difference between core retry behavior and later isolation or recovery
-  layers
+- escalation decisions that are driven by explicit policy rather than implicit
+  worker behavior
 
 ## Common Scenarios
 
@@ -44,23 +44,21 @@ Operators need to distinguish:
 Retry behavior should be understandable from an operator point of view:
 
 ```text
-# persisted job attributes
 job: billing-123
 attempt: 3
-state: retry_pending
+status: retry_pending
 next_retry_at: 2026-03-26T14:05:00Z
-failure_classification: timeout
+reason: upstream timeout
+recovery_boundary: bounded-retry
 ```
 
 Retry state needs to be visible, explainable, and bounded.
 
 - `failed` records the current attempt outcome
 - `retry_pending` means the same job instance is still under retry policy
-- `next_retry_at` marks when the job becomes eligible to be promoted back to
-  `queued` during queue-store maintenance or reservation scans
-- when retries are exhausted, the core runtime returns the job to `failed`
-- dead-letter isolation requires additional lifecycle or queue-store behavior
-  beyond the base retry model
+- `next_retry_at` marks the next planned re-entry into queued execution
+- dead-letter isolation starts only after bounded retry stops being the right
+  path for that job
 
 ## Related Concepts
 
@@ -68,7 +66,7 @@ Retry state needs to be visible, explainable, and bounded.
   retry is no longer safe
 - [Controls](/runtime/controls/): retry, isolation, and intervention follow
   the same operator workflows
-- [Workflow Replay](/workflows/replay/): replay sits in governed recovery,
+- [Workflow Replay](/workflows/replay/): replay belongs to governed recovery,
   not ordinary retry
 - [Troubleshooting](/troubleshooting/): use retry state during incident
   triage
