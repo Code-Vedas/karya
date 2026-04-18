@@ -39,22 +39,34 @@ module Karya
   type lease_duration_value = Integer | Float | Rational | BigDecimal
   type retry_policy = RetryPolicy
   type retry_policy_reference = RetryPolicy | state_name
-  type retry_policy_symbol_attributes = {
+  type retry_policy_symbol_required_attributes = {
     max_attempts: Numeric,
     base_delay: Numeric,
-    multiplier: Numeric,
-    ?max_delay: Numeric,
-    ?jitter_strategy: retry_jitter_strategy,
-    ?escalate_on: Array[failure_classification_input]
+    multiplier: Numeric
   }
-  type retry_policy_string_attributes = {
+  type retry_policy_symbol_attributes =
+    retry_policy_symbol_required_attributes |
+    { max_attempts: Numeric, base_delay: Numeric, multiplier: Numeric, max_delay: Numeric } |
+    { max_attempts: Numeric, base_delay: Numeric, multiplier: Numeric, jitter_strategy: retry_jitter_strategy } |
+    { max_attempts: Numeric, base_delay: Numeric, multiplier: Numeric, escalate_on: Array[failure_classification_input] } |
+    { max_attempts: Numeric, base_delay: Numeric, multiplier: Numeric, max_delay: Numeric, jitter_strategy: retry_jitter_strategy } |
+    { max_attempts: Numeric, base_delay: Numeric, multiplier: Numeric, max_delay: Numeric, escalate_on: Array[failure_classification_input] } |
+    { max_attempts: Numeric, base_delay: Numeric, multiplier: Numeric, jitter_strategy: retry_jitter_strategy, escalate_on: Array[failure_classification_input] } |
+    { max_attempts: Numeric, base_delay: Numeric, multiplier: Numeric, max_delay: Numeric, jitter_strategy: retry_jitter_strategy, escalate_on: Array[failure_classification_input] }
+  type retry_policy_string_required_attributes = {
     "max_attempts" => Numeric,
     "base_delay" => Numeric,
-    "multiplier" => Numeric,
-    ?"max_delay" => Numeric,
-    ?"jitter_strategy" => retry_jitter_strategy,
-    ?"escalate_on" => Array[failure_classification_input]
+    "multiplier" => Numeric
   }
+  type retry_policy_string_attributes =
+    retry_policy_string_required_attributes |
+    { "max_attempts" => Numeric, "base_delay" => Numeric, "multiplier" => Numeric, "max_delay" => Numeric } |
+    { "max_attempts" => Numeric, "base_delay" => Numeric, "multiplier" => Numeric, "jitter_strategy" => retry_jitter_strategy } |
+    { "max_attempts" => Numeric, "base_delay" => Numeric, "multiplier" => Numeric, "escalate_on" => Array[failure_classification_input] } |
+    { "max_attempts" => Numeric, "base_delay" => Numeric, "multiplier" => Numeric, "max_delay" => Numeric, "jitter_strategy" => retry_jitter_strategy } |
+    { "max_attempts" => Numeric, "base_delay" => Numeric, "multiplier" => Numeric, "max_delay" => Numeric, "escalate_on" => Array[failure_classification_input] } |
+    { "max_attempts" => Numeric, "base_delay" => Numeric, "multiplier" => Numeric, "jitter_strategy" => retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] } |
+    { "max_attempts" => Numeric, "base_delay" => Numeric, "multiplier" => Numeric, "max_delay" => Numeric, "jitter_strategy" => retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] }
   type retry_policy_attributes = retry_policy_symbol_attributes | retry_policy_string_attributes
   type retry_policy_set_input = RetryPolicySet | Hash[state_name, RetryPolicy | retry_policy_attributes]
   type retry_decision_action = :retry | :stop | :escalate
