@@ -177,6 +177,20 @@ RSpec.describe Karya::Worker do
       end.to raise_error(Karya::InvalidWorkerConfigurationError, 'unknown retry policy :missing')
     end
 
+    it 'maps invalid named retry policy references through worker configuration errors' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-1',
+          queues: queues,
+          handlers: handlers,
+          lease_duration: 30,
+          retry_policy: ' ',
+          retry_policies: retry_policies
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, 'retry_policy must be present')
+    end
+
     it 'rejects invalid default execution timeout configuration' do
       expect do
         described_class.new(

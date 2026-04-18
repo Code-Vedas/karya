@@ -24,6 +24,7 @@ module Karya
     INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE =
       "unsupported retry policy attribute; supported keys are: #{SUPPORTED_ATTRIBUTE_KEYS.join(', ')}".freeze
     INVALID_POLICY_KEY_MESSAGE = 'retry_policy key must be a String or Symbol'
+    INVALID_DUPLICATE_POLICY_ATTRIBUTE_KEY_MESSAGE = 'duplicate retry policy attribute key %s after normalization'
 
     attr_reader :policies
 
@@ -74,7 +75,12 @@ module Karya
 
     def normalize_policy_attributes(raw_policy)
       raw_policy.each_with_object({}) do |(attribute_key, value), normalized|
-        normalized[normalize_attribute_key(attribute_key)] = value
+        normalized_attribute_key = normalize_attribute_key(attribute_key)
+        if normalized.key?(normalized_attribute_key)
+          raise InvalidRetryPolicyError, format(INVALID_DUPLICATE_POLICY_ATTRIBUTE_KEY_MESSAGE, normalized_attribute_key.inspect)
+        end
+
+        normalized[normalized_attribute_key] = value
       end
     end
 

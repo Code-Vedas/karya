@@ -83,6 +83,19 @@ RSpec.describe Karya::RetryPolicySet do
       end.to raise_error(Karya::InvalidRetryPolicyError, supported_key_message)
     end
 
+    it 'rejects duplicate retry policy attribute keys after normalization' do
+      expect do
+        described_class.new(
+          policies: {
+            fast: { 'max_attempts' => 3, max_attempts: 2, base_delay: 5, multiplier: 2 }
+          }
+        )
+      end.to raise_error(
+        Karya::InvalidRetryPolicyError,
+        'duplicate retry policy attribute key :max_attempts after normalization'
+      )
+    end
+
     it 'returns nil for nil lookup keys' do
       policy_set = described_class.new(policies: {})
 

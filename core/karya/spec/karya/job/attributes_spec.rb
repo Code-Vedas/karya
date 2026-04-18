@@ -219,6 +219,20 @@ RSpec.describe 'Karya::Job::Attributes' do
       end.to raise_error(Karya::InvalidJobAttributeError, 'unknown retry policy :missing')
     end
 
+    it 'maps invalid named retry policy references through job attribute errors' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          retry_policy: ' ',
+          retry_policies: retry_policies
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be present')
+    end
+
     it 'raises InvalidJobAttributeError for invalid retry_policies input' do
       expect do
         attributes_class.new(

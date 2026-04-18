@@ -48,6 +48,8 @@ module Karya
         return policy if policy
 
         raise error_class, "unknown retry policy #{reference.inspect}"
+      rescue InvalidRetryPolicyError => e
+        raise error_class, e.message
       end
     end
   end
