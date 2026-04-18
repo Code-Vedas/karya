@@ -21,7 +21,7 @@ module Karya
 
       @subscription: Worker::Subscription
 
-      OPTION_KEYS: ::Array[:worker_id | :queues | :handlers | :lease_duration | :lifecycle | :retry_policy | :default_execution_timeout]
+      OPTION_KEYS: ::Array[:worker_id | :queues | :handlers | :lease_duration | :lifecycle | :retry_policy | :retry_policies | :default_execution_timeout]
 
       def self.from_options: (symbol_options options) -> Configuration
 
@@ -47,7 +47,8 @@ module Karya
         handlers: handler_mapping | Worker::HandlerRegistry,
         lease_duration: Numeric,
         ?lifecycle: Karya::lifecycle,
-        ?retry_policy: RetryPolicy?,
+        ?retry_policy: Karya::retry_policy_reference?,
+        ?retry_policies: Karya::retry_policy_set_input?,
         ?default_execution_timeout: Numeric?
       ) -> void
 

@@ -70,6 +70,9 @@ detectors:
   NilCheck:
     exclude:
       - Karya::QueueStore::InMemory::HandlerMatcher#initialize
+      - Karya::Internal::RetryPolicyResolver#normalize
+      - Karya::Internal::RetryPolicyResolver#self.normalize_policy_set
+      - Karya::RetryPolicySet#policy_for
 exclude_paths:
   - spec/**/*
   - db/**/*

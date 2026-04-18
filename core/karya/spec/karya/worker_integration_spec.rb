@@ -13,6 +13,14 @@ RSpec.describe Karya::Worker, :integration do
   let(:current_time) { [base_time, base_time + 1, base_time + 2, base_time + 3].each }
   let(:policy_set) { Karya::Backpressure::PolicySet.new }
   let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2) }
+  let(:retry_policies) do
+    Karya::RetryPolicySet.new(
+      policies: {
+        fast: { max_attempts: 2, base_delay: 1, multiplier: 2 },
+        slow: { max_attempts: 2, base_delay: 9, multiplier: 2 }
+      }
+    )
+  end
 
   def enqueue_submission_job(id:, handler: 'billing_sync', priority: 0, concurrency_key: nil, rate_limit_key: nil)
     queue_store.enqueue(
@@ -245,6 +253,61 @@ RSpec.describe Karya::Worker, :integration do
     expect(result.state).to eq(:retry_pending)
     expect(result.next_retry_at).to eq(base_time + 12)
     expect(stored_job('job-job-policy').retry_policy.max_attempts).to eq(2)
+  end
+
+  it 'uses a worker default named retry policy' do
+    enqueue_submission_job(id: 'job-worker-named')
+
+    worker_clock = [base_time + 1, base_time + 2, base_time + 3].each
+    worker = described_class.new(
+      queue_store: queue_store,
+      worker_id: worker_id,
+      queues: [queue_name],
+      handlers: { 'billing_sync' => ->(account_id:) { raise 'boom' if account_id == 42 } },
+      lease_duration: 30,
+      retry_policy: :fast,
+      retry_policies: retry_policies,
+      clock: -> { worker_clock.next }
+    )
+
+    result = worker.work_once
+
+    expect(result.state).to eq(:retry_pending)
+    expect(result.next_retry_at).to eq(base_time + 4)
+    expect(stored_job('job-worker-named').retry_policy.max_attempts).to eq(2)
+  end
+
+  it 'resolves a job-level named retry policy independently of the worker default' do
+    queue_store.enqueue(
+      job: Karya::Job.new(
+        id: 'job-job-named',
+        queue: queue_name,
+        handler: 'billing_sync',
+        arguments: { 'account_id' => 42 },
+        retry_policy: :slow,
+        retry_policies: retry_policies,
+        state: :submission,
+        created_at: base_time
+      ),
+      now: base_time
+    )
+    worker_clock = [base_time + 1, base_time + 2, base_time + 3].each
+    worker = described_class.new(
+      queue_store: queue_store,
+      worker_id: worker_id,
+      queues: [queue_name],
+      handlers: { 'billing_sync' => ->(account_id:) { raise 'boom' if account_id == 42 } },
+      lease_duration: 30,
+      retry_policy: :fast,
+      retry_policies: retry_policies,
+      clock: -> { worker_clock.next }
+    )
+
+    result = worker.work_once
+
+    expect(result.state).to eq(:retry_pending)
+    expect(result.next_retry_at).to eq(base_time + 12)
+    expect(stored_job('job-job-named').retry_policy.base_delay).to eq(9)
   end
 
   it 'executes an eligible lower-priority job when a queued higher-priority job is concurrency-blocked' do

@@ -276,6 +276,38 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(store_state.retry_pending_job_ids).to eq(['job-1'])
     end
 
+    it 'uses deterministic jitter to spread retry scheduling for different jobs' do
+      jitter_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2, jitter_strategy: :equal)
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 0.5), now: created_at + 1.5)
+
+      first_reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: first_reservation.token, now: created_at + 3)
+      first_retry = store.fail_execution(
+        reservation_token: first_reservation.token,
+        now: created_at + 4,
+        retry_policy: jitter_policy,
+        failure_classification: :error
+      )
+
+      second_reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 5)
+      store.start_execution(reservation_token: second_reservation.token, now: created_at + 6)
+      second_retry = store.fail_execution(
+        reservation_token: second_reservation.token,
+        now: created_at + 7,
+        retry_policy: jitter_policy,
+        failure_classification: :error
+      )
+
+      expect(first_retry.state).to eq(:retry_pending)
+      expect(second_retry.state).to eq(:retry_pending)
+      expect(first_retry.next_retry_at).not_to eq(second_retry.next_retry_at)
+      expect(first_retry.next_retry_at).to be >= created_at + 6.5
+      expect(first_retry.next_retry_at).to be <= created_at + 9
+      expect(second_retry.next_retry_at).to be >= created_at + 9.5
+      expect(second_retry.next_retry_at).to be <= created_at + 12
+    end
+
     it 'keeps a failed job terminal when max_attempts is exhausted' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
@@ -311,6 +343,25 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(failed_job.state).to eq(:failed)
       expect(failed_job.next_retry_at).to be_nil
       expect(failed_job.failure_classification).to eq(:error)
+      expect(store_state.retry_pending_job_ids).to eq([])
+    end
+
+    it 'keeps a failed job terminal when retry policy escalates the failure classification' do
+      escalation_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2, escalate_on: [:timeout])
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+      failed_job = store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: escalation_policy,
+        failure_classification: :timeout
+      )
+
+      expect(failed_job.state).to eq(:failed)
+      expect(failed_job.next_retry_at).to be_nil
+      expect(failed_job.failure_classification).to eq(:timeout)
       expect(store_state.retry_pending_job_ids).to eq([])
     end
 

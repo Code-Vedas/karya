@@ -31,14 +31,13 @@ module Karya
           end
         end
 
-        def retry_pending_job(running_job, now, retry_policy, failure_classification)
+        def retry_pending_job(running_job, now, retry_policy, failure_classification, next_retry_at)
           failed_job = running_job.transition_to(
             :failed,
             updated_at: now,
             next_retry_at: nil,
             failure_classification:
           )
-          next_retry_at = now + retry_policy.delay_for(failed_job.attempt)
           retry_pending_job = resolve_reentry_uniqueness(
             failed_job.transition_to(
               :retry_pending,

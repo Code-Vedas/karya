@@ -6,7 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative '../internal/failure_classification'
-require_relative '../internal/retry_policy_normalizer'
+require_relative '../internal/retry_policy_resolver'
 require_relative '../primitives/identifier'
 require_relative '../primitives/lifecycle'
 require_relative '../primitives/positive_finite_number'
@@ -128,7 +128,11 @@ module Karya
       end
 
       def normalize_retry_policy
-        Internal::RetryPolicyNormalizer.new(optional(:retry_policy, nil), error_class: InvalidJobAttributeError).normalize
+        Internal::RetryPolicyResolver.new(
+          optional(:retry_policy, nil),
+          policy_set: optional(:retry_policies, nil),
+          error_class: InvalidJobAttributeError
+        ).normalize
       end
 
       def normalize_failure_classification

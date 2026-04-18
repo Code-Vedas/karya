@@ -8,8 +8,10 @@ module Karya
     # Internal implementation helper. Typed for whole-implementation RBS, not public API.
     module FailureClassification
       MESSAGE: String
+      LIST_MESSAGE: String
 
       def self.normalize: (failure_classification_input value, error_class: Karya::error_class) -> failure_classification
+      def self.normalize_list: (Array[failure_classification_input] values, error_class: Karya::error_class) -> Array[failure_classification]
     end
   end
 end
