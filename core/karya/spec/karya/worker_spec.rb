@@ -27,6 +27,13 @@ RSpec.describe Karya::Worker do
   let(:sleeper) { ->(_duration) {} }
   let(:signal_subscriber) { nil }
   let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2) }
+  let(:retry_policies) do
+    Karya::RetryPolicySet.new(
+      policies: {
+        fast: { max_attempts: 2, base_delay: 1, multiplier: 2, jitter_strategy: :equal }
+      }
+    )
+  end
 
   def submission_job(id:, queue: 'billing', handler_name: 'billing_sync', arguments: {}, created_at: now - 60)
     Karya::Job.new(
@@ -71,6 +78,37 @@ RSpec.describe Karya::Worker do
       expect(retrying_worker.retry_policy).to be(retry_policy)
     end
 
+    it 'resolves named retry policies through retry_policies' do
+      retrying_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues: queues,
+        handlers:,
+        lease_duration: 30,
+        retry_policy: :fast,
+        retry_policies: retry_policies
+      )
+
+      expect(retrying_worker.retry_policy).to eq(retry_policies.policy_for(:fast))
+    end
+
+    it 'normalizes retry_policies from a raw hash' do
+      retrying_worker = described_class.new(
+        queue_store:,
+        worker_id: 'worker-1',
+        queues: queues,
+        handlers:,
+        lease_duration: 30,
+        retry_policy: :fast,
+        retry_policies: {
+          fast: { max_attempts: 2, base_delay: 1, multiplier: 2 }
+        }
+      )
+
+      expect(retrying_worker.retry_policy).to be_a(Karya::RetryPolicy)
+      expect(retrying_worker.retry_policy.max_attempts).to eq(2)
+    end
+
     it 'exposes the configured default execution timeout' do
       timeout_worker = described_class.new(
         queue_store:,
@@ -94,7 +132,49 @@ RSpec.describe Karya::Worker do
           lease_duration: 30,
           retry_policy: 'not-a-policy'
         )
-      end.to raise_error(Karya::InvalidWorkerConfigurationError, 'retry_policy must be a Karya::RetryPolicy')
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, 'retry_policy references require retry_policies')
+    end
+
+    it 'rejects invalid retry_policies configuration' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-1',
+          queues: queues,
+          handlers: handlers,
+          lease_duration: 30,
+          retry_policy: :fast,
+          retry_policies: []
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, 'retry_policies must be a Hash or Karya::RetryPolicySet')
+    end
+
+    it 'maps invalid retry policy entries from retry_policies through worker configuration errors' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-1',
+          queues: queues,
+          handlers: handlers,
+          lease_duration: 30,
+          retry_policy: :fast,
+          retry_policies: { fast: { base_delay: 1, multiplier: 2 } }
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, 'retry policy must be built from a Hash or Karya::RetryPolicy')
+    end
+
+    it 'rejects unknown named retry policies' do
+      expect do
+        described_class.new(
+          queue_store: queue_store,
+          worker_id: 'worker-1',
+          queues: queues,
+          handlers: handlers,
+          lease_duration: 30,
+          retry_policy: :missing,
+          retry_policies: retry_policies
+        )
+      end.to raise_error(Karya::InvalidWorkerConfigurationError, 'unknown retry policy :missing')
     end
 
     it 'rejects invalid default execution timeout configuration' do

@@ -10,6 +10,13 @@ RSpec.describe 'Karya::Job::Attributes' do
   let(:created_at) { Time.utc(2026, 3, 26, 12, 0, 0) }
   let(:updated_at) { Time.utc(2026, 3, 26, 12, 5, 0) }
   let(:retry_policy) { Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2) }
+  let(:retry_policies) do
+    Karya::RetryPolicySet.new(
+      policies: {
+        fast: { max_attempts: 2, base_delay: 1, multiplier: 2, jitter_strategy: :equal }
+      }
+    )
+  end
   let(:next_retry_at) { Time.utc(2026, 3, 26, 12, 10, 0) }
   let(:expires_at) { Time.utc(2026, 3, 26, 12, 20, 0) }
 
@@ -179,7 +186,51 @@ RSpec.describe 'Karya::Job::Attributes' do
           created_at: created_at,
           retry_policy: 'not-a-policy'
         ).to_h
-      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy')
+      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy references require retry_policies')
+    end
+
+    it 'resolves named retry policies through retry_policies' do
+      attributes = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'queued',
+        created_at: created_at,
+        retry_policy: :fast,
+        retry_policies: retry_policies
+      )
+
+      result = attributes.to_h
+
+      expect(result[:retry_policy]).to eq(retry_policies.policy_for(:fast))
+    end
+
+    it 'raises InvalidJobAttributeError for unknown named retry policies' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          retry_policy: :missing,
+          retry_policies: retry_policies
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'unknown retry policy :missing')
+    end
+
+    it 'raises InvalidJobAttributeError for invalid retry_policies input' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          retry_policy: :fast,
+          retry_policies: []
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policies must be a Hash or Karya::RetryPolicySet')
     end
 
     it 'raises InvalidJobAttributeError for blank idempotency_key' do
@@ -328,7 +379,7 @@ RSpec.describe 'Karya::Job::Attributes' do
           created_at: created_at,
           retry_policy: false
         ).to_h
-      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy')
+      end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy must be a Karya::RetryPolicy, String, or Symbol')
     end
 
     it 'raises InvalidJobAttributeError for invalid next_retry_at' do

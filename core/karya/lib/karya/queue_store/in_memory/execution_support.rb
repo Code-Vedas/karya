@@ -62,8 +62,21 @@ module Karya
 
         def finalized_execution_job(running_job:, next_state:, now:, retry_policy:, failure_classification:)
           failed_execution = next_state == :failed
-          if failed_execution && failure_classification != :expired && retry_policy&.retry?(running_job.attempt)
-            return retry_pending_job(running_job, now, retry_policy, failure_classification)
+          if failed_execution && failure_classification != :expired && retry_policy
+            retry_decision = retry_policy.decision_for(
+              attempt: running_job.attempt,
+              failure_classification:,
+              jitter_key: running_job.id
+            )
+            if retry_decision.action == :retry
+              return retry_pending_job(
+                running_job,
+                now,
+                retry_policy,
+                failure_classification,
+                now + retry_decision.delay
+              )
+            end
           end
 
           running_job.transition_to(

@@ -10,20 +10,47 @@ module Karya
 
   # Immutable retry policy for deterministic retry/backoff behavior.
   class RetryPolicy
+    class RetryDecision
+      @action: Karya::retry_decision_action
+      @delay: Numeric?
+      @reason: Karya::retry_decision_reason?
+
+      attr_reader action: Karya::retry_decision_action
+      attr_reader delay: Numeric?
+      attr_reader reason: Karya::retry_decision_reason?
+    end
+
     @max_attempts: Integer
     @base_delay: Numeric
     @multiplier: Numeric
     @max_delay: Numeric?
+    @jitter_strategy: :none | :full | :equal
+    @escalate_on: Array[Karya::failure_classification]
 
     attr_reader max_attempts: Integer
     attr_reader base_delay: Numeric
     attr_reader multiplier: Numeric
     attr_reader max_delay: Numeric?
+    attr_reader jitter_strategy: :none | :full | :equal
+    attr_reader escalate_on: Array[Karya::failure_classification]
 
-    def initialize: (max_attempts: Integer, base_delay: Numeric, multiplier: Numeric, ?max_delay: Numeric?) -> void
+    def initialize: (
+      max_attempts: Integer,
+      base_delay: Numeric,
+      multiplier: Numeric,
+      ?max_delay: Numeric?,
+      ?jitter_strategy: Karya::retry_jitter_strategy,
+      ?escalate_on: Array[Karya::failure_classification_input]
+    ) -> void
 
     def delay_for: (Integer attempt) -> Numeric
 
     def retry?: (Integer attempt) -> bool
+
+    def decision_for: (
+      attempt: Integer,
+      failure_classification: Karya::failure_classification_input,
+      jitter_key: String | Symbol
+    ) -> RetryDecision
   end
 end

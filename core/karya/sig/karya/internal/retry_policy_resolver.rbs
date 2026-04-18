@@ -1,0 +1,31 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    # Shared resolution for optional retry policy references and registries.
+    class RetryPolicyResolver
+      @value: Karya::retry_policy_reference?
+      @policy_set: RetryPolicySet?
+      @error_class: Karya::error_class
+
+      def self.normalize_policy_set: (Karya::retry_policy_set_input? value, error_class: Karya::error_class) -> RetryPolicySet?
+
+      def initialize: (
+        Karya::retry_policy_reference? value,
+        ?policy_set: Karya::retry_policy_set_input?,
+        error_class: Karya::error_class
+      ) -> void
+
+      def normalize: () -> RetryPolicy?
+
+      private
+
+      attr_reader error_class: Karya::error_class
+      attr_reader policy_set: RetryPolicySet?
+      attr_reader value: Karya::retry_policy_reference?
+    end
+  end
+end

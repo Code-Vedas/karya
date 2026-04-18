@@ -38,13 +38,20 @@ module Karya
   type worker_loop_result = Job | worker_continue_running | nil
   type lease_duration_value = Integer | Float | Rational | BigDecimal
   type retry_policy = RetryPolicy
+  type retry_policy_reference = RetryPolicy | state_name
+  type retry_policy_attribute_value = Numeric | retry_jitter_strategy | Array[failure_classification_input]
+  type retry_policy_attributes = Hash[state_name, retry_policy_attribute_value]
+  type retry_policy_set_input = RetryPolicySet | Hash[state_name, RetryPolicy | retry_policy_attributes]
+  type retry_decision_action = :retry | :stop | :escalate
+  type retry_decision_reason = :classification_escalated | :retry_exhausted
+  type retry_jitter_strategy = :none | :full | :equal | "none" | "full" | "equal"
   type uniqueness_scope = :queued | :active | :until_terminal
   type uniqueness_scope_input = uniqueness_scope | "queued" | "active" | "until_terminal"
   type failure_classification = :error | :timeout | :expired
   type failure_classification_input = failure_classification | "error" | "timeout" | "expired"
   type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
   type handler_mapping = ::Hash[String, Worker::_Handler]
-  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | retry_policy | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
+  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
   type symbol_options = ::Hash[Symbol, option_value]
   type mixed_options = ::Hash[Symbol | String, option_value]
   type job_arguments = ::Hash[String, job_argument]
@@ -60,6 +67,6 @@ module Karya
   type cli_env_prefix_normalizer = ^(Symbol) -> String?
   type cli_optional_integer_coercer = ^(Symbol) -> Integer?
   type cli_positive_integer_resolver = ^(Symbol, env_prefix: String?, defaults: cli_defaults) -> Integer
-  type job_attribute_value = job_argument | Integer | Time | retry_policy | lifecycle | state_name | uniqueness_scope_input | failure_classification_input
+  type job_attribute_value = job_argument | Integer | Time | retry_policy | retry_policy_set_input | lifecycle | state_name | uniqueness_scope_input | failure_classification_input
   type reservation_attribute_value = state_name | Integer | Time
 end
