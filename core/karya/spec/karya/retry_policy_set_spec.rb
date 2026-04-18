@@ -71,5 +71,13 @@ RSpec.describe Karya::RetryPolicySet do
 
       expect(policy_set.policy_for(nil)).to be_nil
     end
+
+    it 'rejects non-string non-symbol lookup keys' do
+      policy_set = described_class.new(policies: {})
+
+      expect do
+        policy_set.policy_for(Object.new)
+      end.to raise_error(Karya::InvalidRetryPolicyError, 'retry_policy lookup key must be a String or Symbol')
+    end
   end
 end

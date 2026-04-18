@@ -6,7 +6,6 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative '../internal/failure_classification'
-require_relative '../internal/retry_policy_normalizer'
 require_relative '../internal/retry_policy_resolver'
 require_relative '../primitives/identifier'
 require_relative '../primitives/lifecycle'

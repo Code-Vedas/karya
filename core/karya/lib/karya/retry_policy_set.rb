@@ -38,26 +38,37 @@ module Karya
     end
 
     def policy_for(key)
-      key&.then { |present_key| policies[normalize_policy_key(present_key)] }
+      case key
+      when String, Symbol
+        policies[normalize_policy_key(key)]
+      when nil
+        nil
+      else
+        raise InvalidRetryPolicyError, 'retry_policy lookup key must be a String or Symbol'
+      end
     end
 
     private
 
-    # :reek:UtilityFunction
     def normalize_policy_key(key)
       Primitives::Identifier.new(:retry_policy, key, error_class: InvalidRetryPolicyError).normalize
     end
 
-    # :reek:DuplicateMethodCall
     def normalize_policy(raw_policy)
-      message = INVALID_POLICY_MESSAGE
-      return raw_policy if raw_policy.is_a?(RetryPolicy)
-
-      raise InvalidRetryPolicyError, message unless raw_policy.is_a?(Hash)
-
-      RetryPolicy.new(**normalize_policy_attributes(raw_policy))
+      case raw_policy
+      when RetryPolicy
+        raw_policy
+      when Hash
+        build_policy_from_attributes(raw_policy)
+      else
+        raise InvalidRetryPolicyError, INVALID_POLICY_MESSAGE
+      end
     rescue ArgumentError, TypeError
-      raise InvalidRetryPolicyError, message
+      raise InvalidRetryPolicyError, INVALID_POLICY_MESSAGE
+    end
+
+    def build_policy_from_attributes(raw_policy)
+      RetryPolicy.new(**normalize_policy_attributes(raw_policy))
     end
 
     def normalize_policy_attributes(raw_policy)
@@ -66,17 +77,17 @@ module Karya
       end
     end
 
-    # :reek:FeatureEnvy
     def normalize_attribute_key(attribute_key)
-      message = INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE
       return attribute_key if attribute_key.is_a?(Symbol)
+      return normalize_string_attribute_key(attribute_key) if attribute_key.is_a?(String)
 
-      if attribute_key.is_a?(String)
-        normalized_key = ATTRIBUTE_KEYS[attribute_key]
-        return normalized_key if normalized_key
-      end
+      raise InvalidRetryPolicyError, INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE
+    end
 
-      raise InvalidRetryPolicyError, message
+    def normalize_string_attribute_key(attribute_key)
+      ATTRIBUTE_KEYS.fetch(attribute_key)
+    rescue KeyError
+      raise InvalidRetryPolicyError, INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE
     end
   end
 end

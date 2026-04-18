@@ -15,6 +15,12 @@ module Karya
       @delay: Numeric?
       @reason: Karya::retry_decision_reason?
 
+      def initialize: (
+        action: Karya::retry_decision_action,
+        delay: Numeric?,
+        reason: Karya::retry_decision_reason?
+      ) -> void
+
       attr_reader action: Karya::retry_decision_action
       attr_reader delay: Numeric?
       attr_reader reason: Karya::retry_decision_reason?

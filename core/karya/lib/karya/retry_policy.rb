@@ -38,7 +38,6 @@ module Karya
 
     attr_reader :base_delay, :escalate_on, :jitter_strategy, :max_attempts, :max_delay, :multiplier
 
-    # :reek:LongParameterList
     def initialize(max_attempts:, base_delay:, multiplier:, max_delay: nil, jitter_strategy: :none, escalate_on: [])
       @max_attempts = normalize_max_attempts(max_attempts)
       @base_delay = normalize_non_negative_numeric(:base_delay, base_delay)
@@ -126,20 +125,12 @@ module Karya
       raise InvalidRetryPolicyError, 'jitter_strategy must be one of :none, :full, or :equal'
     end
 
-    # :reek:FeatureEnvy
     def normalize_escalate_on(value)
       raise InvalidRetryPolicyError, 'escalate_on must be an Array of failure classifications' unless value.is_a?(Array)
 
-      value.each_with_object([]) do |failure_classification, normalized|
-        normalized_failure_classification = Internal::FailureClassification.normalize(
-          failure_classification,
-          error_class: InvalidRetryPolicyError
-        )
-        normalized << normalized_failure_classification unless normalized.include?(normalized_failure_classification)
-      end.freeze
+      value.map { |failure_classification| normalize_failure_classification(failure_classification) }.uniq.freeze
     end
 
-    # :reek:FeatureEnvy
     def normalize_jitter_key(value)
       return value if value.is_a?(String) && !value.empty?
       return value.to_s if value.is_a?(Symbol)
@@ -155,7 +146,8 @@ module Karya
       delay = raw_delay_for(attempt)
       return clamp_delay(delay) if jitter_strategy == :none
 
-      fraction = jitter_fraction(jitter_key, attempt)
+      digest = Digest::SHA256.hexdigest("#{jitter_key}:#{attempt}")
+      fraction = digest[0, 16].to_i(16) / HASH_DENOMINATOR
       delay_with_jitter =
         case jitter_strategy
         when :full
@@ -176,10 +168,8 @@ module Karya
       [delay, max_delay].min
     end
 
-    # :reek:UtilityFunction
-    def jitter_fraction(jitter_key, attempt)
-      digest = Digest::SHA256.hexdigest("#{jitter_key}:#{attempt}")
-      digest[0, 16].to_i(16) / HASH_DENOMINATOR
+    def normalize_failure_classification(value)
+      Internal::FailureClassification.normalize(value, error_class: InvalidRetryPolicyError)
     end
   end
 end

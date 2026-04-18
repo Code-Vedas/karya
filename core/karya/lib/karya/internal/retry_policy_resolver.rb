@@ -10,7 +10,6 @@ require_relative '../retry_policy_set'
 module Karya
   module Internal
     # Shared resolution for optional retry policy references and registries.
-    # :reek:NilCheck
     class RetryPolicyResolver
       def self.normalize_policy_set(value, error_class:)
         return value if value.is_a?(RetryPolicySet)
