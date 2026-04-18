@@ -6,6 +6,11 @@
 # LICENSE file in the root directory of this source tree.
 
 RSpec.describe Karya::RetryPolicySet do
+  let(:supported_key_message) do
+    'unsupported retry policy attribute; supported keys are: ' \
+      'max_attempts, base_delay, multiplier, max_delay, jitter_strategy, escalate_on'
+  end
+
   describe '#initialize' do
     it 'normalizes named retry policies from hashes and instances' do
       timeout_policy = Karya::RetryPolicy.new(max_attempts: 5, base_delay: 3, multiplier: 2)
@@ -57,13 +62,19 @@ RSpec.describe Karya::RetryPolicySet do
     it 'rejects invalid retry policy attribute keys' do
       expect do
         described_class.new(policies: { fast: { Object.new => 3, base_delay: 5, multiplier: 2 } })
-      end.to raise_error(Karya::InvalidRetryPolicyError, 'retry policy attribute keys must be Symbols or Strings')
+      end.to raise_error(Karya::InvalidRetryPolicyError, supported_key_message)
     end
 
     it 'rejects unknown string retry policy attribute keys' do
       expect do
         described_class.new(policies: { fast: { 'unknown' => 3, base_delay: 5, multiplier: 2, max_attempts: 2 } })
-      end.to raise_error(Karya::InvalidRetryPolicyError, 'retry policy attribute keys must be Symbols or Strings')
+      end.to raise_error(Karya::InvalidRetryPolicyError, supported_key_message)
+    end
+
+    it 'rejects unknown symbol retry policy attribute keys' do
+      expect do
+        described_class.new(policies: { fast: { unknown: 3, base_delay: 5, multiplier: 2, max_attempts: 2 } })
+      end.to raise_error(Karya::InvalidRetryPolicyError, supported_key_message)
     end
 
     it 'returns nil for nil lookup keys' do

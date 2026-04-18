@@ -16,7 +16,6 @@ module Karya
   # Immutable retry policy for deterministic retry/backoff behavior.
   class RetryPolicy
     JITTER_STRATEGIES = %i[none full equal].freeze
-    ESCALATION_REASONS = %i[classification_escalated retry_exhausted].freeze
     HASH_DENOMINATOR = 0xffff_ffff_ffff_ffff.to_f
     JITTER_STRATEGY_STRINGS = {
       'none' => :none,

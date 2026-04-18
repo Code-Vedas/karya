@@ -19,8 +19,10 @@ module Karya
       'jitter_strategy' => :jitter_strategy,
       'escalate_on' => :escalate_on
     }.freeze
+    SUPPORTED_ATTRIBUTE_KEYS = ATTRIBUTE_KEYS.values.freeze
     INVALID_POLICY_MESSAGE = 'retry policy must be built from a Hash or Karya::RetryPolicy'
-    INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE = 'retry policy attribute keys must be Symbols or Strings'
+    INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE =
+      "unsupported retry policy attribute; supported keys are: #{SUPPORTED_ATTRIBUTE_KEYS.join(', ')}".freeze
 
     attr_reader :policies
 
@@ -78,8 +80,14 @@ module Karya
     end
 
     def normalize_attribute_key(attribute_key)
-      return attribute_key if attribute_key.is_a?(Symbol)
+      return normalize_symbol_attribute_key(attribute_key) if attribute_key.is_a?(Symbol)
       return normalize_string_attribute_key(attribute_key) if attribute_key.is_a?(String)
+
+      raise InvalidRetryPolicyError, INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE
+    end
+
+    def normalize_symbol_attribute_key(attribute_key)
+      return attribute_key if SUPPORTED_ATTRIBUTE_KEYS.include?(attribute_key)
 
       raise InvalidRetryPolicyError, INVALID_POLICY_ATTRIBUTE_KEY_MESSAGE
     end
