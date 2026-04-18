@@ -132,7 +132,11 @@ module Karya
 
     def normalize_jitter_key(value)
       return value if value.is_a?(String) && !value.empty?
-      return value.to_s if value.is_a?(Symbol)
+
+      if value.is_a?(Symbol)
+        normalized_value = value.to_s
+        return normalized_value unless normalized_value.empty?
+      end
 
       raise InvalidRetryPolicyError, 'jitter_key must be a non-empty String or Symbol'
     end

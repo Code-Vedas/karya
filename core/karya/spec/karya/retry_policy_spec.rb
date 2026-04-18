@@ -204,6 +204,14 @@ RSpec.describe Karya::RetryPolicy do
       expect(decision.delay).to be_between(0, 10)
     end
 
+    it 'rejects empty symbol jitter_key values' do
+      policy = described_class.new(max_attempts: 3, base_delay: 10, multiplier: 2)
+
+      expect do
+        policy.decision_for(attempt: 1, failure_classification: :error, jitter_key: :"")
+      end.to raise_error(Karya::InvalidRetryPolicyError, 'jitter_key must be a non-empty String or Symbol')
+    end
+
     it 'falls back safely if jitter_strategy is unexpected at runtime' do
       policy_class = Class.new(described_class) do
         def jitter_strategy = :unexpected
