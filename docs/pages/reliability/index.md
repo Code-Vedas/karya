@@ -29,10 +29,21 @@ The reliability section documents:
 
 - retry and backoff behavior
 - idempotency and uniqueness expectations
-- poison-job and dead-letter recovery flows
+- dead-letter isolation and governed recovery boundaries
 - fairness, starvation prevention, rate limiting, and backpressure
+- how routing decisions and worker subscriptions shape reliability outcomes
 
 ## About The Examples
 
 The examples in this section focus on visible behavior: what operators see,
 what developers can rely on, and how failure states become understandable.
+
+Across this section:
+
+- queues define where work is routed
+- workers subscribe intentionally through queue and handler matching
+- retries keep the same job instance moving through `failed` and
+  `retry_pending`
+- dead-letter handling begins after bounded retry or policy-based isolation
+- recovery actions stay explicit instead of hiding behind implicit queue
+  behavior

@@ -15,6 +15,11 @@ Use this file as the repo-root coding baseline.
 - Trace concrete state changes for time, retries, leases, shutdown, and shared
   state. Watch for TOCTOU gaps.
 - Do not symbolize, intern, or cache unbounded input.
+- `docs/` is future-state product documentation with no exceptions. Review and
+  edit it as completed product documentation, not as a mirror of what is
+  implemented today. For `docs/`, fix contradictions, stale names, broken
+  links, impossible workflows, and inconsistent support boundaries, but do not
+  downgrade product behavior merely because code is not there yet.
 - RBS must be 100% true to Ruby behavior. Mirror ownership, visibility,
   optionality, arguments, and return types. Remove stale signatures when code
   moves or disappears.

@@ -15,9 +15,11 @@ CLI surfaces.
 - runtime inspection APIs for supervisor, child-process, and worker-thread state
 - supervisor-level drain and force-stop controls for worker runtimes
 - queue and worker lifecycle control
-- bulk enqueue, retry, cancel, and pause/resume operations
+- retry, isolation, replay, and governed recovery actions across aligned
+  operator surfaces
 - operator-visible state used for safe intervention across `queued`,
-  `reserved`, `running`, `failed`, `retry_pending`, and `cancelled` job states
+  `reserved`, `running`, `failed`, `retry_pending`, `cancelled`, and extension
+  states such as `dead_letter` when they are registered
 
 ## Surface Model
 
@@ -38,18 +40,17 @@ job model rather than redefining job state per interface.
 
 ### Taking A Runtime Action
 
-Runtime controls should read consistently across UI, API, and CLI surfaces:
+Illustrative vocabulary across UI, API, and CLI surfaces:
 
 ```text
-pause queue billing
-resume queue billing
-retry failed job <job-id>
-inspect worker <worker-id>
+dashboard action: retry failed job <job-id>
+dashboard action: inspect dead_letter job <job-id>
+operator API action: replay isolated job <job-id>
+CLI action: karya runtime inspect --state-file /tmp/karya-runtime-billing.json
 ```
 
-Command and API shapes may evolve, but the model stays the same: operators can
-inspect and intervene through aligned surfaces instead of learning unrelated
-control models.
+Dashboard, operator API, and CLI workflows use the same runtime vocabulary for
+inspection and intervention.
 
 ### Inspecting A Running Worker Runtime
 
@@ -65,12 +66,15 @@ The supervisor-managed worker runtime surfaces:
 
 Runtime control remains aligned around the supervisor-managed execution model:
 supervisor state, child-process state, worker-thread state, and safe
-intervention boundaries around queued, reserved, running, and recovery flows.
+intervention boundaries around queued, reserved, running, retry, isolation, and
+recovery flows.
 
 ## Related Concepts
 
 - [Workers](/runtime/workers/): runtime controls supervise active execution
 - [Retries](/reliability/retries/): recovery actions extend the same control
   model
+- [Dead Letters](/reliability/dead-letters/): isolation and governed recovery
+  use the same control vocabulary
 - [CLI](/operator/cli/): command workflows mirror the runtime control model
 - [Troubleshooting](/troubleshooting/): use control surfaces during triage
