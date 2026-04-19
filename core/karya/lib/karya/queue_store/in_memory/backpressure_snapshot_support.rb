@@ -64,8 +64,13 @@ module Karya
         end
 
         def each_queued_job
-          state.queued_job_ids_by_queue.values.flatten.each do |job_id|
-            yield state.jobs_by_id.fetch(job_id)
+          state.queued_job_ids_by_queue.each_value do |job_ids|
+            index = 0
+            while index < job_ids.length
+              job_id = job_ids[index]
+              yield state.jobs_by_id.fetch(job_id)
+              index += 1
+            end
           end
         end
 

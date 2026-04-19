@@ -10,14 +10,26 @@ module Karya
     class InMemory
       # Backpressure policy helpers used during reservation scans.
       module BackpressureSupport
-        module_function
+        QUEUE_SCOPE_KEY_PREFIX = 'queue:'
+        HANDLER_SCOPE_KEY_PREFIX = 'handler:'
+        private_constant :QUEUE_SCOPE_KEY_PREFIX, :HANDLER_SCOPE_KEY_PREFIX
 
         def scope_keys_for(job, explicit_scope)
-          [
-            Backpressure::Scope.new(kind: :queue, value: job.queue).key,
-            Backpressure::Scope.new(kind: :handler, value: job.handler).key,
-            explicit_scope&.key
-          ].compact.uniq.freeze
+          queue_key = build_scope_key(QUEUE_SCOPE_KEY_PREFIX, job.queue)
+          handler_key = build_scope_key(HANDLER_SCOPE_KEY_PREFIX, job.handler)
+          explicit_key = explicit_scope&.key
+          keys = [queue_key, handler_key]
+          keys << explicit_key if explicit_key && explicit_key != queue_key && explicit_key != handler_key
+          keys.freeze
+        end
+        module_function :scope_keys_for
+
+        class << self
+          private
+
+          def build_scope_key(prefix, value)
+            "#{prefix}#{value}"
+          end
         end
 
         private
