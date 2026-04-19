@@ -48,6 +48,8 @@ detectors:
       - Karya::QueueStore::InMemory#store_and_requeue_if_needed
       - Karya::QueueStore::InMemory::UniquenessSupport#duplicate_exists_for?
       - Karya::QueueStore::InMemory::UniquenessSupport#effective_retry_pending_uniqueness_job
+      - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_concurrency
+      - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_rate_limits
   UtilityFunction:
     enabled: true
     exclude:
@@ -64,6 +66,7 @@ detectors:
   DuplicateMethodCall:
     exclude:
       - Karya::Worker#execute_handler
+      - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#add_blocked_counts
   NestedIterators:
     exclude:
       - Karya::QueueStore::InMemory::ExpirationSupport#expire_queued_jobs

@@ -55,6 +55,7 @@ module Karya
       def expire_reservations: (now: Time) -> Array[Job]
 
       def expire_jobs: (now: Time) -> Array[Job]
+      def backpressure_snapshot: (now: Time) -> Karya::backpressure_snapshot
 
       private
 

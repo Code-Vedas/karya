@@ -14,7 +14,17 @@ RSpec.describe Karya::QueueStore::InMemory do
   let(:policy_set) { Karya::Backpressure::PolicySet.new }
   let(:tagged_string_class) { Class.new(String) }
 
-  def submission_job(id:, queue:, created_at:, handler: 'billing_sync', priority: 0, concurrency_key: nil, rate_limit_key: nil)
+  def submission_job(
+    id:,
+    queue:,
+    created_at:,
+    handler: 'billing_sync',
+    priority: 0,
+    concurrency_key: nil,
+    rate_limit_key: nil,
+    concurrency_scope: nil,
+    rate_limit_scope: nil
+  )
     Karya::Job.new(
       id:,
       queue:,
@@ -22,6 +32,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       priority:,
       concurrency_key:,
       rate_limit_key:,
+      concurrency_scope:,
+      rate_limit_scope:,
       state: :submission,
       created_at:
     )
@@ -430,7 +442,7 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
 
-      expect(limited_store.instance_variable_get(:@state).rate_limit_admissions_by_key.keys).to eq(['partner_api'])
+      expect(limited_store.instance_variable_get(:@state).rate_limit_admissions_by_key.keys).to eq(['custom:partner_api'])
 
       limited_store.reserve(queue: 'missing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 20)
 
@@ -458,6 +470,148 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(first.job_id).to eq('job-1')
       expect(second.job_id).to eq('job-2')
+    end
+
+    it 'enforces queue-scoped concurrency policies from job routing metadata' do
+      scoped_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(
+          concurrency: {
+            { kind: :queue, value: 'billing' } => { limit: 1 }
+          }
+        )
+      )
+      scoped_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      scoped_store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1), now: created_at + 2)
+
+      first = scoped_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      second = scoped_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second).to be_nil
+    end
+
+    it 'enforces handler-scoped rate limits from job routing metadata' do
+      scoped_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(
+          rate_limits: {
+            { kind: :handler, value: 'billing_sync' } => { limit: 1, period: 60 }
+          }
+        )
+      )
+      scoped_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:, handler: 'billing_sync'), now: created_at + 1)
+      scoped_store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1, handler: 'billing_sync'), now: created_at + 2)
+
+      first = scoped_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      second = scoped_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second).to be_nil
+    end
+
+    it 'enforces explicit tenant scopes across related jobs' do
+      scoped_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(
+          concurrency: {
+            { kind: :tenant, value: 'tenant-7' } => { limit: 1 }
+          }
+        )
+      )
+      scoped_store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          concurrency_scope: { kind: :tenant, value: 'tenant-7' }
+        ),
+        now: created_at + 1
+      )
+      scoped_store.enqueue(
+        job: submission_job(
+          id: 'job-2',
+          queue: 'billing',
+          created_at: created_at + 1,
+          concurrency_scope: { kind: :tenant, value: 'tenant-7' }
+        ),
+        now: created_at + 2
+      )
+
+      first = scoped_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+      second = scoped_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)
+
+      expect(first.job_id).to eq('job-1')
+      expect(second).to be_nil
+    end
+
+    it 'returns a read-only backpressure snapshot grouped by normalized scope keys' do
+      scoped_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(
+          concurrency: {
+            { kind: :queue, value: 'billing' } => { limit: 1 }
+          },
+          rate_limits: {
+            { kind: :tenant, value: 'tenant-7' } => { limit: 1, period: 60 }
+          }
+        )
+      )
+      scoped_store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          rate_limit_scope: { kind: :tenant, value: 'tenant-7' }
+        ),
+        now: created_at + 1
+      )
+      scoped_store.enqueue(
+        job: submission_job(
+          id: 'job-2',
+          queue: 'billing',
+          created_at: created_at + 1,
+          rate_limit_scope: { kind: :tenant, value: 'tenant-7' }
+        ),
+        now: created_at + 2
+      )
+
+      scoped_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)
+
+      snapshot = scoped_store.backpressure_snapshot(now: created_at + 4)
+
+      expect(snapshot).to be_frozen
+      expect(snapshot[:concurrency].fetch('queue:billing')).to include(limit: 1, active_count: 1, blocked_count: 1)
+      expect(snapshot[:rate_limits].fetch('tenant:tenant-7')).to include(limit: 1, window_count: 1, blocked_count: 1, period: 60)
+    end
+
+    it 'ignores unconfigured explicit scopes in backpressure snapshots' do
+      scoped_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(
+          concurrency: {
+            { kind: :queue, value: 'billing' } => { limit: 1 }
+          },
+          rate_limits: {
+            { kind: :handler, value: 'billing_sync' } => { limit: 1, period: 60 }
+          }
+        )
+      )
+      scoped_store.enqueue(
+        job: submission_job(
+          id: 'job-1',
+          queue: 'billing',
+          created_at:,
+          concurrency_scope: { kind: :tenant, value: 'tenant-7' },
+          rate_limit_scope: { kind: :workflow, value: 'nightly-billing' }
+        ),
+        now: created_at + 1
+      )
+
+      snapshot = scoped_store.backpressure_snapshot(now: created_at + 2)
+
+      expect(snapshot[:concurrency].fetch('queue:billing')).to include(active_count: 0, blocked_count: 0)
+      expect(snapshot[:rate_limits].fetch('handler:billing_sync')).to include(window_count: 0, blocked_count: 0)
     end
 
     it 'ignores unconfigured rate-limit keys without recording admissions' do
