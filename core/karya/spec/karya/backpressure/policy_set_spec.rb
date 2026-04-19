@@ -63,11 +63,35 @@ RSpec.describe Karya::Backpressure::PolicySet do
       concurrency: {
         queue_scope => { limit: 2 },
         { 'kind' => 'tenant', 'value' => 'tenant-7' } => { limit: 1 }
+      },
+      rate_limits: {
+        { kind: :handler, value: 'billing_sync' } => { limit: 5, period: 60 }
       }
     )
 
     expect(policy_set.concurrency_policy_for(queue_scope)&.key).to eq('queue:billing')
     expect(policy_set.concurrency_policy_for(kind: :tenant, value: 'tenant-7')&.key).to eq('tenant:tenant-7')
+    expect(policy_set.rate_limit_policy_for(kind: :handler, value: 'billing_sync')&.key).to eq('handler:billing_sync')
+  end
+
+  it 'round-trips concurrency lookups by normalized policy key string' do
+    policy_set = described_class.new(
+      concurrency: {
+        { kind: :custom, value: 'account_sync' } => { limit: 2 }
+      }
+    )
+
+    expect(policy_set.concurrency_policy_for('custom:account_sync')&.limit).to eq(2)
+  end
+
+  it 'round-trips rate-limit lookups by normalized policy key string' do
+    policy_set = described_class.new(
+      rate_limits: {
+        { kind: :handler, value: 'billing_sync' } => { limit: 5, period: 60 }
+      }
+    )
+
+    expect(policy_set.rate_limit_policy_for('handler:billing_sync')&.limit).to eq(5)
   end
 
   it 'rejects unsupported policy attribute key types' do

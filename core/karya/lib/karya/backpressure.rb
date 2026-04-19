@@ -292,11 +292,19 @@ module Karya
       end
 
       def concurrency_policy_for(key)
-        key&.then { |present_key| concurrency[ScopeSupport.normalize_scope(:key, present_key).key] }
+        return nil unless key
+        return concurrency[key] if key.is_a?(String) && concurrency.key?(key)
+        return concurrency[key.key] if key.is_a?(Scope)
+
+        concurrency[ScopeSupport.normalize_scope(:key, key).key]
       end
 
       def rate_limit_policy_for(key)
-        key&.then { |present_key| rate_limits[ScopeSupport.normalize_scope(:key, present_key).key] }
+        return nil unless key
+        return rate_limits[key] if key.is_a?(String) && rate_limits.key?(key)
+        return rate_limits[key.key] if key.is_a?(Scope)
+
+        rate_limits[ScopeSupport.normalize_scope(:key, key).key]
       end
     end
   end
