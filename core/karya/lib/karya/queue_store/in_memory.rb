@@ -186,6 +186,7 @@ module Karya
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
         @mutex.synchronize do
+          recover_in_flight_locked(normalized_now)
           build_backpressure_snapshot(normalized_now)
         end
       end

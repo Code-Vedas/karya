@@ -618,6 +618,28 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(snapshot[:rate_limits].fetch('handler:billing_sync')).to include(window_count: 0, blocked_count: 0)
     end
 
+    it 'runs maintenance before building backpressure snapshots' do
+      scoped_store = described_class.new(
+        token_generator: token_generator,
+        policy_set: Karya::Backpressure::PolicySet.new(
+          concurrency: {
+            { kind: :queue, value: 'billing' } => { limit: 1 }
+          }
+        )
+      )
+      scoped_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      scoped_store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1), now: created_at + 2)
+
+      reservation = scoped_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 3)
+
+      snapshot = scoped_store.backpressure_snapshot(now: created_at + 5)
+      scoped_store_state = scoped_store.instance_variable_get(:@state)
+
+      expect(snapshot[:concurrency].fetch('queue:billing')).to include(active_count: 0, blocked_count: 0)
+      expect(scoped_store_state.reservations_by_token).not_to have_key(reservation.token)
+      expect(scoped_store_state.queued_job_ids_by_queue.fetch('billing')).to eq(%w[job-2 job-1])
+    end
+
     it 'ignores unconfigured rate-limit keys without recording admissions' do
       store.enqueue(
         job: submission_job(id: 'job-1', queue: 'billing', created_at:, rate_limit_key: 'unconfigured'),
