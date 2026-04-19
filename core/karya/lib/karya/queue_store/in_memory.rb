@@ -13,6 +13,7 @@ require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
 require_relative 'recovery_report'
 require_relative 'in_memory/backpressure_support'
+require_relative 'in_memory/backpressure_snapshot_support'
 require_relative 'in_memory/expiration_support'
 require_relative 'in_memory/execution_support'
 require_relative 'in_memory/execution_recovery'
@@ -46,6 +47,7 @@ module Karya
     class InMemory
       include Base
       include BackpressureSupport
+      include BackpressureSnapshotSupport
       include ExecutionSupport
       include ExpirationSupport
       include RecoverySupport
@@ -177,6 +179,14 @@ module Karya
 
         @mutex.synchronize do
           expire_jobs_locked(normalized_now)
+        end
+      end
+
+      def backpressure_snapshot(now:)
+        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
+
+        @mutex.synchronize do
+          build_backpressure_snapshot(normalized_now)
         end
       end
 

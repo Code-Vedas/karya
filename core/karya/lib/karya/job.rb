@@ -22,8 +22,8 @@ module Karya
     # Canonical immutable scheduling metadata for job selection policies.
     Scheduling = Struct.new(
       :priority,
-      :concurrency_key,
-      :rate_limit_key,
+      :concurrency_scope,
+      :rate_limit_scope,
       :retry_policy,
       :execution_timeout,
       :expires_at,
@@ -51,8 +51,8 @@ module Karya
       def scheduling
         Scheduling.new(
           attributes.fetch(:priority),
-          attributes.fetch(:concurrency_key),
-          attributes.fetch(:rate_limit_key),
+          attributes.fetch(:concurrency_scope),
+          attributes.fetch(:rate_limit_scope),
           attributes.fetch(:retry_policy),
           attributes.fetch(:execution_timeout),
           attributes.fetch(:expires_at),
@@ -113,8 +113,8 @@ module Karya
         handler:,
         arguments:,
         priority:,
-        concurrency_key:,
-        rate_limit_key:,
+        concurrency_scope:,
+        rate_limit_scope:,
         retry_policy:,
         execution_timeout:,
         expires_at:,
@@ -138,8 +138,8 @@ module Karya
         handler:,
         arguments:,
         priority:,
-        concurrency_key:,
-        rate_limit_key:,
+        concurrency_scope:,
+        rate_limit_scope:,
         retry_policy:,
         execution_timeout:,
         expires_at:,
@@ -165,8 +165,10 @@ module Karya
     def handler = identity.handler
     def arguments = identity.arguments
     def priority = scheduling.priority
-    def concurrency_key = scheduling.concurrency_key
-    def rate_limit_key = scheduling.rate_limit_key
+    def concurrency_scope = scheduling.concurrency_scope
+    def rate_limit_scope = scheduling.rate_limit_scope
+    def concurrency_key = concurrency_scope&.key
+    def rate_limit_key = rate_limit_scope&.key
     def retry_policy = scheduling.retry_policy
     def execution_timeout = scheduling.execution_timeout
     def expires_at = scheduling.expires_at

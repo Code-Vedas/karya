@@ -10,19 +10,31 @@ module Karya
     class InMemory
       # Backpressure policy helpers used during reservation scans.
       module BackpressureSupport
+        module_function
+
+        def scope_keys_for(job, explicit_scope)
+          [
+            Backpressure::Scope.new(kind: :queue, value: job.queue).key,
+            Backpressure::Scope.new(kind: :handler, value: job.handler).key,
+            explicit_scope&.key
+          ].compact.uniq.freeze
+        end
+
         private
 
         def record_rate_limit_admission(job, now)
-          policy = policy_set.rate_limit_policy_for(job.rate_limit_key)
-          return unless policy
+          BackpressureSupport.scope_keys_for(job, job.rate_limit_scope).each do |scope_key|
+            policy = policy_set.rate_limits[scope_key]
+            next unless policy
 
-          prune_rate_limit_admissions(policy.key, policy, now, delete_empty: false) << now
+            prune_rate_limit_admissions(scope_key, policy, now, delete_empty: false) << now
+          end
         end
 
         def prune_stale_rate_limit_admissions(now)
           rate_limit_keys = state.rate_limit_admissions_by_key.keys
           rate_limit_keys.each do |rate_limit_key|
-            policy = policy_set.rate_limit_policy_for(rate_limit_key)
+            policy = policy_set.rate_limits[rate_limit_key]
             unless policy
               state.delete_rate_limit_key(rate_limit_key)
               next

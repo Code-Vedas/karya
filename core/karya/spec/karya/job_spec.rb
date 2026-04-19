@@ -47,8 +47,10 @@ RSpec.describe Karya::Job do
       expect(job.arguments['metadata']).to be_frozen
       expect(job.arguments['tags']).to be_frozen
       expect(job.priority).to eq(5)
-      expect(job.concurrency_key).to eq('account-42')
-      expect(job.rate_limit_key).to eq('partner-api')
+      expect(job.concurrency_scope).to eq(Karya::Backpressure::Scope.new(kind: :custom, value: 'account-42'))
+      expect(job.rate_limit_scope).to eq(Karya::Backpressure::Scope.new(kind: :custom, value: 'partner-api'))
+      expect(job.concurrency_key).to eq('custom:account-42')
+      expect(job.rate_limit_key).to eq('custom:partner-api')
       expect(job.retry_policy).to eq(retry_policy)
       expect(job.execution_timeout).to eq(15)
       expect(job.expires_at).to eq(expires_at)
@@ -61,9 +63,7 @@ RSpec.describe Karya::Job do
       expect(job.updated_at).to eq(updated_at)
       expect(job.next_retry_at).to eq(next_retry_at)
       expect(job.failure_classification).to eq(:timeout)
-      expect(job.created_at).to be_frozen
-      expect(job.updated_at).to be_frozen
-      expect(job.next_retry_at).to be_frozen
+      expect([job.created_at, job.updated_at, job.next_retry_at]).to all(be_frozen)
       expect(job).to be_frozen
     end
 
@@ -86,6 +86,21 @@ RSpec.describe Karya::Job do
       expect(job.can_transition_to?('archived')).to be(true)
       expect(transitioned_job.state).to eq('archived')
       expect(transitioned_job.terminal?).to be(true)
+    end
+
+    it 'returns nil compatibility keys when no explicit backpressure scopes exist' do
+      job = described_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :queued,
+        created_at:
+      )
+
+      expect(job.concurrency_scope).to be_nil
+      expect(job.rate_limit_scope).to be_nil
+      expect(job.concurrency_key).to be_nil
+      expect(job.rate_limit_key).to be_nil
     end
   end
 
@@ -218,8 +233,10 @@ RSpec.describe Karya::Job do
       transitioned_job = job.transition_to(:running, updated_at:)
 
       expect(transitioned_job.priority).to eq(9)
-      expect(transitioned_job.concurrency_key).to eq('account-9')
-      expect(transitioned_job.rate_limit_key).to eq('partner-api')
+      expect(transitioned_job.concurrency_scope).to eq(Karya::Backpressure::Scope.new(kind: :custom, value: 'account-9'))
+      expect(transitioned_job.rate_limit_scope).to eq(Karya::Backpressure::Scope.new(kind: :custom, value: 'partner-api'))
+      expect(transitioned_job.concurrency_key).to eq('custom:account-9')
+      expect(transitioned_job.rate_limit_key).to eq('custom:partner-api')
       expect(transitioned_job.retry_policy).to eq(retry_policy)
       expect(transitioned_job.execution_timeout).to eq(12)
       expect(transitioned_job.expires_at).to eq(expires_at)
@@ -288,6 +305,25 @@ RSpec.describe Karya::Job do
       expect(job.instance_variable_get(:@identity)).to be_frozen
       expect(job.instance_variable_get(:@scheduling)).to be_frozen
       expect(job.instance_variable_get(:@lifecycle_state)).to be_frozen
+    end
+
+    it 'preserves explicit backpressure scopes across transitions' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        concurrency_scope: { kind: :tenant, value: 'tenant-9' },
+        rate_limit_scope: { kind: :workflow, value: 'nightly-billing' },
+        state: :reserved,
+        created_at:
+      )
+
+      transitioned_job = job.transition_to(:running, updated_at:)
+
+      expect(transitioned_job.concurrency_scope).to eq(Karya::Backpressure::Scope.new(kind: :tenant, value: 'tenant-9'))
+      expect(transitioned_job.rate_limit_scope).to eq(Karya::Backpressure::Scope.new(kind: :workflow, value: 'nightly-billing'))
+      expect(transitioned_job.concurrency_key).to eq('tenant:tenant-9')
+      expect(transitioned_job.rate_limit_key).to eq('workflow:nightly-billing')
     end
   end
 

@@ -88,6 +88,33 @@ module Karya
     { "max_delay" => Numeric?, "jitter_strategy" => retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] }
   type retry_policy_attributes = retry_policy_required_attributes & retry_policy_optional_attributes
   type retry_policy_set_input = RetryPolicySet | Hash[state_name, RetryPolicy | retry_policy_attributes]
+  type backpressure_scope_kind = :queue | :handler | :tenant | :workflow | :custom | "queue" | "handler" | "tenant" | "workflow" | "custom"
+  type normalized_backpressure_scope_kind = :queue | :handler | :tenant | :workflow | :custom
+  type backpressure_scope_symbol_input = { kind: backpressure_scope_kind, value: state_name }
+  type backpressure_scope_string_input = { "kind" => backpressure_scope_kind, "value" => state_name }
+  type backpressure_scope_mixed_input =
+    { kind: backpressure_scope_kind, "value" => state_name } |
+    { "kind" => backpressure_scope_kind, value: state_name }
+  type backpressure_scope_hash_input =
+    backpressure_scope_symbol_input |
+    backpressure_scope_string_input |
+    backpressure_scope_mixed_input
+  type backpressure_scope_input = Backpressure::Scope | backpressure_scope_hash_input | state_name
+  type concurrency_policy_symbol_attributes = { limit: Integer }
+  type concurrency_policy_string_attributes = { "limit" => Integer }
+  type concurrency_policy_attributes =
+    concurrency_policy_symbol_attributes |
+    concurrency_policy_string_attributes |
+    { limit: Integer, "limit" => Integer }
+  type rate_limit_policy_symbol_attributes = { limit: Integer, period: lease_duration_value }
+  type rate_limit_policy_string_attributes = { "limit" => Integer, "period" => lease_duration_value }
+  type rate_limit_policy_mixed_attributes =
+    { limit: Integer, "period" => lease_duration_value } |
+    { "limit" => Integer, period: lease_duration_value }
+  type rate_limit_policy_attributes =
+    rate_limit_policy_symbol_attributes |
+    rate_limit_policy_string_attributes |
+    rate_limit_policy_mixed_attributes
   type retry_decision_action = :retry | :stop | :escalate
   type retry_decision_reason = :classification_escalated | :retry_exhausted
   type retry_jitter_strategy = :none | :full | :equal | "none" | "full" | "equal"
@@ -95,6 +122,19 @@ module Karya
   type uniqueness_scope_input = uniqueness_scope | "queued" | "active" | "until_terminal"
   type failure_classification = :error | :timeout | :expired
   type failure_classification_input = failure_classification | "error" | "timeout" | "expired"
+  type backpressure_concurrency_snapshot = { scope: Backpressure::Scope, limit: Integer, active_count: Integer, blocked_count: Integer }
+  type backpressure_rate_limit_snapshot = {
+    scope: Backpressure::Scope,
+    limit: Integer,
+    period: lease_duration_value,
+    window_count: Integer,
+    blocked_count: Integer
+  }
+  type backpressure_snapshot = {
+    captured_at: Time,
+    concurrency: Hash[String, backpressure_concurrency_snapshot],
+    rate_limits: Hash[String, backpressure_rate_limit_snapshot]
+  }
   type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
   type handler_mapping = ::Hash[String, Worker::_Handler]
   type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
@@ -113,6 +153,16 @@ module Karya
   type cli_env_prefix_normalizer = ^(Symbol) -> String?
   type cli_optional_integer_coercer = ^(Symbol) -> Integer?
   type cli_positive_integer_resolver = ^(Symbol, env_prefix: String?, defaults: cli_defaults) -> Integer
-  type job_attribute_value = job_argument | Integer | Time | retry_policy | retry_policy_set_input | lifecycle | state_name | uniqueness_scope_input | failure_classification_input
+  type job_attribute_value =
+    job_argument |
+    Integer |
+    Time |
+    retry_policy |
+    retry_policy_set_input |
+    lifecycle |
+    state_name |
+    uniqueness_scope_input |
+    failure_classification_input |
+    backpressure_scope_input
   type reservation_attribute_value = state_name | Integer | Time
 end

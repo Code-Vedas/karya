@@ -22,7 +22,15 @@ RSpec.describe Karya::Worker, :integration do
     )
   end
 
-  def enqueue_submission_job(id:, handler: 'billing_sync', priority: 0, concurrency_key: nil, rate_limit_key: nil)
+  def enqueue_submission_job(
+    id:,
+    handler: 'billing_sync',
+    priority: 0,
+    concurrency_key: nil,
+    rate_limit_key: nil,
+    concurrency_scope: nil,
+    rate_limit_scope: nil
+  )
     queue_store.enqueue(
       job: Karya::Job.new(
         id:,
@@ -32,6 +40,8 @@ RSpec.describe Karya::Worker, :integration do
         priority:,
         concurrency_key:,
         rate_limit_key:,
+        concurrency_scope:,
+        rate_limit_scope:,
         state: :submission,
         created_at: base_time
       ),
@@ -417,5 +427,45 @@ RSpec.describe Karya::Worker, :integration do
     expect(result.id).to eq('job-supported')
     expect(stored_job('job-supported').state).to eq(:succeeded)
     expect(stored_job('job-unsupported').state).to eq(:queued)
+  end
+
+  it 'respects explicit tenant-scoped concurrency through the worker path' do
+    constrained_store = Karya::QueueStore::InMemory.new(
+      token_generator: %w[lease-1 lease-2].each.method(:next),
+      policy_set: Karya::Backpressure::PolicySet.new(
+        concurrency: {
+          { kind: :tenant, value: 'tenant-42' } => { limit: 1 }
+        }
+      )
+    )
+
+    %w[job-1 job-2].each do |job_id|
+      constrained_store.enqueue(
+        job: Karya::Job.new(
+          id: job_id,
+          queue: queue_name,
+          handler: 'billing_sync',
+          arguments: { 'account_id' => 42 },
+          concurrency_scope: { kind: :tenant, value: 'tenant-42' },
+          state: :submission,
+          created_at: base_time
+        ),
+        now: base_time
+      )
+    end
+
+    first_reservation = constrained_store.reserve(queue: queue_name, worker_id: 'worker-0', lease_duration: 30, now: base_time + 1)
+    worker_clock = [base_time + 2, base_time + 3].each
+    worker = described_class.new(
+      queue_store: constrained_store,
+      worker_id: worker_id,
+      queues: [queue_name],
+      handlers: { 'billing_sync' => ->(account_id:) { expect(account_id).to eq(42) } },
+      lease_duration: 30,
+      clock: -> { worker_clock.next }
+    )
+
+    expect(first_reservation.job_id).to eq('job-1')
+    expect(worker.work_once).to be_nil
   end
 end

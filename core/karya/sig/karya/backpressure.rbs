@@ -8,26 +8,68 @@ module Karya
     class InvalidPolicyError < Error
     end
 
+    class Scope
+      VALID_KINDS: Hash[Karya::backpressure_scope_kind, Karya::normalized_backpressure_scope_kind]
+
+      @kind: Karya::normalized_backpressure_scope_kind
+      @key: String
+      @value: String
+
+      attr_reader kind: Karya::normalized_backpressure_scope_kind
+      attr_reader key: String
+      attr_reader value: String
+
+      def self.from: (
+        Karya::backpressure_scope_input input,
+        ?default_kind: Karya::backpressure_scope_kind,
+        ?error_class: Karya::error_class,
+        ?field_name: Symbol
+      ) -> Scope
+
+      def initialize: (
+        kind: Karya::backpressure_scope_kind,
+        value: Karya::state_name,
+        ?error_class: Karya::error_class
+      ) -> void
+
+      def to_h: () -> { kind: Karya::normalized_backpressure_scope_kind, value: String }
+    end
+
+    module ScopeSupport
+      def self.normalize_scope: (
+        Symbol name,
+        Karya::backpressure_scope_input value,
+        ?default_kind: Karya::backpressure_scope_kind,
+        ?error_class: Karya::error_class
+      ) -> Scope
+    end
+
     class ConcurrencyPolicy
       @key: String
       @limit: Integer
+      @scope: Scope
 
       attr_reader key: String
       attr_reader limit: Integer
+      attr_reader scope: Scope
 
-      def initialize: (key: Karya::state_name | Integer, limit: Integer) -> void
+      def initialize: (scope: Karya::backpressure_scope_input, limit: Integer) -> void
+                   | (key: Karya::state_name, limit: Integer) -> void
     end
 
     class RateLimitPolicy
       @key: String
       @limit: Integer
       @period: Karya::lease_duration_value
+      @scope: Scope
 
       attr_reader key: String
       attr_reader limit: Integer
       attr_reader period: Karya::lease_duration_value
+      attr_reader scope: Scope
 
-      def initialize: (key: Karya::state_name | Integer, limit: Integer, period: Karya::lease_duration_value) -> void
+      def initialize: (scope: Karya::backpressure_scope_input, limit: Integer, period: Karya::lease_duration_value) -> void
+                   | (key: Karya::state_name, limit: Integer, period: Karya::lease_duration_value) -> void
     end
 
     class PolicySet
@@ -38,12 +80,12 @@ module Karya
       attr_reader rate_limits: Hash[String, RateLimitPolicy]
 
       def initialize: (
-        ?concurrency: Hash[Karya::state_name | Integer, ConcurrencyPolicy | Hash[Symbol | String, Integer]],
-        ?rate_limits: Hash[Karya::state_name | Integer, RateLimitPolicy | Hash[Symbol | String, Integer | Karya::lease_duration_value]]
+        ?concurrency: Hash[Karya::backpressure_scope_input, ConcurrencyPolicy | Karya::concurrency_policy_attributes],
+        ?rate_limits: Hash[Karya::backpressure_scope_input, RateLimitPolicy | Karya::rate_limit_policy_attributes]
       ) -> void
 
-      def concurrency_policy_for: ((Karya::state_name | Integer)? key) -> ConcurrencyPolicy?
-      def rate_limit_policy_for: ((Karya::state_name | Integer)? key) -> RateLimitPolicy?
+      def concurrency_policy_for: (Karya::backpressure_scope_input? key) -> ConcurrencyPolicy?
+      def rate_limit_policy_for: (Karya::backpressure_scope_input? key) -> RateLimitPolicy?
     end
   end
 end
