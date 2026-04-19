@@ -581,8 +581,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       snapshot = scoped_store.backpressure_snapshot(now: created_at + 4)
 
       expect(snapshot).to be_frozen
+      expect(snapshot[:concurrency]).to be_frozen
+      expect(snapshot[:rate_limits]).to be_frozen
       expect(snapshot[:concurrency].fetch('queue:billing')).to include(limit: 1, active_count: 1, blocked_count: 1)
       expect(snapshot[:rate_limits].fetch('tenant:tenant-7')).to include(limit: 1, window_count: 1, blocked_count: 1, period: 60)
+      expect(snapshot[:concurrency].fetch('queue:billing')).to be_frozen
+      expect(snapshot[:rate_limits].fetch('tenant:tenant-7')).to be_frozen
     end
 
     it 'ignores unconfigured explicit scopes in backpressure snapshots' do

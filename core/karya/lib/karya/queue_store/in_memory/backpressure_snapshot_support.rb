@@ -33,7 +33,7 @@ module Karya
               limit:,
               active_count: counts.fetch(scope_key, 0),
               blocked_count: blocked_counts.fetch([:concurrency, scope_key], 0)
-            }
+            }.freeze
           end.freeze
         end
 
@@ -48,7 +48,7 @@ module Karya
               period:,
               window_count: rate_limit_counts.fetch(scope_key, 0),
               blocked_count: blocked_counts.fetch([:rate_limit, scope_key], 0)
-            }
+            }.freeze
           end.freeze
         end
 
