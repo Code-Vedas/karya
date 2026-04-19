@@ -16,9 +16,10 @@ module Karya
           concurrency_counts = active_concurrency_counts
           rate_limit_counts = active_rate_limit_counts(now)
           blocked_counts = queued_blocked_counts(concurrency_counts:, rate_limit_counts:)
+          captured_at = now.dup.freeze
 
           {
-            captured_at: now,
+            captured_at:,
             concurrency: snapshot_concurrency(blocked_counts, concurrency_counts),
             rate_limits: snapshot_rate_limits(blocked_counts, rate_limit_counts)
           }.freeze

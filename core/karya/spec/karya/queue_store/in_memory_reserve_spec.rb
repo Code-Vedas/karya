@@ -581,6 +581,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       snapshot = scoped_store.backpressure_snapshot(now: created_at + 4)
 
       expect(snapshot).to be_frozen
+      expect(snapshot[:captured_at]).to eq(created_at + 4)
+      expect(snapshot[:captured_at]).to be_frozen
       expect(snapshot[:concurrency]).to be_frozen
       expect(snapshot[:rate_limits]).to be_frozen
       expect(snapshot[:concurrency].fetch('queue:billing')).to include(limit: 1, active_count: 1, blocked_count: 1)

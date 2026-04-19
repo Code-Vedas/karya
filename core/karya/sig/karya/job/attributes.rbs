@@ -86,6 +86,20 @@ module Karya
 
       def normalize_optional_identifier: (Symbol name) -> String?
 
+      def normalize_optional_scope: (
+        Symbol scope_name,
+        Symbol legacy_key_name,
+        queue: String,
+        handler: String
+      ) -> Karya::Backpressure::Scope?
+
+      def validate_routing_scope: (
+        Karya::Backpressure::Scope? scope,
+        queue: String,
+        handler: String,
+        scope_name: Symbol
+      ) -> void
+
       def normalize_retry_policy: () -> Karya::retry_policy?
 
       def normalize_failure_classification: () -> Karya::failure_classification?
