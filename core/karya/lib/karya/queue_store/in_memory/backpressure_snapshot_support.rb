@@ -90,10 +90,9 @@ module Karya
           end
         end
 
-        def current_rate_limit_count(scope_key, policy, now)
-          cutoff_time = now - policy.period
+        def current_rate_limit_count(scope_key, _policy, _now)
           admissions = state.rate_limit_admissions_by_key.fetch(scope_key, [])
-          admissions.count { |admission_time| admission_time > cutoff_time }
+          admissions.length
         end
 
         def queued_blocked_counts(concurrency_counts:, rate_limit_counts:)
