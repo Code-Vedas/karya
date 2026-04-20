@@ -252,11 +252,11 @@ module Karya
 
       def active_concurrency_counts: () -> Hash[String, Integer]
 
-      def each_active_reservation: () { (Reservation reservation) -> untyped } -> Hash[String, Reservation]
+      def each_active_reservation: () { (Reservation reservation) -> void } -> void
 
-      def each_queued_job: () { (Job job) -> untyped } -> Hash[String, Array[String]]
+      def each_queued_job: () { (Job job) -> void } -> void
 
-      def add_concurrency_counts: (Hash[String, Integer] counts, Reservation reservation) -> Integer?
+      def add_concurrency_counts: (Hash[String, Integer] counts, Reservation reservation) -> void
 
       def active_rate_limit_counts: (Time now) -> Hash[String, Integer]
 
@@ -272,7 +272,7 @@ module Karya
         Job job,
         concurrency_counts: Hash[String, Integer],
         rate_limit_counts: Hash[String, Integer]
-      ) -> Integer?
+      ) -> void
 
       def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
 

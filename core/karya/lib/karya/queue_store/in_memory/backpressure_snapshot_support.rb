@@ -59,12 +59,18 @@ module Karya
           counts
         end
 
-        def each_active_reservation(&)
-          state.reservations_by_token.each_value(&)
-          state.executions_by_token.each_value(&)
+        def each_active_reservation(&block)
+          raise ArgumentError, 'each_active_reservation requires a block' unless block
+
+          state.reservations_by_token.each_value(&block)
+          state.executions_by_token.each_value(&block)
+
+          nil
         end
 
-        def each_queued_job
+        def each_queued_job(&block)
+          raise ArgumentError, 'each_queued_job requires a block' unless block
+
           state.queued_job_ids_by_queue.each_value do |job_ids|
             index = 0
             while index < job_ids.length
@@ -73,6 +79,8 @@ module Karya
               index += 1
             end
           end
+
+          nil
         end
 
         def add_concurrency_counts(counts, reservation)
@@ -82,6 +90,8 @@ module Karya
 
             counts[scope_key] += 1
           end
+
+          nil
         end
 
         def active_rate_limit_counts(now)
@@ -121,6 +131,8 @@ module Karya
 
             counts[[:rate_limit, scope_key]] += 1
           end
+
+          nil
         end
       end
     end

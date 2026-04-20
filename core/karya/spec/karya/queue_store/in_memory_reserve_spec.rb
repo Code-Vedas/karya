@@ -642,6 +642,24 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(scoped_store_state.queued_job_ids_by_queue.fetch('billing')).to eq(%w[job-2 job-1])
     end
 
+    it 'requires a block for active reservation iteration helpers' do
+      expect do
+        store.send(:each_active_reservation)
+      end.to raise_error(ArgumentError, 'each_active_reservation requires a block')
+
+      expect do
+        store.send(:each_queued_job)
+      end.to raise_error(ArgumentError, 'each_queued_job requires a block')
+    end
+
+    it 'returns nil from active reservation iteration helpers' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+
+      expect(store.send(:each_active_reservation) { |_reservation| nil }).to be_nil
+      expect(store.send(:each_queued_job) { |_job| nil }).to be_nil
+    end
+
     it 'ignores unconfigured rate-limit keys without recording admissions' do
       store.enqueue(
         job: submission_job(id: 'job-1', queue: 'billing', created_at:, rate_limit_key: 'unconfigured'),
