@@ -42,6 +42,15 @@ RSpec.describe Karya::Backpressure::Scope do
       )
     end
 
+    it 'rejects non-string non-symbol scope values' do
+      expect do
+        described_class.new(kind: :tenant, value: 123)
+      end.to raise_error(
+        Karya::Backpressure::InvalidPolicyError,
+        'value must be a String or Symbol'
+      )
+    end
+
     it 'keeps InvalidPolicyError when scope support uses the default error class' do
       expect do
         Karya::Backpressure::ScopeSupport.normalize_scope(:scope, ' ')

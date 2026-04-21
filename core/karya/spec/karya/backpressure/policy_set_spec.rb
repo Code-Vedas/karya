@@ -82,6 +82,7 @@ RSpec.describe Karya::Backpressure::PolicySet do
     )
 
     expect(policy_set.concurrency_policy_for('custom:account_sync')&.limit).to eq(2)
+    expect(policy_set.concurrency_policy_for(' custom:account_sync ')&.limit).to eq(2)
   end
 
   it 'round-trips rate-limit lookups by normalized policy key string' do
@@ -92,6 +93,17 @@ RSpec.describe Karya::Backpressure::PolicySet do
     )
 
     expect(policy_set.rate_limit_policy_for('handler:billing_sync')&.limit).to eq(5)
+    expect(policy_set.rate_limit_policy_for(' handler:billing_sync ')&.limit).to eq(5)
+  end
+
+  it 'falls back from trimmed rate-limit string lookup to shorthand scope normalization' do
+    policy_set = described_class.new(
+      rate_limits: {
+        partner_api: { limit: 5, period: 60 }
+      }
+    )
+
+    expect(policy_set.rate_limit_policy_for(' partner_api ')&.key).to eq('custom:partner_api')
   end
 
   it 'rejects unsupported policy attribute key types' do

@@ -55,6 +55,8 @@ module Karya
 
       def initialize(kind:, value:, error_class: InvalidPolicyError)
         @kind = normalize_kind(kind, error_class:)
+        raise error_class, 'value must be a String or Symbol' unless value.is_a?(String) || value.is_a?(Symbol)
+
         @value = Primitives::Identifier.new(:value, value, error_class:).normalize
         @key = "#{@kind}:#{@value}".freeze
         freeze
@@ -293,7 +295,11 @@ module Karya
 
       def concurrency_policy_for(key)
         return nil unless key
-        return concurrency[key] if key.is_a?(String) && concurrency.key?(key)
+
+        if key.is_a?(String)
+          normalized_key = Normalizers.identifier(:key, key)
+          return concurrency[normalized_key] if concurrency.key?(normalized_key)
+        end
         return concurrency[key.key] if key.is_a?(Scope)
 
         concurrency[ScopeSupport.normalize_scope(:key, key).key]
@@ -301,7 +307,11 @@ module Karya
 
       def rate_limit_policy_for(key)
         return nil unless key
-        return rate_limits[key] if key.is_a?(String) && rate_limits.key?(key)
+
+        if key.is_a?(String)
+          normalized_key = Normalizers.identifier(:key, key)
+          return rate_limits[normalized_key] if rate_limits.key?(normalized_key)
+        end
         return rate_limits[key.key] if key.is_a?(Scope)
 
         rate_limits[ScopeSupport.normalize_scope(:key, key).key]
