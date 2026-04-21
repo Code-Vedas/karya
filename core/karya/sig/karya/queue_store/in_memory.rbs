@@ -55,6 +55,11 @@ module Karya
       def expire_reservations: (now: Time) -> Array[Job]
 
       def expire_jobs: (now: Time) -> Array[Job]
+      
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
       def backpressure_snapshot: (now: Time) -> Karya::backpressure_snapshot
 
       private

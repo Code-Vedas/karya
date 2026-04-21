@@ -182,6 +182,10 @@ module Karya
         end
       end
 
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
       def backpressure_snapshot(now:)
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 

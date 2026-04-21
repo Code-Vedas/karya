@@ -27,15 +27,11 @@ module Karya
 
           nil
         end
-        module_function :each_scope_key
 
-        class << self
-          private
-
-          def build_scope_key(prefix, value)
-            "#{prefix}#{value}"
-          end
+        def build_scope_key(prefix, value)
+          "#{prefix}#{value}"
         end
+        module_function :each_scope_key, :build_scope_key
 
         private
 
