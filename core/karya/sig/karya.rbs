@@ -115,22 +115,39 @@ module Karya
     rate_limit_policy_symbol_attributes |
     rate_limit_policy_string_attributes |
     rate_limit_policy_mixed_attributes
-  type circuit_breaker_policy_symbol_attributes = {
+  type circuit_breaker_policy_symbol_required_attributes = {
     failure_threshold: Integer,
     window: lease_duration_value,
-    cooldown: lease_duration_value,
-    ?half_open_limit: Integer
+    cooldown: lease_duration_value
   }
-  type circuit_breaker_policy_string_attributes = {
+  type circuit_breaker_policy_symbol_optional_attributes =
+    {} |
+    { half_open_limit: Integer }
+  type circuit_breaker_policy_symbol_attributes =
+    circuit_breaker_policy_symbol_required_attributes &
+    circuit_breaker_policy_symbol_optional_attributes
+  type circuit_breaker_policy_string_required_attributes = {
     "failure_threshold" => Integer,
     "window" => lease_duration_value,
-    "cooldown" => lease_duration_value,
-    ?"half_open_limit" => Integer
+    "cooldown" => lease_duration_value
   }
+  type circuit_breaker_policy_string_optional_attributes =
+    {} |
+    { "half_open_limit" => Integer }
+  type circuit_breaker_policy_string_attributes =
+    circuit_breaker_policy_string_required_attributes &
+    circuit_breaker_policy_string_optional_attributes
+  type circuit_breaker_policy_mixed_required_attributes =
+    { failure_threshold: Integer, window: lease_duration_value, "cooldown" => lease_duration_value } |
+    { failure_threshold: Integer, "window" => lease_duration_value, cooldown: lease_duration_value } |
+    { "failure_threshold" => Integer, window: lease_duration_value, cooldown: lease_duration_value }
+  type circuit_breaker_policy_mixed_optional_attributes =
+    {} |
+    { half_open_limit: Integer } |
+    { "half_open_limit" => Integer }
   type circuit_breaker_policy_mixed_attributes =
-    { failure_threshold: Integer, window: lease_duration_value, "cooldown" => lease_duration_value, ?half_open_limit: Integer } |
-    { failure_threshold: Integer, "window" => lease_duration_value, cooldown: lease_duration_value, ?half_open_limit: Integer } |
-    { "failure_threshold" => Integer, window: lease_duration_value, cooldown: lease_duration_value, ?"half_open_limit" => Integer }
+    circuit_breaker_policy_mixed_required_attributes &
+    circuit_breaker_policy_mixed_optional_attributes
   type circuit_breaker_policy_attributes =
     circuit_breaker_policy_symbol_attributes |
     circuit_breaker_policy_string_attributes |
