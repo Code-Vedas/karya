@@ -642,7 +642,29 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(scoped_store_state.queued_job_ids_by_queue.fetch('billing')).to eq(%w[job-2 job-1])
     end
 
+    it 'does not promote due retry_pending jobs while building backpressure snapshots' do
+      retry_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2)
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        retry_policy: retry_policy,
+        failure_classification: :error
+      )
+
+      snapshot = store.backpressure_snapshot(now: created_at + 9)
+
+      expect(snapshot[:concurrency]).to eq({})
+      expect(stored_job('job-1').state).to eq(:retry_pending)
+      expect(store_state.retry_pending_job_ids).to eq(['job-1'])
+      expect(store_state.queued_job_ids_by_queue).to eq({})
+    end
+
     it 'requires a block for active reservation iteration helpers' do
+      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+
       expect do
         store.send(:each_active_reservation)
       end.to raise_error(ArgumentError, 'each_active_reservation requires a block')
@@ -650,6 +672,10 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.send(:each_queued_job)
       end.to raise_error(ArgumentError, 'each_queued_job requires a block')
+
+      expect do
+        Karya::QueueStore::InMemory::BackpressureSupport.each_scope_key(stored_job('job-1'), nil)
+      end.to raise_error(ArgumentError, 'each_scope_key requires a block')
     end
 
     it 'returns nil from active reservation iteration helpers' do

@@ -14,15 +14,20 @@ module Karya
         HANDLER_SCOPE_KEY_PREFIX = 'handler:'
         private_constant :QUEUE_SCOPE_KEY_PREFIX, :HANDLER_SCOPE_KEY_PREFIX
 
-        def scope_keys_for(job, explicit_scope)
+        def each_scope_key(job, explicit_scope)
+          raise ArgumentError, 'each_scope_key requires a block' unless block_given?
+
           queue_key = build_scope_key(QUEUE_SCOPE_KEY_PREFIX, job.queue)
           handler_key = build_scope_key(HANDLER_SCOPE_KEY_PREFIX, job.handler)
           explicit_key = explicit_scope&.key
-          keys = [queue_key, handler_key]
-          keys << explicit_key if explicit_key && explicit_key != queue_key && explicit_key != handler_key
-          keys.freeze
+
+          yield queue_key
+          yield handler_key
+          yield explicit_key if explicit_key && explicit_key != queue_key && explicit_key != handler_key
+
+          nil
         end
-        module_function :scope_keys_for
+        module_function :each_scope_key
 
         class << self
           private
@@ -35,7 +40,7 @@ module Karya
         private
 
         def record_rate_limit_admission(job, now)
-          BackpressureSupport.scope_keys_for(job, job.rate_limit_scope).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, job.rate_limit_scope) do |scope_key|
             policy = policy_set.rate_limits[scope_key]
             next unless policy
 

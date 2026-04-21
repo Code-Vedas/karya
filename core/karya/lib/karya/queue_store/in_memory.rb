@@ -186,7 +186,7 @@ module Karya
         normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
         @mutex.synchronize do
-          recover_in_flight_locked(normalized_now)
+          prepare_backpressure_snapshot(normalized_now)
           build_backpressure_snapshot(normalized_now)
         end
       end
@@ -204,6 +204,15 @@ module Karya
 
       def expire_reservations_locked(now)
         recover_in_flight_locked(now).jobs
+      end
+
+      def prepare_backpressure_snapshot(now)
+        expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now)
+        expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
+        expired_reservations.each { |reservation| requeue_expired_reservation(reservation, now) }
+        expired_executions.each { |reservation| requeue_expired_execution(reservation, now) }
+        prune_stale_rate_limit_admissions(now)
+        nil
       end
 
       def recover_in_flight_locked(now, worker_id: nil, include_global_maintenance: true)

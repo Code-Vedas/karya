@@ -186,6 +186,8 @@ module Karya
 
       def expire_reservations_locked: (Time now) -> Array[Job]
 
+      def prepare_backpressure_snapshot: (Time now) -> void
+
       def recover_in_flight_locked: (Time now, ?worker_id: String?, ?include_global_maintenance: bool) -> RecoveryReport
 
       def perform_reserve_maintenance: (Time now) -> ReserveScanState

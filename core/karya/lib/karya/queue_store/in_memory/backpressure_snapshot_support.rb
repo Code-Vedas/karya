@@ -85,7 +85,7 @@ module Karya
 
         def add_concurrency_counts(counts, reservation)
           job = state.jobs_by_id.fetch(reservation.job_id)
-          BackpressureSupport.scope_keys_for(job, job.concurrency_scope).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, job.concurrency_scope) do |scope_key|
             next unless policy_set.concurrency.key?(scope_key)
 
             counts[scope_key] += 1
@@ -112,7 +112,7 @@ module Karya
         end
 
         def add_blocked_counts(counts, job, concurrency_counts:, rate_limit_counts:)
-          BackpressureSupport.scope_keys_for(job, job.concurrency_scope).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, job.concurrency_scope) do |scope_key|
             policy = policy_set.concurrency[scope_key]
             next unless policy
 
@@ -122,7 +122,7 @@ module Karya
             counts[[:concurrency, scope_key]] += 1
           end
 
-          BackpressureSupport.scope_keys_for(job, job.rate_limit_scope).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, job.rate_limit_scope) do |scope_key|
             policy = policy_set.rate_limits[scope_key]
             next unless policy
 

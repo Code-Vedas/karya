@@ -21,17 +21,27 @@ module Karya
         end
 
         def concurrency_blocked?(job)
-          BackpressureSupport.scope_keys_for(job, job.concurrency_scope).any? do |scope_key|
+          blocked = false
+          BackpressureSupport.each_scope_key(job, job.concurrency_scope) do |scope_key|
             policy = @concurrency_policies[scope_key]
-            policy && @concurrency_counts.fetch(scope_key, 0) >= policy.limit
+            next unless policy && @concurrency_counts.fetch(scope_key, 0) >= policy.limit
+
+            blocked = true
+            break
           end
+          blocked
         end
 
         def rate_limited?(job)
-          BackpressureSupport.scope_keys_for(job, job.rate_limit_scope).any? do |scope_key|
+          rate_limited = false
+          BackpressureSupport.each_scope_key(job, job.rate_limit_scope) do |scope_key|
             policy = @rate_limit_policies[scope_key]
-            policy && @rate_limit_counts.fetch(scope_key, 0) >= policy.limit
+            next unless policy && @rate_limit_counts.fetch(scope_key, 0) >= policy.limit
+
+            rate_limited = true
+            break
           end
+          rate_limited
         end
 
         private
@@ -42,7 +52,7 @@ module Karya
 
         def increment_concurrency_counts(reservation)
           job = @state.jobs_by_id.fetch(reservation.job_id)
-          BackpressureSupport.scope_keys_for(job, job.concurrency_scope).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, job.concurrency_scope) do |scope_key|
             next unless @concurrency_policies.key?(scope_key)
 
             @concurrency_counts[scope_key] += 1
