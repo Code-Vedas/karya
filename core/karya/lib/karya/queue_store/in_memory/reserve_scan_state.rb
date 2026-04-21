@@ -12,44 +12,50 @@ module Karya
       class ReserveScanState
         def initialize(policy_set:, state:)
           @state = state
+          @concurrency_policies = policy_set.concurrency
+          @rate_limit_policies = policy_set.rate_limits
           @concurrency_counts = Hash.new(0)
           accumulate_concurrency_counts(@state.reservations_by_token)
           accumulate_concurrency_counts(@state.executions_by_token)
-          @concurrency_limits = policy_set.concurrency.transform_values(&:limit)
           @rate_limit_counts = state.rate_limit_admissions_by_key.transform_values(&:length)
-          @rate_limit_limits = policy_set.rate_limits.transform_values(&:limit)
         end
 
         def concurrency_blocked?(job)
-          concurrency_key = job.concurrency_key
-          return false unless concurrency_key
+          blocked = false
+          BackpressureSupport.each_scope_key(job, job.concurrency_scope) do |scope_key|
+            policy = @concurrency_policies[scope_key]
+            next unless policy && @concurrency_counts.fetch(scope_key, 0) >= policy.limit
 
-          limit = @concurrency_limits[concurrency_key]
-          return false unless limit
-
-          @concurrency_counts.fetch(concurrency_key, 0) >= limit
+            blocked = true
+            break
+          end
+          blocked
         end
 
         def rate_limited?(job)
-          rate_limit_key = job.rate_limit_key
-          return false unless rate_limit_key
+          rate_limited = false
+          BackpressureSupport.each_scope_key(job, job.rate_limit_scope) do |scope_key|
+            policy = @rate_limit_policies[scope_key]
+            next unless policy && @rate_limit_counts.fetch(scope_key, 0) >= policy.limit
 
-          limit = @rate_limit_limits[rate_limit_key]
-          return false unless limit
-
-          @rate_limit_counts.fetch(rate_limit_key, 0) >= limit
+            rate_limited = true
+            break
+          end
+          rate_limited
         end
 
         private
 
         def accumulate_concurrency_counts(leases_by_token)
-          jobs_by_id = @state.jobs_by_id
+          leases_by_token.each_value { |reservation| increment_concurrency_counts(reservation) }
+        end
 
-          leases_by_token.each_value do |reservation|
-            concurrency_key = jobs_by_id.fetch(reservation.job_id).concurrency_key
-            next unless concurrency_key
+        def increment_concurrency_counts(reservation)
+          job = @state.jobs_by_id.fetch(reservation.job_id)
+          BackpressureSupport.each_scope_key(job, job.concurrency_scope) do |scope_key|
+            next unless @concurrency_policies.key?(scope_key)
 
-            @concurrency_counts[concurrency_key] += 1
+            @concurrency_counts[scope_key] += 1
           end
         end
       end

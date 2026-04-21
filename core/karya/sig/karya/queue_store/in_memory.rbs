@@ -56,6 +56,12 @@ module Karya
 
       def expire_jobs: (now: Time) -> Array[Job]
 
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def backpressure_snapshot: (now: Time) -> Karya::backpressure_snapshot
+
       private
 
       attr_reader policy_set: Backpressure::PolicySet
@@ -185,6 +191,8 @@ module Karya
 
       def expire_reservations_locked: (Time now) -> Array[Job]
 
+      def prepare_backpressure_snapshot: (Time now) -> void
+
       def recover_in_flight_locked: (Time now, ?worker_id: String?, ?include_global_maintenance: bool) -> RecoveryReport
 
       def perform_reserve_maintenance: (Time now) -> ReserveScanState
@@ -236,6 +244,42 @@ module Karya
       def prune_stale_rate_limit_admissions: (Time now) -> void
 
       def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
+
+      def build_backpressure_snapshot: (Time now) -> Karya::backpressure_snapshot
+
+      def snapshot_concurrency: (
+        Hash[[:concurrency, String] | [:rate_limit, String], Integer] blocked_counts,
+        Hash[String, Integer] counts
+      ) -> Hash[String, Karya::backpressure_concurrency_snapshot]
+
+      def snapshot_rate_limits: (
+        Hash[[:concurrency, String] | [:rate_limit, String], Integer] blocked_counts,
+        Hash[String, Integer] rate_limit_counts
+      ) -> Hash[String, Karya::backpressure_rate_limit_snapshot]
+
+      def active_concurrency_counts: () -> Hash[String, Integer]
+
+      def each_active_reservation: () { (Reservation reservation) -> void } -> void
+
+      def each_queued_job: () { (Job job) -> void } -> void
+
+      def add_concurrency_counts: (Hash[String, Integer] counts, Reservation reservation) -> void
+
+      def active_rate_limit_counts: (Time now) -> Hash[String, Integer]
+
+      def current_rate_limit_count: (String scope_key, Backpressure::RateLimitPolicy policy, Time now) -> Integer
+
+      def queued_blocked_counts: (
+        concurrency_counts: Hash[String, Integer],
+        rate_limit_counts: Hash[String, Integer]
+      ) -> Hash[[:concurrency, String] | [:rate_limit, String], Integer]
+
+      def add_blocked_counts: (
+        Hash[[:concurrency, String] | [:rate_limit, String], Integer] counts,
+        Job job,
+        concurrency_counts: Hash[String, Integer],
+        rate_limit_counts: Hash[String, Integer]
+      ) -> void
 
       def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
 

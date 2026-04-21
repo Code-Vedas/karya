@@ -49,6 +49,8 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:arguments]).to eq('account_id' => 42)
       expect(result[:state]).to eq(:queued)
       expect(result[:attempt]).to eq(1)
+      expect(result[:concurrency_scope]).to be_nil
+      expect(result[:rate_limit_scope]).to be_nil
       expect(result[:retry_policy]).to eq(retry_policy)
       expect(result[:execution_timeout]).to eq(15)
       expect(result[:expires_at]).to eq(expires_at)
@@ -87,8 +89,8 @@ RSpec.describe 'Karya::Job::Attributes' do
       result = attributes.to_h
 
       expect(result[:priority]).to eq(0)
-      expect(result[:concurrency_key]).to be_nil
-      expect(result[:rate_limit_key]).to be_nil
+      expect(result[:concurrency_scope]).to be_nil
+      expect(result[:rate_limit_scope]).to be_nil
       expect(result[:retry_policy]).to be_nil
       expect(result[:execution_timeout]).to be_nil
       expect(result[:expires_at]).to be_nil
@@ -187,6 +189,97 @@ RSpec.describe 'Karya::Job::Attributes' do
           retry_policy: 'not-a-policy'
         ).to_h
       end.to raise_error(Karya::InvalidJobAttributeError, 'retry_policy references require retry_policies')
+    end
+
+    it 'normalizes explicit backpressure scopes' do
+      attributes = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'queued',
+        created_at: created_at,
+        concurrency_scope: { kind: :tenant, value: 'tenant-42' },
+        rate_limit_scope: { 'kind' => 'workflow', 'value' => 'nightly-billing' }
+      )
+
+      result = attributes.to_h
+
+      expect(result[:concurrency_scope]).to eq(Karya::Backpressure::Scope.new(kind: :tenant, value: 'tenant-42'))
+      expect(result[:rate_limit_scope]).to eq(Karya::Backpressure::Scope.new(kind: :workflow, value: 'nightly-billing'))
+    end
+
+    it 'raises InvalidJobAttributeError when both scope and legacy key are given' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          concurrency_scope: { kind: :tenant, value: 'tenant-42' },
+          concurrency_key: 'legacy'
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'provide only one of concurrency_scope or concurrency_key')
+    end
+
+    it 'raises InvalidJobAttributeError when queue scope does not match job queue' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          concurrency_scope: { kind: :queue, value: 'email' }
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'concurrency_scope queue scope must match job queue')
+    end
+
+    it 'raises InvalidJobAttributeError when handler scope does not match job handler' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'queued',
+          created_at: created_at,
+          rate_limit_scope: { kind: :handler, value: 'OtherHandler' }
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'rate_limit_scope handler scope must match job handler')
+    end
+
+    it 'accepts queue and handler scopes when they match routing metadata' do
+      attributes = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'queued',
+        created_at: created_at,
+        concurrency_scope: { kind: :queue, value: 'billing' },
+        rate_limit_scope: { kind: :handler, value: 'BillingSync' }
+      )
+
+      result = attributes.to_h
+
+      expect(result[:concurrency_scope]).to eq(Karya::Backpressure::Scope.new(kind: :queue, value: 'billing'))
+      expect(result[:rate_limit_scope]).to eq(Karya::Backpressure::Scope.new(kind: :handler, value: 'BillingSync'))
+    end
+
+    it 'treats legacy backpressure keys as custom shorthands even with reserved prefixes' do
+      attributes = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'queued',
+        created_at: created_at,
+        concurrency_key: 'queue:other',
+        rate_limit_key: 'handler:OtherHandler'
+      )
+
+      result = attributes.to_h
+
+      expect(result[:concurrency_scope]).to eq(Karya::Backpressure::Scope.new(kind: :custom, value: 'queue:other'))
+      expect(result[:rate_limit_scope]).to eq(Karya::Backpressure::Scope.new(kind: :custom, value: 'handler:OtherHandler'))
     end
 
     it 'resolves named retry policies through retry_policies' do

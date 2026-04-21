@@ -24,8 +24,8 @@ module Karya
 
     class Scheduling
       @priority: Integer
-      @concurrency_key: String?
-      @rate_limit_key: String?
+      @concurrency_scope: Backpressure::Scope?
+      @rate_limit_scope: Backpressure::Scope?
       @retry_policy: RetryPolicy?
       @execution_timeout: Numeric?
       @expires_at: Time?
@@ -34,8 +34,8 @@ module Karya
       @uniqueness_scope: uniqueness_scope?
 
       attr_reader priority: Integer
-      attr_reader concurrency_key: String?
-      attr_reader rate_limit_key: String?
+      attr_reader concurrency_scope: Backpressure::Scope?
+      attr_reader rate_limit_scope: Backpressure::Scope?
       attr_reader retry_policy: RetryPolicy?
       attr_reader execution_timeout: Numeric?
       attr_reader expires_at: Time?
@@ -70,6 +70,7 @@ module Karya
 
     attr_reader attempt: Integer
     attr_reader concurrency_key: String?
+    attr_reader concurrency_scope: Backpressure::Scope?
 
     attr_reader created_at: Time
 
@@ -80,6 +81,7 @@ module Karya
 
     attr_reader queue: String
     attr_reader rate_limit_key: String?
+    attr_reader rate_limit_scope: Backpressure::Scope?
     attr_reader retry_policy: RetryPolicy?
     attr_reader execution_timeout: Numeric?
     attr_reader expires_at: Time?
@@ -99,6 +101,8 @@ module Karya
       handler: state_name,
       ?arguments: Hash[state_name, job_argument],
       ?priority: Integer,
+      ?concurrency_scope: Karya::backpressure_scope_input?,
+      ?rate_limit_scope: Karya::backpressure_scope_input?,
       ?concurrency_key: state_name?,
       ?rate_limit_key: state_name?,
       ?retry_policy: Karya::retry_policy_reference?,

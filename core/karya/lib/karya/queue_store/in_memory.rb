@@ -13,6 +13,7 @@ require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
 require_relative 'recovery_report'
 require_relative 'in_memory/backpressure_support'
+require_relative 'in_memory/backpressure_snapshot_support'
 require_relative 'in_memory/expiration_support'
 require_relative 'in_memory/execution_support'
 require_relative 'in_memory/execution_recovery'
@@ -46,6 +47,7 @@ module Karya
     class InMemory
       include Base
       include BackpressureSupport
+      include BackpressureSnapshotSupport
       include ExecutionSupport
       include ExpirationSupport
       include RecoverySupport
@@ -180,6 +182,19 @@ module Karya
         end
       end
 
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def backpressure_snapshot(now:)
+        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
+
+        @mutex.synchronize do
+          prepare_backpressure_snapshot(normalized_now)
+          build_backpressure_snapshot(normalized_now)
+        end
+      end
+
       private
 
       attr_reader :policy_set, :state, :token_generator
@@ -193,6 +208,15 @@ module Karya
 
       def expire_reservations_locked(now)
         recover_in_flight_locked(now).jobs
+      end
+
+      def prepare_backpressure_snapshot(now)
+        expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now)
+        expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
+        expired_reservations.each { |reservation| requeue_expired_reservation(reservation, now) }
+        expired_executions.each { |reservation| requeue_expired_execution(reservation, now) }
+        prune_stale_rate_limit_admissions(now)
+        nil
       end
 
       def recover_in_flight_locked(now, worker_id: nil, include_global_maintenance: true)

@@ -7,6 +7,7 @@
 
 require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_resolver'
+require_relative '../backpressure'
 require_relative '../primitives/identifier'
 require_relative '../primitives/lifecycle'
 require_relative '../primitives/positive_finite_number'
@@ -55,14 +56,17 @@ module Karya
       end
 
       def normalized_attributes(created_at:, lifecycle:, attempt:, priority:)
+        normalized_queue = Primitives::Identifier.new(:queue, required(:queue), error_class: InvalidJobAttributeError).normalize
+        normalized_handler = Primitives::Identifier.new(:handler, required(:handler), error_class: InvalidJobAttributeError).normalize
+
         {
           id: Primitives::Identifier.new(:id, required(:id), error_class: InvalidJobAttributeError).normalize,
-          queue: Primitives::Identifier.new(:queue, required(:queue), error_class: InvalidJobAttributeError).normalize,
-          handler: Primitives::Identifier.new(:handler, required(:handler), error_class: InvalidJobAttributeError).normalize,
+          queue: normalized_queue,
+          handler: normalized_handler,
           arguments: ImmutableArguments.new(optional(:arguments, {})).normalize,
           priority:,
-          concurrency_key: normalize_optional_identifier(:concurrency_key),
-          rate_limit_key: normalize_optional_identifier(:rate_limit_key),
+          concurrency_scope: normalize_optional_scope(:concurrency_scope, :concurrency_key, queue: normalized_queue, handler: normalized_handler),
+          rate_limit_scope: normalize_optional_scope(:rate_limit_scope, :rate_limit_key, queue: normalized_queue, handler: normalized_handler),
           retry_policy: normalize_retry_policy,
           execution_timeout: normalize_optional_positive_finite_number(:execution_timeout),
           expires_at: normalize_optional_time(:expires_at),
@@ -124,6 +128,44 @@ module Karya
       def normalize_optional_identifier(name)
         optional(name, nil)&.then do |value|
           Primitives::Identifier.new(name, value, error_class: InvalidJobAttributeError).normalize
+        end
+      end
+
+      def normalize_optional_scope(scope_name, legacy_key_name, queue:, handler:)
+        scope_input = optional(scope_name, nil)
+        legacy_key_input = optional(legacy_key_name, nil)
+        raise InvalidJobAttributeError, "provide only one of #{scope_name} or #{legacy_key_name}" if scope_input && legacy_key_input
+
+        normalized_scope =
+          if scope_input
+            Backpressure::ScopeSupport.normalize_scope(scope_name, scope_input, error_class: InvalidJobAttributeError)
+          elsif legacy_key_input
+            Backpressure::ScopeSupport.normalize_scope(
+              legacy_key_name,
+              { kind: :custom, value: legacy_key_input },
+              error_class: InvalidJobAttributeError
+            )
+          end
+
+        validate_routing_scope(normalized_scope, queue:, handler:, scope_name:)
+        normalized_scope
+      end
+
+      def validate_routing_scope(scope, queue:, handler:, scope_name:)
+        return unless scope
+
+        scope_kind = scope.kind
+        scope_value = scope.value
+
+        case scope_kind
+        when :queue
+          return if scope_value == queue
+
+          raise InvalidJobAttributeError, "#{scope_name} queue scope must match job queue"
+        when :handler
+          return if scope_value == handler
+
+          raise InvalidJobAttributeError, "#{scope_name} handler scope must match job handler"
         end
       end
 
