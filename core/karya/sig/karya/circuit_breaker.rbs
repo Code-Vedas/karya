@@ -8,7 +8,7 @@ module Karya
   end
 
   module CircuitBreaker
-    def self.normalize_scope: (Karya::backpressure_scope_input scope) -> Backpressure::Scope
+    def self.normalize_scope: (Karya::circuit_breaker_scope_input scope) -> Backpressure::Scope
 
     class Policy
       @cooldown: Karya::lease_duration_value
