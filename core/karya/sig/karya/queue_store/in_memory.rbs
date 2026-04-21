@@ -76,6 +76,8 @@ module Karya
 
       private
 
+      attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
+
       attr_reader policy_set: Backpressure::PolicySet
 
       attr_reader state: StoreState

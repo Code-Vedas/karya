@@ -4,6 +4,9 @@
 # LICENSE file in the root directory of this source tree.
 
 module Karya
+  class InvalidCircuitBreakerPolicyError < Error
+  end
+
   module CircuitBreaker
     class Policy
       @cooldown: Karya::lease_duration_value
