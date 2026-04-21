@@ -24,7 +24,7 @@ module Karya
         failure_threshold: Integer,
         window: Karya::lease_duration_value,
         cooldown: Karya::lease_duration_value,
-        scope: Karya::backpressure_scope_input,
+        scope: Karya::circuit_breaker_scope_input,
         ?half_open_limit: Integer
       ) -> void
     end
@@ -34,9 +34,9 @@ module Karya
 
       attr_reader policies: Hash[String, Policy]
 
-      def initialize: (?policies: Hash[Karya::backpressure_scope_input, Policy | Karya::circuit_breaker_policy_attributes]) -> void
+      def initialize: (?policies: Hash[Karya::circuit_breaker_scope_input, Policy | Karya::circuit_breaker_policy_attributes]) -> void
 
-      def policy_for: (Karya::backpressure_scope_input? key) -> Policy?
+      def policy_for: (Karya::circuit_breaker_scope_input? key) -> Policy?
     end
   end
 end

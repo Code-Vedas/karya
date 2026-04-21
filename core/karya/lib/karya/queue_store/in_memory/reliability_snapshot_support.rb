@@ -38,54 +38,49 @@ module Karya
             job = state.jobs_by_id[job_id]
             next unless job
 
-            snapshot[job_id] = build_stuck_job_snapshot(job_id, job, recovery_state)
+            snapshot[job_id] = {
+              job_id:,
+              queue: job.queue,
+              handler: job.handler,
+              state: job.state,
+              attempt: job.attempt,
+              recovery_count: recovery_state.fetch(:recovery_count),
+              last_recovered_at: recovery_state.fetch(:last_recovered_at),
+              last_recovery_reason: recovery_state.fetch(:last_recovery_reason)
+            }.freeze
           end.freeze
         end
 
-        # :reek:FeatureEnvy
         def build_circuit_breaker_snapshot(scope_key, policy, now, blocked_count)
           breaker_state = circuit_breaker_state_for(scope_key, now)
           state_name = breaker_state.fetch(:state)
-          scope = policy.scope
-          failure_threshold = policy.failure_threshold
-          window = policy.window
-          cooldown = policy.cooldown
-          half_open_limit = policy.half_open_limit
           {
-            scope:,
+            scope: policy.scope,
             state: state_name,
             failure_count: state.breaker_failures_by_scope.fetch(scope_key, []).length,
-            failure_threshold:,
-            window:,
-            cooldown:,
+            failure_threshold: policy.failure_threshold,
+            window: policy.window,
+            cooldown: policy.cooldown,
             blocked_count:,
             cooldown_until: state_name == :open ? breaker_state[:cooldown_until] : nil,
-            probe_slots_remaining: state_name == :half_open ? half_open_limit - half_open_probe_count(scope_key) : nil
+            probe_slots_remaining: probe_slots_remaining(scope_key, policy, state_name)
           }.freeze
         end
 
+        def probe_slots_remaining(scope_key, policy, state_name)
+          return unless state_name == :half_open
+
+          policy.half_open_limit - half_open_probe_count(scope_key)
+        end
+
         def increment_breaker_blocked_counts(counts, job, now)
-          ReliabilitySupport::BreakerScopeKeys.for(job).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, nil) do |scope_key|
             policy = circuit_breaker_policy_set.policies[scope_key]
             next unless policy
             next unless circuit_breaker_scope_blocked?(scope_key, policy, now)
 
             counts[scope_key] += 1
           end
-        end
-
-        # :reek:UtilityFunction
-        def build_stuck_job_snapshot(job_id, job, recovery_state)
-          {
-            job_id:,
-            queue: job.queue,
-            handler: job.handler,
-            state: job.state,
-            attempt: job.attempt,
-            recovery_count: recovery_state.fetch(:recovery_count),
-            last_recovered_at: recovery_state.fetch(:last_recovered_at),
-            last_recovery_reason: recovery_state.fetch(:last_recovery_reason)
-          }.freeze
         end
       end
     end

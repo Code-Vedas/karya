@@ -13,18 +13,6 @@ module Karya
         COUNTED_FAILURE_CLASSIFICATIONS = %i[error timeout].freeze
         STUCK_JOB_RECOVERY_REASON = 'running_lease_expired'
 
-        # Canonical queue and handler scope keys used by breaker state.
-        module BreakerScopeKeys
-          module_function
-
-          def for(job)
-            [
-              Backpressure::Scope.new(kind: :queue, value: job.queue).key,
-              Backpressure::Scope.new(kind: :handler, value: job.handler).key
-            ]
-          end
-        end
-
         private
 
         def prepare_reliability_snapshot(now)
@@ -43,12 +31,16 @@ module Karya
         end
 
         def circuit_breaker_blocked?(job, now)
-          BreakerScopeKeys.for(job).any? do |scope_key|
+          blocked = false
+          BackpressureSupport.each_scope_key(job, nil) do |scope_key|
             policy = circuit_breaker_policy_set.policies[scope_key]
-            next false unless policy
+            next unless policy
+            next unless circuit_breaker_scope_blocked?(scope_key, policy, now)
 
-            circuit_breaker_scope_blocked?(scope_key, policy, now)
+            blocked = true
+            break
           end
+          blocked
         end
 
         def circuit_breaker_scope_blocked?(scope_key, policy, now)
@@ -103,7 +95,7 @@ module Karya
         end
 
         def register_half_open_probe(job, reservation_token, now)
-          BreakerScopeKeys.for(job).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, nil) do |scope_key|
             policy = circuit_breaker_policy_set.policies[scope_key]
             next unless policy
             next unless circuit_breaker_state_for(scope_key, now).fetch(:state) == :half_open
@@ -115,7 +107,7 @@ module Karya
         end
 
         def record_execution_success(job, now)
-          BreakerScopeKeys.for(job).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, nil) do |scope_key|
             next unless circuit_breaker_policy_set.policies[scope_key]
             next unless circuit_breaker_state_for(scope_key, now).fetch(:state) == :half_open
 
@@ -128,7 +120,7 @@ module Karya
         def record_execution_failure(job, failure_classification, now)
           return nil unless COUNTED_FAILURE_CLASSIFICATIONS.include?(failure_classification)
 
-          BreakerScopeKeys.for(job).each do |scope_key|
+          BackpressureSupport.each_scope_key(job, nil) do |scope_key|
             policy = circuit_breaker_policy_set.policies[scope_key]
             next unless policy
 
@@ -167,17 +159,8 @@ module Karya
           nil
         end
 
-        # :reek:FeatureEnvy
         def register_stuck_job_recovery(job, now)
-          job_id = job.id
-          stuck_job_recoveries = state.stuck_job_recoveries_by_id
-          existing = stuck_job_recoveries[job_id]
-          recovery_count = existing ? existing.fetch(:recovery_count) + 1 : 1
-          stuck_job_recoveries[job_id] = {
-            recovery_count:,
-            last_recovered_at: now,
-            last_recovery_reason: STUCK_JOB_RECOVERY_REASON
-          }
+          state.register_stuck_job_recovery(job_id: job.id, now:, reason: STUCK_JOB_RECOVERY_REASON)
           nil
         end
 

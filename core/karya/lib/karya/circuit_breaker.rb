@@ -96,11 +96,10 @@ module Karya
         freeze
       end
 
-      # :reek:NilCheck
       def policy_for(key)
+        return unless key
+
         case key
-        when nil
-          nil
         when Backpressure::Scope, Hash, String, Symbol
           policies[CircuitBreaker.normalize_scope(key).key]
         else
@@ -110,20 +109,11 @@ module Karya
 
       private
 
-      # :reek:FeatureEnvy
       def normalize_policy(key, raw_policy)
         normalized_scope = CircuitBreaker.normalize_scope(key)
         case raw_policy
         when Policy
-          return raw_policy if raw_policy.key == normalized_scope.key
-
-          Policy.new(
-            scope: normalized_scope,
-            failure_threshold: raw_policy.failure_threshold,
-            window: raw_policy.window,
-            cooldown: raw_policy.cooldown,
-            half_open_limit: raw_policy.half_open_limit
-          )
+          policy_for_scope(raw_policy, normalized_scope)
         when Hash
           Policy.new(scope: normalized_scope, **normalize_policy_attributes(raw_policy))
         else
@@ -131,6 +121,18 @@ module Karya
         end
       rescue ArgumentError, TypeError
         invalid_policy_error
+      end
+
+      def policy_for_scope(policy, normalized_scope)
+        return policy if policy.key == normalized_scope.key
+
+        Policy.new(
+          scope: normalized_scope,
+          failure_threshold: policy.failure_threshold,
+          window: policy.window,
+          cooldown: policy.cooldown,
+          half_open_limit: policy.half_open_limit
+        )
       end
 
       def normalize_policy_attributes(raw_policy)

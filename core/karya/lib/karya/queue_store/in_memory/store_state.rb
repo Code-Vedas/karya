@@ -86,6 +86,15 @@ module Karya
           half_open_probe_admissions_by_scope.delete(key)
         end
 
+        def register_stuck_job_recovery(job_id:, now:, reason:)
+          existing_recovery = stuck_job_recoveries_by_id[job_id]
+          stuck_job_recoveries_by_id[job_id] = {
+            recovery_count: existing_recovery ? existing_recovery.fetch(:recovery_count) + 1 : 1,
+            last_recovered_at: now,
+            last_recovery_reason: reason
+          }
+        end
+
         def reserve(reservation)
           reservation_token = reservation.token
           reservations_by_token[reservation_token] = reservation

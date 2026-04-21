@@ -15,6 +15,9 @@ Use this file as the repo-root coding baseline.
 - Trace concrete state changes for time, retries, leases, shutdown, and shared
   state. Watch for TOCTOU gaps.
 - Do not symbolize, intern, or cache unbounded input.
+- Do not add inline Reek suppressions such as `# :reek:` comments. Address the
+  smell in code first; if an exclusion is unavoidable, keep it narrow in the
+  package `.reek.yml`.
 - `docs/` is future-state product documentation with no exceptions. Review and
   edit it as completed product documentation, not as a mirror of what is
   implemented today. For `docs/`, fix contradictions, stale names, broken
