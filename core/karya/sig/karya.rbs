@@ -100,6 +100,17 @@ module Karya
     backpressure_scope_string_input |
     backpressure_scope_mixed_input
   type backpressure_scope_input = Backpressure::Scope | backpressure_scope_hash_input | state_name
+  type circuit_breaker_scope_kind = :queue | :handler | "queue" | "handler"
+  type circuit_breaker_scope_symbol_input = { kind: circuit_breaker_scope_kind, value: state_name }
+  type circuit_breaker_scope_string_input = { "kind" => circuit_breaker_scope_kind, "value" => state_name }
+  type circuit_breaker_scope_mixed_input =
+    { kind: circuit_breaker_scope_kind, "value" => state_name } |
+    { "kind" => circuit_breaker_scope_kind, value: state_name }
+  type circuit_breaker_scope_hash_input =
+    circuit_breaker_scope_symbol_input |
+    circuit_breaker_scope_string_input |
+    circuit_breaker_scope_mixed_input
+  type circuit_breaker_scope_input = Backpressure::Scope | circuit_breaker_scope_hash_input | state_name
   type concurrency_policy_symbol_attributes = { limit: Integer }
   type concurrency_policy_string_attributes = { "limit" => Integer }
   type concurrency_policy_attributes =
@@ -115,6 +126,46 @@ module Karya
     rate_limit_policy_symbol_attributes |
     rate_limit_policy_string_attributes |
     rate_limit_policy_mixed_attributes
+  type circuit_breaker_policy_symbol_required_attributes = {
+    failure_threshold: Integer,
+    window: lease_duration_value,
+    cooldown: lease_duration_value
+  }
+  type circuit_breaker_policy_symbol_optional_attributes =
+    {} |
+    { half_open_limit: Integer }
+  type circuit_breaker_policy_symbol_attributes =
+    circuit_breaker_policy_symbol_required_attributes &
+    circuit_breaker_policy_symbol_optional_attributes
+  type circuit_breaker_policy_string_required_attributes = {
+    "failure_threshold" => Integer,
+    "window" => lease_duration_value,
+    "cooldown" => lease_duration_value
+  }
+  type circuit_breaker_policy_string_optional_attributes =
+    {} |
+    { "half_open_limit" => Integer }
+  type circuit_breaker_policy_string_attributes =
+    circuit_breaker_policy_string_required_attributes &
+    circuit_breaker_policy_string_optional_attributes
+  type circuit_breaker_policy_mixed_required_attributes =
+    { failure_threshold: Integer, window: lease_duration_value, "cooldown" => lease_duration_value } |
+    { failure_threshold: Integer, "window" => lease_duration_value, cooldown: lease_duration_value } |
+    { failure_threshold: Integer, "window" => lease_duration_value, "cooldown" => lease_duration_value } |
+    { "failure_threshold" => Integer, window: lease_duration_value, cooldown: lease_duration_value } |
+    { "failure_threshold" => Integer, window: lease_duration_value, "cooldown" => lease_duration_value } |
+    { "failure_threshold" => Integer, "window" => lease_duration_value, cooldown: lease_duration_value }
+  type circuit_breaker_policy_mixed_optional_attributes =
+    {} |
+    { half_open_limit: Integer } |
+    { "half_open_limit" => Integer }
+  type circuit_breaker_policy_mixed_attributes =
+    circuit_breaker_policy_mixed_required_attributes &
+    circuit_breaker_policy_mixed_optional_attributes
+  type circuit_breaker_policy_attributes =
+    circuit_breaker_policy_symbol_attributes |
+    circuit_breaker_policy_string_attributes |
+    circuit_breaker_policy_mixed_attributes
   type retry_decision_action = :retry | :stop | :escalate
   type retry_decision_reason = :classification_escalated | :retry_exhausted
   type retry_jitter_strategy = :none | :full | :equal | "none" | "full" | "equal"
@@ -122,6 +173,35 @@ module Karya
   type uniqueness_scope_input = uniqueness_scope | "queued" | "active" | "until_terminal"
   type failure_classification = :error | :timeout | :expired
   type failure_classification_input = failure_classification | "error" | "timeout" | "expired"
+  type circuit_breaker_state = :closed | :open | :half_open
+  type circuit_breaker_runtime_state = { state: circuit_breaker_state, cooldown_until: Time? }
+  type stuck_job_recovery = { recovery_count: Integer, last_recovered_at: Time, last_recovery_reason: String }
+  type circuit_breaker_snapshot = {
+    scope: Backpressure::Scope,
+    state: circuit_breaker_state,
+    failure_count: Integer,
+    failure_threshold: Integer,
+    window: lease_duration_value,
+    cooldown: lease_duration_value,
+    blocked_count: Integer,
+    cooldown_until: Time?,
+    probe_slots_remaining: Integer?
+  }
+  type stuck_job_snapshot = {
+    job_id: String,
+    queue: String,
+    handler: String,
+    state: state_name,
+    attempt: Integer,
+    recovery_count: Integer,
+    last_recovered_at: Time,
+    last_recovery_reason: String
+  }
+  type reliability_snapshot = {
+    captured_at: Time,
+    circuit_breakers: Hash[String, circuit_breaker_snapshot],
+    stuck_jobs: Hash[String, stuck_job_snapshot]
+  }
   type backpressure_concurrency_snapshot = { scope: Backpressure::Scope, limit: Integer, active_count: Integer, blocked_count: Integer }
   type backpressure_rate_limit_snapshot = {
     scope: Backpressure::Scope,

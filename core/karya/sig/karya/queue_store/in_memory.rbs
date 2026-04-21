@@ -9,6 +9,7 @@ module Karya
     class InMemory
       @token_generator: Method | Proc
       @policy_set: Backpressure::PolicySet
+      @circuit_breaker_policy_set: CircuitBreaker::PolicySet
 
       @reservation_token_sequence: Integer
 
@@ -22,7 +23,12 @@ module Karya
 
       RESERVE_QUEUES_ERROR_MESSAGE: String
 
-      def initialize: (?token_generator: (Method | Proc), ?expired_tombstone_limit: Integer, ?policy_set: Backpressure::PolicySet) -> void
+      def initialize: (
+        ?token_generator: (Method | Proc),
+        ?expired_tombstone_limit: Integer,
+        ?policy_set: Backpressure::PolicySet,
+        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet
+      ) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
 
@@ -62,7 +68,15 @@ module Karya
       # store behavior must not rely on this API.
       def backpressure_snapshot: (now: Time) -> Karya::backpressure_snapshot
 
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def reliability_snapshot: (now: Time) -> Karya::reliability_snapshot
+
       private
+
+      attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
 
       attr_reader policy_set: Backpressure::PolicySet
 
@@ -91,6 +105,8 @@ module Karya
 
       # Internal mutable state for the single-process queue store.
       class StoreState
+        @breaker_failures_by_scope: Hash[String, Array[Time]]
+        @breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
         @executions_by_token: Hash[String, Reservation]
 
         @execution_tokens_in_order: Array[String]
@@ -101,6 +117,7 @@ module Karya
 
         @expired_tombstone_limit: Integer
 
+        @half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         @jobs_by_id: Hash[String, Job]
         @rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
@@ -111,7 +128,10 @@ module Karya
         @reservation_tokens_in_order: Array[String]
 
         @reservations_by_token: Hash[String, Reservation]
+        @stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
 
+        attr_reader breaker_failures_by_scope: Hash[String, Array[Time]]
+        attr_reader breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
         attr_reader executions_by_token: Hash[String, Reservation]
 
         attr_reader execution_tokens_in_order: Array[String]
@@ -120,6 +140,7 @@ module Karya
 
         attr_reader expired_reservation_tokens_in_order: Array[String]
 
+        attr_reader half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         attr_reader jobs_by_id: Hash[String, Job]
         attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
@@ -129,6 +150,7 @@ module Karya
         attr_reader reservation_tokens_in_order: Array[String]
 
         attr_reader reservations_by_token: Hash[String, Reservation]
+        attr_reader stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
 
         def initialize: (expired_tombstone_limit: Integer) -> void
 
@@ -142,7 +164,15 @@ module Karya
 
         def rate_limit_admissions_for: (String key) -> Array[Time]
 
+        def breaker_failures_for: (String key) -> Array[Time]
+
+        def half_open_probe_admissions_for: (String key) -> Array[String]
+
         def delete_rate_limit_key: (String key) -> Array[Time]?
+
+        def clear_half_open_probe_admissions: (String key) -> Array[String]?
+
+        def register_stuck_job_recovery: (job_id: String, now: Time, reason: String) -> Karya::stuck_job_recovery
 
         def reserve: (Reservation reservation) -> Array[String]
 
@@ -230,13 +260,15 @@ module Karya
       def find_reserved_job: (
         Array[String] queues,
         HandlerMatcher handler_matcher,
-        ReserveScanState reserve_scan_state
+        ReserveScanState reserve_scan_state,
+        Time now
       ) -> [String, Integer, String]?
 
       def matching_job_for: (
         String queue,
         HandlerMatcher handler_matcher,
-        ReserveScanState reserve_scan_state
+        ReserveScanState reserve_scan_state,
+        Time now
       ) -> [Integer, String]?
 
       def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?

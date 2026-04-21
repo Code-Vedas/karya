@@ -24,6 +24,11 @@ Operators need to understand whether delay comes from queue pressure,
 rate limits, concurrency caps, routing mismatches, or backend-specific
 constraints.
 
+Circuit breaking is adjacent to backpressure, but it is not the same control.
+Backpressure explains constrained capacity or policy windows. Circuit breakers
+explain intentionally suppressed execution after repeated unhealthy outcomes on
+one queue or handler path.
+
 Backpressure is not only about raw queue depth. It also depends on whether
 workers are subscribed to the right queues, whether handlers match the routed
 work, and whether the selected work is allowed through the current policy
@@ -60,6 +65,8 @@ subscription shape.
   pressure directly
 - [Retries](/reliability/retries/): pressure and failure handling meet at the
   retry boundary
+- [Circuit Breakers](/reliability/circuit-breakers/): unhealthy execution
+  paths should not be mistaken for ordinary capacity pressure
 - [Search And Drilldowns](/operator/search-drilldowns/): operators need to
   drill into the queues under pressure
 - [Backends](/backends/): backend characteristics shape how pressure is felt

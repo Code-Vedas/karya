@@ -39,7 +39,9 @@ module Karya
         private
 
         def store_job(job:)
-          state.jobs_by_id[job.id] = job
+          job_id = job.id
+          state.jobs_by_id[job_id] = job
+          clear_stuck_job_recovery(job_id) if job.terminal?
           job
         end
 

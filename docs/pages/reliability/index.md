@@ -19,6 +19,7 @@ recovery paths are triggered.
 ## In This Section
 
 - [Retries](/reliability/retries/)
+- [Circuit Breakers](/reliability/circuit-breakers/)
 - [Uniqueness](/reliability/uniqueness/)
 - [Dead Letters](/reliability/dead-letters/)
 - [Backpressure](/reliability/backpressure/)
@@ -28,6 +29,8 @@ recovery paths are triggered.
 The reliability section documents:
 
 - retry and backoff behavior
+- circuit-breaking and automated recovery boundaries for unhealthy execution
+  paths
 - idempotency and uniqueness expectations
 - dead-letter isolation and governed recovery boundaries
 - fairness, starvation prevention, rate limiting, and backpressure

@@ -39,8 +39,9 @@ module Karya
               raise ExpiredReservationError, "reservation #{reservation_label} has expired"
             end
 
+            running_job = state.jobs_by_id.fetch(reservation.job_id)
             finalized_job = finalized_execution_job(
-              running_job: state.jobs_by_id.fetch(reservation.job_id),
+              running_job:,
               next_state:,
               now: normalized_now,
               retry_policy: normalized_retry_policy,
@@ -50,6 +51,11 @@ module Karya
               finalized_job:,
               normalized_token:
             )
+            if next_state == :succeeded
+              record_execution_success(running_job, normalized_now)
+            else
+              record_execution_failure(running_job, normalized_failure_classification, normalized_now)
+            end
             finalized_job
           end
         end

@@ -11,6 +11,7 @@ require_relative 'karya/version'
 
 require_relative 'karya/job_lifecycle'
 require_relative 'karya/backpressure'
+require_relative 'karya/circuit_breaker'
 require_relative 'karya/job'
 require_relative 'karya/retry_policy'
 require_relative 'karya/retry_policy_set'

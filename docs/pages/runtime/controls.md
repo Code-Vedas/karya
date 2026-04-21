@@ -17,6 +17,8 @@ CLI surfaces.
 - queue and worker lifecycle control
 - retry, isolation, replay, and governed recovery actions across aligned
   operator surfaces
+- breaker-open, half-open, and stuck-work inspection vocabulary for unhealthy
+  execution paths
 - operator-visible state used for safe intervention across `queued`,
   `reserved`, `running`, `failed`, `retry_pending`, `cancelled`, and extension
   states such as `dead_letter` when they are registered
@@ -45,6 +47,7 @@ Illustrative vocabulary across UI, API, and CLI surfaces:
 ```text
 dashboard action: retry failed job <job-id>
 dashboard action: inspect dead_letter job <job-id>
+dashboard action: inspect circuit_breaker queue:billing
 operator API action: replay isolated job <job-id>
 CLI action: karya runtime inspect --state-file /tmp/karya-runtime-billing.json
 ```
@@ -61,6 +64,8 @@ The supervisor-managed worker runtime surfaces:
 - graceful drain and force-stop controls at the whole-supervisor level
 - local CLI access through a runtime state file plus a supervisor-owned Unix
   control socket validated with an instance token
+- reliability inspection showing when queued work is blocked by breaker-open
+  behavior versus capacity or routing constraints
 - corresponding dashboard and operator API workflows that expose the same
   runtime vocabulary for investigation and intervention
 

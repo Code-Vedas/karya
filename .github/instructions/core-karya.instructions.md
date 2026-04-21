@@ -41,6 +41,9 @@ These rules apply to changes in the canonical runtime package.
 - Blocking operations need explicit timeout or cancellation posture.
 - Avoid global mutable state.
 - Do not symbolize or cache unbounded input.
+- Do not add inline Reek suppressions such as `# :reek:` comments. Address the
+  smell in code first; if an exclusion is unavoidable, keep it narrow in
+  `core/karya/.reek.yml`.
 
 ## Change Bar
 

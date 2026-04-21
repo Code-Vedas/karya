@@ -50,6 +50,8 @@ detectors:
       - Karya::QueueStore::InMemory::UniquenessSupport#effective_retry_pending_uniqueness_job
       - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_concurrency
       - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_rate_limits
+      - Karya::QueueStore::InMemory::ReliabilitySnapshotSupport#build_circuit_breaker_snapshot
+      - Karya::QueueStore::InMemory::ReliabilitySnapshotSupport#snapshot_stuck_jobs
   UtilityFunction:
     enabled: true
     exclude:
@@ -63,6 +65,7 @@ detectors:
       - Karya::QueueStore::InMemory::UniquenessSupport#incoming_uniqueness_state
       - Karya::QueueStore::InMemory::UniquenessSupport#reentry_conflict_job
       - Karya::QueueStore::InMemory::UniquenessSupport#lease_expired_for_uniqueness?
+      - Karya::CircuitBreaker::PolicySet#policy_for_scope
   DuplicateMethodCall:
     exclude:
       - Karya::Worker#execute_handler
