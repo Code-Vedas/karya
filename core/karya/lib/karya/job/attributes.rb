@@ -140,7 +140,11 @@ module Karya
           if scope_input
             Backpressure::ScopeSupport.normalize_scope(scope_name, scope_input, error_class: InvalidJobAttributeError)
           elsif legacy_key_input
-            Backpressure::ScopeSupport.normalize_scope(legacy_key_name, legacy_key_input, error_class: InvalidJobAttributeError)
+            Backpressure::ScopeSupport.normalize_scope(
+              legacy_key_name,
+              { kind: :custom, value: legacy_key_input },
+              error_class: InvalidJobAttributeError
+            )
           end
 
         validate_routing_scope(normalized_scope, queue:, handler:, scope_name:)

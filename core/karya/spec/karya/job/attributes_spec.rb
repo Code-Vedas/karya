@@ -265,6 +265,23 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:rate_limit_scope]).to eq(Karya::Backpressure::Scope.new(kind: :handler, value: 'BillingSync'))
     end
 
+    it 'treats legacy backpressure keys as custom shorthands even with reserved prefixes' do
+      attributes = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'queued',
+        created_at: created_at,
+        concurrency_key: 'queue:other',
+        rate_limit_key: 'handler:OtherHandler'
+      )
+
+      result = attributes.to_h
+
+      expect(result[:concurrency_scope]).to eq(Karya::Backpressure::Scope.new(kind: :custom, value: 'queue:other'))
+      expect(result[:rate_limit_scope]).to eq(Karya::Backpressure::Scope.new(kind: :custom, value: 'handler:OtherHandler'))
+    end
+
     it 'resolves named retry policies through retry_policies' do
       attributes = attributes_class.new(
         id: 'job123',
