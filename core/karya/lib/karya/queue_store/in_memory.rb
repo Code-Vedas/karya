@@ -9,6 +9,7 @@ require 'securerandom'
 require 'bigdecimal'
 
 require_relative 'base'
+require_relative '../circuit_breaker'
 require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
 require_relative 'recovery_report'
@@ -19,6 +20,8 @@ require_relative 'in_memory/execution_support'
 require_relative 'in_memory/execution_recovery'
 require_relative 'in_memory/handler_matcher'
 require_relative 'in_memory/lease_duration'
+require_relative 'in_memory/reliability_snapshot_support'
+require_relative 'in_memory/reliability_support'
 require_relative 'in_memory/recovery_support'
 require_relative 'in_memory/request_support'
 require_relative 'in_memory/reserve_selection_support'
@@ -50,6 +53,8 @@ module Karya
       include BackpressureSnapshotSupport
       include ExecutionSupport
       include ExpirationSupport
+      include ReliabilitySupport
+      include ReliabilitySnapshotSupport
       include RecoverySupport
       include RequestSupport
       include ReserveSelectionSupport
@@ -62,14 +67,20 @@ module Karya
       def initialize(
         token_generator: -> { SecureRandom.uuid },
         expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT,
-        policy_set: Backpressure::PolicySet.new
+        policy_set: Backpressure::PolicySet.new,
+        circuit_breaker_policy_set: CircuitBreaker::PolicySet.new
       )
         valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
         raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
         raise InvalidQueueStoreOperationError, 'policy_set must be a Karya::Backpressure::PolicySet' unless policy_set.is_a?(Backpressure::PolicySet)
+        unless circuit_breaker_policy_set.is_a?(CircuitBreaker::PolicySet)
+          raise InvalidQueueStoreOperationError,
+                'circuit_breaker_policy_set must be a Karya::CircuitBreaker::PolicySet'
+        end
 
         @token_generator = token_generator
         @policy_set = policy_set
+        @circuit_breaker_policy_set = circuit_breaker_policy_set
         @reservation_token_sequence = 0
         @mutex = Mutex.new
         @state = StoreState.new(expired_tombstone_limit:)
@@ -195,9 +206,22 @@ module Karya
         end
       end
 
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def reliability_snapshot(now:)
+        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
+
+        @mutex.synchronize do
+          prepare_reliability_snapshot(normalized_now)
+          build_reliability_snapshot(normalized_now)
+        end
+      end
+
       private
 
-      attr_reader :policy_set, :state, :token_generator
+      attr_reader :circuit_breaker_policy_set, :policy_set, :state, :token_generator
 
       private_constant :LeaseDuration, :HandlerMatcher, :ReserveScanState
 
@@ -272,7 +296,7 @@ module Karya
         now = reserve_request.fetch(:now)
         reserve_scan_state = perform_reserve_maintenance(now)
         matched_queue, matched_job_index, matched_job_id =
-          find_reserved_job(reserve_request.fetch(:queues), reserve_request.fetch(:handler_matcher), reserve_scan_state)
+          find_reserved_job(reserve_request.fetch(:queues), reserve_request.fetch(:handler_matcher), reserve_scan_state, now)
         return nil unless matched_job_id
 
         reserve_job(
@@ -300,10 +324,11 @@ module Karya
         store_job(job: reserved_job)
         record_rate_limit_admission(reserved_job, now)
         state.reserve(reservation)
+        register_half_open_probe(reserved_job, reservation.token, now)
         reservation
       end
 
-      private_constant :ExecutionSupport, :ExpirationSupport, :RecoverySupport, :RequestSupport
+      private_constant :ExecutionSupport, :ExpirationSupport, :RecoverySupport, :RequestSupport, :ReliabilitySupport
 
       def raise_expired_reservation_error(reservation_token, reservation_label)
         return unless state.expired_reservation_tokens.key?(reservation_token)

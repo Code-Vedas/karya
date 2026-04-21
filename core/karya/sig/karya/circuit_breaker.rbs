@@ -1,0 +1,42 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module CircuitBreaker
+    class Policy
+      @cooldown: Karya::lease_duration_value
+      @failure_threshold: Integer
+      @half_open_limit: Integer
+      @key: String
+      @scope: Backpressure::Scope
+      @window: Karya::lease_duration_value
+
+      attr_reader cooldown: Karya::lease_duration_value
+      attr_reader failure_threshold: Integer
+      attr_reader half_open_limit: Integer
+      attr_reader key: String
+      attr_reader scope: Backpressure::Scope
+      attr_reader window: Karya::lease_duration_value
+
+      def initialize: (
+        failure_threshold: Integer,
+        window: Karya::lease_duration_value,
+        cooldown: Karya::lease_duration_value,
+        scope: Karya::backpressure_scope_input,
+        ?half_open_limit: Integer
+      ) -> void
+    end
+
+    class PolicySet
+      @policies: Hash[String, Policy]
+
+      attr_reader policies: Hash[String, Policy]
+
+      def initialize: (?policies: Hash[Karya::backpressure_scope_input, Policy | Karya::circuit_breaker_policy_attributes]) -> void
+
+      def policy_for: (Karya::backpressure_scope_input? key) -> Policy?
+    end
+  end
+end

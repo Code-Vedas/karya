@@ -12,16 +12,16 @@ module Karya
       module ReserveSelectionSupport
         private
 
-        def find_reserved_job(queues, handler_matcher, reserve_scan_state)
+        def find_reserved_job(queues, handler_matcher, reserve_scan_state, now)
           queues.each do |queue|
-            matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher, reserve_scan_state)
+            matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher, reserve_scan_state, now)
             return [queue, matched_job_index, matched_job_id] if matched_job_id
           end
 
           nil
         end
 
-        def matching_job_for(queue, handler_matcher, reserve_scan_state)
+        def matching_job_for(queue, handler_matcher, reserve_scan_state, now)
           queue_job_ids = state.queued_job_ids_by_queue.fetch(queue, [])
           selected_job_id = nil
           selected_job_index = nil
@@ -33,6 +33,7 @@ module Karya
             next unless handler_matcher.include?(queued_job.handler)
             next if reserve_scan_state.concurrency_blocked?(queued_job)
             next if reserve_scan_state.rate_limited?(queued_job)
+            next if circuit_breaker_blocked?(queued_job, now)
             next if selected_job_priority && queued_job_priority <= selected_job_priority
 
             selected_job_id = job_id

@@ -38,6 +38,7 @@ module Karya
           state.delete_execution_token(reservation_token)
 
           running_job = jobs_by_id.fetch(reservation.job_id)
+          register_stuck_job_recovery(running_job, now)
           queued_job = ExecutionRecovery.new(running_job, now).to_queued_job
           state.delete_retry_pending(queued_job.id)
           state.mark_expired(reservation_token)

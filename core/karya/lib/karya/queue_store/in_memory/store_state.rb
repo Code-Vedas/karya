@@ -11,22 +11,29 @@ module Karya
       # Internal mutable state for the single-process queue store.
       class StoreState
         attr_reader :executions_by_token,
+                    :breaker_failures_by_scope,
+                    :breaker_states_by_scope,
                     :execution_tokens_in_order,
                     :expired_reservation_tokens,
                     :expired_reservation_tokens_in_order,
+                    :half_open_probe_admissions_by_scope,
                     :jobs_by_id,
                     :rate_limit_admissions_by_key,
                     :queued_job_ids_by_queue,
                     :retry_pending_job_ids,
                     :reservation_tokens_in_order,
-                    :reservations_by_token
+                    :reservations_by_token,
+                    :stuck_job_recoveries_by_id
 
         def initialize(expired_tombstone_limit:)
+          @breaker_failures_by_scope = {}
+          @breaker_states_by_scope = {}
           @executions_by_token = {}
           @execution_tokens_in_order = []
           @expired_reservation_tokens = {}
           @expired_reservation_tokens_in_order = []
           @expired_tombstone_limit = expired_tombstone_limit
+          @half_open_probe_admissions_by_scope = {}
           @jobs_by_id = {}
           @rate_limit_admissions_by_key = {}
           @queued_job_ids_by_queue = {}
@@ -34,6 +41,7 @@ module Karya
           @retry_pending_job_ids_index = {}
           @reservation_tokens_in_order = []
           @reservations_by_token = {}
+          @stuck_job_recoveries_by_id = {}
         end
 
         def queue_job_ids_for(queue)
@@ -62,8 +70,20 @@ module Karya
           rate_limit_admissions_by_key[key] ||= []
         end
 
+        def breaker_failures_for(key)
+          breaker_failures_by_scope[key] ||= []
+        end
+
+        def half_open_probe_admissions_for(key)
+          half_open_probe_admissions_by_scope[key] ||= []
+        end
+
         def delete_rate_limit_key(key)
           rate_limit_admissions_by_key.delete(key)
+        end
+
+        def clear_half_open_probe_admissions(key)
+          half_open_probe_admissions_by_scope.delete(key)
         end
 
         def reserve(reservation)
