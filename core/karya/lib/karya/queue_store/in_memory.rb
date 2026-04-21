@@ -92,14 +92,8 @@ module Karya
         @mutex.synchronize do
           validate_enqueue(job)
 
-          job_id = job.id
-          idempotency_key = job.idempotency_key
-          uniqueness_key = job.uniqueness_key
-          jobs_by_id = state.jobs_by_id
-          raise DuplicateJobError, "job #{job_id.inspect} is already present in the queue store" if jobs_by_id.key?(job_id)
-
-          raise_duplicate_idempotency_key_error(job_id:, idempotency_key:) if idempotency_conflict?(job)
-          raise_duplicate_uniqueness_key_error(job_id:, uniqueness_key:) if uniqueness_conflict?(job, now: normalized_now)
+          duplicate_decision = build_uniqueness_decision(job, normalized_now)
+          raise_duplicate_enqueue_error(duplicate_decision) if duplicate_decision.fetch(:action) == :reject
           expire_reservations_locked(normalized_now)
 
           queued_job = job.transition_to(:queued, updated_at: normalized_now)
@@ -216,6 +210,31 @@ module Karya
         @mutex.synchronize do
           prepare_reliability_snapshot(normalized_now)
           build_reliability_snapshot(normalized_now)
+        end
+      end
+
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def uniqueness_decision(job:, now:)
+        normalized_now = normalize_time(:now, now, error_class: InvalidEnqueueError)
+
+        @mutex.synchronize do
+          validate_enqueue(job)
+          build_uniqueness_decision(job, normalized_now)
+        end
+      end
+
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def uniqueness_snapshot(now:)
+        normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
+
+        @mutex.synchronize do
+          build_uniqueness_snapshot(normalized_now)
         end
       end
 

@@ -46,7 +46,6 @@ detectors:
       - Karya::Worker#execute_handler
       - Karya::QueueStore::InMemory::ExecutionSupport#finalized_execution_job
       - Karya::QueueStore::InMemory#store_and_requeue_if_needed
-      - Karya::QueueStore::InMemory::UniquenessSupport#duplicate_exists_for?
       - Karya::QueueStore::InMemory::UniquenessSupport#effective_retry_pending_uniqueness_job
       - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_concurrency
       - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_rate_limits

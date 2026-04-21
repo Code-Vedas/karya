@@ -74,6 +74,18 @@ module Karya
       # store behavior must not rely on this API.
       def reliability_snapshot: (now: Time) -> Karya::reliability_snapshot
 
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def uniqueness_decision: (job: Job, now: Time) -> Karya::uniqueness_decision
+
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def uniqueness_snapshot: (now: Time) -> Karya::uniqueness_snapshot
+
       private
 
       attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
@@ -387,13 +399,120 @@ module Karya
           def preview: () -> String
         end
 
+        class Decision
+          @captured_at: Time
+          @job_id: String
+          @uniqueness_scope: Karya::uniqueness_scope?
+
+          def initialize: (job: Job, now: Time) -> void
+
+          def accept: () -> Karya::uniqueness_decision
+
+          def reject: (
+            result: Karya::uniqueness_decision_result,
+            key_type: Karya::uniqueness_decision_key_type,
+            key: String,
+            conflicting_job_id: String
+          ) -> Karya::uniqueness_decision
+
+          private
+
+          def to_h: (
+            action: Karya::uniqueness_decision_action,
+            result: Karya::uniqueness_decision_result,
+            key_type: Karya::uniqueness_decision_key_type?,
+            key: String?,
+            conflicting_job_id: String?
+          ) -> Karya::uniqueness_decision
+        end
+
+        class IdempotencyKeySnapshot
+          @key: String
+          @job_id: String
+          @queue: String
+          @handler: String
+          @state: Karya::state_name
+          @created_at: Time
+          @updated_at: Time?
+
+          def initialize: (job: Job, key: String) -> void
+
+          def to_h: () -> Karya::idempotency_key_snapshot
+        end
+
+        class UniquenessKeySnapshot
+          @key: String
+          @job_id: String
+          @queue: String
+          @handler: String
+          @state: Karya::state_name
+          @effective_state: Karya::state_name
+          @uniqueness_scope: Karya::uniqueness_scope
+          @blocked_incoming_scopes: Array[Karya::uniqueness_scope]
+
+          def initialize: (
+            job: Job,
+            effective_job: Job,
+            key: String,
+            blocked_scopes: Array[Karya::uniqueness_scope]
+          ) -> void
+
+          def to_h: () -> Karya::uniqueness_key_snapshot
+        end
+
+        class DuplicateSearch
+          @jobs_by_id: Hash[String, Job]
+          @job_id: String
+          @key: String?
+          @key_name: :idempotency_key | :uniqueness_key
+          @exclude_job_id: String?
+          @skipped_job_ids: Array[String?]
+
+          def initialize: (
+            jobs_by_id: Hash[String, Job],
+            job: Job,
+            key: String?,
+            key_name: :idempotency_key | :uniqueness_key,
+            exclude_job_id: String?
+          ) -> void
+
+          def call: () { (Job existing_job) -> bool } -> Job?
+
+          private
+
+          def skip_job_id?: (String existing_job_id) -> bool
+        end
+
         private
 
         def store_job: (job: Job) -> Job
 
-        def uniqueness_conflict?: (Job job, ?exclude_job_id: String?, ?now: Time?) -> bool
+        def build_uniqueness_decision: (Job job, Time now) -> Karya::uniqueness_decision
 
-        def idempotency_conflict?: (Job job, ?exclude_job_id: String?) -> bool
+        def duplicate_job_id: (Job job) -> Job?
+
+        def duplicate_idempotency_job: (Job job, ?exclude_job_id: String?) -> Job?
+
+        def duplicate_uniqueness_job: (Job job, Time? now, ?exclude_job_id: String?) -> Job?
+
+        def duplicate_search: (
+          Job job,
+          key: String?,
+          key_name: :idempotency_key | :uniqueness_key,
+          exclude_job_id: String?
+        ) -> DuplicateSearch
+
+        def build_uniqueness_snapshot: (Time now) -> Karya::uniqueness_snapshot
+
+        def snapshot_idempotency_keys: () -> Hash[String, Karya::idempotency_key_snapshot]
+
+        def snapshot_uniqueness_keys: (Time now) -> Hash[String, Array[Karya::uniqueness_key_snapshot]]
+
+        def blocked_incoming_scopes: (Job existing_job) -> Array[Karya::uniqueness_scope]
+
+        def uniqueness_scope_conflicts?: (Job existing_job, Karya::uniqueness_scope incoming_scope) -> bool
+
+        def uniqueness_conflict?: (Job job, ?exclude_job_id: String?, ?now: Time?) -> bool
 
         def uniqueness_conflict_between?: (Job existing_job, Job incoming_job) -> bool
 
@@ -411,13 +530,6 @@ module Karya
 
         def effective_running_uniqueness_job: (Job job, Time now) -> Job
 
-        def duplicate_exists_for?: (
-          Job job,
-          key: String?,
-          key_name: :idempotency_key | :uniqueness_key,
-          exclude_job_id: String?
-        ) { (Job, Job) -> bool } -> bool
-
         def lease_expired_for_uniqueness?: (Hash[String, Reservation] leases_by_token, String job_id, Time now) -> bool
 
         def resolve_reentry_uniqueness: (Job job, ?now: Time?) -> Job
@@ -425,6 +537,8 @@ module Karya
         def resolve_reentry_and_store: (Job job, ?now: Time?) -> Job
 
         def reentry_conflict_job: (Job job) -> Job
+
+        def raise_duplicate_enqueue_error: (Karya::uniqueness_decision duplicate_decision) -> nil
 
         def raise_duplicate_uniqueness_key_error: (job_id: String, uniqueness_key: String) -> nil
 
