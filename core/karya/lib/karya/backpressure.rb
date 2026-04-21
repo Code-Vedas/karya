@@ -47,7 +47,8 @@ module Karya
             error_class:
           )
         elsif value_class <= String || value_class <= Symbol
-          new(kind: default_kind, value: input, error_class:)
+          parsed_scope_attributes = parse_key_string(input, default_kind:, field_name:, error_class:)
+          new(**parsed_scope_attributes, error_class:)
         else
           raise error_class, "#{field_name} must be a Karya::Backpressure::Scope, Hash, String, or Symbol"
         end
@@ -90,6 +91,18 @@ module Karya
           return input.fetch(string_key) if input.key?(string_key)
 
           raise error_class, "#{field_name} must include #{name.inspect}"
+        end
+
+        def parse_key_string(input, default_kind:, field_name:, error_class:)
+          normalized_input = Primitives::Identifier.new(field_name, input, error_class:).normalize
+          kind_part, value_part = normalized_input.split(':', 2)
+          parsed_kind = VALID_KINDS[kind_part]
+
+          if parsed_kind && value_part && !value_part.empty?
+            { kind: parsed_kind, value: value_part }
+          else
+            { kind: default_kind, value: normalized_input }
+          end
         end
       end
 

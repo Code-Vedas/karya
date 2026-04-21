@@ -62,7 +62,8 @@ RSpec.describe Karya::Backpressure::PolicySet do
     policy_set = described_class.new(
       concurrency: {
         queue_scope => { limit: 2 },
-        { 'kind' => 'tenant', 'value' => 'tenant-7' } => { limit: 1 }
+        { 'kind' => 'tenant', 'value' => 'tenant-7' } => { limit: 1 },
+        'workflow:nightly-billing' => { limit: 3 }
       },
       rate_limits: {
         { kind: :handler, value: 'billing_sync' } => { limit: 5, period: 60 }
@@ -71,6 +72,7 @@ RSpec.describe Karya::Backpressure::PolicySet do
 
     expect(policy_set.concurrency_policy_for(queue_scope)&.key).to eq('queue:billing')
     expect(policy_set.concurrency_policy_for(kind: :tenant, value: 'tenant-7')&.key).to eq('tenant:tenant-7')
+    expect(policy_set.concurrency_policy_for('workflow:nightly-billing')&.key).to eq('workflow:nightly-billing')
     expect(policy_set.rate_limit_policy_for(kind: :handler, value: 'billing_sync')&.key).to eq('handler:billing_sync')
   end
 

@@ -24,6 +24,22 @@ RSpec.describe Karya::Backpressure::Scope do
       expect(scope.to_h).to eq(kind: :custom, value: 'tenant-7')
     end
 
+    it 'parses normalized scope-key strings into kind and value' do
+      scope = described_class.from(' tenant:tenant-7 ')
+
+      expect(scope.kind).to eq(:tenant)
+      expect(scope.value).to eq('tenant-7')
+      expect(scope.key).to eq('tenant:tenant-7')
+    end
+
+    it 'treats unrecognized colon-prefixed strings as custom shorthand' do
+      scope = described_class.from(' region:ca-central-1 ')
+
+      expect(scope.kind).to eq(:custom)
+      expect(scope.value).to eq('region:ca-central-1')
+      expect(scope.key).to eq('custom:region:ca-central-1')
+    end
+
     it 'rejects unsupported scope input types' do
       expect do
         described_class.from(123)
@@ -55,6 +71,15 @@ RSpec.describe Karya::Backpressure::Scope do
       expect do
         Karya::Backpressure::ScopeSupport.normalize_scope(:scope, ' ')
       end.to raise_error(Karya::Backpressure::InvalidPolicyError, 'scope must be present')
+    end
+
+    it 'remaps blank nested values to the caller field name' do
+      expect do
+        Karya::Backpressure::ScopeSupport.normalize_scope(:concurrency_scope, { kind: :tenant, value: ' ' })
+      end.to raise_error(
+        Karya::Backpressure::InvalidPolicyError,
+        'concurrency_scope must be present'
+      )
     end
 
     it 're-raises unexpected standard errors from scope normalization' do
