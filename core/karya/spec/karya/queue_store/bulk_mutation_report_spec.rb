@@ -21,24 +21,37 @@ RSpec.describe Karya::QueueStore::BulkMutationReport do
   end
 
   it 'freezes normalized report fields' do
-    report = build_report
+    mutable_job_id = +'job-1'
+    mutable_skipped_job_id = +'job-2'
+    mutable_state = +'custom'
+    report = build_report(
+      requested_job_ids: [mutable_job_id],
+      skipped_jobs: [{ job_id: mutable_skipped_job_id, reason: :not_found, state: mutable_state }]
+    )
+    mutable_job_id.replace('changed-job-1')
+    mutable_skipped_job_id.replace('changed-job-2')
+    mutable_state.replace('changed-state')
 
     expect(report).to have_attributes(
       action: :retry_jobs,
       requested_count: 1,
       requested_job_ids: ['job-1'],
       changed_jobs: [job],
-      skipped_jobs: [{ job_id: 'job-2', reason: :not_found, state: nil }]
+      skipped_jobs: [{ job_id: 'job-2', reason: :not_found, state: 'custom' }]
     )
     expect(report).to be_frozen
     expect(report.requested_job_ids).to be_frozen
+    expect(report.requested_job_ids.first).to be_frozen
     expect(report.changed_jobs).to be_frozen
     expect(report.skipped_jobs).to be_frozen
     expect(report.skipped_jobs.first).to be_frozen
+    expect(report.skipped_jobs.first.fetch(:job_id)).to be_frozen
+    expect(report.skipped_jobs.first.fetch(:state)).to be_frozen
   end
 
   it 'validates constructor inputs' do
     expect { build_report(action: 'retry_jobs') }.to raise_error(Karya::InvalidQueueStoreOperationError, /action/)
+    expect { build_report(action: :unknown) }.to raise_error(Karya::InvalidQueueStoreOperationError, /action/)
     expect { build_report(performed_at: 'now') }.to raise_error(Karya::InvalidQueueStoreOperationError, /performed_at/)
     expect { build_report(requested_job_ids: 'job-1') }.to raise_error(Karya::InvalidQueueStoreOperationError, /requested_job_ids/)
     expect { build_report(requested_job_ids: [1]) }.to raise_error(Karya::InvalidQueueStoreOperationError, /requested_job_ids entries/)
@@ -48,6 +61,7 @@ RSpec.describe Karya::QueueStore::BulkMutationReport do
     expect { build_report(skipped_jobs: ['job-1']) }.to raise_error(Karya::InvalidQueueStoreOperationError, /skipped_jobs entries/)
     expect { build_report(skipped_jobs: [{ reason: :not_found }]) }.to raise_error(KeyError, /job_id/)
     expect { build_report(skipped_jobs: [{ job_id: 1, reason: :not_found }]) }.to raise_error(Karya::InvalidQueueStoreOperationError, /job_id/)
-    expect { build_report(skipped_jobs: [{ job_id: 'job-2', reason: 'not_found' }]) }.to raise_error(Karya::InvalidQueueStoreOperationError, /reason/)
+    expect { build_report(skipped_jobs: [{ job_id: 'job-2', reason: :unknown }]) }.to raise_error(Karya::InvalidQueueStoreOperationError, /reason/)
+    expect { build_report(skipped_jobs: [{ job_id: 'job-2', reason: :not_found, state: 1 }]) }.to raise_error(Karya::InvalidQueueStoreOperationError, /state/)
   end
 end

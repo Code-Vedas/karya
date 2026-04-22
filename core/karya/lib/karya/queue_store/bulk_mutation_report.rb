@@ -9,6 +9,9 @@ module Karya
   module QueueStore
     # Immutable result for one bounded bulk queue-store mutation.
     class BulkMutationReport
+      ACTIONS = %i[enqueue_many retry_jobs cancel_jobs].freeze
+      SKIPPED_JOB_REASONS = %i[not_found ineligible_state duplicate_request uniqueness_conflict].freeze
+
       attr_reader :action, :changed_jobs, :performed_at, :requested_count, :requested_job_ids, :skipped_jobs
 
       # Validates and freezes a string job-id array.
@@ -21,10 +24,11 @@ module Karya
         def to_a
           raise InvalidQueueStoreOperationError, "#{name} must be an Array" unless job_ids.is_a?(Array)
 
-          job_ids.each do |job_id|
+          job_ids.map do |job_id|
             raise InvalidQueueStoreOperationError, "#{name} entries must be Strings" unless job_id.is_a?(String)
-          end
-          job_ids.dup.freeze
+
+            job_id.dup.freeze
+          end.freeze
         end
 
         private
@@ -54,7 +58,7 @@ module Karya
       end
 
       def initialize(action:, performed_at:, requested_job_ids:, changed_jobs:, skipped_jobs:)
-        raise InvalidQueueStoreOperationError, 'action must be a Symbol' unless action.is_a?(Symbol)
+        raise InvalidQueueStoreOperationError, 'action must be one of :enqueue_many, :retry_jobs, or :cancel_jobs' unless ACTIONS.include?(action)
         raise InvalidQueueStoreOperationError, 'performed_at must be a Time' unless performed_at.is_a?(Time)
 
         @action = action
@@ -80,16 +84,35 @@ module Karya
       def normalize_skipped_job(skipped_job)
         raise InvalidQueueStoreOperationError, 'skipped_jobs entries must be Hashes' unless skipped_job.is_a?(Hash)
 
-        normalized = skipped_job.dup
-        job_id = normalized.fetch(:job_id)
-        reason = normalized.fetch(:reason)
+        job_id = skipped_job.fetch(:job_id)
+        reason = skipped_job.fetch(:reason)
+        state = skipped_job.fetch(:state, nil)
         raise InvalidQueueStoreOperationError, 'skipped job_id must be a String' unless job_id.is_a?(String)
-        raise InvalidQueueStoreOperationError, 'skipped reason must be a Symbol' unless reason.is_a?(Symbol)
+        raise InvalidQueueStoreOperationError, skipped_reason_error_message unless SKIPPED_JOB_REASONS.include?(reason)
 
-        normalized.freeze
+        {
+          job_id: job_id.dup.freeze,
+          reason:,
+          state: normalize_skipped_state(state)
+        }.freeze
       end
 
-      private_constant :JobIdList, :JobList
+      def normalize_skipped_state(state)
+        case state
+        when NilClass, Symbol
+          state
+        when String
+          state.dup.freeze
+        else
+          raise InvalidQueueStoreOperationError, 'skipped state must be a String, Symbol, or nil'
+        end
+      end
+
+      def skipped_reason_error_message
+        'skipped reason must be one of :not_found, :ineligible_state, :duplicate_request, or :uniqueness_conflict'
+      end
+
+      private_constant :ACTIONS, :JobIdList, :JobList, :SKIPPED_JOB_REASONS
     end
   end
 end

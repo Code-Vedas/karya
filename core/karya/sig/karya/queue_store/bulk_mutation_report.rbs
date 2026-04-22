@@ -64,6 +64,10 @@ module Karya
       def normalize_skipped_jobs: (Array[Karya::bulk_skipped_job] skipped_jobs) -> Array[Karya::bulk_skipped_job]
 
       def normalize_skipped_job: (Karya::bulk_skipped_job skipped_job) -> Karya::bulk_skipped_job
+
+      def normalize_skipped_state: (Karya::state_name? state) -> Karya::state_name?
+
+      def skipped_reason_error_message: () -> String
     end
   end
 end

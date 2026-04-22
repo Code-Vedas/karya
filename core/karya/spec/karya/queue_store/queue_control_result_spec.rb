@@ -13,15 +13,19 @@ RSpec.describe Karya::QueueStore::QueueControlResult do
   end
 
   it 'freezes normalized queue control fields' do
-    result = build_result
+    mutable_queue = +'billing'
+    result = build_result(queue: mutable_queue)
+    mutable_queue.replace('shipping')
 
     expect(result).to have_attributes(action: :pause_queue, performed_at:, queue: 'billing', paused: true, changed: true)
     expect(result).to be_frozen
     expect(result.performed_at).to be_frozen
+    expect(result.queue).to be_frozen
   end
 
   it 'validates constructor inputs' do
     expect { build_result(action: 'pause_queue') }.to raise_error(Karya::InvalidQueueStoreOperationError, /action/)
+    expect { build_result(action: :unknown) }.to raise_error(Karya::InvalidQueueStoreOperationError, /action/)
     expect { build_result(performed_at: 'now') }.to raise_error(Karya::InvalidQueueStoreOperationError, /performed_at/)
     expect { build_result(queue: :billing) }.to raise_error(Karya::InvalidQueueStoreOperationError, /queue/)
     expect { build_result(paused: nil) }.to raise_error(Karya::InvalidQueueStoreOperationError, /paused/)
