@@ -245,6 +245,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(report.changed_jobs.map(&:id)).to eq(%w[job-reserved job-running])
       expect(stored_job('job-reserved').state).to eq(:cancelled)
       expect(stored_job('job-running').state).to eq(:cancelled)
+      expect(store_state.reservation_token_for_job('job-reserved')).to be_nil
+      expect(store_state.execution_token_for_job('job-running')).to be_nil
       expect do
         store.release(reservation_token: reserved.token, now: created_at + 7)
       end.to raise_error(Karya::ExpiredReservationError)

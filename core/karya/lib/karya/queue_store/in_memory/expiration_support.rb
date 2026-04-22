@@ -44,7 +44,6 @@ module Karya
 
         def expire_reserved_job(reservation, reserved_job, now)
           reservation_token = reservation.token
-          state.reservations_by_token.delete(reservation_token)
           state.delete_reservation_token(reservation_token)
           state.mark_expired(reservation_token)
 

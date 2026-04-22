@@ -16,12 +16,14 @@ module Karya
                     :execution_tokens_in_order,
                     :expired_reservation_tokens,
                     :expired_reservation_tokens_in_order,
+                    :execution_tokens_by_job_id,
                     :half_open_probe_admissions_by_scope,
                     :jobs_by_id,
                     :paused_queues,
                     :rate_limit_admissions_by_key,
                     :queued_job_ids_by_queue,
                     :retry_pending_job_ids,
+                    :reservation_tokens_by_job_id,
                     :reservation_tokens_in_order,
                     :reservations_by_token,
                     :stuck_job_recoveries_by_id
@@ -34,6 +36,7 @@ module Karya
           @expired_reservation_tokens = {}
           @expired_reservation_tokens_in_order = []
           @expired_tombstone_limit = expired_tombstone_limit
+          @execution_tokens_by_job_id = {}
           @half_open_probe_admissions_by_scope = {}
           @jobs_by_id = {}
           @paused_queues = {}
@@ -41,6 +44,7 @@ module Karya
           @queued_job_ids_by_queue = {}
           @retry_pending_job_ids = []
           @retry_pending_job_ids_index = {}
+          @reservation_tokens_by_job_id = {}
           @reservation_tokens_in_order = []
           @reservations_by_token = {}
           @stuck_job_recoveries_by_id = {}
@@ -115,22 +119,35 @@ module Karya
         def reserve(reservation)
           reservation_token = reservation.token
           reservations_by_token[reservation_token] = reservation
+          reservation_tokens_by_job_id[reservation.job_id] = reservation_token
           reservation_tokens_in_order << reservation_token
         end
 
         def activate_execution(reservation_token, reservation)
-          reservations_by_token.delete(reservation_token)
           delete_reservation_token(reservation_token)
           executions_by_token[reservation_token] = reservation
+          execution_tokens_by_job_id[reservation.job_id] = reservation_token
           execution_tokens_in_order << reservation_token
         end
 
+        def reservation_token_for_job(job_id)
+          reservation_tokens_by_job_id[job_id]
+        end
+
+        def execution_token_for_job(job_id)
+          execution_tokens_by_job_id[job_id]
+        end
+
         def delete_reservation_token(reservation_token)
+          reservation = reservations_by_token.delete(reservation_token)
+          reservation_tokens_by_job_id.delete(reservation.job_id) if reservation
           reservation_index = reservation_tokens_in_order.index(reservation_token)
           reservation_tokens_in_order.delete_at(reservation_index) if reservation_index
         end
 
         def delete_execution_token(reservation_token)
+          reservation = executions_by_token.delete(reservation_token)
+          execution_tokens_by_job_id.delete(reservation.job_id) if reservation
           execution_index = execution_tokens_in_order.index(reservation_token)
           execution_tokens_in_order.delete_at(execution_index) if execution_index
         end

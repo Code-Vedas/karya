@@ -138,9 +138,9 @@ module Karya
 
         def enqueue_many(jobs:, now:)
           normalized_now = normalize_time(:now, now, error_class: InvalidEnqueueError)
-          validated_jobs = validate_bulk_enqueue_jobs(jobs)
 
           @mutex.synchronize do
+            validated_jobs = validate_bulk_enqueue_jobs(jobs)
             validate_bulk_enqueue_uniqueness(validated_jobs, normalized_now)
             expire_reservations_locked(normalized_now)
             queued_jobs = validated_jobs.map { |job| enqueue_validated_job(job, normalized_now) }
@@ -227,8 +227,7 @@ module Karya
         def validate_bulk_enqueue_jobs(jobs)
           raise InvalidEnqueueError, 'jobs must be an Array' unless jobs.is_a?(Array)
 
-          jobs.each { |job| validate_enqueue(job) }
-          jobs
+          jobs.dup.each { |job| validate_enqueue(job) }
         end
 
         def validate_bulk_enqueue_uniqueness(jobs, now)
@@ -343,23 +342,17 @@ module Karya
         end
 
         def cancel_reservation_for(job_id)
-          reservations_by_token = state.reservations_by_token
-          reservation = reservations_by_token.each_value.find { |candidate| candidate.job_id == job_id }
-          return unless reservation
+          reservation_token = state.reservation_token_for_job(job_id)
+          return unless reservation_token
 
-          reservation_token = reservation.token
-          reservations_by_token.delete(reservation_token)
           state.delete_reservation_token(reservation_token)
           state.mark_expired(reservation_token)
         end
 
         def cancel_execution_for(job_id)
-          executions_by_token = state.executions_by_token
-          reservation = executions_by_token.each_value.find { |candidate| candidate.job_id == job_id }
-          return unless reservation
+          reservation_token = state.execution_token_for_job(job_id)
+          return unless reservation_token
 
-          reservation_token = reservation.token
-          executions_by_token.delete(reservation_token)
           state.delete_execution_token(reservation_token)
           state.mark_expired(reservation_token)
         end
