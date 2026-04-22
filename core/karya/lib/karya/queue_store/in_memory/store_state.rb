@@ -18,6 +18,7 @@ module Karya
                     :expired_reservation_tokens_in_order,
                     :half_open_probe_admissions_by_scope,
                     :jobs_by_id,
+                    :paused_queues,
                     :rate_limit_admissions_by_key,
                     :queued_job_ids_by_queue,
                     :retry_pending_job_ids,
@@ -35,6 +36,7 @@ module Karya
           @expired_tombstone_limit = expired_tombstone_limit
           @half_open_probe_admissions_by_scope = {}
           @jobs_by_id = {}
+          @paused_queues = {}
           @rate_limit_admissions_by_key = {}
           @queued_job_ids_by_queue = {}
           @retry_pending_job_ids = []
@@ -50,6 +52,21 @@ module Karya
 
         def delete_queue(queue)
           queued_job_ids_by_queue.delete(queue)
+        end
+
+        def mark_queue_paused(queue, now)
+          return :unchanged if paused_queues.key?(queue)
+
+          paused_queues[queue] = now
+          :changed
+        end
+
+        def unmark_queue_paused(queue)
+          paused_queues.delete(queue) ? :changed : :unchanged
+        end
+
+        def queue_paused?(queue)
+          paused_queues.key?(queue)
         end
 
         def register_retry_pending(job_id)

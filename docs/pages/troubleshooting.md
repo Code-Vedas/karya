@@ -77,6 +77,7 @@ When work is stuck, backlogged, or repeatedly failing, review:
 
 - routing and worker subscription alignment
 - supervisor runtime state and worker topology
+- queue pause/resume state before treating queued work as stuck
 - circuit-breaker state, cooldown windows, and stuck-job recovery inspection
 - retry, rate-limit, or concurrency-group conditions
 - dead-letter isolation or governed recovery status
@@ -87,8 +88,8 @@ When work is stuck, backlogged, or repeatedly failing, review:
 
 ```text
 symptom: queue grows while operators see little progress
-first checks: routing match, supervisor phase, worker activity, circuit-breaker state, concurrency or rate limits
-next move: confirm whether the issue is pressure, a breaker-open path, routing mismatch, retry churn, or backend behavior
+first checks: routing match, paused queue state, supervisor phase, worker activity, circuit-breaker state, concurrency or rate limits
+next move: confirm whether the issue is intentional pause, pressure, a breaker-open path, routing mismatch, retry churn, or backend behavior
 ```
 
 ### Runtime Inspection Checklist
@@ -100,6 +101,7 @@ When diagnosing worker-runtime problems, confirm:
 - `karya runtime inspect --state-file <path>` shows the expected supervisor
   phase, process count, and thread count
 - `child_processes` and thread state reflect the expected runtime topology
+- queue controls show whether reservation has been paused for the queue
 - reliability inspection distinguishes breaker-open queues from ordinary
   concurrency or rate-limit pressure
 - stuck-job inspection shows whether running leases were automatically

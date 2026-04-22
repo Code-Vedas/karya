@@ -22,11 +22,12 @@ than hidden queue implementation logic.
 Teams need to see when work is suppressed, merged, or intentionally rejected by
 uniqueness rules.
 
-Karya's core v1 uniqueness behavior is reject-only. Duplicate job identities,
-idempotency keys, or active uniqueness windows reject fresh enqueue attempts
-instead of silently merging, replacing, or acknowledging them as success. Later
-bulk and operator recovery surfaces may add mutation workflows, but those are
-separate controls.
+Karya's core v1 uniqueness behavior is reject-only for enqueue. Duplicate job
+identities, idempotency keys, or active uniqueness windows reject fresh enqueue
+attempts instead of silently merging, replacing, or acknowledging them as
+success. Bulk retry also checks uniqueness before returning stored work to
+queued execution; conflicted retry requests are reported as skipped rather than
+creating duplicate runnable work.
 
 ## Common Scenarios
 
@@ -69,6 +70,13 @@ A uniqueness snapshot shows the keys currently influencing enqueue decisions:
 - uniqueness keys show effective blockers and the incoming scopes they block
 - due retry-pending work and expired in-flight leases are evaluated as their
   effective uniqueness state for inspection without mutating runtime state
+
+### Bulk Operation Boundaries
+
+Bulk enqueue uses the same duplicate ordering as single enqueue and remains
+atomic across the batch. Bulk retry is a mutation of existing stored jobs, not
+an enqueue replacement or merge operation, so it reports uniqueness-conflicted
+jobs as skipped while leaving the stored job unchanged.
 
 ## Related Concepts
 

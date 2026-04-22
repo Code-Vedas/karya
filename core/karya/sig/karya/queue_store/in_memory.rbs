@@ -32,6 +32,8 @@ module Karya
 
       def enqueue: (job: Job, now: Time) -> Job
 
+      def enqueue_many: (jobs: Array[Job], now: Time) -> BulkMutationReport
+
       def reserve: (
         worker_id: String,
         lease_duration: Karya::lease_duration_value,
@@ -53,6 +55,14 @@ module Karya
         failure_classification: failure_classification_input,
         ?retry_policy: RetryPolicy?
       ) -> Job
+
+      def retry_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
+      def cancel_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
+      def pause_queue: (queue: String, now: Time) -> QueueControlResult
+
+      def resume_queue: (queue: String, now: Time) -> QueueControlResult
 
       def recover_orphaned_jobs: (worker_id: String, now: Time) -> Array[Job]
 
@@ -131,6 +141,7 @@ module Karya
 
         @half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         @jobs_by_id: Hash[String, Job]
+        @paused_queues: Hash[String, Time]
         @rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         @queued_job_ids_by_queue: Hash[String, Array[String]]
@@ -154,6 +165,7 @@ module Karya
 
         attr_reader half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         attr_reader jobs_by_id: Hash[String, Job]
+        attr_reader paused_queues: Hash[String, Time]
         attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
@@ -169,6 +181,12 @@ module Karya
         def queue_job_ids_for: (String queue) -> Array[String]
 
         def delete_queue: (String queue) -> Array[String]?
+
+        def mark_queue_paused: (String queue, Time now) -> (:changed | :unchanged)
+
+        def unmark_queue_paused: (String queue) -> (:changed | :unchanged)
+
+        def queue_paused?: (String queue) -> bool
 
         def register_retry_pending: (String job_id) -> Array[String]
 
@@ -372,6 +390,128 @@ module Karya
         def job_expired?: (Job job, Time now) -> bool
 
         def build_expired_job: (Job job, Time now) -> Job
+      end
+
+      module OperationsSupport
+        class BatchDuplicateDecision
+          @job: Job
+          @conflicting_job: Job?
+          @now: Time
+
+          def initialize: (job: Job, now: Time) -> void
+
+          def for: (accepted_job: Job, uniqueness_conflict: bool) -> Karya::uniqueness_decision?
+
+          private
+
+          attr_reader conflicting_job: Job?
+
+          attr_reader job: Job
+
+          attr_reader now: Time
+
+          def job_id: () -> Karya::uniqueness_decision
+
+          def idempotency_key_decision: () -> Karya::uniqueness_decision
+
+          def uniqueness_key: () -> Karya::uniqueness_decision
+
+          def to_h: (
+            result: Karya::uniqueness_decision_result,
+            key_type: Karya::uniqueness_decision_key_type,
+            key: String?
+          ) -> Karya::uniqueness_decision
+        end
+
+        class RequestedJobIds
+          @job_ids: Array[String]
+          @seen_job_ids: Hash[String, bool]
+
+          def initialize: (Array[String] job_ids) -> void
+
+          def each: () { (String job_id, bool duplicate_request) -> void } -> void
+
+          private
+
+          attr_reader job_ids: Array[String]
+
+          attr_reader seen_job_ids: Hash[String, bool]
+
+          def duplicate_request?: (String job_id) -> bool
+        end
+
+        class RetryCandidate
+          @job: Job
+          @now: Time
+
+          def initialize: (job: Job, now: Time) -> void
+
+          def to_job: () -> Job?
+
+          private
+
+          attr_reader job: Job
+
+          attr_reader now: Time
+
+          def failed_job_retry: () -> Job
+
+          def retry_pending_job_retry: () -> Job
+        end
+
+        class SkippedJob
+          @job_id: String
+          @reason: Karya::bulk_skip_reason
+          @state: Karya::state_name?
+
+          def initialize: (job_id: String, reason: Karya::bulk_skip_reason, ?state: Karya::state_name?) -> void
+
+          def to_h: () -> Karya::bulk_skipped_job
+
+          private
+
+          attr_reader job_id: String
+
+          attr_reader reason: Karya::bulk_skip_reason
+
+          attr_reader state: Karya::state_name?
+        end
+
+        def enqueue_many: (jobs: Array[Job], now: Time) -> BulkMutationReport
+
+        def retry_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
+        def cancel_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
+        def pause_queue: (queue: String, now: Time) -> QueueControlResult
+
+        def resume_queue: (queue: String, now: Time) -> QueueControlResult
+
+        private
+
+        def validate_bulk_enqueue_jobs: (Array[Job] jobs) -> Array[Job]
+
+        def validate_bulk_enqueue_uniqueness: (Array[Job] jobs, Time now) -> void
+
+        def duplicate_batch_decision: (Job job, Array[Job] accepted_jobs, Time now) -> Karya::uniqueness_decision?
+
+        def duplicate_uniqueness_key?: (Job job, Job accepted_job) -> bool
+
+        def enqueue_validated_job: (Job job, Time now) -> Job
+
+        def normalize_job_ids: (Array[String] job_ids) -> Array[String]
+
+        def retry_requested_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+
+        def cancel_requested_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+
+        def cleanup_cancelled_job_indexes: (Job job) -> void
+
+        def delete_queued_job_id: (Job job) -> void
+
+        def cancel_reservation_for: (String job_id) -> void
+
+        def cancel_execution_for: (String job_id) -> void
       end
 
       module RecoverySupport

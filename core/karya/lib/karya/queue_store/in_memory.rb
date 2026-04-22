@@ -9,9 +9,11 @@ require 'securerandom'
 require 'bigdecimal'
 
 require_relative 'base'
+require_relative 'bulk_mutation_report'
 require_relative '../circuit_breaker'
 require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
+require_relative 'queue_control_result'
 require_relative 'recovery_report'
 require_relative 'in_memory/backpressure_support'
 require_relative 'in_memory/backpressure_snapshot_support'
@@ -20,6 +22,7 @@ require_relative 'in_memory/execution_support'
 require_relative 'in_memory/execution_recovery'
 require_relative 'in_memory/handler_matcher'
 require_relative 'in_memory/lease_duration'
+require_relative 'in_memory/operations_support'
 require_relative 'in_memory/reliability_snapshot_support'
 require_relative 'in_memory/reliability_support'
 require_relative 'in_memory/recovery_support'
@@ -53,6 +56,7 @@ module Karya
       include BackpressureSnapshotSupport
       include ExecutionSupport
       include ExpirationSupport
+      include OperationsSupport
       include ReliabilitySupport
       include ReliabilitySnapshotSupport
       include RecoverySupport
@@ -96,12 +100,7 @@ module Karya
           raise_duplicate_enqueue_error(duplicate_decision) if duplicate_decision.fetch(:action) == :reject
           expire_reservations_locked(normalized_now)
 
-          queued_job = job.transition_to(:queued, updated_at: normalized_now)
-          queued_job_id = queued_job.id
-          queue_job_ids = state.queue_job_ids_for(queued_job.queue)
-          store_job(job: queued_job)
-          queue_job_ids << queued_job_id
-          queued_job
+          enqueue_validated_job(job, normalized_now)
         end
       end
 

@@ -100,8 +100,7 @@ This page does not define:
   classification model
 - fairness, starvation prevention, or backpressure policy
 - dead-letter recovery workflows such as replay or discard rules
-- bulk-operation semantics beyond acknowledging that bulk actions operate on the
-  same lifecycle states
+- selector, approval, and audit semantics for bulk operator workflows
 
 ## Dependency Boundaries
 
