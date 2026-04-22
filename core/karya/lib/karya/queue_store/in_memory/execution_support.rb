@@ -62,7 +62,6 @@ module Karya
 
         def persist_finalized_execution(finalized_job:, normalized_token:)
           store_job(job: finalized_job)
-          state.executions_by_token.delete(normalized_token)
           state.delete_execution_token(normalized_token)
         end
 

@@ -22,6 +22,8 @@ module Karya
         end
 
         def matching_job_for(queue, handler_matcher, reserve_scan_state, now)
+          return nil if state.queue_paused?(queue)
+
           queue_job_ids = state.queued_job_ids_by_queue.fetch(queue, [])
           selected_job_id = nil
           selected_job_index = nil

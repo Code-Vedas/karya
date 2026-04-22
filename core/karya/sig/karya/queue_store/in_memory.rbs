@@ -32,6 +32,8 @@ module Karya
 
       def enqueue: (job: Job, now: Time) -> Job
 
+      def enqueue_many: (jobs: Array[Job], now: Time) -> BulkMutationReport
+
       def reserve: (
         worker_id: String,
         lease_duration: Karya::lease_duration_value,
@@ -53,6 +55,14 @@ module Karya
         failure_classification: failure_classification_input,
         ?retry_policy: RetryPolicy?
       ) -> Job
+
+      def retry_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
+      def cancel_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
+      def pause_queue: (queue: String, now: Time) -> QueueControlResult
+
+      def resume_queue: (queue: String, now: Time) -> QueueControlResult
 
       def recover_orphaned_jobs: (worker_id: String, now: Time) -> Array[Job]
 
@@ -129,14 +139,17 @@ module Karya
 
         @expired_tombstone_limit: Integer
 
+        @execution_tokens_by_job_id: Hash[String, String]
         @half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         @jobs_by_id: Hash[String, Job]
+        @paused_queues: Hash[String, Time]
         @rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         @queued_job_ids_by_queue: Hash[String, Array[String]]
         @retry_pending_job_ids: Array[String]
         @retry_pending_job_ids_index: Hash[String, bool]
 
+        @reservation_tokens_by_job_id: Hash[String, String]
         @reservation_tokens_in_order: Array[String]
 
         @reservations_by_token: Hash[String, Reservation]
@@ -152,12 +165,17 @@ module Karya
 
         attr_reader expired_reservation_tokens_in_order: Array[String]
 
+        attr_reader execution_tokens_by_job_id: Hash[String, String]
+
         attr_reader half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         attr_reader jobs_by_id: Hash[String, Job]
+        attr_reader paused_queues: Hash[String, Time]
         attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
         attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
         attr_reader retry_pending_job_ids: Array[String]
+
+        attr_reader reservation_tokens_by_job_id: Hash[String, String]
 
         attr_reader reservation_tokens_in_order: Array[String]
 
@@ -169,6 +187,12 @@ module Karya
         def queue_job_ids_for: (String queue) -> Array[String]
 
         def delete_queue: (String queue) -> Array[String]?
+
+        def mark_queue_paused: (String queue, Time now) -> (:changed | :unchanged)
+
+        def unmark_queue_paused: (String queue) -> (:changed | :unchanged)
+
+        def queue_paused?: (String queue) -> bool
 
         def register_retry_pending: (String job_id) -> Array[String]
 
@@ -189,6 +213,10 @@ module Karya
         def reserve: (Reservation reservation) -> Array[String]
 
         def activate_execution: (String reservation_token, Reservation reservation) -> Array[String]
+
+        def reservation_token_for_job: (String job_id) -> String?
+
+        def execution_token_for_job: (String job_id) -> String?
 
         def delete_reservation_token: (String reservation_token) -> String?
 

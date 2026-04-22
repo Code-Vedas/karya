@@ -20,6 +20,12 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #enqueue/)
   end
 
+  it 'requires enqueue_many to be implemented' do
+    expect do
+      store.enqueue_many(jobs: [instance_double(Karya::Job)], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #enqueue_many/)
+  end
+
   it 'requires reserve to be implemented' do
     expect do
       store.reserve(
@@ -54,6 +60,30 @@ RSpec.describe Karya::QueueStore do
     expect do
       store.fail_execution(reservation_token: 'lease-1', now: Time.utc(2026, 3, 27, 12, 0, 0), failure_classification: :error)
     end.to raise_error(NotImplementedError, /implement #fail_execution/)
+  end
+
+  it 'requires retry_jobs to be implemented' do
+    expect do
+      store.retry_jobs(job_ids: ['job-1'], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #retry_jobs/)
+  end
+
+  it 'requires cancel_jobs to be implemented' do
+    expect do
+      store.cancel_jobs(job_ids: ['job-1'], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #cancel_jobs/)
+  end
+
+  it 'requires pause_queue to be implemented' do
+    expect do
+      store.pause_queue(queue: 'billing', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #pause_queue/)
+  end
+
+  it 'requires resume_queue to be implemented' do
+    expect do
+      store.resume_queue(queue: 'billing', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #resume_queue/)
   end
 
   it 'requires recover_orphaned_jobs to be implemented' do

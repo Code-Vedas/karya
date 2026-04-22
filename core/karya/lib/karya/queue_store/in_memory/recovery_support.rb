@@ -15,7 +15,6 @@ module Karya
         def requeue_reservation(reservation, now)
           reservation_token = reservation.token
           jobs_by_id = state.jobs_by_id
-          state.reservations_by_token.delete(reservation_token)
           state.delete_reservation_token(reservation_token)
 
           reserved_job = jobs_by_id.fetch(reservation.job_id)
@@ -34,7 +33,6 @@ module Karya
         def requeue_expired_execution(reservation, now)
           reservation_token = reservation.token
           jobs_by_id = state.jobs_by_id
-          state.executions_by_token.delete(reservation_token)
           state.delete_execution_token(reservation_token)
 
           running_job = jobs_by_id.fetch(reservation.job_id)

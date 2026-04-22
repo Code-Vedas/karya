@@ -1,0 +1,43 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    # Immutable result for one bounded bulk queue-store mutation.
+    class BulkMutationReport
+      @action: Karya::bulk_mutation_action
+      @performed_at: Time
+      @requested_job_ids: Array[String]
+      @requested_count: Integer
+      @changed_jobs: Array[Job]
+      @skipped_jobs: Array[Karya::bulk_skipped_job]
+
+      attr_reader action: Karya::bulk_mutation_action
+      attr_reader performed_at: Time
+      attr_reader requested_job_ids: Array[String]
+      attr_reader requested_count: Integer
+      attr_reader changed_jobs: Array[Job]
+      attr_reader skipped_jobs: Array[Karya::bulk_skipped_job]
+
+      def initialize: (
+        action: Karya::bulk_mutation_action,
+        performed_at: Time,
+        requested_job_ids: Array[String],
+        changed_jobs: Array[Job],
+        skipped_jobs: Array[Karya::bulk_skipped_job]
+      ) -> void
+
+      private
+
+      def normalize_skipped_jobs: (Array[Karya::bulk_skipped_job] skipped_jobs) -> Array[Karya::bulk_skipped_job]
+
+      def normalize_skipped_job: (Karya::bulk_skipped_job skipped_job) -> Karya::bulk_skipped_job
+
+      def normalize_skipped_state: (Karya::state_name? state) -> Karya::state_name?
+
+      def skipped_reason_error_message: () -> String
+    end
+  end
+end

@@ -49,6 +49,15 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Enqueue a bounded batch atomically. Any invalid job, duplicate job id,
+      # duplicate idempotency key, or duplicate uniqueness key must reject the
+      # whole batch without making partial writes.
+      def enqueue_many(jobs:, now:)
+        _jobs = jobs
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       # Reserve must atomically move one durable queued job to reserved and
       # persist its lease token, worker id, reserved_at, and expires_at before
       # returning the reservation. A returned reservation is the only
@@ -95,6 +104,35 @@ module Karya
         _now = now
         _retry_policy = retry_policy
         _failure_classification = failure_classification
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Retry stored failed and retry_pending jobs by moving them back into
+      # normal queued execution. Unknown or ineligible jobs must be reported,
+      # not inferred through selector state.
+      def retry_jobs(job_ids:, now:)
+        _job_ids = job_ids
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Cancel explicit stored jobs. Active reservation/execution tokens for
+      # cancelled work must stop stale worker acknowledgments from succeeding.
+      def cancel_jobs(job_ids:, now:)
+        _job_ids = job_ids
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def pause_queue(queue:, now:)
+        _queue = queue
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def resume_queue(queue:, now:)
+        _queue = queue
+        _now = now
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
