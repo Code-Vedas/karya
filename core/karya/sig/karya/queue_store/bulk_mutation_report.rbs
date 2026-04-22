@@ -21,36 +21,6 @@ module Karya
       attr_reader changed_jobs: Array[Job]
       attr_reader skipped_jobs: Array[Karya::bulk_skipped_job]
 
-      class JobIdList
-        @name: Symbol
-        @job_ids: Array[String]
-
-        def initialize: (Symbol name, Array[String] job_ids) -> void
-
-        def to_a: () -> Array[String]
-
-        private
-
-        attr_reader job_ids: Array[String]
-
-        attr_reader name: Symbol
-      end
-
-      class JobList
-        @name: Symbol
-        @jobs: Array[Job]
-
-        def initialize: (Symbol name, Array[Job] jobs) -> void
-
-        def to_a: () -> Array[Job]
-
-        private
-
-        attr_reader jobs: Array[Job]
-
-        attr_reader name: Symbol
-      end
-
       def initialize: (
         action: Karya::bulk_mutation_action,
         performed_at: Time,
