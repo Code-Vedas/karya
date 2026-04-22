@@ -346,7 +346,7 @@ module Karya
         reservation
       end
 
-      private_constant :ExecutionSupport, :ExpirationSupport, :RecoverySupport, :RequestSupport, :ReliabilitySupport
+      private_constant :ExecutionSupport, :ExpirationSupport, :OperationsSupport, :RecoverySupport, :RequestSupport, :ReliabilitySupport
 
       def raise_expired_reservation_error(reservation_token, reservation_label)
         return unless state.expired_reservation_tokens.key?(reservation_token)

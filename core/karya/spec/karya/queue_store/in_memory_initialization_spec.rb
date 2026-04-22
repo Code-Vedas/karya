@@ -97,6 +97,12 @@ RSpec.describe Karya::QueueStore::InMemory do
   end
 
   describe 'internal state helpers' do
+    it 'keeps support modules private' do
+      expect do
+        described_class::OperationsSupport
+      end.to raise_error(NameError, /private constant/)
+    end
+
     it 'ignores execution tokens that are not present' do
       store_state.execution_tokens_in_order << 'lease-1'
 
