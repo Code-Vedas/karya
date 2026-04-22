@@ -46,19 +46,19 @@ RSpec.describe Karya::JobLifecycle do
 
       expect(described_class.transitions).to eq(initial_transitions)
 
-      described_class.register_state(:dead_letter, terminal: true)
-      described_class.register_transition(from: :retry_pending, to: :dead_letter)
+      described_class.register_state(:quarantine, terminal: true)
+      described_class.register_transition(from: :retry_pending, to: :quarantine)
 
       expect(described_class.transitions).not_to eq(initial_transitions)
     end
 
     it 'includes empty transition arrays for extension states without outgoing transitions' do
-      described_class.register_state(:dead_letter)
+      described_class.register_state(:quarantine)
 
       transition_map = described_class.transitions
 
-      expect(transition_map).to include('dead_letter' => [])
-      expect(transition_map['dead_letter']).to be_frozen
+      expect(transition_map).to include('quarantine' => [])
+      expect(transition_map['quarantine']).to be_frozen
     end
   end
 

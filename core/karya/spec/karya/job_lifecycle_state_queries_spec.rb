@@ -16,9 +16,9 @@ RSpec.describe Karya::JobLifecycle do
     it 'returns the canonical states and registered extensions' do
       expect(described_class.states).to include(:queued, :retry_pending)
 
-      described_class.register_state(:dead_letter)
+      described_class.register_state(:quarantine)
 
-      expect(described_class.states).to include('dead_letter')
+      expect(described_class.states).to include('quarantine')
     end
   end
 
@@ -26,9 +26,9 @@ RSpec.describe Karya::JobLifecycle do
     it 'returns canonical and extension terminal states' do
       expect(described_class.terminal_states).to include(:succeeded, :cancelled)
 
-      described_class.register_state(:dead_letter, terminal: true)
+      described_class.register_state(:quarantine, terminal: true)
 
-      expect(described_class.terminal_states).to include('dead_letter')
+      expect(described_class.terminal_states).to include('quarantine')
     end
   end
 

@@ -32,7 +32,18 @@ module Karya
       :uniqueness_scope
     )
     # Canonical immutable lifecycle state for one job instance.
-    LifecycleState = Struct.new(:state, :attempt, :created_at, :updated_at, :next_retry_at, :failure_classification, :lifecycle)
+    LifecycleState = Struct.new(
+      :state,
+      :attempt,
+      :created_at,
+      :updated_at,
+      :next_retry_at,
+      :failure_classification,
+      :dead_letter_reason,
+      :dead_lettered_at,
+      :dead_letter_source_state,
+      :lifecycle
+    )
     # Groups normalized constructor fields into lifecycle-safe components.
     class Components
       def initialize(attributes)
@@ -70,6 +81,9 @@ module Karya
           attributes.fetch(:updated_at),
           attributes.fetch(:next_retry_at),
           attributes.fetch(:failure_classification),
+          attributes.fetch(:dead_letter_reason),
+          attributes.fetch(:dead_lettered_at),
+          attributes.fetch(:dead_letter_source_state),
           attributes.fetch(:lifecycle)
         ).freeze
       end
@@ -102,9 +116,9 @@ module Karya
       retry_policy: self.retry_policy,
       next_retry_at: self.next_retry_at,
       failure_classification: self.failure_classification,
-      execution_timeout: self.execution_timeout,
-      expires_at: self.expires_at
+      **overrides
     )
+      transition_overrides = normalize_transition_overrides(overrides)
       normalized_next_state = lifecycle.validate_transition!(from: state, to: next_state)
 
       self.class.new(
@@ -116,8 +130,8 @@ module Karya
         concurrency_scope:,
         rate_limit_scope:,
         retry_policy:,
-        execution_timeout:,
-        expires_at:,
+        execution_timeout: transition_overrides.fetch(:execution_timeout),
+        expires_at: transition_overrides.fetch(:expires_at),
         idempotency_key: idempotency_key,
         uniqueness_key: uniqueness_key,
         uniqueness_scope: uniqueness_scope,
@@ -127,7 +141,10 @@ module Karya
         created_at:,
         updated_at:,
         next_retry_at:,
-        failure_classification:
+        failure_classification:,
+        dead_letter_reason: transition_overrides.fetch(:dead_letter_reason),
+        dead_lettered_at: transition_overrides.fetch(:dead_lettered_at),
+        dead_letter_source_state: transition_overrides.fetch(:dead_letter_source_state)
       )
     end
 
@@ -152,7 +169,10 @@ module Karya
         created_at:,
         updated_at:,
         next_retry_at: nil,
-        failure_classification: :expired
+        failure_classification: :expired,
+        dead_letter_reason: nil,
+        dead_lettered_at: nil,
+        dead_letter_source_state: nil
       )
     end
 
@@ -181,6 +201,9 @@ module Karya
     def updated_at = lifecycle_state.updated_at
     def next_retry_at = lifecycle_state.next_retry_at
     def failure_classification = lifecycle_state.failure_classification
+    def dead_letter_reason = lifecycle_state.dead_letter_reason
+    def dead_lettered_at = lifecycle_state.dead_lettered_at
+    def dead_letter_source_state = lifecycle_state.dead_letter_source_state
 
     private_constant :Attributes, :Components, :ImmutableArguments
 
@@ -190,6 +213,25 @@ module Karya
 
     def lifecycle
       lifecycle_state.lifecycle
+    end
+
+    def normalize_transition_overrides(overrides)
+      unexpected_keys = overrides.keys - %i[
+        dead_letter_reason
+        dead_lettered_at
+        dead_letter_source_state
+        execution_timeout
+        expires_at
+      ]
+      raise ArgumentError, "unknown keywords: #{unexpected_keys.join(', ')}" unless unexpected_keys.empty?
+
+      {
+        dead_letter_reason: overrides.fetch(:dead_letter_reason, dead_letter_reason),
+        dead_lettered_at: overrides.fetch(:dead_lettered_at, dead_lettered_at),
+        dead_letter_source_state: overrides.fetch(:dead_letter_source_state, dead_letter_source_state),
+        execution_timeout: overrides.fetch(:execution_timeout, execution_timeout),
+        expires_at: overrides.fetch(:expires_at, expires_at)
+      }
     end
   end
 end

@@ -13,7 +13,7 @@ RSpec.describe Karya::Job do
   let(:expires_at) { Time.utc(2026, 3, 26, 12, 20, 0) }
 
   describe '#initialize' do
-    it 'builds an immutable canonical job with normalized fields' do
+    it 'builds an immutable canonical job with normalized fields', :aggregate_failures do
       job = described_class.new(
         id: :job123,
         queue: 'billing',
@@ -33,7 +33,10 @@ RSpec.describe Karya::Job do
         created_at:,
         updated_at:,
         next_retry_at: next_retry_at,
-        failure_classification: :timeout
+        failure_classification: :timeout,
+        dead_letter_reason: 'retry-policy-exhausted',
+        dead_lettered_at: updated_at,
+        dead_letter_source_state: :failed
       )
 
       expect(job.id).to eq('job123')
@@ -63,7 +66,10 @@ RSpec.describe Karya::Job do
       expect(job.updated_at).to eq(updated_at)
       expect(job.next_retry_at).to eq(next_retry_at)
       expect(job.failure_classification).to eq(:timeout)
-      expect([job.created_at, job.updated_at, job.next_retry_at]).to all(be_frozen)
+      expect(job.dead_letter_reason).to eq('retry-policy-exhausted')
+      expect(job.dead_lettered_at).to eq(updated_at)
+      expect(job.dead_letter_source_state).to eq(:failed)
+      expect([job.created_at, job.updated_at, job.next_retry_at, job.dead_lettered_at]).to all(be_frozen)
       expect(job).to be_frozen
     end
 
@@ -173,6 +179,19 @@ RSpec.describe Karya::Job do
 
       expect { job.transition_to(:cancelled, updated_at: 'later') }
         .to raise_error(Karya::InvalidJobAttributeError, /updated_at must be a Time/)
+    end
+
+    it 'rejects unknown transition override keywords' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :reserved,
+        created_at:
+      )
+
+      expect { job.transition_to(:running, updated_at:, unknown: true) }
+        .to raise_error(ArgumentError, /unknown keywords: unknown/)
     end
 
     it 'reuses already-normalized frozen scalar arguments on transition' do
@@ -288,6 +307,39 @@ RSpec.describe Karya::Job do
       expect(transitioned_job.retry_policy).to eq(retry_policy)
       expect(transitioned_job.next_retry_at).to eq(next_retry_at)
       expect(transitioned_job.failure_classification).to eq(:timeout)
+    end
+
+    it 'allows setting and clearing dead-letter metadata during transitions' do
+      job = described_class.new(
+        id: 'job_123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :failed,
+        created_at:,
+        failure_classification: :error
+      )
+
+      dead_lettered_job = job.transition_to(
+        :dead_letter,
+        updated_at:,
+        dead_letter_reason: 'retry-policy-exhausted',
+        dead_lettered_at: updated_at,
+        dead_letter_source_state: :failed
+      )
+      replayed_job = dead_lettered_job.transition_to(
+        :queued,
+        updated_at: updated_at + 1,
+        failure_classification: nil,
+        dead_letter_reason: nil,
+        dead_lettered_at: nil,
+        dead_letter_source_state: nil
+      )
+
+      expect(dead_lettered_job.dead_letter_reason).to eq('retry-policy-exhausted')
+      expect(dead_lettered_job.dead_letter_source_state).to eq(:failed)
+      expect(replayed_job.dead_letter_reason).to be_nil
+      expect(replayed_job.dead_lettered_at).to be_nil
+      expect(replayed_job.dead_letter_source_state).to be_nil
     end
 
     it 'freezes internal component structs to preserve immutability' do

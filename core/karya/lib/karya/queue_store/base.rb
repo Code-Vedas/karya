@@ -124,6 +124,32 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      def dead_letter_jobs(job_ids:, now:, reason:)
+        _job_ids = job_ids
+        _now = now
+        _reason = reason
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def replay_dead_letter_jobs(job_ids:, now:)
+        _job_ids = job_ids
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def retry_dead_letter_jobs(job_ids:, now:, next_retry_at:)
+        _job_ids = job_ids
+        _now = now
+        _next_retry_at = next_retry_at
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      def discard_dead_letter_jobs(job_ids:, now:)
+        _job_ids = job_ids
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       def pause_queue(queue:, now:)
         _queue = queue
         _now = now

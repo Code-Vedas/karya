@@ -37,6 +37,10 @@ RSpec.describe 'Karya::JobLifecycle::Constants' do
       expect(constants_module::RETRY_PENDING).to eq(:retry_pending)
     end
 
+    it 'defines DEAD_LETTER state' do
+      expect(constants_module::DEAD_LETTER).to eq(:dead_letter)
+    end
+
     it 'defines CANCELLED state' do
       expect(constants_module::CANCELLED).to eq(:cancelled)
     end
@@ -52,6 +56,7 @@ RSpec.describe 'Karya::JobLifecycle::Constants' do
                                                succeeded
                                                failed
                                                retry_pending
+                                               dead_letter
                                                cancelled
                                              ])
     end
@@ -67,15 +72,15 @@ RSpec.describe 'Karya::JobLifecycle::Constants' do
     end
 
     it 'defines valid transitions from queued' do
-      expect(constants_module::TRANSITIONS[:queued]).to contain_exactly(:reserved, :cancelled)
+      expect(constants_module::TRANSITIONS[:queued]).to contain_exactly(:reserved, :dead_letter, :cancelled)
     end
 
     it 'defines valid transitions from reserved' do
-      expect(constants_module::TRANSITIONS[:reserved]).to contain_exactly(:running, :queued, :cancelled)
+      expect(constants_module::TRANSITIONS[:reserved]).to contain_exactly(:running, :queued, :dead_letter, :cancelled)
     end
 
     it 'defines valid transitions from running' do
-      expect(constants_module::TRANSITIONS[:running]).to contain_exactly(:queued, :succeeded, :failed, :cancelled)
+      expect(constants_module::TRANSITIONS[:running]).to contain_exactly(:queued, :succeeded, :failed, :dead_letter, :cancelled)
     end
 
     it 'defines valid transitions from succeeded' do
@@ -83,11 +88,15 @@ RSpec.describe 'Karya::JobLifecycle::Constants' do
     end
 
     it 'defines valid transitions from failed' do
-      expect(constants_module::TRANSITIONS[:failed]).to eq([:retry_pending])
+      expect(constants_module::TRANSITIONS[:failed]).to contain_exactly(:retry_pending, :dead_letter)
     end
 
     it 'defines valid transitions from retry_pending' do
-      expect(constants_module::TRANSITIONS[:retry_pending]).to contain_exactly(:queued, :cancelled)
+      expect(constants_module::TRANSITIONS[:retry_pending]).to contain_exactly(:queued, :dead_letter, :cancelled)
+    end
+
+    it 'defines valid transitions from dead_letter' do
+      expect(constants_module::TRANSITIONS[:dead_letter]).to contain_exactly(:queued, :retry_pending, :cancelled)
     end
 
     it 'defines valid transitions from cancelled' do
@@ -126,7 +135,7 @@ RSpec.describe 'Karya::JobLifecycle::Constants' do
     it 'contains string versions of all states' do
       expect(constants_module::CANONICAL_STATE_NAMES).to contain_exactly(
         'submission', 'queued', 'reserved', 'running',
-        'succeeded', 'failed', 'retry_pending', 'cancelled'
+        'succeeded', 'failed', 'retry_pending', 'dead_letter', 'cancelled'
       )
     end
 

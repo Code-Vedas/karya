@@ -34,9 +34,7 @@ RSpec.describe Karya::JobLifecycle do
     end
 
     it 'normalizes punctuation and spacing to snake_case names' do
-      described_class.register_state('dead letter!')
-
-      expect(described_class.normalize_state(' dead letter! ')).to eq('dead_letter')
+      expect(described_class.normalize_state(' dead letter! ')).to eq(:dead_letter)
     end
   end
 

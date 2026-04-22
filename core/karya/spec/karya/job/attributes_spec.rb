@@ -38,7 +38,10 @@ RSpec.describe 'Karya::Job::Attributes' do
         created_at: created_at,
         updated_at: updated_at,
         next_retry_at: next_retry_at,
-        failure_classification: :timeout
+        failure_classification: :timeout,
+        dead_letter_reason: 'retry-policy-exhausted',
+        dead_lettered_at: updated_at,
+        dead_letter_source_state: :failed
       )
 
       result = attributes.to_h
@@ -61,6 +64,9 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:updated_at]).to eq(updated_at)
       expect(result[:next_retry_at]).to eq(next_retry_at)
       expect(result[:failure_classification]).to eq(:timeout)
+      expect(result[:dead_letter_reason]).to eq('retry-policy-exhausted')
+      expect(result[:dead_lettered_at]).to eq(updated_at)
+      expect(result[:dead_letter_source_state]).to eq(:failed)
     end
 
     it 'defaults attempt to 0 when not provided' do
@@ -99,6 +105,9 @@ RSpec.describe 'Karya::Job::Attributes' do
       expect(result[:uniqueness_scope]).to be_nil
       expect(result[:next_retry_at]).to be_nil
       expect(result[:failure_classification]).to be_nil
+      expect(result[:dead_letter_reason]).to be_nil
+      expect(result[:dead_lettered_at]).to be_nil
+      expect(result[:dead_letter_source_state]).to be_nil
     end
 
     it 'defaults updated_at to created_at when not provided' do
@@ -574,6 +583,45 @@ RSpec.describe 'Karya::Job::Attributes' do
         Karya::InvalidJobAttributeError,
         'failure_classification must be one of :error, :timeout, or :expired'
       )
+    end
+
+    it 'raises InvalidJobAttributeError for invalid dead_letter_reason' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'dead_letter',
+          created_at: created_at,
+          dead_letter_reason: :retry_exhausted
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'dead_letter_reason must be a String')
+    end
+
+    it 'raises InvalidJobAttributeError for overly long dead_letter_reason' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'dead_letter',
+          created_at: created_at,
+          dead_letter_reason: 'a' * 1025
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'dead_letter_reason must be at most 1024 characters')
+    end
+
+    it 'raises InvalidJobAttributeError for empty dead_letter_reason' do
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'dead_letter',
+          created_at: created_at,
+          dead_letter_reason: ''
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'dead_letter_reason must be present')
     end
 
     it 'raises InvalidJobAttributeError for negative attempt' do

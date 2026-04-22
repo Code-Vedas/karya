@@ -74,6 +74,34 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #cancel_jobs/)
   end
 
+  it 'requires dead_letter_jobs to be implemented' do
+    expect do
+      store.dead_letter_jobs(job_ids: ['job-1'], now: Time.utc(2026, 3, 27, 12, 0, 0), reason: 'manual')
+    end.to raise_error(NotImplementedError, /implement #dead_letter_jobs/)
+  end
+
+  it 'requires replay_dead_letter_jobs to be implemented' do
+    expect do
+      store.replay_dead_letter_jobs(job_ids: ['job-1'], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #replay_dead_letter_jobs/)
+  end
+
+  it 'requires retry_dead_letter_jobs to be implemented' do
+    expect do
+      store.retry_dead_letter_jobs(
+        job_ids: ['job-1'],
+        now: Time.utc(2026, 3, 27, 12, 0, 0),
+        next_retry_at: Time.utc(2026, 3, 27, 12, 5, 0)
+      )
+    end.to raise_error(NotImplementedError, /implement #retry_dead_letter_jobs/)
+  end
+
+  it 'requires discard_dead_letter_jobs to be implemented' do
+    expect do
+      store.discard_dead_letter_jobs(job_ids: ['job-1'], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #discard_dead_letter_jobs/)
+  end
+
   it 'requires pause_queue to be implemented' do
     expect do
       store.pause_queue(queue: 'billing', now: Time.utc(2026, 3, 27, 12, 0, 0))

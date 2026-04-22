@@ -308,7 +308,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(second_retry.next_retry_at).to be <= created_at + 12
     end
 
-    it 'keeps a failed job terminal when max_attempts is exhausted' do
+    it 'dead-letters a failed job when max_attempts is exhausted' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       store.start_execution(reservation_token: reservation.token, now: created_at + 3)
@@ -340,13 +340,14 @@ RSpec.describe Karya::QueueStore::InMemory do
         failure_classification: :error
       )
 
-      expect(failed_job.state).to eq(:failed)
+      expect(failed_job.state).to eq(:dead_letter)
       expect(failed_job.next_retry_at).to be_nil
       expect(failed_job.failure_classification).to eq(:error)
+      expect(failed_job.dead_letter_reason).to eq('retry-policy-exhausted')
       expect(store_state.retry_pending_job_ids).to eq([])
     end
 
-    it 'keeps a failed job terminal when retry policy escalates the failure classification' do
+    it 'dead-letters a failed job when retry policy escalates the failure classification' do
       escalation_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 5, multiplier: 2, escalate_on: [:timeout])
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
@@ -359,9 +360,10 @@ RSpec.describe Karya::QueueStore::InMemory do
         failure_classification: :timeout
       )
 
-      expect(failed_job.state).to eq(:failed)
+      expect(failed_job.state).to eq(:dead_letter)
       expect(failed_job.next_retry_at).to be_nil
       expect(failed_job.failure_classification).to eq(:timeout)
+      expect(failed_job.dead_letter_reason).to eq('retry-policy-escalated')
       expect(store_state.retry_pending_job_ids).to eq([])
     end
 

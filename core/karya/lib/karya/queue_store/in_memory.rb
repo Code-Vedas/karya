@@ -17,6 +17,7 @@ require_relative 'queue_control_result'
 require_relative 'recovery_report'
 require_relative 'in_memory/backpressure_support'
 require_relative 'in_memory/backpressure_snapshot_support'
+require_relative 'in_memory/dead_letter_support'
 require_relative 'in_memory/expiration_support'
 require_relative 'in_memory/execution_support'
 require_relative 'in_memory/execution_recovery'
@@ -54,6 +55,7 @@ module Karya
       include Base
       include BackpressureSupport
       include BackpressureSnapshotSupport
+      include DeadLetterSupport
       include ExecutionSupport
       include ExpirationSupport
       include OperationsSupport

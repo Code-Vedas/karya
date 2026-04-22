@@ -24,8 +24,20 @@ clear recovery options and historical context.
 
 Dead-letter handling begins after work leaves the ordinary retry path. The
 non-terminal execution and retry states include `queued`, `reserved`,
-`running`, `failed`, and `retry_pending`; dead-letter handling covers the
-isolated path that follows.
+`running`, `failed`, `retry_pending`, and `dead_letter`. A `dead_letter` job is
+stored and inspectable, but it is not eligible for reservation or automatic
+retry promotion.
+
+Core recovery actions are bounded by explicit job ids:
+
+- replay moves `dead_letter` work directly back to `queued`
+- controlled retry moves `dead_letter` work to `retry_pending` for a supplied
+  `next_retry_at`
+- discard moves `dead_letter` work to `cancelled`
+
+Automatic retry-policy escalation also moves work into `dead_letter` when a
+classification is configured for escalation or retry attempts are exhausted.
+Expired work remains `failed` with the `expired` classification.
 
 ## Common Scenarios
 
@@ -46,6 +58,10 @@ available_actions: replay, discard, inspect
 Unrecoverable work is isolated, and the recovery options stay explicit. Retry
 is no longer the default behavior. Investigation and governed action take over
 from routine runtime recovery.
+
+In-memory inspection exposes dead-letter snapshots with job identity, routing,
+attempt count, failure classification, isolation reason, source state, and
+available recovery actions.
 
 ## Related Concepts
 

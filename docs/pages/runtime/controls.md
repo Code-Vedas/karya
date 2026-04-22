@@ -23,8 +23,8 @@ CLI surfaces.
 - breaker-open, half-open, and stuck-work inspection vocabulary for unhealthy
   execution paths
 - operator-visible state used for safe intervention across `queued`,
-  `reserved`, `running`, `failed`, `retry_pending`, `cancelled`, and extension
-  states such as `dead_letter` when they are registered
+  `reserved`, `running`, `failed`, `retry_pending`, `dead_letter`, and
+  `cancelled`
 
 ## Surface Model
 
@@ -73,10 +73,12 @@ operator search and governance layers choose targets:
 - queue pause affects reservation only; existing queued jobs stay queued,
   active work keeps its current lease, and resume makes the queue eligible
   again
+- dead-letter actions isolate explicit job ids, replay isolated work to
+  `queued`, schedule controlled retry through `retry_pending`, or discard to
+  `cancelled`
 
-Selector-based mass mutation, approval workflow, audit policy, and dead-letter
-replay or discard behavior remain higher-level operator and governance
-concerns.
+Selector-based mass mutation, approval workflow, and audit policy remain
+higher-level operator and governance concerns.
 
 ### Inspecting A Running Worker Runtime
 

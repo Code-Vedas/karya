@@ -80,7 +80,8 @@ When work is stuck, backlogged, or repeatedly failing, review:
 - queue pause/resume state before treating queued work as stuck
 - circuit-breaker state, cooldown windows, and stuck-job recovery inspection
 - retry, rate-limit, or concurrency-group conditions
-- dead-letter isolation or governed recovery status
+- dead-letter isolation snapshots, recovery action availability, and isolation
+  reasons before retrying or replaying work
 - workflow replay, checkpoint, or approval state
 - backend-specific caveats documented in the support matrix
 

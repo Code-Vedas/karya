@@ -392,21 +392,21 @@ RSpec.describe Karya::QueueStore::InMemory do
     end
 
     it 'releases until-terminal uniqueness after an extension terminal state' do
-      Karya::JobLifecycle.register_state(:dead_letter, terminal: true)
-      Karya::JobLifecycle.register_transition(from: :retry_pending, to: 'dead_letter')
+      Karya::JobLifecycle.register_state(:quarantine, terminal: true)
+      Karya::JobLifecycle.register_transition(from: :retry_pending, to: 'quarantine')
 
-      dead_letter_job = Karya::Job.new(
+      quarantined_job = Karya::Job.new(
         id: 'job-1',
         queue: 'billing',
         handler: 'billing_sync',
         uniqueness_key: 'billing:account-42',
         uniqueness_scope: :until_terminal,
-        state: 'dead_letter',
+        state: 'quarantine',
         created_at:,
         updated_at: created_at + 1
       )
 
-      store.send(:store_job, job: dead_letter_job)
+      store.send(:store_job, job: quarantined_job)
 
       expect do
         store.enqueue(job: submission_job(id: 'job-2', uniqueness_scope: :until_terminal, created_at: created_at + 1), now: created_at + 2)

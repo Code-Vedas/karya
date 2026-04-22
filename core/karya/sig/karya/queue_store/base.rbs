@@ -37,6 +37,14 @@ module Karya
 
       def cancel_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
 
+      def dead_letter_jobs: (job_ids: Array[String], now: Time, reason: String) -> BulkMutationReport
+
+      def replay_dead_letter_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
+      def retry_dead_letter_jobs: (job_ids: Array[String], now: Time, next_retry_at: Time) -> BulkMutationReport
+
+      def discard_dead_letter_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
       def pause_queue: (queue: String, now: Time) -> QueueControlResult
 
       def resume_queue: (queue: String, now: Time) -> QueueControlResult

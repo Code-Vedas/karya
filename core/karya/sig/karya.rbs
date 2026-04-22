@@ -174,7 +174,14 @@ module Karya
   type uniqueness_decision_action = :accept | :reject
   type uniqueness_decision_result = :accepted | :duplicate_job_id | :duplicate_idempotency_key | :duplicate_uniqueness_key
   type uniqueness_decision_key_type = :job_id | :idempotency_key | :uniqueness_key
-  type bulk_mutation_action = :enqueue_many | :retry_jobs | :cancel_jobs
+  type bulk_mutation_action =
+    :enqueue_many |
+    :retry_jobs |
+    :cancel_jobs |
+    :dead_letter_jobs |
+    :replay_dead_letter_jobs |
+    :retry_dead_letter_jobs |
+    :discard_dead_letter_jobs
   type queue_control_action = :pause_queue | :resume_queue
   type bulk_skip_reason = :not_found | :ineligible_state | :duplicate_request | :uniqueness_conflict
   type bulk_skipped_job = {
@@ -191,6 +198,22 @@ module Karya
     key: String?,
     conflicting_job_id: String?,
     uniqueness_scope: uniqueness_scope?
+  }
+  type dead_letter_snapshot_entry = {
+    job_id: String,
+    queue: String,
+    handler: String,
+    state: state_name,
+    attempt: Integer,
+    failure_classification: failure_classification?,
+    dead_letter_reason: String?,
+    dead_lettered_at: Time?,
+    dead_letter_source_state: state_name?,
+    available_actions: Array[Symbol]
+  }
+  type dead_letter_snapshot = {
+    captured_at: Time,
+    dead_letters: Array[dead_letter_snapshot_entry]
   }
   type failure_classification = :error | :timeout | :expired
   type failure_classification_input = failure_classification | "error" | "timeout" | "expired"
