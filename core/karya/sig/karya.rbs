@@ -171,6 +171,19 @@ module Karya
   type retry_jitter_strategy = :none | :full | :equal | "none" | "full" | "equal"
   type uniqueness_scope = :queued | :active | :until_terminal
   type uniqueness_scope_input = uniqueness_scope | "queued" | "active" | "until_terminal"
+  type uniqueness_decision_action = :accept | :reject
+  type uniqueness_decision_result = :accepted | :duplicate_job_id | :duplicate_idempotency_key | :duplicate_uniqueness_key
+  type uniqueness_decision_key_type = :job_id | :idempotency_key | :uniqueness_key
+  type uniqueness_decision = {
+    captured_at: Time,
+    job_id: String,
+    action: uniqueness_decision_action,
+    result: uniqueness_decision_result,
+    key_type: uniqueness_decision_key_type?,
+    key: String?,
+    conflicting_job_id: String?,
+    uniqueness_scope: uniqueness_scope?
+  }
   type failure_classification = :error | :timeout | :expired
   type failure_classification_input = failure_classification | "error" | "timeout" | "expired"
   type circuit_breaker_state = :closed | :open | :half_open
@@ -201,6 +214,30 @@ module Karya
     captured_at: Time,
     circuit_breakers: Hash[String, circuit_breaker_snapshot],
     stuck_jobs: Hash[String, stuck_job_snapshot]
+  }
+  type idempotency_key_snapshot = {
+    key: String,
+    job_id: String,
+    queue: String,
+    handler: String,
+    state: state_name,
+    created_at: Time,
+    updated_at: Time?
+  }
+  type uniqueness_key_snapshot = {
+    key: String,
+    job_id: String,
+    queue: String,
+    handler: String,
+    state: state_name,
+    effective_state: state_name,
+    uniqueness_scope: uniqueness_scope,
+    blocked_incoming_scopes: Array[uniqueness_scope]
+  }
+  type uniqueness_snapshot = {
+    captured_at: Time,
+    idempotency_keys: Hash[String, idempotency_key_snapshot],
+    uniqueness_keys: Hash[String, Array[uniqueness_key_snapshot]]
   }
   type backpressure_concurrency_snapshot = { scope: Backpressure::Scope, limit: Integer, active_count: Integer, blocked_count: Integer }
   type backpressure_rate_limit_snapshot = {
