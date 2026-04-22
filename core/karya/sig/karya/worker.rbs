@@ -127,8 +127,6 @@ module Karya
 
     def instrument: (String event, **job_argument | Integer | Array[Integer] payload) -> nil
 
-    def effective_retry_policy_for: (Job job) -> RetryPolicy?
-    def effective_execution_timeout_for: (Job job) -> Numeric?
     def execute_handler: (Job job) -> nil
 
     def report_runtime_state: (String state) -> nil

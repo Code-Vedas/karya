@@ -68,6 +68,25 @@ module Karya
       attr_reader lifecycle: JobLifecycle::Registry
     end
 
+    class TransitionOverrides
+      ALLOWED_KEYS: Array[Symbol]
+
+      def initialize: (Job job, Hash[Symbol, String? | Time? | state_name? | Numeric?] overrides) -> void
+
+      def to_h: () -> {
+        dead_letter_reason: String?,
+        dead_lettered_at: Time?,
+        dead_letter_source_state: state_name?,
+        execution_timeout: Numeric?,
+        expires_at: Time?
+      }
+
+      private
+
+      attr_reader job: Job
+      attr_reader overrides: Hash[Symbol, String? | Time? | state_name? | Numeric?]
+    end
+
     @identity: Identity
     @scheduling: Scheduling
     @lifecycle_state: LifecycleState
@@ -160,15 +179,5 @@ module Karya
     attr_reader lifecycle_state: LifecycleState
 
     def lifecycle: () -> JobLifecycle::Registry
-
-    def normalize_transition_overrides: (
-      Hash[Symbol, String? | Time? | state_name? | Numeric?] overrides
-    ) -> {
-      dead_letter_reason: String?,
-      dead_lettered_at: Time?,
-      dead_letter_source_state: state_name?,
-      execution_timeout: Numeric?,
-      expires_at: Time?
-    }
   end
 end

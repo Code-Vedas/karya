@@ -12,7 +12,6 @@ module Karya
       module DeadLetterSupport
         RETRY_EXHAUSTED_REASON = 'retry-policy-exhausted'
         CLASSIFICATION_ESCALATED_REASON = 'retry-policy-escalated'
-        MAX_DEAD_LETTER_REASON_LENGTH = 1024
 
         # Frozen skipped-job entry for a dead-letter mutation report.
         class SkippedJob
@@ -82,7 +81,7 @@ module Karya
         def dead_letter_jobs(job_ids:, now:, reason:)
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
           normalized_job_ids = normalize_job_ids(job_ids)
-          normalized_reason = normalize_dead_letter_reason(reason)
+          normalized_reason = Internal::DeadLetterReason.normalize(reason, error_class: InvalidQueueStoreOperationError)
 
           @mutex.synchronize do
             build_dead_letter_report(
@@ -240,16 +239,6 @@ module Karya
 
         def retry_escalation_reason(retry_decision)
           retry_decision.reason == :retry_exhausted ? RETRY_EXHAUSTED_REASON : CLASSIFICATION_ESCALATED_REASON
-        end
-
-        def normalize_dead_letter_reason(reason)
-          raise InvalidQueueStoreOperationError, 'dead_letter_reason must be a String' unless reason.is_a?(String)
-          raise InvalidQueueStoreOperationError, 'dead_letter_reason must be present' if reason.empty?
-          if reason.length > MAX_DEAD_LETTER_REASON_LENGTH
-            raise InvalidQueueStoreOperationError, "dead_letter_reason must be at most #{MAX_DEAD_LETTER_REASON_LENGTH} characters"
-          end
-
-          reason.dup.freeze
         end
 
         def cleanup_dead_letter_indexes(job)

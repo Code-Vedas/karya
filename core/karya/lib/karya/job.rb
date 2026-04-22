@@ -44,6 +44,39 @@ module Karya
       :dead_letter_source_state,
       :lifecycle
     )
+    # Normalizes optional transition-only overrides without growing the job API surface.
+    class TransitionOverrides
+      ALLOWED_KEYS = %i[
+        dead_letter_reason
+        dead_lettered_at
+        dead_letter_source_state
+        execution_timeout
+        expires_at
+      ].freeze
+
+      def initialize(job, overrides)
+        @job = job
+        @overrides = overrides
+      end
+
+      def to_h
+        unexpected_keys = overrides.keys - ALLOWED_KEYS
+        raise ArgumentError, "unknown keywords: #{unexpected_keys.join(', ')}" unless unexpected_keys.empty?
+
+        {
+          dead_letter_reason: overrides.fetch(:dead_letter_reason, job.dead_letter_reason),
+          dead_lettered_at: overrides.fetch(:dead_lettered_at, job.dead_lettered_at),
+          dead_letter_source_state: overrides.fetch(:dead_letter_source_state, job.dead_letter_source_state),
+          execution_timeout: overrides.fetch(:execution_timeout, job.execution_timeout),
+          expires_at: overrides.fetch(:expires_at, job.expires_at)
+        }
+      end
+
+      private
+
+      attr_reader :job, :overrides
+    end
+
     # Groups normalized constructor fields into lifecycle-safe components.
     class Components
       def initialize(attributes)
@@ -118,7 +151,7 @@ module Karya
       failure_classification: self.failure_classification,
       **overrides
     )
-      transition_overrides = normalize_transition_overrides(overrides)
+      transition_overrides = TransitionOverrides.new(self, overrides).to_h
       normalized_next_state = lifecycle.validate_transition!(from: state, to: next_state)
 
       self.class.new(
@@ -205,7 +238,7 @@ module Karya
     def dead_lettered_at = lifecycle_state.dead_lettered_at
     def dead_letter_source_state = lifecycle_state.dead_letter_source_state
 
-    private_constant :Attributes, :Components, :ImmutableArguments
+    private_constant :Attributes, :Components, :ImmutableArguments, :TransitionOverrides
 
     private
 
@@ -213,25 +246,6 @@ module Karya
 
     def lifecycle
       lifecycle_state.lifecycle
-    end
-
-    def normalize_transition_overrides(overrides)
-      unexpected_keys = overrides.keys - %i[
-        dead_letter_reason
-        dead_lettered_at
-        dead_letter_source_state
-        execution_timeout
-        expires_at
-      ]
-      raise ArgumentError, "unknown keywords: #{unexpected_keys.join(', ')}" unless unexpected_keys.empty?
-
-      {
-        dead_letter_reason: overrides.fetch(:dead_letter_reason, dead_letter_reason),
-        dead_lettered_at: overrides.fetch(:dead_lettered_at, dead_lettered_at),
-        dead_letter_source_state: overrides.fetch(:dead_letter_source_state, dead_letter_source_state),
-        execution_timeout: overrides.fetch(:execution_timeout, execution_timeout),
-        expires_at: overrides.fetch(:expires_at, expires_at)
-      }
     end
   end
 end

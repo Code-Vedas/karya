@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative '../internal/failure_classification'
+require_relative '../internal/dead_letter_reason'
 require_relative '../internal/retry_policy_resolver'
 require_relative '../backpressure'
 require_relative '../primitives/identifier'
@@ -22,8 +23,6 @@ module Karya
         'active' => :active,
         'until_terminal' => :until_terminal
       }.freeze
-      MAX_DEAD_LETTER_REASON_LENGTH = 1024
-
       def initialize(attributes)
         @attributes = attributes
       end
@@ -189,13 +188,7 @@ module Karya
 
       def normalize_dead_letter_reason
         optional(:dead_letter_reason, nil)&.then do |value|
-          raise InvalidJobAttributeError, 'dead_letter_reason must be a String' unless value.is_a?(String)
-          raise InvalidJobAttributeError, 'dead_letter_reason must be present' if value.empty?
-          if value.length > MAX_DEAD_LETTER_REASON_LENGTH
-            raise InvalidJobAttributeError, "dead_letter_reason must be at most #{MAX_DEAD_LETTER_REASON_LENGTH} characters"
-          end
-
-          value.dup.freeze
+          Internal::DeadLetterReason.normalize(value, error_class: InvalidJobAttributeError)
         end
       end
 
