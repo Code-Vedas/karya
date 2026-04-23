@@ -49,17 +49,17 @@ lifecycle, reservation, execution, and operator-visible state around that work.
 
 The base lifecycle vocabulary for queued job instances is:
 
-| State           | Meaning                                                                                       | Allowed next transitions           |
-| --------------- | --------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `submission`    | the runtime is accepting or validating enqueue intent                                         | `queued`                           |
-| `queued`        | the job is durably available for reservation on its assigned queue                            | `reserved`, `dead_letter`, `cancelled` |
-| `reserved`      | one worker has an exclusive, temporary claim on the job                                       | `running`, `queued`, `dead_letter`, `cancelled` |
+| State           | Meaning                                                                                       | Allowed next transitions                          |
+| --------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `submission`    | the runtime is accepting or validating enqueue intent                                         | `queued`                                          |
+| `queued`        | the job is durably available for reservation on its assigned queue                            | `reserved`, `dead_letter`, `cancelled`            |
+| `reserved`      | one worker has an exclusive, temporary claim on the job                                       | `running`, `queued`, `dead_letter`, `cancelled`   |
 | `running`       | execution has started from a valid reservation                                                | `succeeded`, `failed`, `dead_letter`, `cancelled` |
-| `succeeded`     | execution completed successfully                                                              | terminal state                     |
-| `failed`        | execution ended unsuccessfully for the current attempt                                        | `retry_pending`, `dead_letter`     |
-| `retry_pending` | the job remains in the lifecycle and is waiting to re-enter queue execution under retry rules | `queued`, `dead_letter`, `cancelled` |
-| `dead_letter`   | execution is isolated from automatic scheduling until explicit recovery action                | `queued`, `retry_pending`, `cancelled` |
-| `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                     |
+| `succeeded`     | execution completed successfully                                                              | terminal state                                    |
+| `failed`        | execution ended unsuccessfully for the current attempt                                        | `retry_pending`, `dead_letter`                    |
+| `retry_pending` | the job remains in the lifecycle and is waiting to re-enter queue execution under retry rules | `queued`, `dead_letter`, `cancelled`              |
+| `dead_letter`   | execution is isolated from automatic scheduling until explicit recovery action                | `queued`, `retry_pending`, `cancelled`            |
+| `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                                    |
 
 `dead_letter` is a canonical isolation state. It is not eligible for reservation
 or automatic retry promotion; it re-enters normal execution only through replay
