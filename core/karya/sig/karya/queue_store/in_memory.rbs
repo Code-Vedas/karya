@@ -277,29 +277,6 @@ module Karya
         def rate_limited?: (Job job) -> bool
       end
 
-      # Computes the queue scan order for one reservation attempt.
-      class FairQueueOrder
-        @queues: Array[String]
-        @strategy: Karya::normalized_fairness_strategy
-        @last_reserved_queue: String?
-
-        def initialize: (
-          queues: Array[String],
-          strategy: Karya::normalized_fairness_strategy,
-          last_reserved_queue: String?
-        ) -> void
-
-        def to_a: () -> Array[String]
-
-        private
-
-        attr_reader last_reserved_queue: String?
-
-        attr_reader queues: Array[String]
-
-        attr_reader strategy: Karya::normalized_fairness_strategy
-      end
-
       private
 
       def validate_enqueue: (Job job) -> nil
@@ -341,22 +318,6 @@ module Karya
         },
         now: Time
       ) -> Reservation
-
-      def find_reserved_job: (
-        Array[String] queues,
-        HandlerMatcher handler_matcher,
-        ReserveScanState reserve_scan_state,
-        Time now
-      ) -> [String, Integer, String]?
-
-      def fair_queue_order: (Array[String] queues) -> Array[String]
-
-      def matching_job_for: (
-        String queue,
-        HandlerMatcher handler_matcher,
-        ReserveScanState reserve_scan_state,
-        Time now
-      ) -> [Integer, String]?
 
       def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
 
@@ -519,6 +480,49 @@ module Karya
         def requeue_expired_reservation: (Reservation reservation, Time now) -> Job
 
         def requeue_expired_execution: (Reservation reservation, Time now) -> Job
+      end
+
+      module ReserveSelectionSupport
+        # Computes the queue scan order for one reservation attempt.
+        class FairQueueOrder
+          @queues: Array[String]
+          @strategy: Karya::normalized_fairness_strategy
+          @last_reserved_queue: String?
+
+          def initialize: (
+            queues: Array[String],
+            strategy: Karya::normalized_fairness_strategy,
+            last_reserved_queue: String?
+          ) -> void
+
+          def to_a: () -> Array[String]
+
+          private
+
+          attr_reader last_reserved_queue: String?
+
+          attr_reader queues: Array[String]
+
+          attr_reader strategy: Karya::normalized_fairness_strategy
+        end
+
+        private
+
+        def find_reserved_job: (
+          Array[String] queues,
+          HandlerMatcher handler_matcher,
+          ReserveScanState reserve_scan_state,
+          Time now
+        ) -> [String, Integer, String]?
+
+        def fair_queue_order: (Array[String] queues) -> Array[String]
+
+        def matching_job_for: (
+          String queue,
+          HandlerMatcher handler_matcher,
+          ReserveScanState reserve_scan_state,
+          Time now
+        ) -> [Integer, String]?
       end
 
       module UniquenessSupport
