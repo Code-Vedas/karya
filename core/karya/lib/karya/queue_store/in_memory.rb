@@ -355,9 +355,13 @@ module Karya
         store_job(job: reserved_job)
         record_rate_limit_admission(reserved_job, now)
         state.reserve(reservation)
-        state.record_reserved_queue(queues, matched_queue)
+        state.record_reserved_queue(queues, matched_queue) if track_fairness_history?(queues)
         register_half_open_probe(reserved_job, reservation.token, now)
         reservation
+      end
+
+      def track_fairness_history?(queues)
+        fairness_policy.strategy == :round_robin && queues.length > 1
       end
 
       private_constant :ExecutionSupport, :ExpirationSupport, :OperationsSupport, :RecoverySupport, :RequestSupport, :ReliabilitySupport

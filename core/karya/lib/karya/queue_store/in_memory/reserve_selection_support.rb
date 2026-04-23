@@ -47,6 +47,8 @@ module Karya
         end
 
         def fair_queue_order(queues)
+          return queues unless track_fairness_history?(queues)
+
           FairQueueOrder.new(
             queues:,
             strategy: fairness_policy.strategy,

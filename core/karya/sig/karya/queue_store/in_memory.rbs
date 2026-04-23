@@ -321,6 +321,8 @@ module Karya
         now: Time
       ) -> Reservation
 
+      def track_fairness_history?: (Array[String] queues) -> bool
+
       def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
 
       def prune_stale_rate_limit_admissions: (Time now) -> void
