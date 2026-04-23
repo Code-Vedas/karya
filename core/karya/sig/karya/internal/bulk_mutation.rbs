@@ -1,0 +1,39 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    # Internal implementation helper. Typed for whole-implementation RBS, not public API.
+    module BulkMutation
+      class RequestedJobIds
+        def initialize: (Array[String] job_ids) -> void
+
+        def each: () { (String job_id, bool duplicate_request) -> void } -> void
+
+        private
+
+        attr_reader job_ids: Array[String]
+
+        attr_reader seen_job_ids: Hash[String, bool]
+
+        def duplicate_request?: (String job_id) -> bool
+      end
+
+      class SkippedJob
+        def initialize: (job_id: String, reason: Karya::bulk_skip_reason, ?state: Karya::state_name?) -> void
+
+        def to_h: () -> Karya::bulk_skipped_job
+      end
+
+      class ReportBuilder
+        def initialize: (action: Karya::bulk_mutation_action, job_ids: Array[String], now: Time) -> void
+
+        def to_report: () {
+          (String job_id, Array[Karya::Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+        } -> Karya::QueueStore::BulkMutationReport
+      end
+    end
+  end
+end

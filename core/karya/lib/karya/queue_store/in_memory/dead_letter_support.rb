@@ -14,69 +14,6 @@ module Karya
         RETRY_EXHAUSTED_REASON = 'retry-policy-exhausted'
         CLASSIFICATION_ESCALATED_REASON = 'retry-policy-escalated'
 
-        # Frozen skipped-job entry for a dead-letter mutation report.
-        class SkippedJob
-          def initialize(job_id:, reason:, state: nil)
-            @job_id = job_id
-            @reason = reason
-            @state = state
-          end
-
-          def to_h
-            { job_id:, reason:, state: }.freeze
-          end
-
-          private
-
-          attr_reader :job_id, :reason, :state
-        end
-
-        # Iterates requested job ids and marks duplicate requests.
-        class RequestedJobIds
-          def initialize(job_ids)
-            @job_ids = job_ids
-            @seen_job_ids = {}
-          end
-
-          def each
-            job_ids.each do |job_id|
-              duplicate_request = seen_job_ids.key?(job_id)
-              seen_job_ids[job_id] = true
-              yield job_id, duplicate_request
-            end
-          end
-
-          private
-
-          attr_reader :job_ids, :seen_job_ids
-        end
-
-        # Builds one immutable bulk mutation report from explicit requested ids.
-        class ReportBuilder
-          def initialize(action:, job_ids:, now:)
-            @action = action
-            @job_ids = job_ids
-            @now = now
-          end
-
-          def to_report
-            changed_jobs = []
-            skipped_jobs = []
-            RequestedJobIds.new(job_ids).each do |job_id, duplicate_request|
-              if duplicate_request
-                skipped_jobs << SkippedJob.new(job_id:, reason: :duplicate_request).to_h
-              else
-                yield job_id, changed_jobs, skipped_jobs
-              end
-            end
-            BulkMutationReport.new(action:, performed_at: now, requested_job_ids: job_ids, changed_jobs:, skipped_jobs:)
-          end
-
-          private
-
-          attr_reader :action, :job_ids, :now
-        end
-
         # Builds dead-letter lifecycle transitions while keeping metadata rules in one place.
         class JobTransition
           def initialize(job:, now:)
@@ -139,7 +76,7 @@ module Karya
           attr_reader :job
         end
 
-        private_constant :JobTransition, :ReportBuilder, :RequestedJobIds, :SkippedJob, :SnapshotEntry
+        private_constant :JobTransition, :SnapshotEntry
 
         def dead_letter_jobs(job_ids:, now:, reason:)
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
@@ -147,7 +84,7 @@ module Karya
           normalized_reason = Internal::DeadLetterReason.normalize(reason, error_class: InvalidQueueStoreOperationError)
 
           @mutex.synchronize do
-            ReportBuilder.new(
+            Internal::BulkMutation::ReportBuilder.new(
               action: :dead_letter_jobs,
               job_ids: normalized_job_ids,
               now: normalized_now
@@ -162,7 +99,7 @@ module Karya
           normalized_job_ids = normalize_job_ids(job_ids)
 
           @mutex.synchronize do
-            ReportBuilder.new(
+            Internal::BulkMutation::ReportBuilder.new(
               action: :replay_dead_letter_jobs,
               job_ids: normalized_job_ids,
               now: normalized_now
@@ -178,7 +115,7 @@ module Karya
           normalized_job_ids = normalize_job_ids(job_ids)
 
           @mutex.synchronize do
-            ReportBuilder.new(
+            Internal::BulkMutation::ReportBuilder.new(
               action: :retry_dead_letter_jobs,
               job_ids: normalized_job_ids,
               now: normalized_now
@@ -193,7 +130,7 @@ module Karya
           normalized_job_ids = normalize_job_ids(job_ids)
 
           @mutex.synchronize do
-            ReportBuilder.new(
+            Internal::BulkMutation::ReportBuilder.new(
               action: :discard_dead_letter_jobs,
               job_ids: normalized_job_ids,
               now: normalized_now
@@ -227,10 +164,10 @@ module Karya
 
         def dead_letter_requested_job(job_id, now, reason, changed_jobs, skipped_jobs)
           job = state.jobs_by_id[job_id]
-          return skipped_jobs << SkippedJob.new(job_id:, reason: :not_found).to_h unless job
+          return skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :not_found).to_h unless job
 
           unless job.can_transition_to?(:dead_letter)
-            skipped_jobs << SkippedJob.new(job_id:, reason: :ineligible_state, state: job.state).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :ineligible_state, state: job.state).to_h
             return
           end
 
@@ -248,11 +185,11 @@ module Karya
 
         def discard_dead_letter_job(job_id, now, changed_jobs, skipped_jobs)
           job = state.jobs_by_id[job_id]
-          return skipped_jobs << SkippedJob.new(job_id:, reason: :not_found).to_h unless job
+          return skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :not_found).to_h unless job
 
           state_name = job.state
           unless state_name == :dead_letter && job.can_transition_to?(:cancelled)
-            skipped_jobs << SkippedJob.new(job_id:, reason: :ineligible_state, state: state_name).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :ineligible_state, state: state_name).to_h
             return
           end
 
@@ -263,17 +200,17 @@ module Karya
 
         def recover_dead_letter_job(job_id, next_state, now, next_retry_at, changed_jobs, skipped_jobs)
           job = state.jobs_by_id[job_id]
-          return skipped_jobs << SkippedJob.new(job_id:, reason: :not_found).to_h unless job
+          return skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :not_found).to_h unless job
 
           state_name = job.state
           unless state_name == :dead_letter && job.can_transition_to?(next_state)
-            skipped_jobs << SkippedJob.new(job_id:, reason: :ineligible_state, state: state_name).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :ineligible_state, state: state_name).to_h
             return
           end
 
           recovered_job = JobTransition.new(job:, now:).clear_dead_letter_metadata(next_state:, next_retry_at:)
           if uniqueness_conflict?(recovered_job, exclude_job_id: job_id, now:)
-            skipped_jobs << SkippedJob.new(job_id:, reason: :uniqueness_conflict, state: state_name).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :uniqueness_conflict, state: state_name).to_h
             return
           end
 

@@ -58,31 +58,6 @@ module Karya
           end
         end
 
-        # Iterates requested job ids and marks duplicates without mutating input.
-        class RequestedJobIds
-          def initialize(job_ids)
-            @job_ids = job_ids
-            @seen_job_ids = {}
-          end
-
-          def each
-            job_ids.each do |job_id|
-              duplicate_request = duplicate_request?(job_id)
-              yield job_id, duplicate_request
-            end
-          end
-
-          private
-
-          attr_reader :job_ids, :seen_job_ids
-
-          def duplicate_request?(job_id)
-            duplicate_request = seen_job_ids.key?(job_id)
-            seen_job_ids[job_id] = true
-            duplicate_request
-          end
-        end
-
         # Builds a queued job for an operator-forced retry when the lifecycle allows it.
         class RetryCandidate
           def initialize(job:, now:)
@@ -117,24 +92,7 @@ module Karya
           end
         end
 
-        # Frozen skipped-job entry for a bulk mutation report.
-        class SkippedJob
-          def initialize(job_id:, reason:, state: nil)
-            @job_id = job_id
-            @reason = reason
-            @state = state
-          end
-
-          def to_h
-            { job_id:, reason:, state: }.freeze
-          end
-
-          private
-
-          attr_reader :job_id, :reason, :state
-        end
-
-        private_constant :BatchDuplicateDecision, :RequestedJobIds, :RetryCandidate, :SkippedJob
+        private_constant :BatchDuplicateDecision, :RetryCandidate
 
         def enqueue_many(jobs:, now:)
           normalized_now = normalize_time(:now, now, error_class: InvalidEnqueueError)
@@ -159,22 +117,13 @@ module Karya
           normalized_job_ids = normalize_job_ids(job_ids)
 
           @mutex.synchronize do
-            changed_jobs = []
-            skipped_jobs = []
-            RequestedJobIds.new(normalized_job_ids).each do |job_id, duplicate_request|
-              if duplicate_request
-                skipped_jobs << SkippedJob.new(job_id:, reason: :duplicate_request).to_h
-              else
-                retry_requested_job(job_id, normalized_now, changed_jobs, skipped_jobs)
-              end
-            end
-            BulkMutationReport.new(
+            Internal::BulkMutation::ReportBuilder.new(
               action: :retry_jobs,
-              performed_at: normalized_now,
-              requested_job_ids: normalized_job_ids,
-              changed_jobs:,
-              skipped_jobs:
-            )
+              job_ids: normalized_job_ids,
+              now: normalized_now
+            ).to_report do |job_id, changed_jobs, skipped_jobs|
+              retry_requested_job(job_id, normalized_now, changed_jobs, skipped_jobs)
+            end
           end
         end
 
@@ -183,22 +132,13 @@ module Karya
           normalized_job_ids = normalize_job_ids(job_ids)
 
           @mutex.synchronize do
-            changed_jobs = []
-            skipped_jobs = []
-            RequestedJobIds.new(normalized_job_ids).each do |job_id, duplicate_request|
-              if duplicate_request
-                skipped_jobs << SkippedJob.new(job_id:, reason: :duplicate_request).to_h
-              else
-                cancel_requested_job(job_id, normalized_now, changed_jobs, skipped_jobs)
-              end
-            end
-            BulkMutationReport.new(
+            Internal::BulkMutation::ReportBuilder.new(
               action: :cancel_jobs,
-              performed_at: normalized_now,
-              requested_job_ids: normalized_job_ids,
-              changed_jobs:,
-              skipped_jobs:
-            )
+              job_ids: normalized_job_ids,
+              now: normalized_now
+            ).to_report do |job_id, changed_jobs, skipped_jobs|
+              cancel_requested_job(job_id, normalized_now, changed_jobs, skipped_jobs)
+            end
           end
         end
 
@@ -281,19 +221,19 @@ module Karya
         def retry_requested_job(job_id, now, changed_jobs, skipped_jobs)
           job = state.jobs_by_id[job_id]
           unless job
-            skipped_jobs << SkippedJob.new(job_id:, reason: :not_found).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :not_found).to_h
             return
           end
 
           state_name = job.state
           retried_job = RetryCandidate.new(job:, now:).to_job
           unless retried_job
-            skipped_jobs << SkippedJob.new(job_id:, reason: :ineligible_state, state: state_name).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :ineligible_state, state: state_name).to_h
             return
           end
 
           if uniqueness_conflict?(retried_job, exclude_job_id: job_id, now:)
-            skipped_jobs << SkippedJob.new(job_id:, reason: :uniqueness_conflict, state: state_name).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :uniqueness_conflict, state: state_name).to_h
             return
           end
 
@@ -304,12 +244,12 @@ module Karya
         def cancel_requested_job(job_id, now, changed_jobs, skipped_jobs)
           job = state.jobs_by_id[job_id]
           unless job
-            skipped_jobs << SkippedJob.new(job_id:, reason: :not_found).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :not_found).to_h
             return
           end
 
           unless job.can_transition_to?(:cancelled)
-            skipped_jobs << SkippedJob.new(job_id:, reason: :ineligible_state, state: job.state).to_h
+            skipped_jobs << Internal::BulkMutation::SkippedJob.new(job_id:, reason: :ineligible_state, state: job.state).to_h
             return
           end
 

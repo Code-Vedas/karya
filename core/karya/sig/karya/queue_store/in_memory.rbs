@@ -378,18 +378,6 @@ module Karya
 
         private
 
-        class RequestedJobIds
-          def initialize: (Array[String] job_ids) -> void
-
-          def each: () { (String job_id, bool duplicate_request) -> void } -> void
-        end
-
-        class ReportBuilder
-          def initialize: (action: Karya::bulk_mutation_action, job_ids: Array[String], now: Time) -> void
-
-          def to_report: () { (String job_id, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void } -> BulkMutationReport
-        end
-
         class JobTransition
           def initialize: (job: Job, now: Time) -> void
 
@@ -399,12 +387,6 @@ module Karya
             next_state: :queued | :retry_pending | :cancelled,
             next_retry_at: Time?
           ) -> Job
-        end
-
-        class SkippedJob
-          def initialize: (job_id: String, reason: Karya::bulk_skip_reason, ?state: Karya::state_name?) -> void
-
-          def to_h: () -> Karya::bulk_skipped_job
         end
 
         class SnapshotEntry
