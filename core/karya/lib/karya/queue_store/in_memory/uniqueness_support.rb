@@ -164,9 +164,9 @@ module Karya
 
         def store_job(job:)
           job_id = job.id
-          isolated_or_terminal = job.terminal? || job.state == :dead_letter
+          job_state = job.state
           state.jobs_by_id[job_id] = job
-          clear_stuck_job_recovery(job_id) if isolated_or_terminal
+          clear_stuck_job_recovery(job_id) if JobLifecycle.terminal?(job_state) || job_state == :dead_letter
           job
         end
 

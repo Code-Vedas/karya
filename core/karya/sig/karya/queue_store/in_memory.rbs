@@ -382,6 +382,23 @@ module Karya
           def each: () { (String job_id, bool duplicate_request) -> void } -> void
         end
 
+        class ReportBuilder
+          def initialize: (action: Karya::bulk_mutation_action, job_ids: Array[String], now: Time) -> void
+
+          def to_report: () { (String job_id, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void } -> BulkMutationReport
+        end
+
+        class JobTransition
+          def initialize: (job: Job, now: Time) -> void
+
+          def dead_letter: (String reason) -> Job
+
+          def clear_dead_letter_metadata: (
+            next_state: :queued | :retry_pending | :cancelled,
+            next_retry_at: Time?
+          ) -> Job
+        end
+
         class SkippedJob
           def initialize: (job_id: String, reason: Karya::bulk_skip_reason, ?state: Karya::state_name?) -> void
 
@@ -395,12 +412,6 @@ module Karya
         end
 
         private
-
-        def build_dead_letter_report: (
-          action: Karya::bulk_mutation_action,
-          job_ids: Array[String],
-          now: Time
-        ) { (String job_id, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void } -> BulkMutationReport
 
         def dead_letter_requested_job: (
           String job_id,
@@ -430,12 +441,6 @@ module Karya
           Array[Job] changed_jobs,
           Array[Karya::bulk_skipped_job] skipped_jobs
         ) -> void
-
-        def dead_letter_job: (Job job, Time now, String reason) -> Job
-
-        def clear_dead_letter_metadata: (Job job, :queued | :retry_pending | :cancelled next_state, Time now, Time? next_retry_at) -> Job
-
-        def retry_escalation_reason: (RetryPolicy::RetryDecision retry_decision) -> String
 
         def cleanup_dead_letter_indexes: (Job job) -> void
 

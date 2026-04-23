@@ -49,7 +49,6 @@ detectors:
       - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_rate_limits
       - Karya::QueueStore::InMemory::ReliabilitySnapshotSupport#build_circuit_breaker_snapshot
       - Karya::QueueStore::InMemory::ReliabilitySnapshotSupport#snapshot_stuck_jobs
-      - Karya::QueueStore::InMemory::UniquenessSupport#store_job
   UtilityFunction:
     enabled: true
     exclude:
@@ -64,10 +63,6 @@ detectors:
       - Karya::QueueStore::InMemory::UniquenessSupport#reentry_conflict_job
       - Karya::QueueStore::InMemory::UniquenessSupport#lease_expired_for_uniqueness?
       - Karya::CircuitBreaker::PolicySet#policy_for_scope
-      - Karya::QueueStore::InMemory::DeadLetterSupport#build_dead_letter_report
-      - Karya::QueueStore::InMemory::DeadLetterSupport#clear_dead_letter_metadata
-      - Karya::QueueStore::InMemory::DeadLetterSupport#dead_letter_job
-      - Karya::QueueStore::InMemory::DeadLetterSupport#retry_escalation_reason
   DuplicateMethodCall:
     exclude:
       - Karya::Worker#execute_handler
