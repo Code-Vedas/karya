@@ -203,6 +203,9 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.dead_letter_jobs(job_ids: ['job-2'], now: created_at + 3, reason: '')
       end.to raise_error(Karya::InvalidQueueStoreOperationError, 'dead_letter_reason must be present')
       expect do
+        store.dead_letter_jobs(job_ids: ['job-2'], now: created_at + 3, reason: " \t ")
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, 'dead_letter_reason must be present')
+      expect do
         store.dead_letter_jobs(job_ids: ['job-2'], now: created_at + 3, reason: :manual)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, 'dead_letter_reason must be a String')
     end

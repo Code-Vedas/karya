@@ -15,10 +15,12 @@ module Karya
 
       def normalize(value, error_class:)
         raise error_class, 'dead_letter_reason must be a String' unless value.is_a?(String)
-        raise error_class, 'dead_letter_reason must be present' if value.empty?
-        raise error_class, "dead_letter_reason must be at most #{MAX_LENGTH} characters" if value.length > MAX_LENGTH
 
-        value.dup.freeze
+        normalized_value = value.strip
+        raise error_class, 'dead_letter_reason must be present' if normalized_value.empty?
+        raise error_class, "dead_letter_reason must be at most #{MAX_LENGTH} characters" if normalized_value.length > MAX_LENGTH
+
+        normalized_value.freeze
       end
     end
   end

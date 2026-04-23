@@ -624,6 +624,30 @@ RSpec.describe 'Karya::Job::Attributes' do
       end.to raise_error(Karya::InvalidJobAttributeError, 'dead_letter_reason must be present')
     end
 
+    it 'strips dead_letter_reason and rejects whitespace-only input' do
+      result = attributes_class.new(
+        id: 'job123',
+        queue: 'billing',
+        handler: 'BillingSync',
+        state: 'dead_letter',
+        created_at: created_at,
+        dead_letter_reason: ' retry-policy-exhausted '
+      ).to_h
+
+      expect(result[:dead_letter_reason]).to eq('retry-policy-exhausted')
+      expect(result[:dead_letter_reason]).to be_frozen
+      expect do
+        attributes_class.new(
+          id: 'job123',
+          queue: 'billing',
+          handler: 'BillingSync',
+          state: 'dead_letter',
+          created_at: created_at,
+          dead_letter_reason: " \t "
+        ).to_h
+      end.to raise_error(Karya::InvalidJobAttributeError, 'dead_letter_reason must be present')
+    end
+
     it 'raises InvalidJobAttributeError for negative attempt' do
       expect do
         attributes_class.new(
