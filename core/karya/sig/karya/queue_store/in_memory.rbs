@@ -370,11 +370,11 @@ module Karya
       def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
 
       module DeadLetterSupport
+        AVAILABLE_ACTIONS: Array[Symbol]
+
         RETRY_EXHAUSTED_REASON: String
 
         CLASSIFICATION_ESCALATED_REASON: String
-
-        MAX_DEAD_LETTER_REASON_LENGTH: Integer
 
         class RequestedJobIds
           def initialize: (Array[String] job_ids) -> void
@@ -436,8 +436,6 @@ module Karya
         def clear_dead_letter_metadata: (Job job, :queued | :retry_pending | :cancelled next_state, Time now, Time? next_retry_at) -> Job
 
         def retry_escalation_reason: (RetryPolicy::RetryDecision retry_decision) -> String
-
-        def normalize_dead_letter_reason: (String reason) -> String
 
         def cleanup_dead_letter_indexes: (Job job) -> void
 

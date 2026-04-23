@@ -10,6 +10,7 @@ module Karya
     class InMemory
       # Dead-letter isolation, recovery, and inspection helpers.
       module DeadLetterSupport
+        AVAILABLE_ACTIONS = %i[replay retry discard].freeze
         RETRY_EXHAUSTED_REASON = 'retry-policy-exhausted'
         CLASSIFICATION_ESCALATED_REASON = 'retry-policy-escalated'
 
@@ -67,7 +68,7 @@ module Karya
               dead_letter_reason: job.dead_letter_reason,
               dead_lettered_at: job.dead_lettered_at,
               dead_letter_source_state: job.dead_letter_source_state,
-              available_actions: %i[replay retry discard].freeze
+              available_actions: AVAILABLE_ACTIONS
             }.freeze
           end
 
