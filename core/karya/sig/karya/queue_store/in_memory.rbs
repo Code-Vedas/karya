@@ -376,6 +376,8 @@ module Karya
 
         CLASSIFICATION_ESCALATED_REASON: String
 
+        private
+
         class RequestedJobIds
           def initialize: (Array[String] job_ids) -> void
 
@@ -410,8 +412,6 @@ module Karya
 
           def to_h: () -> Karya::dead_letter_snapshot_entry
         end
-
-        private
 
         def prepare_dead_letter_snapshot: (Time now) -> nil
 
@@ -603,6 +603,12 @@ module Karya
           private
 
           def skip_job_id?: (String existing_job_id) -> bool
+        end
+
+        class StuckRecoveryClearance
+          def initialize: (Job job) -> void
+
+          def clear?: () -> bool
         end
 
         private

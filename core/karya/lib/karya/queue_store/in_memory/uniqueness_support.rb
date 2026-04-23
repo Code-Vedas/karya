@@ -155,7 +155,22 @@ module Karya
           end
         end
 
-        private_constant :Decision, :DuplicateKeySummary, :DuplicateSearch, :IdempotencyKeySnapshot, :UniquenessKeySnapshot
+        # Decides whether storing a job should clear stuck-recovery metadata.
+        class StuckRecoveryClearance
+          def initialize(job)
+            @job = job
+          end
+
+          def clear?
+            job.terminal? || job.state == :dead_letter
+          end
+
+          private
+
+          attr_reader :job
+        end
+
+        private_constant :Decision, :DuplicateKeySummary, :DuplicateSearch, :IdempotencyKeySnapshot, :StuckRecoveryClearance, :UniquenessKeySnapshot
 
         private
 
@@ -164,9 +179,8 @@ module Karya
 
         def store_job(job:)
           job_id = job.id
-          job_state = job.state
           state.jobs_by_id[job_id] = job
-          clear_stuck_job_recovery(job_id) if JobLifecycle.terminal?(job_state) || job_state == :dead_letter
+          clear_stuck_job_recovery(job_id) if StuckRecoveryClearance.new(job).clear?
           job
         end
 
