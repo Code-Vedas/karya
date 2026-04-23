@@ -8,7 +8,7 @@ permalink: /reliability/backpressure/
 # Backpressure
 
 Backpressure, fairness, and starvation prevention are intentional runtime
-behavior under constrained capacity.
+behaviors under constrained capacity.
 
 ## Covered Behavior
 
