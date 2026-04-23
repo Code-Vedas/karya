@@ -59,6 +59,8 @@ Retry state needs to be visible, explainable, and bounded.
 - `next_retry_at` marks the next planned re-entry into queued execution
 - dead-letter isolation starts only after bounded retry stops being the right
   path for that job
+- retry-policy escalation writes `dead_letter` with an operator-visible reason.
+  Expired execution failures remain `failed` instead of escalating
 
 ## Related Concepts
 

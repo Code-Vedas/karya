@@ -11,8 +11,6 @@ detectors:
   TooManyMethods:
     enabled: true
     max_methods: 30
-    exclude:
-      - Karya::Worker
   BooleanParameter:
     enabled: false
   ControlParameter:

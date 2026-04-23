@@ -248,7 +248,7 @@ module Karya
       job = queue_store.fail_execution(
         reservation_token:,
         now: current_time,
-        retry_policy: effective_retry_policy_for(running_job),
+        retry_policy: running_job.retry_policy || retry_policy,
         failure_classification:
       )
       instrument('worker.job.failed', reservation_token:, job_id: job.id, handler: job.handler, queue: job.queue)
@@ -276,16 +276,8 @@ module Karya
       runtime.instrument(event, payload.merge(worker_id:))
     end
 
-    def effective_retry_policy_for(job)
-      job.retry_policy || retry_policy
-    end
-
-    def effective_execution_timeout_for(job)
-      job.execution_timeout || default_execution_timeout
-    end
-
     def execute_handler(job)
-      execution_timeout = effective_execution_timeout_for(job)
+      execution_timeout = job.execution_timeout || default_execution_timeout
       if execution_timeout
         Timeout.timeout(execution_timeout, WorkerExecutionTimeoutError, WorkerExecutionTimeoutError::DEFAULT_MESSAGE) do
           handlers.fetch(job.handler).call(arguments: job.arguments)

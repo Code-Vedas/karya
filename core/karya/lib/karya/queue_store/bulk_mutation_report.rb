@@ -9,7 +9,15 @@ module Karya
   module QueueStore
     # Immutable result for one bounded bulk queue-store mutation.
     class BulkMutationReport
-      ACTIONS = %i[enqueue_many retry_jobs cancel_jobs].freeze
+      ACTIONS = %i[
+        enqueue_many
+        retry_jobs
+        cancel_jobs
+        dead_letter_jobs
+        replay_dead_letter_jobs
+        retry_dead_letter_jobs
+        discard_dead_letter_jobs
+      ].freeze
       SKIPPED_JOB_REASONS = %i[not_found ineligible_state duplicate_request uniqueness_conflict].freeze
 
       attr_reader :action, :changed_jobs, :performed_at, :requested_count, :requested_job_ids, :skipped_jobs
@@ -58,7 +66,7 @@ module Karya
       end
 
       def initialize(action:, performed_at:, requested_job_ids:, changed_jobs:, skipped_jobs:)
-        raise InvalidQueueStoreOperationError, 'action must be one of :enqueue_many, :retry_jobs, or :cancel_jobs' unless ACTIONS.include?(action)
+        raise InvalidQueueStoreOperationError, action_error_message unless ACTIONS.include?(action)
         raise InvalidQueueStoreOperationError, 'performed_at must be a Time' unless performed_at.is_a?(Time)
 
         @action = action
@@ -110,6 +118,11 @@ module Karya
 
       def skipped_reason_error_message
         'skipped reason must be one of :not_found, :ineligible_state, :duplicate_request, or :uniqueness_conflict'
+      end
+
+      def action_error_message
+        'action must be one of :enqueue_many, :retry_jobs, :cancel_jobs, :dead_letter_jobs, ' \
+          ':replay_dead_letter_jobs, :retry_dead_letter_jobs, or :discard_dead_letter_jobs'
       end
 
       private_constant :ACTIONS, :JobIdList, :JobList, :SKIPPED_JOB_REASONS

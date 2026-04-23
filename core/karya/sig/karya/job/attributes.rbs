@@ -31,7 +31,10 @@ module Karya
         created_at: Time,
         updated_at: Time,
         next_retry_at: Time?,
-        failure_classification: Karya::failure_classification?
+        failure_classification: Karya::failure_classification?,
+        dead_letter_reason: String?,
+        dead_lettered_at: Time?,
+        dead_letter_source_state: Karya::state_name?
       }
 
       private
@@ -67,7 +70,10 @@ module Karya
         created_at: Time,
         updated_at: Time,
         next_retry_at: Time?,
-        failure_classification: Karya::failure_classification?
+        failure_classification: Karya::failure_classification?,
+        dead_letter_reason: String?,
+        dead_lettered_at: Time?,
+        dead_letter_source_state: Karya::state_name?
       }
 
       def normalize_attempt: () -> Integer
@@ -103,6 +109,10 @@ module Karya
       def normalize_retry_policy: () -> Karya::retry_policy?
 
       def normalize_failure_classification: () -> Karya::failure_classification?
+
+      def normalize_dead_letter_reason: () -> String?
+
+      def normalize_dead_letter_source_state: (Karya::lifecycle lifecycle) -> Karya::state_name?
 
       def normalize_uniqueness_scope: () -> Karya::uniqueness_scope?
 

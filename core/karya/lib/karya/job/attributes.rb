@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative '../internal/failure_classification'
+require_relative '../internal/dead_letter_reason'
 require_relative '../internal/retry_policy_resolver'
 require_relative '../backpressure'
 require_relative '../primitives/identifier'
@@ -22,7 +23,6 @@ module Karya
         'active' => :active,
         'until_terminal' => :until_terminal
       }.freeze
-
       def initialize(attributes)
         @attributes = attributes
       end
@@ -79,7 +79,10 @@ module Karya
           created_at:,
           updated_at: normalize_updated_at(created_at),
           next_retry_at: normalize_optional_time(:next_retry_at),
-          failure_classification: normalize_failure_classification
+          failure_classification: normalize_failure_classification,
+          dead_letter_reason: normalize_dead_letter_reason,
+          dead_lettered_at: normalize_optional_time(:dead_lettered_at),
+          dead_letter_source_state: normalize_dead_letter_source_state(lifecycle)
         }
       end
 
@@ -180,6 +183,18 @@ module Karya
       def normalize_failure_classification
         optional(:failure_classification, nil)&.then do |value|
           Internal::FailureClassification.normalize(value, error_class: InvalidJobAttributeError)
+        end
+      end
+
+      def normalize_dead_letter_reason
+        optional(:dead_letter_reason, nil)&.then do |value|
+          Internal::DeadLetterReason.normalize(value, error_class: InvalidJobAttributeError)
+        end
+      end
+
+      def normalize_dead_letter_source_state(lifecycle)
+        optional(:dead_letter_source_state, nil)&.then do |value|
+          lifecycle.normalize_state(value)
         end
       end
 

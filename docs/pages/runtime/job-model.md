@@ -49,25 +49,21 @@ lifecycle, reservation, execution, and operator-visible state around that work.
 
 The base lifecycle vocabulary for queued job instances is:
 
-| State           | Meaning                                                                                       | Allowed next transitions           |
-| --------------- | --------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `submission`    | the runtime is accepting or validating enqueue intent                                         | `queued`                           |
-| `queued`        | the job is durably available for reservation on its assigned queue                            | `reserved`, `cancelled`            |
-| `reserved`      | one worker has an exclusive, temporary claim on the job                                       | `running`, `queued`, `cancelled`   |
-| `running`       | execution has started from a valid reservation                                                | `succeeded`, `failed`, `cancelled` |
-| `succeeded`     | execution completed successfully                                                              | terminal state                     |
-| `failed`        | execution ended unsuccessfully for the current attempt                                        | `retry_pending`                    |
-| `retry_pending` | the job remains in the lifecycle and is waiting to re-enter queue execution under retry rules | `queued`, `cancelled`              |
-| `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                     |
+| State           | Meaning                                                                                       | Allowed next transitions                          |
+| --------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `submission`    | the runtime is accepting or validating enqueue intent                                         | `queued`                                          |
+| `queued`        | the job is durably available for reservation on its assigned queue                            | `reserved`, `dead_letter`, `cancelled`            |
+| `reserved`      | one worker has an exclusive, temporary claim on the job                                       | `running`, `queued`, `dead_letter`, `cancelled`   |
+| `running`       | execution has started from a valid reservation                                                | `succeeded`, `failed`, `dead_letter`, `cancelled` |
+| `succeeded`     | execution completed successfully                                                              | terminal state                                    |
+| `failed`        | execution ended unsuccessfully for the current attempt                                        | `retry_pending`, `dead_letter`                    |
+| `retry_pending` | the job remains in the lifecycle and is waiting to re-enter queue execution under retry rules | `queued`, `dead_letter`, `cancelled`              |
+| `dead_letter`   | execution is isolated from automatic scheduling until explicit recovery action                | `queued`, `retry_pending`, `cancelled`            |
+| `cancelled`     | execution will not continue because the runtime or operator stopped the job                   | terminal state                                    |
 
-`dead_letter` is not defined here as a base lifecycle state. It is treated as a
-later extension boundary that may be reached from failure or retry exhaustion.
-The reliability docs describe that isolation and recovery layer alongside the
-canonical lifecycle that dead-letter handling extends.
-
-`retry_pending` is the base-lifecycle extension point where later dead-letter
-behavior can attach. The table above lists only concrete base-state transitions
-implemented by the canonical lifecycle.
+`dead_letter` is a canonical isolation state. It is not eligible for reservation
+or automatic retry promotion; it re-enters normal execution only through replay
+or controlled retry, or leaves recovery through discard to `cancelled`.
 
 ## Lifecycle Invariants
 
@@ -77,6 +73,8 @@ implemented by the canonical lifecycle.
 - `succeeded` and `cancelled` are distinct terminal outcomes
 - `failed` records the result of an execution attempt, while `retry_pending`
   keeps the same job instance in the lifecycle for later requeue
+- `dead_letter` preserves failure and isolation context without allowing the
+  job to loop automatically
 - retries, uniqueness, and operator controls extend this lifecycle instead of
   inventing parallel state models
 - completed executions and failed attempts remain operator-visible and
@@ -89,8 +87,7 @@ The documented lifecycle covers:
 - submission and enqueue
 - queued availability and reservation
 - active execution
-- success, failure, `retry_pending`, or cancellation
-- the boundary where later dead-letter behavior may take over
+- success, failure, `retry_pending`, `dead_letter`, or cancellation
 
 ## Non-Goals For This Contract
 
@@ -99,7 +96,6 @@ This page does not define:
 - jitter, escalation, or dead-letter policy beyond the base timing and failure
   classification model
 - fairness, starvation prevention, or backpressure policy
-- dead-letter recovery workflows such as replay or discard rules
 - selector, approval, and audit semantics for bulk operator workflows
 
 ## Dependency Boundaries
@@ -203,8 +199,8 @@ both values through `Karya::JobLifecycle.normalize_state` so string-backed
 extension states and symbol-backed canonical states follow the same rules:
 
 ```ruby
-dead_letter_state = Karya::JobLifecycle.register_state(:dead_letter, terminal: true)
-Karya::JobLifecycle.register_transition(from: :retry_pending, to: dead_letter_state)
+quarantine_state = Karya::JobLifecycle.register_state(:quarantine, terminal: true)
+Karya::JobLifecycle.register_transition(from: :retry_pending, to: quarantine_state)
 
 job = Karya::Job.new(
   id: 'billing-123',
@@ -215,16 +211,16 @@ job = Karya::Job.new(
   created_at: Time.utc(2026, 3, 26, 12, 0, 0)
 )
 
-dead_letter_job = job.transition_to(dead_letter_state, updated_at: Time.utc(2026, 3, 26, 12, 5, 0))
-dead_letter_job.state
-# => "dead_letter"
+quarantined_job = job.transition_to(quarantine_state, updated_at: Time.utc(2026, 3, 26, 12, 5, 0))
+quarantined_job.state
+# => "quarantine"
 
-Karya::JobLifecycle.normalize_state(dead_letter_job.state) ==
-  Karya::JobLifecycle.normalize_state(dead_letter_state)
+Karya::JobLifecycle.normalize_state(quarantined_job.state) ==
+  Karya::JobLifecycle.normalize_state(quarantine_state)
 # => true
 
-Karya::JobLifecycle.validate_state!(dead_letter_job.state)
-# => "dead_letter"
+Karya::JobLifecycle.validate_state!(quarantined_job.state)
+# => "quarantine"
 ```
 
 ## Related Concepts

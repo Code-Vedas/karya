@@ -16,6 +16,7 @@ module Karya
       SUCCEEDED = :succeeded
       FAILED = :failed
       RETRY_PENDING = :retry_pending
+      DEAD_LETTER = :dead_letter
       CANCELLED = :cancelled
 
       STATES = [
@@ -26,17 +27,19 @@ module Karya
         SUCCEEDED,
         FAILED,
         RETRY_PENDING,
+        DEAD_LETTER,
         CANCELLED
       ].freeze
 
       TRANSITIONS = {
         SUBMISSION => [QUEUED].freeze,
-        QUEUED => [RESERVED, CANCELLED].freeze,
-        RESERVED => [RUNNING, QUEUED, CANCELLED].freeze,
-        RUNNING => [QUEUED, SUCCEEDED, FAILED, CANCELLED].freeze,
+        QUEUED => [RESERVED, DEAD_LETTER, CANCELLED].freeze,
+        RESERVED => [RUNNING, QUEUED, DEAD_LETTER, CANCELLED].freeze,
+        RUNNING => [QUEUED, SUCCEEDED, FAILED, DEAD_LETTER, CANCELLED].freeze,
         SUCCEEDED => [].freeze,
-        FAILED => [RETRY_PENDING].freeze,
-        RETRY_PENDING => [QUEUED, CANCELLED].freeze,
+        FAILED => [RETRY_PENDING, DEAD_LETTER].freeze,
+        RETRY_PENDING => [QUEUED, DEAD_LETTER, CANCELLED].freeze,
+        DEAD_LETTER => [QUEUED, RETRY_PENDING, CANCELLED].freeze,
         CANCELLED => [].freeze
       }.freeze
 

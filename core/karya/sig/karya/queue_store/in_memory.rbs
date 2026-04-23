@@ -60,6 +60,14 @@ module Karya
 
       def cancel_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
 
+      def dead_letter_jobs: (job_ids: Array[String], now: Time, reason: String) -> BulkMutationReport
+
+      def replay_dead_letter_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
+      def retry_dead_letter_jobs: (job_ids: Array[String], now: Time, next_retry_at: Time) -> BulkMutationReport
+
+      def discard_dead_letter_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
+
       def pause_queue: (queue: String, now: Time) -> QueueControlResult
 
       def resume_queue: (queue: String, now: Time) -> QueueControlResult
@@ -95,6 +103,12 @@ module Karya
       # not expected to implement it. Callers that need backend-portable queue
       # store behavior must not rely on this API.
       def uniqueness_snapshot: (now: Time) -> Karya::uniqueness_snapshot
+
+      # Inspection helper exposed only by QueueStore::InMemory.
+      # It is not part of QueueStore::Base, and other queue-store backends are
+      # not expected to implement it. Callers that need backend-portable queue
+      # store behavior must not rely on this API.
+      def dead_letter_snapshot: (now: Time) -> Karya::dead_letter_snapshot
 
       private
 
@@ -355,6 +369,68 @@ module Karya
 
       def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
 
+      module DeadLetterSupport
+        AVAILABLE_ACTIONS: Array[Symbol]
+
+        RETRY_EXHAUSTED_REASON: String
+
+        CLASSIFICATION_ESCALATED_REASON: String
+
+        private
+
+        class JobTransition
+          def initialize: (job: Job, now: Time) -> void
+
+          def dead_letter: (String reason) -> Job
+
+          def clear_dead_letter_metadata: (
+            next_state: :queued | :retry_pending | :cancelled,
+            next_retry_at: Time?
+          ) -> Job
+        end
+
+        class SnapshotEntry
+          def initialize: (job: Job) -> void
+
+          def to_h: () -> Karya::dead_letter_snapshot_entry
+        end
+
+        def prepare_dead_letter_snapshot: (Time now) -> nil
+
+        def dead_letter_requested_job: (
+          String job_id,
+          Time now,
+          String reason,
+          Array[Job] changed_jobs,
+          Array[Karya::bulk_skipped_job] skipped_jobs
+        ) -> void
+
+        def replay_dead_letter_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+
+        def retry_dead_letter_job: (
+          String job_id,
+          Time now,
+          Time next_retry_at,
+          Array[Job] changed_jobs,
+          Array[Karya::bulk_skipped_job] skipped_jobs
+        ) -> void
+
+        def discard_dead_letter_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+
+        def recover_dead_letter_job: (
+          String job_id,
+          :queued | :retry_pending next_state,
+          Time now,
+          Time? next_retry_at,
+          Array[Job] changed_jobs,
+          Array[Karya::bulk_skipped_job] skipped_jobs
+        ) -> void
+
+        def cleanup_dead_letter_indexes: (Job job) -> void
+
+        def snapshot_dead_letters: () -> Array[Karya::dead_letter_snapshot_entry]
+      end
+
       module ExecutionSupport
         private
 
@@ -509,6 +585,12 @@ module Karya
           private
 
           def skip_job_id?: (String existing_job_id) -> bool
+        end
+
+        class StuckRecoveryClearance
+          def initialize: (Job job) -> void
+
+          def clear?: () -> bool
         end
 
         private

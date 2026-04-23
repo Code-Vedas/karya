@@ -51,6 +51,9 @@ module Karya
       @updated_at: Time
       @next_retry_at: Time?
       @failure_classification: failure_classification?
+      @dead_letter_reason: String?
+      @dead_lettered_at: Time?
+      @dead_letter_source_state: state_name?
       @lifecycle: JobLifecycle::Registry
 
       attr_reader state: state_name
@@ -59,7 +62,29 @@ module Karya
       attr_reader updated_at: Time
       attr_reader next_retry_at: Time?
       attr_reader failure_classification: failure_classification?
+      attr_reader dead_letter_reason: String?
+      attr_reader dead_lettered_at: Time?
+      attr_reader dead_letter_source_state: state_name?
       attr_reader lifecycle: JobLifecycle::Registry
+    end
+
+    class TransitionOverrides
+      ALLOWED_KEYS: Array[Symbol]
+
+      def initialize: (Job job, Hash[Symbol, String? | Time? | state_name? | Numeric?] overrides) -> void
+
+      def to_h: () -> {
+        dead_letter_reason: String?,
+        dead_lettered_at: Time?,
+        dead_letter_source_state: state_name?,
+        execution_timeout: Numeric?,
+        expires_at: Time?
+      }
+
+      private
+
+      attr_reader job: Job
+      attr_reader overrides: Hash[Symbol, String? | Time? | state_name? | Numeric?]
     end
 
     @identity: Identity
@@ -94,6 +119,9 @@ module Karya
     attr_reader updated_at: Time
     attr_reader next_retry_at: Time?
     attr_reader failure_classification: failure_classification?
+    attr_reader dead_letter_reason: String?
+    attr_reader dead_lettered_at: Time?
+    attr_reader dead_letter_source_state: state_name?
 
     def initialize: (
       id: state_name,
@@ -118,7 +146,10 @@ module Karya
       ?lifecycle: JobLifecycle::Registry,
       ?updated_at: Time,
       ?next_retry_at: Time?,
-      ?failure_classification: failure_classification_input?
+      ?failure_classification: failure_classification_input?,
+      ?dead_letter_reason: String?,
+      ?dead_lettered_at: Time?,
+      ?dead_letter_source_state: state_name?
     ) -> void
 
     def can_transition_to?: (state_name next_state) -> bool
@@ -130,6 +161,9 @@ module Karya
       ?retry_policy: RetryPolicy?,
       ?next_retry_at: Time?,
       ?failure_classification: failure_classification_input?,
+      ?dead_letter_reason: String?,
+      ?dead_lettered_at: Time?,
+      ?dead_letter_source_state: state_name?,
       ?execution_timeout: Numeric?,
       ?expires_at: Time?
     ) -> Job

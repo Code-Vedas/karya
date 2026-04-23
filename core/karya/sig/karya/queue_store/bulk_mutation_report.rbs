@@ -38,6 +38,8 @@ module Karya
       def normalize_skipped_state: (Karya::state_name? state) -> Karya::state_name?
 
       def skipped_reason_error_message: () -> String
+
+      def action_error_message: () -> String
     end
   end
 end

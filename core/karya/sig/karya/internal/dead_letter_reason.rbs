@@ -1,0 +1,14 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DeadLetterReason
+      MAX_LENGTH: 1024
+
+      def self.normalize: (String value, error_class: Karya::error_class) -> String
+    end
+  end
+end

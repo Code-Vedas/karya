@@ -21,6 +21,8 @@ module Karya
 
       RETRY_PENDING: :retry_pending
 
+      DEAD_LETTER: :dead_letter
+
       CANCELLED: :cancelled
 
       STATES: Array[Symbol]
