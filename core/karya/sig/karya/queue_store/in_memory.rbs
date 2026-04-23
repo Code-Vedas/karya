@@ -145,6 +145,8 @@ module Karya
 
       # Internal mutable state for the single-process queue store.
       class StoreState
+        MAX_TRACKED_FAIR_QUEUE_LISTS: Integer
+
         @breaker_failures_by_scope: Hash[String, Array[Time]]
         @breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
         @executions_by_token: Hash[String, Reservation]
@@ -251,6 +253,8 @@ module Karya
         def reservation_token_in_use?: (String reservation_token) -> bool
 
         private
+
+        def trim_fair_queue_history: () -> String?
 
         def prune_expired_reservation_tokens: () -> bool?
       end
