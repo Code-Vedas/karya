@@ -491,6 +491,16 @@ module Karya
       end
 
       module ReserveSelectionSupport
+        class FairQueueOrder
+          def initialize: (
+            queues: Array[String],
+            strategy: Karya::normalized_fairness_strategy,
+            last_reserved_queue: String?
+          ) -> void
+
+          def to_a: () -> Array[String]
+        end
+
         private
 
         def find_reserved_job: (
