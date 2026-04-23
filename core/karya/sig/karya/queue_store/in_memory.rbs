@@ -491,6 +491,8 @@ module Karya
       end
 
       module ReserveSelectionSupport
+        private
+
         class FairQueueOrder
           def initialize: (
             queues: Array[String],
@@ -500,8 +502,6 @@ module Karya
 
           def to_a: () -> Array[String]
         end
-
-        private
 
         def find_reserved_job: (
           Array[String] queues,
