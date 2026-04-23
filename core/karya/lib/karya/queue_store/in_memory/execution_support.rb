@@ -91,7 +91,7 @@ module Karya
                 failure_classification:
               )
               dead_letter_reason =
-                retry_decision.reason == :retry_exhausted ? 'retry-policy-exhausted' : 'retry-policy-escalated'
+                retry_decision.reason == :retry_exhausted ? DeadLetterSupport::RETRY_EXHAUSTED_REASON : DeadLetterSupport::CLASSIFICATION_ESCALATED_REASON
               return failed_job.transition_to(
                 :dead_letter,
                 updated_at: now,

@@ -250,5 +250,22 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(snapshot.fetch(:dead_letters)).to be_frozen
       expect(entry).to be_frozen
     end
+
+    it 'does not promote due retry-pending jobs while inspecting dead letters' do
+      enqueue_job('job-1')
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+      store.fail_execution(
+        reservation_token: reservation.token,
+        now: created_at + 4,
+        failure_classification: :error,
+        retry_policy: Karya::RetryPolicy.new(max_attempts: 3, base_delay: 1, multiplier: 1)
+      )
+
+      store.dead_letter_snapshot(now: created_at + 10)
+
+      expect(stored_job('job-1').state).to eq(:retry_pending)
+      expect(store_state.retry_pending_job_ids).to eq(['job-1'])
+    end
   end
 end

@@ -413,6 +413,8 @@ module Karya
 
         private
 
+        def prepare_dead_letter_snapshot: (Time now) -> nil
+
         def dead_letter_requested_job: (
           String job_id,
           Time now,

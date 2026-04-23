@@ -207,7 +207,7 @@ module Karya
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
           @mutex.synchronize do
-            expire_reservations_locked(normalized_now)
+            prepare_dead_letter_snapshot(normalized_now)
             {
               captured_at: normalized_now.dup.freeze,
               dead_letters: snapshot_dead_letters
@@ -216,6 +216,14 @@ module Karya
         end
 
         private
+
+        def prepare_dead_letter_snapshot(now)
+          expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now)
+          expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
+          expired_reservations.each { |reservation| requeue_expired_reservation(reservation, now) }
+          expired_executions.each { |reservation| requeue_expired_execution(reservation, now) }
+          nil
+        end
 
         def dead_letter_requested_job(job_id, now, reason, changed_jobs, skipped_jobs)
           job = state.jobs_by_id[job_id]
