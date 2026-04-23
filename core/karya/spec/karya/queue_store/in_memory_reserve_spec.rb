@@ -144,7 +144,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       end
 
       expect(reserved_job_ids).to eq(%w[billing-1 email-1 billing-2 email-2])
-      expect(store_state.last_reserved_queue).to eq('email')
+      expect(store_state.last_reserved_queue_for("billing\0email")).to eq('email')
     end
 
     it 'does not advance round-robin fairness after a nil reservation' do
@@ -199,6 +199,40 @@ RSpec.describe Karya::QueueStore::InMemory do
       end
 
       expect(reserved_job_ids).to eq(%w[billing-1 billing-2 email-1])
+    end
+
+    it 'keeps round-robin fairness scoped to the subscribed queue list when unrelated reservations interleave' do
+      %w[1 2].each do |suffix|
+        store.enqueue(job: submission_job(id: "billing-#{suffix}", queue: 'billing', created_at:), now: created_at + suffix.to_i)
+        store.enqueue(job: submission_job(id: "email-#{suffix}", queue: 'email', created_at:), now: created_at + suffix.to_i + 2)
+      end
+      store.enqueue(job: submission_job(id: 'reports-1', queue: 'reports', created_at:), now: created_at + 10)
+
+      first = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 11
+      )
+      unrelated = store.reserve(
+        queues: %w[reports],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-2',
+        lease_duration: 30,
+        now: created_at + 12
+      )
+      second = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-3',
+        lease_duration: 30,
+        now: created_at + 13
+      )
+
+      expect(first.job_id).to eq('billing-1')
+      expect(unrelated.job_id).to eq('reports-1')
+      expect(second.job_id).to eq('email-1')
     end
 
     it 'reserves first matching job from subscribed queues in declared order' do

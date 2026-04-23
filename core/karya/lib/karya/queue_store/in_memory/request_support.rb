@@ -52,11 +52,13 @@ module Karya
         end
 
         def normalize_reserve_request(worker_id:, lease_duration:, now:, queue:, queues:, handler_names:)
+          normalized_queues = normalize_reserve_queues(queue:, queues:)
           {
             handler_matcher: HandlerMatcher.new(handler_names),
             lease_duration: LeaseDuration.new(lease_duration).normalize,
             now: normalize_time(:now, now, error_class: InvalidQueueStoreOperationError),
-            queues: normalize_reserve_queues(queue:, queues:),
+            queue_list_key: normalized_queues.join("\0").freeze,
+            queues: normalized_queues,
             worker_id: normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
           }
         end

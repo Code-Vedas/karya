@@ -121,7 +121,7 @@ module Karya
           handler_names:
         )
 
-        @mutex.synchronize { reserve_matching_job(reserve_request) }
+        @mutex.synchronize { reserve_matching_job(**reserve_request) }
       end
 
       def release(reservation_token:, now:)
@@ -317,31 +317,38 @@ module Karya
         job
       end
 
-      def reserve_matching_job(reserve_request)
-        now = reserve_request.fetch(:now)
+      def reserve_matching_job(handler_matcher:, lease_duration:, now:, queue_list_key:, queues:, worker_id:)
         reserve_scan_state = perform_reserve_maintenance(now)
         matched_queue, matched_job_index, matched_job_id =
-          find_reserved_job(reserve_request.fetch(:queues), reserve_request.fetch(:handler_matcher), reserve_scan_state, now)
+          find_reserved_job(
+            queues,
+            queue_list_key,
+            handler_matcher,
+            reserve_scan_state,
+            now
+          )
         return nil unless matched_job_id
 
         reserve_job(
           matched_queue:,
           matched_job_id:,
           matched_job_index:,
-          reserve_request:,
-          now:
+          lease_duration:,
+          now:,
+          queue_list_key:,
+          worker_id:
         )
       end
 
-      def reserve_job(matched_queue:, matched_job_id:, matched_job_index:, reserve_request:, now:)
+      def reserve_job(matched_queue:, matched_job_id:, matched_job_index:, worker_id:, lease_duration:, queue_list_key:, now:)
         queue_job_ids = state.queued_job_ids_by_queue.fetch(matched_queue)
         queued_job = state.jobs_by_id.fetch(matched_job_id)
         reserved_job = queued_job.transition_to(:reserved, updated_at: now)
         reservation = build_reservation(
           reserved_job:,
-          worker_id: reserve_request.fetch(:worker_id),
+          worker_id:,
           reserved_at: now,
-          lease_duration: reserve_request.fetch(:lease_duration)
+          lease_duration:
         )
 
         queue_job_ids.delete_at(matched_job_index)
@@ -349,7 +356,7 @@ module Karya
         store_job(job: reserved_job)
         record_rate_limit_admission(reserved_job, now)
         state.reserve(reservation)
-        state.record_reserved_queue(matched_queue)
+        state.record_reserved_queue(queue_list_key, matched_queue)
         register_half_open_probe(reserved_job, reservation.token, now)
         reservation
       end
