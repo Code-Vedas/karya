@@ -127,6 +127,80 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(reservation.job_id).to eq('billing-1')
     end
 
+    it 'uses round-robin fairness by default across busy subscribed queues' do
+      %w[1 2 3].each do |suffix|
+        store.enqueue(job: submission_job(id: "billing-#{suffix}", queue: 'billing', created_at:), now: created_at + suffix.to_i)
+        store.enqueue(job: submission_job(id: "email-#{suffix}", queue: 'email', created_at:), now: created_at + suffix.to_i + 3)
+      end
+
+      reserved_job_ids = Array.new(4) do |index|
+        store.reserve(
+          queues: %w[billing email],
+          handler_names: %w[billing_sync],
+          worker_id: "worker-#{index}",
+          lease_duration: 30,
+          now: created_at + 10 + index
+        ).job_id
+      end
+
+      expect(reserved_job_ids).to eq(%w[billing-1 email-1 billing-2 email-2])
+      expect(store_state.last_reserved_queue).to eq('email')
+    end
+
+    it 'does not advance round-robin fairness after a nil reservation' do
+      store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'email-1', queue: 'email', created_at:), now: created_at + 2)
+      first = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 3
+      )
+
+      empty_result = store.reserve(
+        queues: %w[reports],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-2',
+        lease_duration: 30,
+        now: created_at + 4
+      )
+      second = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-3',
+        lease_duration: 30,
+        now: created_at + 5
+      )
+
+      expect(first.job_id).to eq('billing-1')
+      expect(empty_result).to be_nil
+      expect(second.job_id).to eq('email-1')
+    end
+
+    it 'preserves fixed queue preference with strict-order fairness' do
+      strict_store = described_class.new(
+        token_generator: token_generator,
+        fairness_policy: Karya::Fairness::Policy.new(strategy: :strict_order)
+      )
+      %w[1 2].each do |suffix|
+        strict_store.enqueue(job: submission_job(id: "billing-#{suffix}", queue: 'billing', created_at:), now: created_at + suffix.to_i)
+        strict_store.enqueue(job: submission_job(id: "email-#{suffix}", queue: 'email', created_at:), now: created_at + suffix.to_i + 2)
+      end
+
+      reserved_job_ids = Array.new(3) do |index|
+        strict_store.reserve(
+          queues: %w[billing email],
+          handler_names: %w[billing_sync],
+          worker_id: "worker-#{index}",
+          lease_duration: 30,
+          now: created_at + 10 + index
+        ).job_id
+      end
+
+      expect(reserved_job_ids).to eq(%w[billing-1 billing-2 email-1])
+    end
+
     it 'reserves first matching job from subscribed queues in declared order' do
       store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:, handler: 'billing_sync'), now: created_at + 1)
       store.enqueue(job: submission_job(id: 'email-1', queue: 'email', created_at: created_at + 1, handler: 'email_sync'), now: created_at + 2)
@@ -187,6 +261,31 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(reservation.job_id).to eq('email-1')
       expect(stored_job('billing-1').state).to eq(:queued)
+    end
+
+    it 'skips paused queues and resumes fair rotation when the queue becomes eligible' do
+      store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'email-1', queue: 'email', created_at:), now: created_at + 2)
+      store.pause_queue(queue: 'billing', now: created_at + 3)
+
+      first = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 4
+      )
+      store.resume_queue(queue: 'billing', now: created_at + 5)
+      second = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-2',
+        lease_duration: 30,
+        now: created_at + 6
+      )
+
+      expect(first.job_id).to eq('email-1')
+      expect(second.job_id).to eq('billing-1')
     end
 
     it 'returns nil when subscribed queues only contain unsupported handlers' do
@@ -264,6 +363,31 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(reservation.job_id).to eq('email-1')
+    end
+
+    it 'skips circuit-breaker-blocked queues while preserving queued work' do
+      breaker_store = described_class.new(
+        token_generator: token_generator,
+        circuit_breaker_policy_set: Karya::CircuitBreaker::PolicySet.new(
+          policies: {
+            'queue:billing' => { failure_threshold: 1, window: 60, cooldown: 30 }
+          }
+        ),
+        fairness_policy: Karya::Fairness::Policy.new(strategy: :strict_order)
+      )
+      breaker_store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:), now: created_at + 1)
+      breaker_store.enqueue(job: submission_job(id: 'billing-2', queue: 'billing', created_at: created_at + 1), now: created_at + 2)
+      breaker_store.enqueue(job: submission_job(id: 'email-1', queue: 'email', created_at: created_at + 2), now: created_at + 3)
+
+      first = breaker_store.reserve(queues: %w[billing email], worker_id: 'worker-1', lease_duration: 30, now: created_at + 4)
+      breaker_store.start_execution(reservation_token: first.token, now: created_at + 5)
+      breaker_store.fail_execution(reservation_token: first.token, now: created_at + 6, failure_classification: :error)
+      second = breaker_store.reserve(queues: %w[billing email], worker_id: 'worker-2', lease_duration: 30, now: created_at + 7)
+      breaker_state = breaker_store.instance_variable_get(:@state)
+
+      expect(second.job_id).to eq('email-1')
+      expect(breaker_state.jobs_by_id.fetch('billing-2').state).to eq(:queued)
+      expect(breaker_state.queued_job_ids_by_queue.fetch('billing')).to eq(['billing-2'])
     end
 
     it 'reopens concurrency capacity after release' do

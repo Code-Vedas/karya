@@ -37,6 +37,8 @@ module Karya
   type worker_iteration_result = Job | worker_idle_result
   type worker_loop_result = Job | worker_continue_running | nil
   type lease_duration_value = Integer | Float | Rational | BigDecimal
+  type fairness_strategy = :round_robin | :strict_order | "round_robin" | "strict_order"
+  type normalized_fairness_strategy = :round_robin | :strict_order
   type retry_policy = RetryPolicy
   type retry_policy_reference = RetryPolicy | state_name
   type retry_policy_symbol_required_attributes = {

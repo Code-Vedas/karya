@@ -10,6 +10,7 @@ module Karya
       @token_generator: Method | Proc
       @policy_set: Backpressure::PolicySet
       @circuit_breaker_policy_set: CircuitBreaker::PolicySet
+      @fairness_policy: Fairness::Policy
 
       @reservation_token_sequence: Integer
 
@@ -27,7 +28,8 @@ module Karya
         ?token_generator: (Method | Proc),
         ?expired_tombstone_limit: Integer,
         ?policy_set: Backpressure::PolicySet,
-        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet
+        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
+        ?fairness_policy: Fairness::Policy
       ) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
@@ -114,6 +116,8 @@ module Karya
 
       attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
 
+      attr_reader fairness_policy: Fairness::Policy
+
       attr_reader policy_set: Backpressure::PolicySet
 
       attr_reader state: StoreState
@@ -156,6 +160,7 @@ module Karya
         @execution_tokens_by_job_id: Hash[String, String]
         @half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         @jobs_by_id: Hash[String, Job]
+        @last_reserved_queue: String?
         @paused_queues: Hash[String, Time]
         @rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
@@ -183,6 +188,7 @@ module Karya
 
         attr_reader half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         attr_reader jobs_by_id: Hash[String, Job]
+        attr_reader last_reserved_queue: String?
         attr_reader paused_queues: Hash[String, Time]
         attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
@@ -207,6 +213,8 @@ module Karya
         def unmark_queue_paused: (String queue) -> (:changed | :unchanged)
 
         def queue_paused?: (String queue) -> bool
+
+        def record_reserved_queue: (String queue) -> String
 
         def register_retry_pending: (String job_id) -> Array[String]
 
@@ -269,6 +277,29 @@ module Karya
         def rate_limited?: (Job job) -> bool
       end
 
+      # Computes the queue scan order for one reservation attempt.
+      class FairQueueOrder
+        @queues: Array[String]
+        @strategy: Karya::normalized_fairness_strategy
+        @last_reserved_queue: String?
+
+        def initialize: (
+          queues: Array[String],
+          strategy: Karya::normalized_fairness_strategy,
+          last_reserved_queue: String?
+        ) -> void
+
+        def to_a: () -> Array[String]
+
+        private
+
+        attr_reader last_reserved_queue: String?
+
+        attr_reader queues: Array[String]
+
+        attr_reader strategy: Karya::normalized_fairness_strategy
+      end
+
       private
 
       def validate_enqueue: (Job job) -> nil
@@ -317,6 +348,8 @@ module Karya
         ReserveScanState reserve_scan_state,
         Time now
       ) -> [String, Integer, String]?
+
+      def fair_queue_order: (Array[String] queues) -> Array[String]
 
       def matching_job_for: (
         String queue,

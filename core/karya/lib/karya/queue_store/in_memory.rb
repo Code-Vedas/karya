@@ -11,6 +11,7 @@ require 'bigdecimal'
 require_relative 'base'
 require_relative 'bulk_mutation_report'
 require_relative '../circuit_breaker'
+require_relative '../fairness'
 require_relative '../internal/bulk_mutation'
 require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
@@ -75,11 +76,13 @@ module Karya
         token_generator: -> { SecureRandom.uuid },
         expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT,
         policy_set: Backpressure::PolicySet.new,
-        circuit_breaker_policy_set: CircuitBreaker::PolicySet.new
+        circuit_breaker_policy_set: CircuitBreaker::PolicySet.new,
+        fairness_policy: Fairness::Policy.new
       )
         valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
         raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
         raise InvalidQueueStoreOperationError, 'policy_set must be a Karya::Backpressure::PolicySet' unless policy_set.is_a?(Backpressure::PolicySet)
+        raise InvalidQueueStoreOperationError, 'fairness_policy must be a Karya::Fairness::Policy' unless fairness_policy.is_a?(Fairness::Policy)
         unless circuit_breaker_policy_set.is_a?(CircuitBreaker::PolicySet)
           raise InvalidQueueStoreOperationError,
                 'circuit_breaker_policy_set must be a Karya::CircuitBreaker::PolicySet'
@@ -88,6 +91,7 @@ module Karya
         @token_generator = token_generator
         @policy_set = policy_set
         @circuit_breaker_policy_set = circuit_breaker_policy_set
+        @fairness_policy = fairness_policy
         @reservation_token_sequence = 0
         @mutex = Mutex.new
         @state = StoreState.new(expired_tombstone_limit:)
@@ -242,7 +246,7 @@ module Karya
 
       private
 
-      attr_reader :circuit_breaker_policy_set, :policy_set, :state, :token_generator
+      attr_reader :circuit_breaker_policy_set, :fairness_policy, :policy_set, :state, :token_generator
 
       private_constant :LeaseDuration, :HandlerMatcher, :ReserveScanState
 
@@ -345,6 +349,7 @@ module Karya
         store_job(job: reserved_job)
         record_rate_limit_admission(reserved_job, now)
         state.reserve(reservation)
+        state.record_reserved_queue(matched_queue)
         register_half_open_probe(reserved_job, reservation.token, now)
         reservation
       end

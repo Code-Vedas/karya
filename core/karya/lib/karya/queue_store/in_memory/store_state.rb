@@ -19,6 +19,7 @@ module Karya
                     :execution_tokens_by_job_id,
                     :half_open_probe_admissions_by_scope,
                     :jobs_by_id,
+                    :last_reserved_queue,
                     :paused_queues,
                     :rate_limit_admissions_by_key,
                     :queued_job_ids_by_queue,
@@ -39,6 +40,7 @@ module Karya
           @execution_tokens_by_job_id = {}
           @half_open_probe_admissions_by_scope = {}
           @jobs_by_id = {}
+          @last_reserved_queue = nil
           @paused_queues = {}
           @rate_limit_admissions_by_key = {}
           @queued_job_ids_by_queue = {}
@@ -71,6 +73,10 @@ module Karya
 
         def queue_paused?(queue)
           paused_queues.key?(queue)
+        end
+
+        def record_reserved_queue(queue)
+          @last_reserved_queue = queue
         end
 
         def register_retry_pending(job_id)

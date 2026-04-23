@@ -10,15 +10,48 @@ module Karya
     class InMemory
       # Reservation selection helpers used during queue scans.
       module ReserveSelectionSupport
+        # Computes the queue scan order for one reservation attempt.
+        class FairQueueOrder
+          def initialize(queues:, strategy:, last_reserved_queue:)
+            @queues = queues
+            @strategy = strategy
+            @last_reserved_queue = last_reserved_queue
+          end
+
+          def to_a
+            return queues unless strategy == :round_robin
+            return queues unless queues.length > 1
+
+            last_reserved_queue_index = queues.index(last_reserved_queue)
+            return queues unless last_reserved_queue_index
+
+            queues.rotate(last_reserved_queue_index + 1)
+          end
+
+          private
+
+          attr_reader :last_reserved_queue, :queues, :strategy
+        end
+
+        private_constant :FairQueueOrder
+
         private
 
         def find_reserved_job(queues, handler_matcher, reserve_scan_state, now)
-          queues.each do |queue|
+          fair_queue_order(queues).each do |queue|
             matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher, reserve_scan_state, now)
             return [queue, matched_job_index, matched_job_id] if matched_job_id
           end
 
           nil
+        end
+
+        def fair_queue_order(queues)
+          FairQueueOrder.new(
+            queues:,
+            strategy: fairness_policy.strategy,
+            last_reserved_queue: state.last_reserved_queue
+          ).to_a
         end
 
         def matching_job_for(queue, handler_matcher, reserve_scan_state, now)

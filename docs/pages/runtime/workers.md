@@ -13,10 +13,11 @@ coordinated runtime lifecycle behavior.
 `job.queue` keeps routing explicit. Worker subscription is the
 combination of an ordered queue list and a handler registry. A worker reserves
 only jobs whose queue and handler both match that subscription. Unmatched jobs
-stay queued until a compatible worker exists. Queue order is subscription
-preference, not a fairness guarantee. Within one queue, higher-priority jobs may
-be selected ahead of lower-priority jobs when the queue store supports
-priorities.
+stay queued until a compatible worker exists. Queue order is the initial
+subscription preference. Queue-store fairness policy then decides whether
+multi-queue reservation rotates across eligible queues or keeps strict declared
+order. Within one queue, higher-priority jobs may be selected ahead of
+lower-priority jobs when the queue store supports priorities.
 
 ## Worker Responsibilities
 
@@ -120,6 +121,10 @@ Backpressure policies are configured on the queue store, not through `karya work
 flags in this milestone. Jobs may carry `priority`,
 `concurrency_key`, and `rate_limit_key`, and the queue store decides whether a
 matching policy exists for those keys.
+Fairness policy is also configured on the queue store. The default
+`round_robin` strategy prevents later subscribed queues from starving behind a
+busy earlier queue. `strict_order` keeps declared queue order as fixed
+preference when that behavior is intentional.
 
 The selected worker must subscribe to the right queue and handler, and the job
 must still clear policy gates before it moves from `queued` to `reserved`.
