@@ -27,6 +27,12 @@ module Karya
           match_all || handler_names.include?(handler_name)
         end
 
+        def subscription_key_part
+          return nil if match_all
+
+          handler_names.keys.sort.freeze
+        end
+
         private
 
         attr_reader :handler_names, :match_all

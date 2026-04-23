@@ -147,7 +147,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       end
 
       expect(reserved_job_ids).to eq(%w[billing-1 email-1 billing-2 email-2])
-      expect(store_state.last_reserved_queue_for(%w[billing email])).to eq('email')
+      expect(store_state.last_reserved_queue_for([%w[billing email], ['billing_sync']])).to eq('email')
     end
 
     it 'does not advance round-robin fairness after a nil reservation' do
@@ -203,7 +203,7 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(reserved_job_ids).to eq(%w[billing-1 billing-2 email-1])
       strict_store_state = strict_store.instance_variable_get(:@state)
-      expect(strict_store_state.last_reserved_queue_by_queue_list).to eq({})
+      expect(strict_store_state.last_reserved_queue_by_subscription).to eq({})
     end
 
     it 'keeps round-robin fairness scoped to the subscribed queue list when unrelated reservations interleave' do
@@ -238,6 +238,45 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(first.job_id).to eq('billing-1')
       expect(unrelated.job_id).to eq('reports-1')
       expect(second.job_id).to eq('email-1')
+    end
+
+    it 'keeps round-robin fairness scoped to the full subscription when handler sets differ' do
+      %w[1 2].each do |suffix|
+        store.enqueue(
+          job: submission_job(id: "billing-#{suffix}", queue: 'billing', created_at:, handler: 'billing_sync'),
+          now: created_at + suffix.to_i
+        )
+        store.enqueue(
+          job: submission_job(id: "email-#{suffix}", queue: 'email', created_at: created_at + suffix.to_i, handler: 'email_sync'),
+          now: created_at + suffix.to_i + 2
+        )
+      end
+
+      first = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync email_sync],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 10
+      )
+      unrelated = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[email_sync],
+        worker_id: 'worker-2',
+        lease_duration: 30,
+        now: created_at + 11
+      )
+      second = store.reserve(
+        queues: %w[billing email],
+        handler_names: %w[billing_sync email_sync],
+        worker_id: 'worker-3',
+        lease_duration: 30,
+        now: created_at + 12
+      )
+
+      expect(first.job_id).to eq('billing-1')
+      expect(unrelated.job_id).to eq('email-1')
+      expect(second.job_id).to eq('email-2')
     end
 
     it 'keeps fairness state separate for queue lists whose names would collide under delimiter joining' do
@@ -300,7 +339,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       end
 
       bounded_store_state = bounded_store.instance_variable_get(:@state)
-      expect(bounded_store_state.last_reserved_queue_by_queue_list.length).to be <= 128
+      expect(bounded_store_state.last_reserved_queue_by_subscription.length).to be <= 128
     end
 
     it 'does not track fairness history for single-queue reservations' do
@@ -313,7 +352,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         now: created_at + 2
       )
 
-      expect(store_state.last_reserved_queue_by_queue_list).to eq({})
+      expect(store_state.last_reserved_queue_by_subscription).to eq({})
     end
 
     it 'reserves first matching job from subscribed queues in declared order' do

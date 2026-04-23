@@ -134,6 +134,8 @@ module Karya
 
         def include?: (String handler_name) -> bool
 
+        def subscription_key_part: () -> Array[String]?
+
         private
 
         attr_reader handler_names: Hash[String, bool]
@@ -162,7 +164,7 @@ module Karya
         @execution_tokens_by_job_id: Hash[String, String]
         @half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         @jobs_by_id: Hash[String, Job]
-        @last_reserved_queue_by_queue_list: Hash[Array[String], String]
+        @last_reserved_queue_by_subscription: Hash[[Array[String], Array[String]?], String]
         @paused_queues: Hash[String, Time]
         @rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
@@ -190,7 +192,7 @@ module Karya
 
         attr_reader half_open_probe_admissions_by_scope: Hash[String, Array[String]]
         attr_reader jobs_by_id: Hash[String, Job]
-        attr_reader last_reserved_queue_by_queue_list: Hash[Array[String], String]
+        attr_reader last_reserved_queue_by_subscription: Hash[[Array[String], Array[String]?], String]
         attr_reader paused_queues: Hash[String, Time]
         attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
 
@@ -216,9 +218,9 @@ module Karya
 
         def queue_paused?: (String queue) -> bool
 
-        def last_reserved_queue_for: (Array[String] queues) -> String?
+        def last_reserved_queue_for: ([Array[String], Array[String]?] subscription_key) -> String?
 
-        def record_reserved_queue: (Array[String] queues, String queue) -> String
+        def record_reserved_queue: ([Array[String], Array[String]?] subscription_key, String queue) -> String
 
         def register_retry_pending: (String job_id) -> Array[String]
 
@@ -308,6 +310,7 @@ module Karya
         lease_duration: Karya::lease_duration_value,
         now: Time,
         queues: Array[String],
+        subscription_key: [Array[String], Array[String]?],
         worker_id: String
       ) -> Reservation?
 
@@ -318,6 +321,7 @@ module Karya
         worker_id: String,
         lease_duration: Karya::lease_duration_value,
         queues: Array[String],
+        subscription_key: [Array[String], Array[String]?],
         now: Time
       ) -> Reservation
 
@@ -491,12 +495,13 @@ module Karya
 
         def find_reserved_job: (
           Array[String] queues,
+          [Array[String], Array[String]?] subscription_key,
           HandlerMatcher handler_matcher,
           ReserveScanState reserve_scan_state,
           Time now
         ) -> [String, Integer, String]?
 
-        def fair_queue_order: (Array[String] queues) -> Array[String]
+        def fair_queue_order: (Array[String] queues, [Array[String], Array[String]?] subscription_key) -> Array[String]
 
         def matching_job_for: (
           String queue,
@@ -696,6 +701,7 @@ module Karya
           lease_duration: Karya::lease_duration_value,
           now: Time,
           queues: Array[String],
+          subscription_key: [Array[String], Array[String]?],
           worker_id: String
         }
       end
