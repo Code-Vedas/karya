@@ -483,29 +483,6 @@ module Karya
       end
 
       module ReserveSelectionSupport
-        # Computes the queue scan order for one reservation attempt.
-        class FairQueueOrder
-          @queues: Array[String]
-          @strategy: Karya::normalized_fairness_strategy
-          @last_reserved_queue: String?
-
-          def initialize: (
-            queues: Array[String],
-            strategy: Karya::normalized_fairness_strategy,
-            last_reserved_queue: String?
-          ) -> void
-
-          def to_a: () -> Array[String]
-
-          private
-
-          attr_reader last_reserved_queue: String?
-
-          attr_reader queues: Array[String]
-
-          attr_reader strategy: Karya::normalized_fairness_strategy
-        end
-
         private
 
         def find_reserved_job: (
