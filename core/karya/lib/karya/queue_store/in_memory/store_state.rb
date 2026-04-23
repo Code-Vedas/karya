@@ -10,6 +10,8 @@ module Karya
     class InMemory
       # Internal mutable state for the single-process queue store.
       class StoreState
+        MAX_TRACKED_FAIR_QUEUE_LISTS = 128
+
         attr_reader :executions_by_token,
                     :breaker_failures_by_scope,
                     :breaker_states_by_scope,
@@ -75,12 +77,15 @@ module Karya
           paused_queues.key?(queue)
         end
 
-        def last_reserved_queue_for(queue_list_key)
-          last_reserved_queue_by_queue_list[queue_list_key]
+        def last_reserved_queue_for(queues)
+          last_reserved_queue_by_queue_list[queues]
         end
 
-        def record_reserved_queue(queue_list_key, queue)
-          last_reserved_queue_by_queue_list[queue_list_key] = queue
+        def record_reserved_queue(queues, queue)
+          last_reserved_queue_by_queue_list.delete(queues)
+          last_reserved_queue_by_queue_list[queues] = queue
+          trim_fair_queue_history
+          queue
         end
 
         def register_retry_pending(job_id)
@@ -177,6 +182,10 @@ module Karya
         end
 
         private
+
+        def trim_fair_queue_history
+          last_reserved_queue_by_queue_list.shift while last_reserved_queue_by_queue_list.length > MAX_TRACKED_FAIR_QUEUE_LISTS
+        end
 
         def prune_expired_reservation_tokens
           while expired_reservation_tokens_in_order.length > @expired_tombstone_limit

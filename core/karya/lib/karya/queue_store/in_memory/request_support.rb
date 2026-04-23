@@ -57,7 +57,6 @@ module Karya
             handler_matcher: HandlerMatcher.new(handler_names),
             lease_duration: LeaseDuration.new(lease_duration).normalize,
             now: normalize_time(:now, now, error_class: InvalidQueueStoreOperationError),
-            queue_list_key: normalized_queues.join("\0").freeze,
             queues: normalized_queues,
             worker_id: normalize_identifier(:worker_id, worker_id, error_class: InvalidQueueStoreOperationError)
           }

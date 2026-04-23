@@ -144,7 +144,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       end
 
       expect(reserved_job_ids).to eq(%w[billing-1 email-1 billing-2 email-2])
-      expect(store_state.last_reserved_queue_for("billing\0email")).to eq('email')
+      expect(store_state.last_reserved_queue_for(%w[billing email])).to eq('email')
     end
 
     it 'does not advance round-robin fairness after a nil reservation' do
@@ -233,6 +233,59 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(first.job_id).to eq('billing-1')
       expect(unrelated.job_id).to eq('reports-1')
       expect(second.job_id).to eq('email-1')
+    end
+
+    it 'keeps fairness state separate for queue lists whose names would collide under delimiter joining' do
+      store.enqueue(job: submission_job(id: 'null-a-1', queue: "a\0b", created_at:), now: created_at + 1)
+      store.enqueue(job: submission_job(id: 'null-c-1', queue: 'c', created_at: created_at + 1), now: created_at + 2)
+      store.enqueue(job: submission_job(id: 'plain-a-1', queue: 'a', created_at: created_at + 2), now: created_at + 3)
+      store.enqueue(job: submission_job(id: 'null-bc-1', queue: "b\0c", created_at: created_at + 3), now: created_at + 4)
+
+      first = store.reserve(
+        queues: ["a\0b", 'c'],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-1',
+        lease_duration: 30,
+        now: created_at + 5
+      )
+      unrelated = store.reserve(
+        queues: ['a', "b\0c"],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-2',
+        lease_duration: 30,
+        now: created_at + 6
+      )
+      second = store.reserve(
+        queues: ["a\0b", 'c'],
+        handler_names: %w[billing_sync],
+        worker_id: 'worker-3',
+        lease_duration: 30,
+        now: created_at + 7
+      )
+
+      expect(first.job_id).to eq('null-a-1')
+      expect(unrelated.job_id).to eq('plain-a-1')
+      expect(second.job_id).to eq('null-c-1')
+    end
+
+    it 'bounds stored fairness history across many distinct queue lists' do
+      token_index = 0
+      bounded_store = described_class.new(
+        token_generator: lambda {
+          token_index += 1
+          "lease-bounded-#{token_index}"
+        },
+        policy_set:
+      )
+
+      140.times do |index|
+        queue = "queue-#{index}"
+        bounded_store.enqueue(job: submission_job(id: "job-#{index}", queue:, created_at:), now: created_at + index + 1)
+        bounded_store.reserve(queue:, worker_id: "worker-#{index}", lease_duration: 30, now: created_at + 200 + index)
+      end
+
+      bounded_store_state = bounded_store.instance_variable_get(:@state)
+      expect(bounded_store_state.last_reserved_queue_by_queue_list.length).to be <= 128
     end
 
     it 'reserves first matching job from subscribed queues in declared order' do

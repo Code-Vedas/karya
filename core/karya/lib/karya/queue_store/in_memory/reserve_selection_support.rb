@@ -37,8 +37,8 @@ module Karya
 
         private
 
-        def find_reserved_job(queues, queue_list_key, handler_matcher, reserve_scan_state, now)
-          fair_queue_order(queues, queue_list_key).each do |queue|
+        def find_reserved_job(queues, handler_matcher, reserve_scan_state, now)
+          fair_queue_order(queues).each do |queue|
             matched_job_index, matched_job_id = matching_job_for(queue, handler_matcher, reserve_scan_state, now)
             return [queue, matched_job_index, matched_job_id] if matched_job_id
           end
@@ -46,11 +46,11 @@ module Karya
           nil
         end
 
-        def fair_queue_order(queues, queue_list_key)
+        def fair_queue_order(queues)
           FairQueueOrder.new(
             queues:,
             strategy: fairness_policy.strategy,
-            last_reserved_queue: state.last_reserved_queue_for(queue_list_key)
+            last_reserved_queue: state.last_reserved_queue_for(queues)
           ).to_a
         end
 
