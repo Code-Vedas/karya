@@ -11,6 +11,7 @@ require 'bigdecimal'
 require_relative 'base'
 require_relative 'bulk_mutation_report'
 require_relative '../circuit_breaker'
+require_relative '../fairness'
 require_relative '../internal/bulk_mutation'
 require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
@@ -75,11 +76,13 @@ module Karya
         token_generator: -> { SecureRandom.uuid },
         expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT,
         policy_set: Backpressure::PolicySet.new,
-        circuit_breaker_policy_set: CircuitBreaker::PolicySet.new
+        circuit_breaker_policy_set: CircuitBreaker::PolicySet.new,
+        fairness_policy: Fairness::Policy.new
       )
         valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
         raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
         raise InvalidQueueStoreOperationError, 'policy_set must be a Karya::Backpressure::PolicySet' unless policy_set.is_a?(Backpressure::PolicySet)
+        raise InvalidQueueStoreOperationError, 'fairness_policy must be a Karya::Fairness::Policy' unless fairness_policy.is_a?(Fairness::Policy)
         unless circuit_breaker_policy_set.is_a?(CircuitBreaker::PolicySet)
           raise InvalidQueueStoreOperationError,
                 'circuit_breaker_policy_set must be a Karya::CircuitBreaker::PolicySet'
@@ -88,6 +91,7 @@ module Karya
         @token_generator = token_generator
         @policy_set = policy_set
         @circuit_breaker_policy_set = circuit_breaker_policy_set
+        @fairness_policy = fairness_policy
         @reservation_token_sequence = 0
         @mutex = Mutex.new
         @state = StoreState.new(expired_tombstone_limit:)
@@ -117,7 +121,7 @@ module Karya
           handler_names:
         )
 
-        @mutex.synchronize { reserve_matching_job(reserve_request) }
+        @mutex.synchronize { reserve_matching_job(**reserve_request) }
       end
 
       def release(reservation_token:, now:)
@@ -242,7 +246,7 @@ module Karya
 
       private
 
-      attr_reader :circuit_breaker_policy_set, :policy_set, :state, :token_generator
+      attr_reader :circuit_breaker_policy_set, :fairness_policy, :policy_set, :state, :token_generator
 
       private_constant :LeaseDuration, :HandlerMatcher, :ReserveScanState
 
@@ -313,31 +317,39 @@ module Karya
         job
       end
 
-      def reserve_matching_job(reserve_request)
-        now = reserve_request.fetch(:now)
+      def reserve_matching_job(handler_matcher:, lease_duration:, now:, queues:, subscription_key:, worker_id:)
         reserve_scan_state = perform_reserve_maintenance(now)
         matched_queue, matched_job_index, matched_job_id =
-          find_reserved_job(reserve_request.fetch(:queues), reserve_request.fetch(:handler_matcher), reserve_scan_state, now)
+          find_reserved_job(
+            queues,
+            subscription_key,
+            handler_matcher,
+            reserve_scan_state,
+            now
+          )
         return nil unless matched_job_id
 
         reserve_job(
           matched_queue:,
           matched_job_id:,
           matched_job_index:,
-          reserve_request:,
-          now:
+          lease_duration:,
+          now:,
+          queues:,
+          subscription_key:,
+          worker_id:
         )
       end
 
-      def reserve_job(matched_queue:, matched_job_id:, matched_job_index:, reserve_request:, now:)
+      def reserve_job(matched_queue:, matched_job_id:, matched_job_index:, worker_id:, lease_duration:, queues:, subscription_key:, now:)
         queue_job_ids = state.queued_job_ids_by_queue.fetch(matched_queue)
         queued_job = state.jobs_by_id.fetch(matched_job_id)
         reserved_job = queued_job.transition_to(:reserved, updated_at: now)
         reservation = build_reservation(
           reserved_job:,
-          worker_id: reserve_request.fetch(:worker_id),
+          worker_id:,
           reserved_at: now,
-          lease_duration: reserve_request.fetch(:lease_duration)
+          lease_duration:
         )
 
         queue_job_ids.delete_at(matched_job_index)
@@ -345,8 +357,13 @@ module Karya
         store_job(job: reserved_job)
         record_rate_limit_admission(reserved_job, now)
         state.reserve(reservation)
+        state.record_reserved_queue(subscription_key, matched_queue) if track_fairness_history?(queues)
         register_half_open_probe(reserved_job, reservation.token, now)
         reservation
+      end
+
+      def track_fairness_history?(queues)
+        fairness_policy.strategy == :round_robin && queues.length > 1
       end
 
       private_constant :ExecutionSupport, :ExpirationSupport, :OperationsSupport, :RecoverySupport, :RequestSupport, :ReliabilitySupport

@@ -86,6 +86,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
     end
 
+    it 'rejects invalid fairness_policy values' do
+      expect do
+        described_class.new(fairness_policy: Object.new)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /fairness_policy must be a Karya::Fairness::Policy/)
+    end
+
     it 'rejects non-string generated reservation tokens' do
       token_store = described_class.new(token_generator: -> { 123 })
       token_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)

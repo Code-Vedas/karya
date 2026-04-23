@@ -10,6 +10,8 @@ module Karya
     class InMemory
       # Internal mutable state for the single-process queue store.
       class StoreState
+        MAX_TRACKED_FAIR_QUEUE_LISTS = 128
+
         attr_reader :executions_by_token,
                     :breaker_failures_by_scope,
                     :breaker_states_by_scope,
@@ -19,6 +21,7 @@ module Karya
                     :execution_tokens_by_job_id,
                     :half_open_probe_admissions_by_scope,
                     :jobs_by_id,
+                    :last_reserved_queue_by_subscription,
                     :paused_queues,
                     :rate_limit_admissions_by_key,
                     :queued_job_ids_by_queue,
@@ -39,6 +42,7 @@ module Karya
           @execution_tokens_by_job_id = {}
           @half_open_probe_admissions_by_scope = {}
           @jobs_by_id = {}
+          @last_reserved_queue_by_subscription = {}
           @paused_queues = {}
           @rate_limit_admissions_by_key = {}
           @queued_job_ids_by_queue = {}
@@ -71,6 +75,17 @@ module Karya
 
         def queue_paused?(queue)
           paused_queues.key?(queue)
+        end
+
+        def last_reserved_queue_for(subscription_key)
+          last_reserved_queue_by_subscription[subscription_key]
+        end
+
+        def record_reserved_queue(subscription_key, queue)
+          last_reserved_queue_by_subscription.delete(subscription_key)
+          last_reserved_queue_by_subscription[subscription_key] = queue
+          trim_fair_queue_history
+          queue
         end
 
         def register_retry_pending(job_id)
@@ -167,6 +182,10 @@ module Karya
         end
 
         private
+
+        def trim_fair_queue_history
+          last_reserved_queue_by_subscription.shift while last_reserved_queue_by_subscription.length > MAX_TRACKED_FAIR_QUEUE_LISTS
+        end
 
         def prune_expired_reservation_tokens
           while expired_reservation_tokens_in_order.length > @expired_tombstone_limit

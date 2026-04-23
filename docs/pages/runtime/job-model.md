@@ -178,8 +178,9 @@ reserved_job.state
 # => :reserved
 ```
 
-`priority` defaults to `0`. Higher numbers win within same queue, while worker
-subscription queue order still decides which queue is scanned first.
+`priority` defaults to `0`. Higher numbers win within the same queue. Worker
+subscription queue order is the first scan order, then queue-store fairness
+policy may rotate later multi-queue scans to prevent starvation.
 `concurrency_key` and `rate_limit_key` are optional identifiers that let queue
 stores apply configured backpressure policies without mutating handler input.
 `retry_policy` is an optional deterministic retry/backoff definition, while

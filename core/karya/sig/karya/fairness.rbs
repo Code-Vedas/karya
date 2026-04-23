@@ -1,0 +1,25 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Fairness
+    class InvalidPolicyError < Error
+    end
+
+    class Policy
+      STRATEGIES: Hash[Karya::fairness_strategy, Karya::normalized_fairness_strategy]
+
+      @strategy: Karya::normalized_fairness_strategy
+
+      attr_reader strategy: Karya::normalized_fairness_strategy
+
+      def initialize: (?strategy: Karya::fairness_strategy) -> void
+
+      private
+
+      def normalize_strategy: (Karya::fairness_strategy value) -> Karya::normalized_fairness_strategy
+    end
+  end
+end
