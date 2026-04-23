@@ -254,7 +254,7 @@ module Karya
 
         private
 
-        def trim_fair_queue_history: () -> String?
+        def trim_fair_queue_history: () -> void
 
         def prune_expired_reservation_tokens: () -> bool?
       end
