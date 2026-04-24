@@ -49,6 +49,66 @@ explicitly; Karya does not infer targets from workflow state, create a new
 workflow run, append batch membership, or reconstruct a workflow from a
 timeline.
 
+### Step Retry
+
+Use retry when a failed or retry-pending primary step job should return to
+normal queued execution:
+
+```text
+workflow_batch_id: invoice-closeout-204
+selected_action: retry_workflow_steps
+step_ids: capture_payment
+expected_result: capture_payment queues again; emit_receipt stays blocked until capture_payment succeeds
+```
+
+### Dead-Letter Replay
+
+Use replay when a primary workflow step has been isolated in `dead_letter` and
+the operator wants it to re-enter queued execution:
+
+```text
+workflow_batch_id: invoice-closeout-204
+selected_action: replay_workflow_steps
+step_ids: capture_payment
+expected_result: original workflow batch membership is unchanged
+```
+
+Use controlled dead-letter retry when the step should wait for a planned retry
+window:
+
+```text
+workflow_batch_id: invoice-closeout-204
+selected_action: retry_dead_letter_workflow_steps
+step_ids: capture_payment
+next_retry_at: 2026-04-24T15:30:00Z
+expected_result: capture_payment enters retry_pending
+```
+
+Use discard when the operator decides a dead-lettered step should be cancelled:
+
+```text
+workflow_batch_id: invoice-closeout-204
+selected_action: discard_workflow_steps
+step_ids: capture_payment
+expected_result: capture_payment becomes cancelled; dependents do not unblock
+```
+
+### Rollback Boundary
+
+Rollback is separate from replay. It is an explicit operator action for failed
+workflow batches:
+
+```text
+workflow_batch_id: invoice-closeout-204
+selected_action: rollback_workflow
+reason: payment provider settlement failed
+expected_result: compensation jobs are enqueued in a separate rollback batch
+```
+
+Rollback compensates succeeded compensable primary steps in reverse workflow
+definition order. If no succeeded step has compensation, Karya records the
+rollback request boundary without creating a physical rollback batch.
+
 ## Related Concepts
 
 - [Signals](/workflows/signals/): interactive workflows need recovery and live control

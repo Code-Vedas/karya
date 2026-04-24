@@ -37,6 +37,9 @@ end
 This is the core idea: Karya treats related work as one inspectable workflow,
 not a pile of unrelated background jobs.
 
+For full lifecycle examples that connect definition, enqueue, inspection,
+recovery, and rollback, see [Workflow Examples](/workflows/examples/).
+
 Workflow steps are bound to concrete jobs at enqueue time. Karya stores the
 whole run as one immutable batch, then applies prerequisite checks when workers
 reserve jobs:
