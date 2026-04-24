@@ -10,15 +10,15 @@ module Karya
       DUPLICABLE_SCALAR_CLASSES: Array[singleton(String) | singleton(Time)]
 
       @arguments: Hash[Karya::state_name, Karya::job_argument]
-      @error_class: singleton(::Exception)
+      @error_class: Karya::error_class
 
-      def initialize: (Hash[Karya::state_name, Karya::job_argument] arguments, error_class: singleton(::Exception)) -> void
+      def initialize: (Hash[Karya::state_name, Karya::job_argument] arguments, error_class: Karya::error_class) -> void
       def normalize: () -> Karya::job_arguments
 
       private
 
       attr_reader arguments: Hash[Karya::state_name, Karya::job_argument]
-      attr_reader error_class: singleton(::Exception)
+      attr_reader error_class: Karya::error_class
       def freeze_hash: (Hash[Karya::state_name, Karya::job_argument] value, tracker: TraversalTracker) -> Karya::job_arguments
       def freeze_value: (Karya::job_argument value, tracker: TraversalTracker) -> Karya::job_argument
       def freeze_array: (Array[Karya::job_argument] value, tracker: TraversalTracker) -> Array[Karya::job_argument]
@@ -30,9 +30,9 @@ module Karya
 
       class TraversalTracker
         @entered_object_ids: Hash[Integer, bool]
-        @error_class: singleton(::Exception)
+        @error_class: Karya::error_class
 
-        def initialize: (error_class: singleton(::Exception)) -> void
+        def initialize: (error_class: Karya::error_class) -> void
         def track: (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) -> bool
         def around: [A] (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) { () -> A } -> A
         def leave: (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) -> bool?
@@ -40,18 +40,18 @@ module Karya
       private
 
         attr_reader entered_object_ids: Hash[Integer, bool]
-        attr_reader error_class: singleton(::Exception)
+        attr_reader error_class: Karya::error_class
       end
 
       class NormalizedGraph
         @value: Karya::job_argument_graph
-        @error_class: singleton(::Exception)
+        @error_class: Karya::error_class
         @immutable_scalar_checker: ^(Karya::job_argument) -> bool
         @duplicable_scalar_checker: ^(Karya::job_argument) -> bool
 
         def initialize: (
           Karya::job_argument_graph value,
-          error_class: singleton(::Exception),
+          error_class: Karya::error_class,
           immutable_scalar_checker: ^(Karya::job_argument) -> bool,
           duplicable_scalar_checker: ^(Karya::job_argument) -> bool
         ) -> void
@@ -61,7 +61,7 @@ module Karya
       private
 
         attr_reader duplicable_scalar_checker: ^(Karya::job_argument) -> bool
-        attr_reader error_class: singleton(::Exception)
+        attr_reader error_class: Karya::error_class
         attr_reader immutable_scalar_checker: ^(Karya::job_argument) -> bool
         attr_reader value: Karya::job_argument_graph
         def normalized_value?: (Karya::job_argument_graph candidate, tracker: TraversalTracker) -> bool

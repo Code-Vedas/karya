@@ -11,8 +11,6 @@ module Karya
 
       IMMUTABLE_SCALAR_CLASSES: Array[singleton(NilClass) | singleton(Numeric) | singleton(Symbol) | singleton(TrueClass) | singleton(FalseClass)]
       DUPLICABLE_SCALAR_CLASSES: Array[singleton(String) | singleton(Time)]
-      TraversalTracker: singleton(Internal::ImmutableArgumentGraph::TraversalTracker)
-      NormalizedGraph: singleton(Internal::ImmutableArgumentGraph::NormalizedGraph)
 
       def initialize: (Hash[Karya::state_name, Karya::job_argument] arguments) -> void
       def normalize: () -> Karya::job_arguments
