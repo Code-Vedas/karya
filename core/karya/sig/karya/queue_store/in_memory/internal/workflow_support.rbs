@@ -99,12 +99,14 @@ module Karya
             @registration: InMemory::Internal::StoreState::WorkflowRegistration
             @jobs: Array[Job]
             @now: Time
+            @state: InMemory::Internal::StoreState
 
             def initialize: (
               batch: Karya::Workflow::Batch,
               registration: InMemory::Internal::StoreState::WorkflowRegistration,
               jobs: Array[Job],
-              now: Time
+              now: Time,
+              state: InMemory::Internal::StoreState
             ) -> void
             def to_snapshot: () -> Karya::Workflow::Snapshot
 
@@ -114,6 +116,20 @@ module Karya
             attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
             attr_reader jobs: Array[Job]
             attr_reader now: Time
+            attr_reader state: InMemory::Internal::StoreState
+            def rollback_snapshot: () -> Karya::Workflow::RollbackSnapshot?
+          end
+
+          class RollbackSnapshotAttributes
+            @attributes: Hash[Symbol, String | Time | Array[String]]
+
+            def initialize: (Hash[Symbol, String | Time | Array[String]] attributes) -> void
+            def to_snapshot: () -> Karya::Workflow::RollbackSnapshot
+
+          private
+
+            attr_reader attributes: Hash[Symbol, String | Time | Array[String]]
+            def fetch: (Symbol name) -> (String | Time | Array[String])
           end
 
           class RollbackState

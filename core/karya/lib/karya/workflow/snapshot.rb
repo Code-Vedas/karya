@@ -20,11 +20,15 @@ module Karya
         dependency_job_ids_by_job_id
         jobs
       ].freeze
+      OPTIONAL_ATTRIBUTES = %i[rollback].freeze
+      SUPPORTED_ATTRIBUTES = (REQUIRED_ATTRIBUTES + OPTIONAL_ATTRIBUTES).freeze
 
       def initialize(**attributes)
         attributes = Attributes.new(attributes)
         @identity = attributes.identity
         @membership = attributes.membership
+        @step_inspection = StepInspection.new(identity:, membership:)
+        @rollback = attributes.rollback
         @summary_data = SummaryData.new(membership)
         freeze
       end
@@ -53,6 +57,34 @@ module Karya
         membership.step_states
       end
 
+      def steps
+        step_inspection.steps
+      end
+
+      def step(step_id)
+        step_inspection.step(step_id)
+      end
+
+      def fetch_step(step_id)
+        step_inspection.fetch_step(step_id)
+      end
+
+      def job_for_step(step_id)
+        fetch_step(step_id).job
+      end
+
+      def job_id_for_step(step_id)
+        fetch_step(step_id).job_id
+      end
+
+      def state_for_step(step_id)
+        fetch_step(step_id).state
+      end
+
+      def rollback_requested?
+        !!rollback
+      end
+
       def state_counts
         summary_data.state_counts
       end
@@ -72,6 +104,8 @@ module Karya
       def state
         summary_data.state
       end
+
+      attr_reader :rollback
 
       # Validates and exposes snapshot construction attributes.
       class Attributes
@@ -100,12 +134,19 @@ module Karya
           )
         end
 
+        def rollback
+          value = attributes.fetch(:rollback, nil)
+          raise InvalidExecutionError, 'rollback must be Karya::Workflow::RollbackSnapshot' if value && !value.is_a?(RollbackSnapshot)
+
+          value
+        end
+
         private
 
         attr_reader :attributes
 
         def validate_keys
-          unknown_keys = attributes.keys - REQUIRED_ATTRIBUTES
+          unknown_keys = attributes.keys - SUPPORTED_ATTRIBUTES
           return if unknown_keys.empty?
 
           raise ArgumentError, "unknown keyword: :#{unknown_keys.first}"
@@ -126,7 +167,7 @@ module Karya
 
       # Groups normalized workflow membership and derived step state fields.
       class Membership
-        attr_reader :dependency_job_ids_by_job_id, :job_ids, :jobs, :step_job_ids, :step_states
+        attr_reader :dependency_job_ids_by_job_id, :job_ids, :jobs, :jobs_by_id, :step_job_ids, :step_states
 
         def initialize(step_job_ids:, dependency_job_ids_by_job_id:, jobs:)
           @step_job_ids = step_job_ids
@@ -134,6 +175,7 @@ module Karya
           @jobs = jobs
           validate_membership
           @job_ids = jobs.map(&:id).freeze
+          @jobs_by_id = jobs.to_h { |job| [job.id, job] }.freeze
           @step_states = build_step_states
           freeze
         end
@@ -149,10 +191,60 @@ module Karya
         end
 
         def build_step_states
-          jobs_by_id = jobs.to_h { |job| [job.id, job] }
           step_job_ids.each_with_object({}) do |(step_id, job_id), states|
             states[step_id] = jobs_by_id.fetch(job_id).state
           end.freeze
+        end
+      end
+
+      # Builds ordered per-step runtime inspection values.
+      class StepInspection
+        def initialize(identity:, membership:)
+          @identity = identity
+          @membership = membership
+          @steps = build_steps
+          @steps_by_id = @steps.to_h { |step_snapshot| [step_snapshot.step_id, step_snapshot] }.freeze
+          freeze
+        end
+
+        attr_reader :steps
+
+        def step(step_id)
+          normalized_step_id = Workflow.send(:normalize_execution_identifier, :step_id, step_id)
+          steps_by_id[normalized_step_id]
+        end
+
+        def fetch_step(step_id)
+          normalized_step_id = Workflow.send(:normalize_execution_identifier, :step_id, step_id)
+          steps_by_id.fetch(normalized_step_id) do
+            raise InvalidExecutionError, "unknown workflow step #{normalized_step_id.inspect}"
+          end
+        end
+
+        private
+
+        attr_reader :identity, :membership, :steps_by_id
+
+        def build_steps
+          membership.step_job_ids.map do |step_id, job_id|
+            prerequisite_job_ids = membership.dependency_job_ids_by_job_id.fetch(job_id, [])
+            StepSnapshot.new(
+              workflow_id: identity.workflow_id,
+              batch_id: identity.batch_id,
+              step_id:,
+              job_id:,
+              job: membership.jobs_by_id.fetch(job_id),
+              prerequisite_job_ids:,
+              prerequisite_states: prerequisite_states_for(prerequisite_job_ids)
+            )
+          end.freeze
+        end
+
+        def prerequisite_states_for(prerequisite_job_ids)
+          prerequisite_job_ids.to_h do |job_id|
+            prerequisite_job = membership.jobs_by_id[job_id]
+            [job_id, prerequisite_job&.state]
+          end
         end
       end
 
@@ -384,9 +476,12 @@ module Karya
                        :JobState,
                        :JobList,
                        :Membership,
+                       :OPTIONAL_ATTRIBUTES,
                        :REQUIRED_ATTRIBUTES,
                        :State,
+                       :StepInspection,
                        :StepJobIds,
+                       :SUPPORTED_ATTRIBUTES,
                        :Summary,
                        :SummaryData,
                        :Timestamp,
@@ -394,7 +489,7 @@ module Karya
 
       private
 
-      attr_reader :identity, :membership, :summary_data
+      attr_reader :identity, :membership, :step_inspection, :summary_data
     end
   end
 end

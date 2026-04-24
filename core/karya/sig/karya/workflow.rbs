@@ -78,6 +78,7 @@ module Karya
       @captured_at: Time
       @job_ids: Array[String]
       @jobs: Array[Job]
+      @jobs_by_id: Hash[String, Job]
       @state_counts: Hash[state_name, Integer]
       @total_count: Integer
       @completed_count: Integer
@@ -101,7 +102,13 @@ module Karya
         jobs: Array[Job]
       ) -> void
 
+      def include_job?: (state_name job_id) -> bool
+      def job: (state_name job_id) -> Job?
+      def fetch_job: (state_name job_id) -> Job
+
     private
+
+      attr_reader jobs_by_id: Hash[String, Job]
 
       class Timestamp
         @name: Symbol
@@ -168,9 +175,174 @@ module Karya
       def validate_membership: () -> void
     end
 
+    class RollbackSnapshot
+      @workflow_batch_id: String
+      @rollback_batch_id: String
+      @reason: String
+      @requested_at: Time
+      @compensation_job_ids: Array[String]
+      @compensation_count: Integer
+
+      attr_reader workflow_batch_id: String
+      attr_reader rollback_batch_id: String
+      attr_reader reason: String
+      attr_reader requested_at: Time
+      attr_reader compensation_job_ids: Array[String]
+      attr_reader compensation_count: Integer
+
+      def initialize: (
+        workflow_batch_id: state_name,
+        rollback_batch_id: state_name,
+        reason: String,
+        requested_at: Time,
+        compensation_job_ids: Array[state_name]
+      ) -> void
+
+    private
+
+      class Timestamp
+        @name: Symbol
+        @value: Time
+
+        def initialize: (Symbol name, Time value) -> void
+        def to_time: () -> Time
+
+      private
+
+        attr_reader name: Symbol
+        attr_reader value: Time
+      end
+
+      class CompensationJobIds
+        @compensation_job_ids: Array[state_name]
+
+        def initialize: (Array[state_name] compensation_job_ids) -> void
+        def to_a: () -> Array[String]
+
+      private
+
+        attr_reader compensation_job_ids: Array[state_name]
+      end
+
+      class Reason
+        @reason: String
+
+        def initialize: (String reason) -> void
+        def normalize: () -> String
+
+      private
+
+        attr_reader reason: String
+      end
+    end
+
+    class StepSnapshot
+      @workflow_id: String
+      @batch_id: String
+      @step_id: String
+      @job_id: String
+      @job: Job
+      @state: state_name
+      @prerequisite_job_ids: Array[String]
+      @prerequisite_states: Hash[String, state_name?]
+
+      attr_reader workflow_id: String
+      attr_reader batch_id: String
+      attr_reader step_id: String
+      attr_reader job_id: String
+      attr_reader job: Job
+      attr_reader state: state_name
+      attr_reader prerequisite_job_ids: Array[String]
+      attr_reader prerequisite_states: Hash[String, state_name?]
+
+      def initialize: (
+        workflow_id: state_name,
+        batch_id: state_name,
+        step_id: state_name,
+        job_id: state_name,
+        job: Job,
+        prerequisite_job_ids: Array[state_name],
+        prerequisite_states: Hash[state_name, state_name?]
+      ) -> void
+      def ready?: () -> bool
+      def blocked?: () -> bool
+      def active?: () -> bool
+      def terminal?: () -> bool
+
+    private
+
+      class Attributes
+        REQUIRED_ATTRIBUTES: Array[Symbol]
+
+        @attributes: Hash[Symbol, Object?]
+
+        def initialize: (Hash[Symbol, Object?] attributes) -> void
+        def workflow_id: () -> String
+        def batch_id: () -> String
+        def step_id: () -> String
+        def job_id: () -> String
+        def job: () -> Job
+        def prerequisite_job_ids: () -> Array[String]
+        def prerequisite_states: () -> Object?
+
+      private
+
+        attr_reader attributes: Hash[Symbol, Object?]
+        def fetch: (Symbol name) -> Object?
+        def validate_keys: () -> void
+      end
+
+      class JobEntry
+        @job_id: String
+        @job: Job
+
+        def initialize: (job_id: String, job: Job) -> void
+        def to_job: () -> Job
+
+      private
+
+        attr_reader job_id: String
+        attr_reader job: Job
+      end
+
+      class JobIdList
+        @field_name: Symbol
+        @job_ids: Array[state_name]
+
+        def initialize: (Symbol field_name, Array[state_name] job_ids) -> void
+        def to_a: () -> Array[String]
+
+      private
+
+        attr_reader field_name: Symbol
+        attr_reader job_ids: Array[state_name]
+      end
+
+      class PrerequisiteStates
+        @prerequisite_job_ids: Array[String]
+        @prerequisite_states: Hash[state_name, state_name?]
+
+        def initialize: (
+          prerequisite_job_ids: Array[String],
+          prerequisite_states: Hash[state_name, state_name?]
+        ) -> void
+        def to_h: () -> Hash[String, state_name?]
+
+      private
+
+        attr_reader prerequisite_job_ids: Array[String]
+        attr_reader prerequisite_states: Hash[state_name, state_name?]
+        def validate_membership: (Hash[String, state_name?] normalized_states) -> void
+      end
+
+      def waiting?: () -> bool
+    end
+
     class Snapshot
       @identity: Identity
       @membership: Membership
+      @step_inspection: StepInspection
+      @rollback: RollbackSnapshot?
       @summary_data: SummaryData
 
       def initialize: (
@@ -179,7 +351,8 @@ module Karya
         captured_at: Time,
         step_job_ids: Hash[state_name, state_name],
         dependency_job_ids_by_job_id: Hash[state_name, Array[state_name]],
-        jobs: Array[Job]
+        jobs: Array[Job],
+        ?rollback: RollbackSnapshot?
       ) -> void
 
       def workflow_id: () -> String
@@ -188,6 +361,14 @@ module Karya
       def job_ids: () -> Array[String]
       def jobs: () -> Array[Job]
       def step_states: () -> Hash[String, state_name]
+      def steps: () -> Array[StepSnapshot]
+      def step: (state_name step_id) -> StepSnapshot?
+      def fetch_step: (state_name step_id) -> StepSnapshot
+      def job_for_step: (state_name step_id) -> Job
+      def job_id_for_step: (state_name step_id) -> String
+      def state_for_step: (state_name step_id) -> state_name
+      def rollback_requested?: () -> bool
+      def rollback: () -> RollbackSnapshot?
       def state_counts: () -> Hash[state_name, Integer]
       def total_count: () -> Integer
       def completed_count: () -> Integer
@@ -198,6 +379,7 @@ module Karya
 
       attr_reader identity: Identity
       attr_reader membership: Membership
+      attr_reader step_inspection: StepInspection
       attr_reader summary_data: SummaryData
 
       class Attributes
@@ -207,6 +389,7 @@ module Karya
         def fetch: (Symbol name) -> workflow_snapshot_attribute_value
         def identity: () -> Identity
         def membership: () -> Membership
+        def rollback: () -> RollbackSnapshot?
 
       private
 
@@ -230,12 +413,14 @@ module Karya
         @step_job_ids: Hash[String, String]
         @dependency_job_ids_by_job_id: Hash[String, Array[String]]
         @jobs: Array[Job]
+        @jobs_by_id: Hash[String, Job]
         @job_ids: Array[String]
         @step_states: Hash[String, state_name]
 
         attr_reader step_job_ids: Hash[String, String]
         attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
         attr_reader jobs: Array[Job]
+        attr_reader jobs_by_id: Hash[String, Job]
         attr_reader job_ids: Array[String]
         attr_reader step_states: Hash[String, state_name]
 
@@ -249,6 +434,28 @@ module Karya
 
         def validate_membership: () -> void
         def build_step_states: () -> Hash[String, state_name]
+      end
+
+      class StepInspection
+        @identity: Identity
+        @membership: Membership
+        @steps: Array[StepSnapshot]
+        @steps_by_id: Hash[String, StepSnapshot]
+
+        def initialize: (identity: Identity, membership: Membership) -> void
+
+        attr_reader steps: Array[StepSnapshot]
+
+        def step: (state_name step_id) -> StepSnapshot?
+        def fetch_step: (state_name step_id) -> StepSnapshot
+
+      private
+
+        attr_reader identity: Identity
+        attr_reader membership: Membership
+        attr_reader steps_by_id: Hash[String, StepSnapshot]
+        def build_steps: () -> Array[StepSnapshot]
+        def prerequisite_states_for: (Array[String] prerequisite_job_ids) -> Hash[String, state_name?]
       end
 
       class SummaryData
@@ -475,27 +682,44 @@ module Karya
     class Definition
       @id: String
       @steps: Array[Step]
+      @step_ids: Array[String]
       @steps_by_id: Hash[String, Step]
       @dependencies: Array[Dependency]
+      @dependencies_by_step_id: Hash[String, Array[String]]
+      @dependents_by_step_id: Hash[String, Array[String]]
+      @root_step_ids: Array[String]
+      @leaf_step_ids: Array[String]
+      @compensable_step_ids: Array[String]
 
       attr_reader id: String
       attr_reader steps: Array[Step]
+      attr_reader step_ids: Array[String]
       attr_reader dependencies: Array[Dependency]
+      attr_reader root_step_ids: Array[String]
+      attr_reader leaf_step_ids: Array[String]
+      attr_reader compensable_step_ids: Array[String]
 
       def initialize: (id: state_name, steps: Array[Step]) -> void
       def step: (state_name step_id) -> Step?
+      def fetch_step: (state_name step_id) -> Step
+      def dependencies_for: (state_name step_id) -> Array[String]
+      def dependents_for: (state_name step_id) -> Array[String]
 
     private
 
+      attr_reader dependencies_by_step_id: Hash[String, Array[String]]
+      attr_reader dependents_by_step_id: Hash[String, Array[String]]
       attr_reader steps_by_id: Hash[String, Step]
 
       class Graph
         @steps: Array[Step]
         @steps_by_id: Hash[String, Step]
         @dependencies: Array[Dependency]
+        @inspection: Graph::Inspection
 
         attr_reader steps: Array[Step]
         attr_reader dependencies: Array[Dependency]
+        attr_reader inspection: Graph::Inspection
 
         def initialize: (Array[Step] raw_steps) -> void
 
@@ -529,6 +753,92 @@ module Karya
 
             attr_reader workflow_step: Step
           end
+        end
+
+        class Inspection
+          @steps: Array[Step]
+          @step_ids: Array[String]
+          @dependencies_by_step_id: Hash[String, Array[String]]
+          @dependents_by_step_id: Hash[String, Array[String]]
+          @root_step_ids: Array[String]
+          @leaf_step_ids: Array[String]
+          @compensable_step_ids: Array[String]
+
+          attr_reader step_ids: Array[String]
+          attr_reader dependencies_by_step_id: Hash[String, Array[String]]
+          attr_reader dependents_by_step_id: Hash[String, Array[String]]
+          attr_reader root_step_ids: Array[String]
+          attr_reader leaf_step_ids: Array[String]
+          attr_reader compensable_step_ids: Array[String]
+
+          def initialize: (Array[Step] steps) -> void
+
+        private
+
+          attr_reader steps: Array[Step]
+        end
+
+        class StepDependencies
+          @steps: Array[Step]
+
+          def initialize: (Array[Step] steps) -> void
+          def to_h: () -> Hash[String, Array[String]]
+
+        private
+
+          attr_reader steps: Array[Step]
+        end
+
+        class StepDependents
+          @steps: Array[Step]
+
+          def initialize: (Array[Step] steps) -> void
+          def to_h: () -> Hash[String, Array[String]]
+
+        private
+
+          attr_reader steps: Array[Step]
+          def step_ids: () -> Array[String]
+        end
+
+        class StepFilter
+          @steps: Array[Step]
+
+          def initialize: (Array[Step] steps) -> void
+          def root_ids: () -> Array[String]
+          def leaf_ids: (Hash[String, Array[String]] dependents_by_step_id) -> Array[String]
+          def compensable_ids: () -> Array[String]
+
+        private
+
+          attr_reader steps: Array[Step]
+        end
+
+        class DependencyPairs
+          @steps: Array[Step]
+
+          def initialize: (Array[Step] steps) -> void
+          def to_a: () -> Array[[String, String]]
+
+        private
+
+          attr_reader steps: Array[Step]
+        end
+
+        class StepEntry
+          @workflow_step: Step
+
+          def initialize: (Step workflow_step) -> void
+          def dependencies_pair: () -> [String, Array[String]]
+          def dependent_pairs: () -> Array[[String, String]]
+          def root_id: () -> String?
+          def leaf_id: (Hash[String, Array[String]] dependents_by_step_id) -> String?
+          def compensable_id: () -> String?
+
+        private
+
+          attr_reader workflow_step: Step
+          def id: () -> String
         end
       end
     end

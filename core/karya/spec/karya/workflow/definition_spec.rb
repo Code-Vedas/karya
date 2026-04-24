@@ -12,15 +12,45 @@ RSpec.describe Karya::Workflow::Definition do
   end
 
   it 'keeps steps ordered and exposes step lookup by normalized id' do
-    definition = described_class.new(id: :invoice_closeout, steps: [calculate_totals, capture_payment])
+    emit_receipt = Karya::Workflow::Step.new(
+      id: :emit_receipt,
+      handler: :emit_receipt,
+      depends_on: :capture_payment,
+      compensate_with: :void_receipt
+    )
+    definition = described_class.new(id: :invoice_closeout, steps: [calculate_totals, capture_payment, emit_receipt])
 
-    expect(definition.steps).to eq([calculate_totals, capture_payment])
+    expect(definition.steps).to eq([calculate_totals, capture_payment, emit_receipt])
     expect(definition.steps).to be_frozen
+    expect(definition.step_ids).to eq(%w[calculate_totals capture_payment emit_receipt])
+    expect(definition.step_ids).to be_frozen
     expect(definition.dependencies).to contain_exactly(
-      have_attributes(step_id: 'capture_payment', depends_on_step_id: 'calculate_totals')
+      have_attributes(step_id: 'capture_payment', depends_on_step_id: 'calculate_totals'),
+      have_attributes(step_id: 'emit_receipt', depends_on_step_id: 'capture_payment')
     )
     expect(definition.step(' capture_payment ')).to eq(capture_payment)
+    expect(definition.fetch_step(' emit_receipt ')).to eq(emit_receipt)
+    expect(definition.dependencies_for(:emit_receipt)).to eq(['capture_payment'])
+    expect(definition.dependents_for(:calculate_totals)).to eq(['capture_payment'])
+    expect(definition.root_step_ids).to eq(['calculate_totals'])
+    expect(definition.leaf_step_ids).to eq(['emit_receipt'])
+    expect(definition.compensable_step_ids).to eq(['emit_receipt'])
     expect(definition).to be_frozen
+  end
+
+  it 'raises definition errors when fetching unknown step inspection' do
+    definition = described_class.new(id: :invoice_closeout, steps: [calculate_totals])
+
+    expect(definition.step(:missing)).to be_nil
+    expect do
+      definition.fetch_step(:missing)
+    end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'unknown workflow step "missing"')
+    expect do
+      definition.dependencies_for(:missing)
+    end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'unknown workflow step "missing"')
+    expect do
+      definition.dependents_for(:missing)
+    end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'unknown workflow step "missing"')
   end
 
   it 'rejects duplicate step ids' do

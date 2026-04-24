@@ -95,7 +95,7 @@ module Karya
               workflow_batch_id = batch.id
               registration = fetch_workflow_registration(workflow_batch_id)
               jobs = fetch_batch_jobs(batch)
-              WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now).to_snapshot
+              WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now, state:).to_snapshot
             end
           end
 
@@ -218,7 +218,7 @@ module Karya
             registration = fetch_workflow_registration(workflow_batch_id)
             raise_duplicate_rollback(workflow_batch_id)
             jobs = fetch_batch_jobs(batch)
-            snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now:).to_snapshot
+            snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now:, state:).to_snapshot
             RollbackState.new(snapshot, registration.dependency_job_ids_by_job_id).validate
             plan = RollbackPlan.new(registration:, jobs:).to_plan
             rollback_batch_id = RollbackBatchId.new(workflow_batch_id).to_s
@@ -249,11 +249,12 @@ module Karya
 
           # Builds workflow snapshots from stored workflow metadata.
           class WorkflowSnapshotBuilder
-            def initialize(batch:, registration:, jobs:, now:)
+            def initialize(batch:, registration:, jobs:, now:, state:)
               @batch = batch
               @registration = registration
               @jobs = jobs
               @now = now
+              @state = state
             end
 
             def to_snapshot
@@ -263,13 +264,46 @@ module Karya
                 captured_at: now,
                 step_job_ids: registration.step_job_ids,
                 dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
-                jobs:
+                jobs:,
+                rollback: rollback_snapshot
               )
             end
 
             private
 
-            attr_reader :batch, :jobs, :now, :registration
+            attr_reader :batch, :jobs, :now, :registration, :state
+
+            def rollback_snapshot
+              rollback = state.workflow_rollbacks_by_batch_id[batch.id]
+              return unless rollback
+
+              RollbackSnapshotAttributes.new(rollback.to_h).to_snapshot
+            end
+          end
+
+          # Converts owner-local rollback storage into public workflow inspection.
+          class RollbackSnapshotAttributes
+            def initialize(attributes)
+              @attributes = attributes
+            end
+
+            def to_snapshot
+              Workflow::RollbackSnapshot.new(
+                workflow_batch_id: fetch(:batch_id),
+                rollback_batch_id: fetch(:rollback_batch_id),
+                reason: fetch(:reason),
+                requested_at: fetch(:requested_at),
+                compensation_job_ids: fetch(:compensation_job_ids)
+              )
+            end
+
+            private
+
+            attr_reader :attributes
+
+            def fetch(name)
+              attributes.fetch(name)
+            end
           end
 
           # Validates rollback state eligibility.
@@ -323,7 +357,7 @@ module Karya
               "workflow batch #{batch_id} has active jobs and cannot be rolled back"
             end
           end
-          private_constant :RollbackState, :WorkflowSnapshotBuilder
+          private_constant :RollbackSnapshotAttributes, :RollbackState, :WorkflowSnapshotBuilder
 
           def workflow_dependencies_satisfied?(job)
             prerequisite_job_ids = state.workflow_dependency_job_ids_by_job_id[job.id]

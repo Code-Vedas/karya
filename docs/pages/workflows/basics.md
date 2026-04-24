@@ -63,6 +63,24 @@ aggregate state:
 - `failed` when a step failed, was dead-lettered, or terminal mixed outcomes
   prevent workflow success
 
+The definition and runtime snapshots are also inspectable without reaching into
+queue-store internals:
+
+```ruby
+workflow.step_ids
+#=> ["calculate_totals", "capture_payment", "emit_receipt"]
+
+workflow.dependencies_for(:emit_receipt)
+#=> ["calculate_totals", "capture_payment"]
+
+snapshot = store.workflow_snapshot(batch_id: :invoice_closeout_123, now: Time.now)
+snapshot.fetch_step(:emit_receipt).prerequisite_states
+#=> {"job-calculate_totals" => :succeeded, "job-capture_payment" => :queued}
+
+snapshot.fetch_step(:emit_receipt).blocked?
+#=> true
+```
+
 Steps can also declare compensation work for explicit saga rollback:
 
 ```ruby
@@ -87,6 +105,16 @@ work is dependency-gated so rollback runs one compensation job at a time. If
 every succeeded step is uncompensated, rollback records the operator boundary
 without adding jobs.
 
+Rollback request metadata is exposed from the same workflow snapshot:
+
+```ruby
+snapshot.rollback_requested?
+#=> true
+
+snapshot.rollback.rollback_batch_id
+#=> "invoice_closeout_123.rollback"
+```
+
 ### Batch Identity And Aggregate State
 
 Workflow batches give related runtime jobs one stable identity. Batch creation
@@ -103,6 +131,18 @@ Batch aggregate state is derived from member job lifecycle state:
 - `succeeded` when every member succeeded
 - `cancelled` when every member was cancelled
 - `completed` for terminal mixed success and cancellation outcomes
+
+Batch snapshots support direct member lookup without adding list or search
+APIs:
+
+```ruby
+batch = store.batch_snapshot(batch_id: :invoice_closeout_123, now: Time.now)
+batch.include_job?(:job_capture_payment)
+#=> true
+
+batch.fetch_job(:job_capture_payment)
+#=> #<Karya::Job ...>
+```
 
 ## Related Concepts
 

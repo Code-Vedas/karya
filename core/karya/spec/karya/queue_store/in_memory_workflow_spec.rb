@@ -287,6 +287,10 @@ RSpec.describe Karya::QueueStore::InMemory do
         step_states: { 'root' => :queued, 'child' => :queued },
         state: :blocked
       )
+      expect(blocked.steps.map(&:step_id)).to eq(%w[root child])
+      expect(blocked.step(:root)).to be_ready
+      expect(blocked.step(:child)).to be_blocked
+      expect(blocked.step(:child).prerequisite_states).to eq('job-root' => :queued)
 
       root = reserve(3, handler_names: ['root'])
       expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 4).state).to eq(:running)
@@ -294,6 +298,10 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       ready = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 7)
       expect(ready.step_states).to eq('root' => :succeeded, 'child' => :queued)
+      expect(ready.fetch_step(:child)).to be_ready
+      expect(ready.job_id_for_step(:child)).to eq('job-child')
+      expect(ready.job_for_step(:root).state).to eq(:succeeded)
+      expect(ready.state_for_step(:root)).to eq(:succeeded)
       expect(ready.state).to eq(:running)
     end
 
@@ -359,6 +367,9 @@ RSpec.describe Karya::QueueStore::InMemory do
       run_successfully(pack, start_offset: 8, complete_offset: 9)
 
       expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 10).state).to eq(:running)
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 11)
+      expect(snapshot.steps.map(&:step_id)).to eq(%w[capture pack notify])
+      expect(snapshot.fetch_step(:notify)).to be_ready
     end
 
     it 'moves failed workflows out of failed when prerequisite jobs are retried' do
@@ -430,6 +441,14 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(report.action).to eq(:rollback_workflow)
       expect(report.changed_jobs.map(&:id)).to eq(%w[rollback-job-second rollback-job-first])
+      rollback_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 12).rollback
+      expect(rollback_snapshot).to have_attributes(
+        workflow_batch_id: 'batch_one',
+        rollback_batch_id: rollback_batch_id('batch_one'),
+        reason: 'operator rollback',
+        compensation_job_ids: %w[rollback-job-second rollback-job-first],
+        compensation_count: 2
+      )
       expect(store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 12).job_ids)
         .to eq(%w[rollback-job-second rollback-job-first])
       expect(reserve(13, queue: 'rollback').job_id).to eq('rollback-job-second')
@@ -671,6 +690,13 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(report.action).to eq(:rollback_workflow)
       expect(report.requested_job_ids).to eq([])
       expect(report.changed_jobs).to eq([])
+      rollback_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 9).rollback
+      expect(rollback_snapshot).to have_attributes(
+        workflow_batch_id: 'batch_one',
+        rollback_batch_id: 'batch_one.rollback',
+        compensation_job_ids: [],
+        compensation_count: 0
+      )
       expect(reserve(9)).to be_nil
       expect { store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 10) }
         .to raise_error(Karya::Workflow::UnknownBatchError, "batch #{rollback_batch_id('batch_one').inspect} is not registered")
