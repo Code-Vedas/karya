@@ -24,14 +24,14 @@ explicit state transitions, and operator-facing execution history.
 
 Use a workflow when multiple steps need one durable execution story:
 
-```text
-workflow: invoice-closeout
-steps:
-  - calculate_totals
-  - capture_payment
-  - emit_receipt
-on_failure:
-  - compensate prior completed steps in reverse order
+```ruby
+workflow = Karya::Workflow.define(:invoice_closeout) do
+  step :calculate_totals, handler: :calculate_totals
+  step :capture_payment, handler: :capture_payment, depends_on: :calculate_totals
+  step :emit_receipt,
+       handler: :emit_receipt,
+       depends_on: %i[calculate_totals capture_payment]
+end
 ```
 
 This is the core idea: Karya treats related work as one inspectable workflow,

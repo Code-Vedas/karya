@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative 'karya/base'
+require_relative 'karya/internal/immutable_argument_graph'
 require_relative 'karya/internal/null_logger'
 require_relative 'karya/version'
 
@@ -18,6 +19,7 @@ require_relative 'karya/retry_policy'
 require_relative 'karya/retry_policy_set'
 require_relative 'karya/reservation'
 require_relative 'karya/queue_store'
+require_relative 'karya/workflow'
 require_relative 'karya/constant_resolver'
 require_relative 'karya/worker'
 require_relative 'karya/worker_supervisor'

@@ -1,0 +1,86 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    class ImmutableArgumentGraph
+      IMMUTABLE_SCALAR_CLASSES: Array[singleton(NilClass) | singleton(Numeric) | singleton(Symbol) | singleton(TrueClass) | singleton(FalseClass)]
+      DUPLICABLE_SCALAR_CLASSES: Array[singleton(String) | singleton(Time)]
+
+      @arguments: Hash[Karya::state_name, Karya::job_argument]
+      @error_class: Karya::error_class
+
+      def initialize: (Hash[Karya::state_name, Karya::job_argument] arguments, error_class: Karya::error_class) -> void
+      def normalize: () -> Karya::job_arguments
+
+      private
+
+      attr_reader arguments: Hash[Karya::state_name, Karya::job_argument]
+      attr_reader error_class: Karya::error_class
+      def freeze_hash: (Hash[Karya::state_name, Karya::job_argument] value, tracker: TraversalTracker) -> Karya::job_arguments
+      def freeze_value: (Karya::job_argument value, tracker: TraversalTracker) -> Karya::job_argument
+      def freeze_array: (Array[Karya::job_argument] value, tracker: TraversalTracker) -> Array[Karya::job_argument]
+      def freeze_scalar: (Karya::job_argument value) -> Karya::job_argument
+      def self.immutable_scalar?: (Karya::job_argument value) -> bool
+      def self.duplicable_scalar?: (Karya::job_argument value) -> bool
+      def immutable_scalar?: (Karya::job_argument value) -> bool
+      def duplicable_scalar?: (Karya::job_argument value) -> bool
+
+      class TraversalTracker
+        @entered_object_ids: Hash[Integer, bool]
+        @error_class: Karya::error_class
+
+        def initialize: (error_class: Karya::error_class) -> void
+        def track: (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) -> bool
+        def around: [A] (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) { () -> A } -> A
+        def leave: (Array[Karya::job_argument] | Hash[Karya::state_name, Karya::job_argument] | Karya::job_arguments value) -> bool?
+
+      private
+
+        attr_reader entered_object_ids: Hash[Integer, bool]
+        attr_reader error_class: Karya::error_class
+      end
+
+      class NormalizedGraph
+        @value: Karya::job_argument_graph
+        @error_class: Karya::error_class
+        @immutable_scalar_checker: ^(Karya::job_argument) -> bool
+        @duplicable_scalar_checker: ^(Karya::job_argument) -> bool
+
+        def initialize: (
+          Karya::job_argument_graph value,
+          error_class: Karya::error_class,
+          immutable_scalar_checker: ^(Karya::job_argument) -> bool,
+          duplicable_scalar_checker: ^(Karya::job_argument) -> bool
+        ) -> void
+
+        def normalized?: () -> bool
+
+      private
+
+        attr_reader duplicable_scalar_checker: ^(Karya::job_argument) -> bool
+        attr_reader error_class: Karya::error_class
+        attr_reader immutable_scalar_checker: ^(Karya::job_argument) -> bool
+        attr_reader value: Karya::job_argument_graph
+        def normalized_value?: (Karya::job_argument_graph candidate, tracker: TraversalTracker) -> bool
+        def normalized_hash?: (Hash[Karya::state_name, Karya::job_argument] candidate, frozen_candidate: bool, tracker: TraversalTracker) -> bool
+        def normalized_array?: (Array[Karya::job_argument] candidate, frozen_candidate: bool, tracker: TraversalTracker) -> bool
+        def immutable_scalar?: (Karya::job_argument candidate) -> bool
+        def duplicable_scalar?: (Karya::job_argument candidate) -> bool
+
+        class NormalizedKey
+          @key: Karya::state_name
+
+          def initialize: (Karya::state_name key) -> void
+          def valid?: () -> bool
+
+        private
+
+          attr_reader key: Karya::state_name
+        end
+      end
+    end
+  end
+end

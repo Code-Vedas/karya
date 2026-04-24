@@ -134,11 +134,13 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
   end
 
   describe 'TraversalTracker' do
-    let(:traversal_tracker_class) { Karya::Job.const_get(:ImmutableArguments, false).const_get(:TraversalTracker, false) }
+    let(:traversal_tracker_class) do
+      Karya::Internal::ImmutableArgumentGraph.const_get(:TraversalTracker, false)
+    end
 
     describe '#track' do
       it 'tracks object_id to prevent cycles' do
-        tracker = traversal_tracker_class.new
+        tracker = traversal_tracker_class.new(error_class: Karya::InvalidJobAttributeError)
         value = { 'key' => 'value' }
 
         tracker.track(value)
@@ -151,7 +153,7 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
 
     describe '#around' do
       it 'tracks object during block execution and removes it after' do
-        tracker = traversal_tracker_class.new
+        tracker = traversal_tracker_class.new(error_class: Karya::InvalidJobAttributeError)
         value = { 'key' => 'value' }
 
         tracker.around(value) do
@@ -164,7 +166,7 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
       end
 
       it 'removes tracking even when block raises' do
-        tracker = traversal_tracker_class.new
+        tracker = traversal_tracker_class.new(error_class: Karya::InvalidJobAttributeError)
         value = { 'key' => 'value' }
 
         expect do
@@ -179,7 +181,9 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
   end
 
   describe 'NormalizedGraph' do
-    let(:normalized_graph_class) { Karya::Job.const_get(:ImmutableArguments, false).const_get(:NormalizedGraph, false) }
+    let(:normalized_graph_class) do
+      Karya::Internal::ImmutableArgumentGraph.const_get(:NormalizedGraph, false)
+    end
     let(:immutable_scalar_checker) { ->(v) { [NilClass, Numeric, Symbol, TrueClass, FalseClass].any? { |k| v.is_a?(k) } } }
     let(:duplicable_scalar_checker) { ->(v) { [String, Time].any? { |k| v.is_a?(k) } } }
 
@@ -187,6 +191,7 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
       it 'returns true for frozen hash with frozen string keys and frozen values' do
         value = { 'key' => 'value' }.freeze
         graph = normalized_graph_class.new(value,
+                                           error_class: Karya::InvalidJobAttributeError,
                                            immutable_scalar_checker: immutable_scalar_checker,
                                            duplicable_scalar_checker: duplicable_scalar_checker)
 
@@ -196,6 +201,7 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
       it 'returns false for unfrozen hash' do
         value = { 'key' => 'value' }
         graph = normalized_graph_class.new(value,
+                                           error_class: Karya::InvalidJobAttributeError,
                                            immutable_scalar_checker: immutable_scalar_checker,
                                            duplicable_scalar_checker: duplicable_scalar_checker)
 
@@ -205,6 +211,7 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
       it 'returns false for hash with symbol keys' do
         value = { key: 'value' }.freeze
         graph = normalized_graph_class.new(value,
+                                           error_class: Karya::InvalidJobAttributeError,
                                            immutable_scalar_checker: immutable_scalar_checker,
                                            duplicable_scalar_checker: duplicable_scalar_checker)
 
@@ -214,6 +221,7 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
       it 'returns false for hash with unfrozen string values' do
         value = { 'key' => +'value' }.freeze # Use unary + to create mutable string
         graph = normalized_graph_class.new(value,
+                                           error_class: Karya::InvalidJobAttributeError,
                                            immutable_scalar_checker: immutable_scalar_checker,
                                            duplicable_scalar_checker: duplicable_scalar_checker)
 
@@ -223,6 +231,7 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
       it 'returns true for deeply nested normalized structure' do
         value = { 'user' => { 'name' => 'Alice', 'tags' => ['admin'].freeze }.freeze }.freeze
         graph = normalized_graph_class.new(value,
+                                           error_class: Karya::InvalidJobAttributeError,
                                            immutable_scalar_checker: immutable_scalar_checker,
                                            duplicable_scalar_checker: duplicable_scalar_checker)
 
@@ -232,6 +241,7 @@ RSpec.describe 'Karya::Job::ImmutableArguments' do
       it 'returns true for immutable scalars' do
         value = { 'count' => 42, 'symbol' => :status, 'nil' => nil }.freeze
         graph = normalized_graph_class.new(value,
+                                           error_class: Karya::InvalidJobAttributeError,
                                            immutable_scalar_checker: immutable_scalar_checker,
                                            duplicable_scalar_checker: duplicable_scalar_checker)
 

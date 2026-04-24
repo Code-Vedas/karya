@@ -1,0 +1,165 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Workflow
+    class InvalidDefinitionError < Error
+    end
+
+    def self.define: (state_name id) ?{ -> void } -> Definition
+    def self.catalog: (definitions: Array[Definition]) -> Catalog
+
+    class Dependency
+      @step_id: String
+      @depends_on_step_id: String
+
+      attr_reader step_id: String
+      attr_reader depends_on_step_id: String
+
+      def initialize: (step_id: state_name, depends_on_step_id: state_name) -> void
+    end
+
+    class Step
+      @id: String
+      @handler: String
+      @arguments: Hash[String, job_argument]
+      @depends_on: Array[String]
+
+      attr_reader id: String
+      attr_reader handler: String
+      attr_reader arguments: Hash[String, job_argument]
+      attr_reader depends_on: Array[String]
+
+      def initialize: (
+        id: state_name,
+        handler: state_name,
+        ?arguments: Hash[state_name, job_argument],
+        ?depends_on: (state_name | Array[state_name] | nil)
+      ) -> void
+
+    private
+
+      class Arguments
+        @arguments: Hash[Karya::state_name, Karya::job_argument]
+        @handler: String
+        @step_id: String
+
+        def initialize: (
+          Hash[Karya::state_name, Karya::job_argument] arguments,
+          step_id: String,
+          handler: String
+        ) -> void
+        def normalize: () -> Karya::job_arguments
+
+      private
+
+        attr_reader arguments: Hash[Karya::state_name, Karya::job_argument]
+        attr_reader handler: String
+        attr_reader step_id: String
+        def context_message: () -> String
+      end
+
+      class Dependencies
+        @value: (state_name | Array[state_name] | nil)
+
+        def initialize: ((state_name | Array[state_name] | nil) value) -> void
+        def normalize: () -> Array[String]
+
+      private
+
+        attr_reader value: (state_name | Array[state_name] | nil)
+        def raw_dependencies: () -> Array[state_name]
+      end
+    end
+
+    class Definition
+      @id: String
+      @steps: Array[Step]
+      @steps_by_id: Hash[String, Step]
+      @dependencies: Array[Dependency]
+
+      attr_reader id: String
+      attr_reader steps: Array[Step]
+      attr_reader dependencies: Array[Dependency]
+
+      def initialize: (id: state_name, steps: Array[Step]) -> void
+      def step: (state_name step_id) -> Step?
+
+    private
+
+      attr_reader steps_by_id: Hash[String, Step]
+
+      class Graph
+        @steps: Array[Step]
+        @steps_by_id: Hash[String, Step]
+        @dependencies: Array[Dependency]
+
+        attr_reader steps: Array[Step]
+        attr_reader dependencies: Array[Dependency]
+
+        def initialize: (Array[Step] raw_steps) -> void
+
+      private
+
+        attr_reader steps_by_id: Hash[String, Step]
+        def normalize_steps: (Array[Step] value) -> Array[Step]
+        def validate_duplicate_step_ids: (Array[Step] workflow_steps) -> void
+        def validate_dependency_targets: () -> void
+        def validate_step_dependencies: (Step workflow_step) -> void
+        def validate_acyclic: () -> void
+        def detect_cycle: (String step_id, Hash[String, Symbol] visit_states) -> void
+
+        class DependencyList
+          @steps: Array[Step]
+
+          def initialize: (Array[Step] steps) -> void
+          def dependencies: () -> Array[Dependency]
+
+        private
+
+          attr_reader steps: Array[Step]
+
+          class StepDependencies
+            @workflow_step: Step
+
+            def initialize: (Step workflow_step) -> void
+            def to_a: () -> Array[Dependency]
+
+          private
+
+            attr_reader workflow_step: Step
+          end
+        end
+      end
+    end
+
+    class Catalog
+      @definitions: Hash[String, Definition]
+
+      attr_reader definitions: Hash[String, Definition]
+
+      def initialize: (definitions: Array[Definition]) -> void
+      def fetch: (state_name workflow_id) -> Definition
+    end
+
+  private
+
+    def self.normalize_identifier: (Symbol field_name, state_name value) -> String
+
+    class Builder
+      @id: state_name
+      @steps: Array[Step]
+
+      def initialize: (state_name id) -> void
+      def step: (state_name id, handler: state_name, ?arguments: Hash[state_name, job_argument], ?depends_on: (state_name | Array[state_name] | nil)) -> nil
+      def to_definition: () -> Definition
+
+    private
+
+      attr_reader id: state_name
+      attr_reader steps: Array[Step]
+    end
+  end
+end
