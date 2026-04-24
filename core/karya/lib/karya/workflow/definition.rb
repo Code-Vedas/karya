@@ -13,6 +13,8 @@ module Karya
 
       def initialize(id:, steps:)
         @id = Workflow.send(:normalize_identifier, :workflow_id, id)
+        raise InvalidDefinitionError, 'steps must be an Array of Karya::Workflow::Step' unless steps.is_a?(Array)
+
         graph = Graph.new(steps)
         @steps = graph.steps
         @dependencies = graph.dependencies
@@ -41,7 +43,6 @@ module Karya
         attr_reader :steps_by_id
 
         def normalize_steps(value)
-          raise InvalidDefinitionError, 'steps must be an Array of Karya::Workflow::Step' unless value.is_a?(Array)
           raise InvalidDefinitionError, 'workflow must define at least one step' if value.empty?
 
           normalized_steps = value.map do |workflow_step|

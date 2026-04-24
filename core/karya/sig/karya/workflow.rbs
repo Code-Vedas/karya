@@ -87,12 +87,12 @@ module Karya
         attr_reader steps: Array[Step]
         attr_reader dependencies: Array[Dependency]
 
-        def initialize: (untyped raw_steps) -> void
+        def initialize: (Array[Step] raw_steps) -> void
 
       private
 
         attr_reader steps_by_id: Hash[String, Step]
-        def normalize_steps: (untyped value) -> Array[Step]
+        def normalize_steps: (Array[Step] value) -> Array[Step]
         def validate_duplicate_step_ids: (Array[Step] workflow_steps) -> void
         def validate_dependency_targets: () -> void
         def validate_step_dependencies: (Step workflow_step) -> void
