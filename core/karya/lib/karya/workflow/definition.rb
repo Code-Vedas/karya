@@ -17,14 +17,19 @@ module Karya
 
         graph = Graph.new(steps)
         @steps = graph.steps
+        @steps_by_id = @steps.to_h { |workflow_step| [workflow_step.id, workflow_step] }.freeze
         @dependencies = graph.dependencies
         freeze
       end
 
       def step(step_id)
         normalized_step_id = Workflow.send(:normalize_identifier, :step_id, step_id)
-        steps.find { |workflow_step| workflow_step.id == normalized_step_id }
+        steps_by_id[normalized_step_id]
       end
+
+      private
+
+      attr_reader :steps_by_id
 
       # Owner-local graph normalizer and validator for workflow step composition.
       class Graph

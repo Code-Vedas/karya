@@ -38,6 +38,7 @@ RSpec.describe Karya::Workflow::Step do
       described_class.new(id: :emit_receipt, handler: :emit_receipt, arguments: { receipt: Object.new })
     end.to raise_error(
       Karya::Workflow::InvalidDefinitionError,
+      'workflow step "emit_receipt" (handler "emit_receipt") has invalid arguments: ' \
       'argument values must be composed of Hash, Array, String, Time, Symbol, Numeric, boolean, or nil'
     )
   end
@@ -45,7 +46,10 @@ RSpec.describe Karya::Workflow::Step do
   it 'rejects non-hash arguments' do
     expect do
       described_class.new(id: :emit_receipt, handler: :emit_receipt, arguments: [])
-    end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'arguments must be a Hash')
+    end.to raise_error(
+      Karya::Workflow::InvalidDefinitionError,
+      'workflow step "emit_receipt" (handler "emit_receipt") has invalid arguments: arguments must be a Hash'
+    )
   end
 
   it 'rejects duplicate argument keys after normalization' do
@@ -53,6 +57,7 @@ RSpec.describe Karya::Workflow::Step do
       described_class.new(id: :emit_receipt, handler: :emit_receipt, arguments: { receipt: 1, ' receipt ' => 2 })
     end.to raise_error(
       Karya::Workflow::InvalidDefinitionError,
+      'workflow step "emit_receipt" (handler "emit_receipt") has invalid arguments: ' \
       'duplicate argument key after normalization: "receipt"'
     )
   end
@@ -60,7 +65,10 @@ RSpec.describe Karya::Workflow::Step do
   it 'rejects blank argument keys after normalization' do
     expect do
       described_class.new(id: :emit_receipt, handler: :emit_receipt, arguments: { '   ' => 1 })
-    end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'argument keys must be present')
+    end.to raise_error(
+      Karya::Workflow::InvalidDefinitionError,
+      'workflow step "emit_receipt" (handler "emit_receipt") has invalid arguments: argument keys must be present'
+    )
   end
 
   it 'normalizes nested arrays in arguments' do
@@ -81,6 +89,10 @@ RSpec.describe Karya::Workflow::Step do
 
     expect do
       described_class.new(id: :emit_receipt, handler: :emit_receipt, arguments: recursive)
-    end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'arguments must not contain recursive structures')
+    end.to raise_error(
+      Karya::Workflow::InvalidDefinitionError,
+      'workflow step "emit_receipt" (handler "emit_receipt") has invalid arguments: ' \
+      'arguments must not contain recursive structures'
+    )
   end
 end

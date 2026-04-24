@@ -43,13 +43,22 @@ module Karya
 
       class Arguments
         @arguments: Hash[Karya::state_name, Karya::job_argument]
+        @handler: String
+        @step_id: String
 
-        def initialize: (Hash[Karya::state_name, Karya::job_argument] arguments) -> void
+        def initialize: (
+          Hash[Karya::state_name, Karya::job_argument] arguments,
+          step_id: String,
+          handler: String
+        ) -> void
         def normalize: () -> Karya::job_arguments
 
       private
 
         attr_reader arguments: Hash[Karya::state_name, Karya::job_argument]
+        attr_reader handler: String
+        attr_reader step_id: String
+        def context_message: () -> String
       end
 
       class Dependencies
@@ -68,6 +77,7 @@ module Karya
     class Definition
       @id: String
       @steps: Array[Step]
+      @steps_by_id: Hash[String, Step]
       @dependencies: Array[Dependency]
 
       attr_reader id: String
@@ -78,6 +88,8 @@ module Karya
       def step: (state_name step_id) -> Step?
 
     private
+
+      attr_reader steps_by_id: Hash[String, Step]
 
       class Graph
         @steps: Array[Step]
