@@ -134,6 +134,8 @@ module Karya
 
   private
 
+    def self.normalize_identifier: (Symbol field_name, state_name value) -> String
+
     class Builder
       @id: state_name
       @steps: Array[Step]
