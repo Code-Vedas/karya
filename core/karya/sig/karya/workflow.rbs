@@ -1,0 +1,65 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Workflow
+    class InvalidDefinitionError < Error
+    end
+
+    def self.define: (state_name id) -> Definition
+    def self.catalog: (definitions: Array[Definition]) -> Catalog
+
+    class Dependency
+      @step_id: String
+      @depends_on_step_id: String
+
+      attr_reader step_id: String
+      attr_reader depends_on_step_id: String
+
+      def initialize: (step_id: state_name, depends_on_step_id: state_name) -> void
+    end
+
+    class Step
+      @id: String
+      @handler: String
+      @arguments: Hash[String, job_argument]
+      @depends_on: Array[String]
+
+      attr_reader id: String
+      attr_reader handler: String
+      attr_reader arguments: Hash[String, job_argument]
+      attr_reader depends_on: Array[String]
+
+      def initialize: (
+        id: state_name,
+        handler: state_name,
+        ?arguments: Hash[state_name, job_argument],
+        ?depends_on: (state_name | Array[state_name] | nil)
+      ) -> void
+    end
+
+    class Definition
+      @id: String
+      @steps: Array[Step]
+      @dependencies: Array[Dependency]
+
+      attr_reader id: String
+      attr_reader steps: Array[Step]
+      attr_reader dependencies: Array[Dependency]
+
+      def initialize: (id: state_name, steps: Array[Step]) -> void
+      def step: (state_name step_id) -> Step?
+    end
+
+    class Catalog
+      @definitions: Hash[String, Definition]
+
+      attr_reader definitions: Hash[String, Definition]
+
+      def initialize: (definitions: Array[Definition]) -> void
+      def fetch: (state_name workflow_id) -> Definition
+    end
+  end
+end
