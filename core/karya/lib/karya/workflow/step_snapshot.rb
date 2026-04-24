@@ -12,6 +12,8 @@ module Karya
       WAITING_STATES = %i[queued submission].freeze
 
       attr_reader :batch_id,
+                  :child_workflow,
+                  :child_workflow_id,
                   :job,
                   :job_id,
                   :prerequisite_job_ids,
@@ -33,11 +35,19 @@ module Karya
           prerequisite_job_ids: @prerequisite_job_ids,
           prerequisite_states: attributes.prerequisite_states
         ).to_h
+        @child_workflow_id = attributes.child_workflow_id
+        @child_workflow = ChildWorkflow.new(
+          child_workflow: attributes.child_workflow,
+          child_workflow_id: @child_workflow_id,
+          parent_batch_id: @batch_id,
+          parent_step_id: @step_id,
+          parent_job_id: @job_id
+        ).to_snapshot
         freeze
       end
 
       def ready?
-        waiting? && prerequisite_job_ids.all? { |prerequisite_job_id| prerequisite_states.fetch(prerequisite_job_id) == :succeeded }
+        waiting? && prerequisites_succeeded? && child_workflow_succeeded?
       end
 
       def blocked?
@@ -52,6 +62,10 @@ module Karya
         job.terminal?
       end
 
+      def child_workflow?
+        !!child_workflow_id
+      end
+
       # Validates and exposes step snapshot construction attributes.
       class Attributes
         REQUIRED_ATTRIBUTES = %i[
@@ -63,6 +77,8 @@ module Karya
           prerequisite_job_ids
           prerequisite_states
         ].freeze
+        OPTIONAL_ATTRIBUTES = %i[child_workflow_id child_workflow].freeze
+        SUPPORTED_ATTRIBUTES = (REQUIRED_ATTRIBUTES + OPTIONAL_ATTRIBUTES).freeze
 
         def initialize(attributes)
           @attributes = attributes
@@ -97,6 +113,17 @@ module Karya
           fetch(:prerequisite_states)
         end
 
+        def child_workflow_id
+          value = attributes.fetch(:child_workflow_id, nil)
+          return unless value
+
+          Workflow.send(:normalize_identifier, :child_workflow_id, value)
+        end
+
+        def child_workflow
+          attributes.fetch(:child_workflow, nil)
+        end
+
         private
 
         attr_reader :attributes
@@ -106,10 +133,42 @@ module Karya
         end
 
         def validate_keys
-          unknown_keys = attributes.keys - REQUIRED_ATTRIBUTES
+          unknown_keys = attributes.keys - SUPPORTED_ATTRIBUTES
           return if unknown_keys.empty?
 
           raise ArgumentError, "unknown keyword: :#{unknown_keys.first}"
+        end
+      end
+
+      # Validates optional child workflow relationship metadata.
+      class ChildWorkflow
+        def initialize(child_workflow:, child_workflow_id:, parent_batch_id:, parent_step_id:, parent_job_id:)
+          @child_workflow = child_workflow
+          @child_workflow_id = child_workflow_id
+          @parent_batch_id = parent_batch_id
+          @parent_step_id = parent_step_id
+          @parent_job_id = parent_job_id
+        end
+
+        def to_snapshot
+          return unless child_workflow
+          raise InvalidExecutionError, 'child_workflow must be Karya::Workflow::ChildWorkflowSnapshot' unless child_workflow.is_a?(ChildWorkflowSnapshot)
+
+          validate_identity
+          child_workflow
+        end
+
+        private
+
+        attr_reader :child_workflow, :child_workflow_id, :parent_batch_id, :parent_job_id, :parent_step_id
+
+        def validate_identity
+          raise InvalidExecutionError, 'child_workflow_id must match child workflow relationship' if child_workflow_id != child_workflow.child_workflow_id
+          raise InvalidExecutionError, 'child workflow parent batch must match step batch' unless parent_batch_id == child_workflow.parent_batch_id
+          raise InvalidExecutionError, 'child workflow parent step must match step id' unless parent_step_id == child_workflow.parent_step_id
+          return if parent_job_id == child_workflow.parent_job_id
+
+          raise InvalidExecutionError, 'child workflow parent job must match step job'
         end
       end
 
@@ -199,12 +258,23 @@ module Karya
         end
       end
 
-      private_constant :Attributes, :JobEntry, :JobIdList, :PrerequisiteStates, :WAITING_STATES
+      private_constant :Attributes, :ChildWorkflow, :JobEntry, :JobIdList, :PrerequisiteStates, :WAITING_STATES
 
       private
 
       def waiting?
         WAITING_STATES.include?(state)
+      end
+
+      def prerequisites_succeeded?
+        prerequisite_job_ids.all? { |prerequisite_job_id| prerequisite_states.fetch(prerequisite_job_id) == :succeeded }
+      end
+
+      def child_workflow_succeeded?
+        return true unless child_workflow_id
+        return false unless child_workflow
+
+        child_workflow.child_state == :succeeded
       end
     end
   end

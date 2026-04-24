@@ -85,6 +85,10 @@ operator search and governance layers choose targets:
   replay, retry-dead-letter, and discard only act when the primary step job is
   currently `:dead_letter` and otherwise skip the targeted step as ineligible;
   they do not add selectors, automatic rollback, or event-history replay
+- child workflow controls enqueue child batches for declared parent child steps
+  and synchronize terminal child state back to the parent gate job; they do not
+  automatically enqueue children from workers or cascade rollback across parent
+  and child workflows
 - bulk retry returns failed or `retry_pending` jobs to normal queued execution
   when they are still eligible and uniqueness-safe
 - bulk cancellation can stop queued, retry-pending, reserved, or running jobs;

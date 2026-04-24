@@ -30,6 +30,18 @@ RSpec.describe Karya::Workflow::StepSnapshot do
     )
   end
 
+  def child_workflow(state)
+    Karya::Workflow::ChildWorkflowSnapshot.new(
+      parent_workflow_id: :invoice_closeout,
+      parent_batch_id: 'batch_1',
+      parent_step_id: :child,
+      parent_job_id: :'job-child',
+      child_workflow_id: :payment,
+      child_batch_id: :payment_batch,
+      child_state: state
+    )
+  end
+
   it 'builds immutable per-step inspection data' do
     result = snapshot
 
@@ -56,6 +68,75 @@ RSpec.describe Karya::Workflow::StepSnapshot do
     expect(snapshot(prerequisite_states: {})).to be_blocked
     expect(snapshot(state: :running)).to be_active
     expect(snapshot(state: :succeeded)).to be_terminal
+  end
+
+  it 'blocks child workflow steps until the child workflow succeeds' do
+    missing_child = described_class.new(
+      workflow_id: :invoice_closeout,
+      batch_id: 'batch_1',
+      step_id: :child,
+      job_id: :'job-child',
+      job: job,
+      prerequisite_job_ids: [],
+      prerequisite_states: {},
+      child_workflow_id: :payment
+    )
+    running_child = described_class.new(
+      workflow_id: :invoice_closeout,
+      batch_id: 'batch_1',
+      step_id: :child,
+      job_id: :'job-child',
+      job: job,
+      prerequisite_job_ids: [],
+      prerequisite_states: {},
+      child_workflow_id: :payment,
+      child_workflow: child_workflow(:running)
+    )
+    succeeded_child = described_class.new(
+      workflow_id: :invoice_closeout,
+      batch_id: 'batch_1',
+      step_id: :child,
+      job_id: :'job-child',
+      job: job,
+      prerequisite_job_ids: [],
+      prerequisite_states: {},
+      child_workflow_id: :payment,
+      child_workflow: child_workflow(:succeeded)
+    )
+
+    expect(missing_child).to be_child_workflow
+    expect(missing_child).to be_blocked
+    expect(running_child).to be_blocked
+    expect(succeeded_child).to be_ready
+  end
+
+  it 'validates child workflow relationship metadata' do
+    common_attributes = {
+      workflow_id: :invoice_closeout,
+      batch_id: 'batch_1',
+      step_id: :child,
+      job_id: :'job-child',
+      job: job,
+      prerequisite_job_ids: [],
+      prerequisite_states: {},
+      child_workflow_id: :payment
+    }
+
+    expect do
+      described_class.new(**common_attributes, child_workflow: 'payment')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child_workflow must be Karya::Workflow::ChildWorkflowSnapshot')
+    expect do
+      described_class.new(**common_attributes, child_workflow_id: :shipment, child_workflow: child_workflow(:running))
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child_workflow_id must match child workflow relationship')
+    expect do
+      described_class.new(**common_attributes, batch_id: :other_batch, child_workflow: child_workflow(:running))
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child workflow parent batch must match step batch')
+    expect do
+      described_class.new(**common_attributes, step_id: :other_step, child_workflow: child_workflow(:running))
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child workflow parent step must match step id')
+    expect do
+      described_class.new(**common_attributes, job_id: :other_job, job: job(id: 'other_job'), child_workflow: child_workflow(:running))
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child workflow parent job must match step job')
   end
 
   it 'treats custom nonterminal lifecycle states as active' do

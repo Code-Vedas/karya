@@ -8,6 +8,7 @@
 require_relative 'internal/backpressure_support'
 require_relative 'internal/backpressure_snapshot_support'
 require_relative 'internal/batch_support'
+require_relative 'internal/child_workflow_support'
 require_relative 'internal/dead_letter_support'
 require_relative 'internal/execution_recovery'
 require_relative 'internal/execution_support'

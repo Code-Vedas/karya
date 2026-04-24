@@ -35,6 +35,10 @@ module Karya
         freeze
       end
 
+      def child_step_ids
+        ChildStepIds.new(steps).to_a
+      end
+
       def step(step_id)
         normalized_step_id = Workflow.send(:normalize_identifier, :step_id, step_id)
         steps_by_id[normalized_step_id]
@@ -60,6 +64,38 @@ module Karya
       private
 
       attr_reader :dependencies_by_step_id, :dependents_by_step_id, :steps_by_id
+
+      # Builds ordered child workflow step ids without expanding Definition state.
+      class ChildStepIds
+        def initialize(steps)
+          @steps = steps
+        end
+
+        def to_a
+          steps.filter_map { |workflow_step| StepChild.new(workflow_step).id }.freeze
+        end
+
+        private
+
+        attr_reader :steps
+
+        # Reads one step for child workflow inspection.
+        class StepChild
+          def initialize(workflow_step)
+            @workflow_step = workflow_step
+          end
+
+          def id
+            workflow_step.id if workflow_step.child_workflow?
+          end
+
+          private
+
+          attr_reader :workflow_step
+        end
+
+        private_constant :StepChild
+      end
 
       # Owner-local graph normalizer and validator for workflow step composition.
       class Graph
@@ -175,6 +211,7 @@ module Karya
         # Builds definition inspection indexes from normalized ordered steps.
         class Inspection
           attr_reader :compensable_step_ids,
+                      :child_step_ids,
                       :dependencies_by_step_id,
                       :dependents_by_step_id,
                       :leaf_step_ids,
@@ -189,6 +226,7 @@ module Karya
             @root_step_ids = StepFilter.new(steps).root_ids
             @leaf_step_ids = StepFilter.new(steps).leaf_ids(@dependents_by_step_id)
             @compensable_step_ids = StepFilter.new(steps).compensable_ids
+            @child_step_ids = StepFilter.new(steps).child_ids
             freeze
           end
 
@@ -254,6 +292,10 @@ module Karya
             steps.filter_map { |workflow_step| StepEntry.new(workflow_step).compensable_id }.freeze
           end
 
+          def child_ids
+            steps.filter_map { |workflow_step| StepEntry.new(workflow_step).child_id }.freeze
+          end
+
           private
 
           attr_reader :steps
@@ -300,6 +342,10 @@ module Karya
             id if workflow_step.compensable?
           end
 
+          def child_id
+            id if workflow_step.child_workflow?
+          end
+
           private
 
           attr_reader :workflow_step
@@ -318,7 +364,7 @@ module Karya
                          :StepFilter
       end
 
-      private_constant :Graph
+      private_constant :ChildStepIds, :Graph
     end
   end
 end

@@ -20,14 +20,16 @@ module Karya
         dependency_job_ids_by_job_id
         jobs
       ].freeze
-      OPTIONAL_ATTRIBUTES = %i[rollback].freeze
+      OPTIONAL_ATTRIBUTES = %i[child_workflow_ids_by_step_id child_workflows parent rollback].freeze
       SUPPORTED_ATTRIBUTES = (REQUIRED_ATTRIBUTES + OPTIONAL_ATTRIBUTES).freeze
 
       def initialize(**attributes)
         attributes = Attributes.new(attributes)
         @identity = attributes.identity
         @membership = attributes.membership
-        @step_inspection = StepInspection.new(identity:, membership:)
+        @child_relationships = attributes.child_relationships
+        @step_inspection = StepInspection.new(identity:, membership:, child_relationships:)
+        @parent = attributes.parent
         @rollback = attributes.rollback
         @summary_data = SummaryData.new(membership)
         freeze
@@ -85,6 +87,18 @@ module Karya
         !!rollback
       end
 
+      def child_workflows
+        child_relationships.child_workflows
+      end
+
+      def child_workflow(step_id)
+        child_relationships.child_workflow(step_id)
+      end
+
+      def fetch_child_workflow(step_id)
+        child_relationships.fetch_child_workflow(step_id)
+      end
+
       def state_counts
         summary_data.state_counts
       end
@@ -105,7 +119,7 @@ module Karya
         summary_data.state
       end
 
-      attr_reader :rollback
+      attr_reader :parent, :rollback
 
       # Validates and exposes snapshot construction attributes.
       class Attributes
@@ -141,6 +155,20 @@ module Karya
           value
         end
 
+        def child_relationships
+          ChildRelationships.new(
+            child_workflow_ids_by_step_id: ChildWorkflowIds.new(attributes.fetch(:child_workflow_ids_by_step_id, {})).to_h,
+            child_workflows: ChildWorkflowList.new(attributes.fetch(:child_workflows, [])).to_a
+          )
+        end
+
+        def parent
+          value = attributes.fetch(:parent, nil)
+          raise InvalidExecutionError, 'parent must be Karya::Workflow::ChildWorkflowSnapshot' if value && !value.is_a?(ChildWorkflowSnapshot)
+
+          value
+        end
+
         private
 
         attr_reader :attributes
@@ -150,6 +178,49 @@ module Karya
           return if unknown_keys.empty?
 
           raise ArgumentError, "unknown keyword: :#{unknown_keys.first}"
+        end
+      end
+
+      # Groups normalized parent and child workflow relationship metadata.
+      class ChildRelationships
+        attr_reader :child_workflow_ids_by_step_id, :child_workflows, :child_workflows_by_step_id
+
+        def initialize(child_workflow_ids_by_step_id:, child_workflows:)
+          @child_workflow_ids_by_step_id = child_workflow_ids_by_step_id
+          @child_workflows = child_workflows
+          @child_workflows_by_step_id = child_workflows.to_h { |child_workflow| [child_workflow.parent_step_id, child_workflow] }.freeze
+          validate_relationships
+          freeze
+        end
+
+        def child_workflow_id(step_id)
+          normalized_step_id = Workflow.send(:normalize_execution_identifier, :step_id, step_id)
+          child_workflow_ids_by_step_id[normalized_step_id]
+        end
+
+        def child_workflow(step_id)
+          normalized_step_id = Workflow.send(:normalize_execution_identifier, :step_id, step_id)
+          child_workflows_by_step_id[normalized_step_id]
+        end
+
+        def fetch_child_workflow(step_id)
+          normalized_step_id = Workflow.send(:normalize_execution_identifier, :step_id, step_id)
+          child_workflows_by_step_id.fetch(normalized_step_id) do
+            raise InvalidExecutionError, "unknown child workflow for step #{normalized_step_id.inspect}"
+          end
+        end
+
+        private
+
+        def validate_relationships
+          child_workflows.each do |child_workflow|
+            parent_step_id = child_workflow.parent_step_id
+            expected_workflow_id = child_workflow_ids_by_step_id[parent_step_id]
+            raise InvalidExecutionError, "unknown child workflow step #{parent_step_id.inspect}" unless expected_workflow_id
+            next if expected_workflow_id == child_workflow.child_workflow_id
+
+            raise InvalidExecutionError, 'child workflow relationship id must match declared child workflow id'
+          end
         end
       end
 
@@ -199,9 +270,10 @@ module Karya
 
       # Builds ordered per-step runtime inspection values.
       class StepInspection
-        def initialize(identity:, membership:)
+        def initialize(identity:, membership:, child_relationships:)
           @identity = identity
           @membership = membership
+          @child_relationships = child_relationships
           @steps = build_steps
           @steps_by_id = @steps.to_h { |step_snapshot| [step_snapshot.step_id, step_snapshot] }.freeze
           freeze
@@ -223,7 +295,7 @@ module Karya
 
         private
 
-        attr_reader :identity, :membership, :steps_by_id
+        attr_reader :child_relationships, :identity, :membership, :steps_by_id
 
         def build_steps
           membership.step_job_ids.map do |step_id, job_id|
@@ -235,7 +307,9 @@ module Karya
               job_id:,
               job: membership.jobs_by_id.fetch(job_id),
               prerequisite_job_ids:,
-              prerequisite_states: prerequisite_states_for(prerequisite_job_ids)
+              prerequisite_states: prerequisite_states_for(prerequisite_job_ids),
+              child_workflow_id: child_relationships.child_workflow_id(step_id),
+              child_workflow: child_relationships.child_workflow(step_id)
             )
           end.freeze
         end
@@ -246,6 +320,48 @@ module Karya
             [job_id, prerequisite_job&.state]
           end
         end
+      end
+
+      # Normalizes child workflow declarations by parent step id.
+      class ChildWorkflowIds
+        def initialize(child_workflow_ids_by_step_id)
+          @child_workflow_ids_by_step_id = child_workflow_ids_by_step_id
+        end
+
+        def to_h
+          raise InvalidExecutionError, 'child_workflow_ids_by_step_id must be a Hash' unless child_workflow_ids_by_step_id.is_a?(Hash)
+
+          child_workflow_ids_by_step_id.each_with_object({}) do |(step_id, child_workflow_id), normalized|
+            normalized_step_id = Workflow.send(:normalize_execution_identifier, :step_id, step_id)
+            normalized[normalized_step_id] = Workflow.send(:normalize_identifier, :child_workflow_id, child_workflow_id)
+          end.freeze
+        end
+
+        private
+
+        attr_reader :child_workflow_ids_by_step_id
+      end
+
+      # Normalizes child workflow relationship snapshots.
+      class ChildWorkflowList
+        def initialize(child_workflows)
+          @child_workflows = child_workflows
+        end
+
+        def to_a
+          raise InvalidExecutionError, 'child_workflows must be an Array' unless child_workflows.is_a?(Array)
+
+          child_workflows.each do |child_workflow|
+            unless child_workflow.is_a?(ChildWorkflowSnapshot)
+              raise InvalidExecutionError, 'child_workflows entries must be Karya::Workflow::ChildWorkflowSnapshot'
+            end
+          end
+          child_workflows.dup.freeze
+        end
+
+        private
+
+        attr_reader :child_workflows
       end
 
       # Groups snapshot state summary fields.
@@ -468,6 +584,9 @@ module Karya
       end
 
       private_constant :Attributes,
+                       :ChildRelationships,
+                       :ChildWorkflowIds,
+                       :ChildWorkflowList,
                        :COMPLETED_STATES,
                        :DependencyJobIdList,
                        :DependencyJobIds,
@@ -489,7 +608,7 @@ module Karya
 
       private
 
-      attr_reader :identity, :membership, :step_inspection, :summary_data
+      attr_reader :child_relationships, :identity, :membership, :step_inspection, :summary_data
     end
   end
 end

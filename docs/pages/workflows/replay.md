@@ -114,6 +114,23 @@ Rollback compensates succeeded compensable primary steps in reverse workflow
 definition order. If no succeeded step has compensation, Karya records the
 rollback request boundary without creating a physical rollback batch.
 
+### Child Workflow Recovery
+
+Child workflows recover by their own workflow batch id. Recovering a child does
+not mutate the parent automatically:
+
+```text
+parent_workflow_batch_id: order-88
+child_workflow_batch_id: payment-authorization-88
+selected_action: replay_workflow_steps
+step_ids: authorize_payment
+expected_result: child step queues again; parent gate stays blocked until the child succeeds
+```
+
+After a child succeeds, the parent child-step job becomes reservable. If the
+child fails or is cancelled, use `sync_child_workflows` against the parent batch
+to propagate that terminal state to the parent gate job.
+
 ## Related Concepts
 
 - [Signals](/workflows/signals/): interactive workflows need recovery and live control

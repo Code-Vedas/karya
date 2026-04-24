@@ -236,6 +236,57 @@ module Karya
       end
     end
 
+    class ChildWorkflowSnapshot
+      @parent_workflow_id: String
+      @parent_batch_id: String
+      @parent_step_id: String
+      @parent_job_id: String
+      @child_workflow_id: String
+      @child_batch_id: String
+      @child_state: Karya::workflow_state
+
+      attr_reader parent_workflow_id: String
+      attr_reader parent_batch_id: String
+      attr_reader parent_step_id: String
+      attr_reader parent_job_id: String
+      attr_reader child_workflow_id: String
+      attr_reader child_batch_id: String
+      attr_reader child_state: Karya::workflow_state
+
+      def initialize: (
+        parent_workflow_id: state_name,
+        parent_batch_id: state_name,
+        parent_step_id: state_name,
+        parent_job_id: state_name,
+        child_workflow_id: state_name,
+        child_batch_id: state_name,
+        child_state: Karya::workflow_state
+      ) -> void
+
+    private
+
+      class Attributes
+        REQUIRED_ATTRIBUTES: Array[Symbol]
+
+        @attributes: Hash[Symbol, Object?]
+
+        def initialize: (Hash[Symbol, Object?] attributes) -> void
+        def parent_workflow_id: () -> String
+        def parent_batch_id: () -> String
+        def parent_step_id: () -> String
+        def parent_job_id: () -> String
+        def child_workflow_id: () -> String
+        def child_batch_id: () -> String
+        def child_state: () -> Karya::workflow_state
+
+      private
+
+        attr_reader attributes: Hash[Symbol, Object?]
+        def fetch: (Symbol name) -> Object?
+        def validate_keys: () -> void
+      end
+    end
+
     class StepSnapshot
       @workflow_id: String
       @batch_id: String
@@ -245,6 +296,8 @@ module Karya
       @state: state_name
       @prerequisite_job_ids: Array[String]
       @prerequisite_states: Hash[String, state_name?]
+      @child_workflow_id: String?
+      @child_workflow: ChildWorkflowSnapshot?
 
       attr_reader workflow_id: String
       attr_reader batch_id: String
@@ -254,6 +307,8 @@ module Karya
       attr_reader state: state_name
       attr_reader prerequisite_job_ids: Array[String]
       attr_reader prerequisite_states: Hash[String, state_name?]
+      attr_reader child_workflow_id: String?
+      attr_reader child_workflow: ChildWorkflowSnapshot?
 
       def initialize: (
         workflow_id: state_name,
@@ -262,17 +317,22 @@ module Karya
         job_id: state_name,
         job: Job,
         prerequisite_job_ids: Array[state_name],
-        prerequisite_states: Hash[state_name, state_name?]
+        prerequisite_states: Hash[state_name, state_name?],
+        ?child_workflow_id: state_name?,
+        ?child_workflow: ChildWorkflowSnapshot?
       ) -> void
       def ready?: () -> bool
       def blocked?: () -> bool
       def active?: () -> bool
       def terminal?: () -> bool
+      def child_workflow?: () -> bool
 
     private
 
       class Attributes
         REQUIRED_ATTRIBUTES: Array[Symbol]
+        OPTIONAL_ATTRIBUTES: Array[Symbol]
+        SUPPORTED_ATTRIBUTES: Array[Symbol]
 
         @attributes: Hash[Symbol, step_snapshot_attribute_value]
 
@@ -284,12 +344,40 @@ module Karya
         def job: () -> Job
         def prerequisite_job_ids: () -> Array[String]
         def prerequisite_states: () -> Hash[state_name, state_name?]
+        def child_workflow_id: () -> String?
+        def child_workflow: () -> ChildWorkflowSnapshot?
 
       private
 
         attr_reader attributes: Hash[Symbol, step_snapshot_attribute_value]
         def fetch: (Symbol name) -> step_snapshot_attribute_value
         def validate_keys: () -> void
+      end
+
+      class ChildWorkflow
+        @child_workflow: ChildWorkflowSnapshot?
+        @child_workflow_id: String?
+        @parent_batch_id: String
+        @parent_step_id: String
+        @parent_job_id: String
+
+        def initialize: (
+          child_workflow: ChildWorkflowSnapshot?,
+          child_workflow_id: String?,
+          parent_batch_id: String,
+          parent_step_id: String,
+          parent_job_id: String
+        ) -> void
+        def to_snapshot: () -> ChildWorkflowSnapshot?
+
+      private
+
+        attr_reader child_workflow: ChildWorkflowSnapshot?
+        attr_reader child_workflow_id: String?
+        attr_reader parent_batch_id: String
+        attr_reader parent_step_id: String
+        attr_reader parent_job_id: String
+        def validate_identity: () -> void
       end
 
       class JobEntry
@@ -336,12 +424,16 @@ module Karya
       end
 
       def waiting?: () -> bool
+      def prerequisites_succeeded?: () -> bool
+      def child_workflow_succeeded?: () -> bool
     end
 
     class Snapshot
       @identity: Identity
       @membership: Membership
+      @child_relationships: ChildRelationships
       @step_inspection: StepInspection
+      @parent: ChildWorkflowSnapshot?
       @rollback: RollbackSnapshot?
       @summary_data: SummaryData
 
@@ -352,6 +444,9 @@ module Karya
         step_job_ids: Hash[state_name, state_name],
         dependency_job_ids_by_job_id: Hash[state_name, Array[state_name]],
         jobs: Array[Job],
+        ?child_workflow_ids_by_step_id: Hash[state_name, state_name],
+        ?child_workflows: Array[ChildWorkflowSnapshot],
+        ?parent: ChildWorkflowSnapshot?,
         ?rollback: RollbackSnapshot?
       ) -> void
 
@@ -368,6 +463,10 @@ module Karya
       def job_id_for_step: (state_name step_id) -> String
       def state_for_step: (state_name step_id) -> state_name
       def rollback_requested?: () -> bool
+      def child_workflows: () -> Array[ChildWorkflowSnapshot]
+      def child_workflow: (state_name step_id) -> ChildWorkflowSnapshot?
+      def fetch_child_workflow: (state_name step_id) -> ChildWorkflowSnapshot
+      def parent: () -> ChildWorkflowSnapshot?
       def rollback: () -> RollbackSnapshot?
       def state_counts: () -> Hash[state_name, Integer]
       def total_count: () -> Integer
@@ -379,6 +478,7 @@ module Karya
 
       attr_reader identity: Identity
       attr_reader membership: Membership
+      attr_reader child_relationships: ChildRelationships
       attr_reader step_inspection: StepInspection
       attr_reader summary_data: SummaryData
 
@@ -389,12 +489,36 @@ module Karya
         def fetch: (Symbol name) -> workflow_snapshot_attribute_value
         def identity: () -> Identity
         def membership: () -> Membership
+        def child_relationships: () -> ChildRelationships
+        def parent: () -> ChildWorkflowSnapshot?
         def rollback: () -> RollbackSnapshot?
 
       private
 
         attr_reader attributes: Hash[Symbol, workflow_snapshot_attribute_value]
         def validate_keys: () -> void
+      end
+
+      class ChildRelationships
+        @child_workflow_ids_by_step_id: Hash[String, String]
+        @child_workflows: Array[ChildWorkflowSnapshot]
+        @child_workflows_by_step_id: Hash[String, ChildWorkflowSnapshot]
+
+        attr_reader child_workflow_ids_by_step_id: Hash[String, String]
+        attr_reader child_workflows: Array[ChildWorkflowSnapshot]
+        attr_reader child_workflows_by_step_id: Hash[String, ChildWorkflowSnapshot]
+
+        def initialize: (
+          child_workflow_ids_by_step_id: Hash[String, String],
+          child_workflows: Array[ChildWorkflowSnapshot]
+        ) -> void
+        def child_workflow_id: (state_name step_id) -> String?
+        def child_workflow: (state_name step_id) -> ChildWorkflowSnapshot?
+        def fetch_child_workflow: (state_name step_id) -> ChildWorkflowSnapshot
+
+      private
+
+        def validate_relationships: () -> void
       end
 
       class Identity
@@ -439,10 +563,11 @@ module Karya
       class StepInspection
         @identity: Identity
         @membership: Membership
+        @child_relationships: ChildRelationships
         @steps: Array[StepSnapshot]
         @steps_by_id: Hash[String, StepSnapshot]
 
-        def initialize: (identity: Identity, membership: Membership) -> void
+        def initialize: (identity: Identity, membership: Membership, child_relationships: ChildRelationships) -> void
 
         attr_reader steps: Array[StepSnapshot]
 
@@ -453,9 +578,32 @@ module Karya
 
         attr_reader identity: Identity
         attr_reader membership: Membership
+        attr_reader child_relationships: ChildRelationships
         attr_reader steps_by_id: Hash[String, StepSnapshot]
         def build_steps: () -> Array[StepSnapshot]
         def prerequisite_states_for: (Array[String] prerequisite_job_ids) -> Hash[String, state_name?]
+      end
+
+      class ChildWorkflowIds
+        @child_workflow_ids_by_step_id: Hash[state_name, state_name]
+
+        def initialize: (Hash[state_name, state_name] child_workflow_ids_by_step_id) -> void
+        def to_h: () -> Hash[String, String]
+
+      private
+
+        attr_reader child_workflow_ids_by_step_id: Hash[state_name, state_name]
+      end
+
+      class ChildWorkflowList
+        @child_workflows: Array[ChildWorkflowSnapshot]
+
+        def initialize: (Array[ChildWorkflowSnapshot] child_workflows) -> void
+        def to_a: () -> Array[ChildWorkflowSnapshot]
+
+      private
+
+        attr_reader child_workflows: Array[ChildWorkflowSnapshot]
       end
 
       class SummaryData
@@ -594,6 +742,7 @@ module Karya
       @handler: String
       @arguments: Hash[String, job_argument]
       @depends_on: Array[String]
+      @child_workflow: String?
       @compensate_with: String?
       @compensation_arguments: Hash[String, job_argument]
 
@@ -601,6 +750,7 @@ module Karya
       attr_reader handler: String
       attr_reader arguments: Hash[String, job_argument]
       attr_reader depends_on: Array[String]
+      attr_reader child_workflow: String?
       attr_reader compensate_with: String?
       attr_reader compensation_arguments: Hash[String, job_argument]
 
@@ -610,9 +760,11 @@ module Karya
         ?arguments: Hash[state_name, job_argument],
         ?depends_on: (state_name | Array[state_name] | nil),
         ?compensate_with: state_name?,
-        ?compensation_arguments: Hash[state_name, job_argument]
+        ?compensation_arguments: Hash[state_name, job_argument],
+        ?child_workflow: state_name?
       ) -> void
       def compensable?: () -> bool
+      def child_workflow?: () -> bool
 
     private
 
@@ -645,6 +797,7 @@ module Karya
         def arguments: () -> Hash[state_name, job_argument]
         def depends_on: () -> (state_name | Array[state_name] | nil)
         def compensate_with: () -> state_name?
+        def child_workflow: () -> state_name?
         def compensation_arguments: () -> Hash[state_name, job_argument]
 
       private
@@ -663,6 +816,17 @@ module Karya
 
         attr_reader value: (state_name | Array[state_name] | nil)
         def raw_dependencies: () -> Array[state_name]
+      end
+
+      class ChildWorkflow
+        @value: state_name?
+
+        def initialize: (state_name? value) -> void
+        def normalize: () -> String?
+
+      private
+
+        attr_reader value: state_name?
       end
 
       class CompensationHandler
@@ -700,6 +864,7 @@ module Karya
       attr_reader compensable_step_ids: Array[String]
 
       def initialize: (id: state_name, steps: Array[Step]) -> void
+      def child_step_ids: () -> Array[String]
       def step: (state_name step_id) -> Step?
       def fetch_step: (state_name step_id) -> Step
       def dependencies_for: (state_name step_id) -> Array[String]
@@ -710,6 +875,28 @@ module Karya
       attr_reader dependencies_by_step_id: Hash[String, Array[String]]
       attr_reader dependents_by_step_id: Hash[String, Array[String]]
       attr_reader steps_by_id: Hash[String, Step]
+
+      class ChildStepIds
+        @steps: Array[Step]
+
+        def initialize: (Array[Step] steps) -> void
+        def to_a: () -> Array[String]
+
+      private
+
+        attr_reader steps: Array[Step]
+
+        class StepChild
+          @workflow_step: Step
+
+          def initialize: (Step workflow_step) -> void
+          def id: () -> String?
+
+        private
+
+          attr_reader workflow_step: Step
+        end
+      end
 
       class Graph
         @steps: Array[Step]
@@ -763,6 +950,7 @@ module Karya
           @root_step_ids: Array[String]
           @leaf_step_ids: Array[String]
           @compensable_step_ids: Array[String]
+          @child_step_ids: Array[String]
 
           attr_reader step_ids: Array[String]
           attr_reader dependencies_by_step_id: Hash[String, Array[String]]
@@ -770,6 +958,7 @@ module Karya
           attr_reader root_step_ids: Array[String]
           attr_reader leaf_step_ids: Array[String]
           attr_reader compensable_step_ids: Array[String]
+          attr_reader child_step_ids: Array[String]
 
           def initialize: (Array[Step] steps) -> void
 
@@ -808,6 +997,7 @@ module Karya
           def root_ids: () -> Array[String]
           def leaf_ids: (Hash[String, Array[String]] dependents_by_step_id) -> Array[String]
           def compensable_ids: () -> Array[String]
+          def child_ids: () -> Array[String]
 
         private
 
@@ -834,6 +1024,7 @@ module Karya
           def root_id: () -> String?
           def leaf_id: (Hash[String, Array[String]] dependents_by_step_id) -> String?
           def compensable_id: () -> String?
+          def child_id: () -> String?
 
         private
 
@@ -880,7 +1071,8 @@ module Karya
         ?arguments: Hash[state_name, job_argument],
         ?depends_on: (state_name | Array[state_name] | nil),
         ?compensate_with: state_name?,
-        ?compensation_arguments: Hash[state_name, job_argument]
+        ?compensation_arguments: Hash[state_name, job_argument],
+        ?child_workflow: state_name?
       ) -> nil
       def to_definition: () -> Definition
 

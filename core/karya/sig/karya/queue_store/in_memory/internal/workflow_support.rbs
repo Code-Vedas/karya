@@ -101,6 +101,30 @@ module Karya
             attr_reader jobs: Array[Job]
           end
 
+          class ChildWorkflowIds
+            @definition: Karya::Workflow::Definition
+
+            def initialize: (Karya::Workflow::Definition definition) -> void
+            def to_h: () -> Hash[String, String]
+
+          private
+
+            attr_reader definition: Karya::Workflow::Definition
+          end
+
+          class StepChildWorkflow
+            @workflow_step: Karya::Workflow::Step
+
+            def initialize: (Karya::Workflow::Step workflow_step) -> void
+            def store_in: (Hash[String, String] child_workflow_ids) -> String?
+
+          private
+
+            attr_reader workflow_step: Karya::Workflow::Step
+            def id: () -> String
+            def child_workflow: () -> String?
+          end
+
           class WorkflowStepIds
             @step_ids: Array[Karya::state_name]
 
@@ -141,6 +165,7 @@ module Karya
           ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> BulkMutationReport
           def workflow_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids) -> Array[String]
           def workflow_dependencies_satisfied?: (Job job) -> bool
+          def workflow_child_satisfied?: (Job job) -> bool
 
           class WorkflowSnapshotBuilder
             @batch: Karya::Workflow::Batch
@@ -166,6 +191,28 @@ module Karya
             attr_reader now: Time
             attr_reader state: InMemory::Internal::StoreState
             def rollback_snapshot: () -> Karya::Workflow::RollbackSnapshot?
+            def child_workflow_snapshots: () -> Array[Karya::Workflow::ChildWorkflowSnapshot]
+            def parent_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot?
+          end
+
+          class ChildWorkflowSnapshotBuilder
+            @relationship: InMemory::Internal::StoreState::WorkflowChildren::Relationship
+            @state: InMemory::Internal::StoreState
+            @now: Time
+
+            def initialize: (
+              relationship: InMemory::Internal::StoreState::WorkflowChildren::Relationship,
+              state: InMemory::Internal::StoreState,
+              now: Time
+            ) -> void
+            def to_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot
+
+          private
+
+            attr_reader relationship: InMemory::Internal::StoreState::WorkflowChildren::Relationship
+            attr_reader state: InMemory::Internal::StoreState
+            attr_reader now: Time
+            def child_state: () -> Karya::workflow_state
           end
 
           class RollbackSnapshotAttributes

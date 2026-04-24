@@ -47,6 +47,7 @@ module Karya
       include Internal::BatchSupport
       include Internal::BackpressureSupport
       include Internal::BackpressureSnapshotSupport
+      include Internal::ChildWorkflowSupport
       include Internal::DeadLetterSupport
       include Internal::ExecutionSupport
       include Internal::ExpirationSupport
