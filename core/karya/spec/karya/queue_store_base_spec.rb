@@ -32,6 +32,17 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #batch_snapshot/)
   end
 
+  it 'requires enqueue_workflow to be implemented' do
+    expect do
+      store.enqueue_workflow(
+        definition: instance_double(Karya::Workflow::Definition),
+        jobs_by_step_id: {},
+        batch_id: 'batch-1',
+        now: Time.utc(2026, 3, 27, 12, 0, 0)
+      )
+    end.to raise_error(NotImplementedError, /implement #enqueue_workflow/)
+  end
+
   it 'requires reserve to be implemented' do
     expect do
       store.reserve(

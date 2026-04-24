@@ -13,6 +13,7 @@ module Karya
           def find_reserved_job: (Array[String] queues, [Array[String], Array[String]?] subscription_key, Internal::HandlerMatcher handler_matcher, Internal::ReserveScanState reserve_scan_state, Time now) -> [String, Integer, String]?
           def fair_queue_order: (Array[String] queues, [Array[String], Array[String]?] subscription_key) -> Array[String]
           def matching_job_for: (String queue, Internal::HandlerMatcher handler_matcher, Internal::ReserveScanState reserve_scan_state, Time now) -> [Integer, String]?
+          def reservable_candidate?: (Job queued_job, Internal::HandlerMatcher handler_matcher, Internal::ReserveScanState reserve_scan_state, Time now) -> bool
         end
       end
     end

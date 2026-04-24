@@ -132,4 +132,14 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
 
     expect(store_state.batches_by_id.keys).to eq(['batch-1'])
   end
+
+  it 'stores workflow dependency metadata by job id' do
+    dependencies = { 'job-1' => [], 'job-2' => ['job-1'] }
+
+    store_state.register_workflow_dependencies(dependencies)
+
+    expect(store_state.workflow_dependency_job_ids_by_job_id['job-1']).to eq([])
+    expect(store_state.workflow_dependency_job_ids_by_job_id['job-2']).to eq(['job-1'])
+    expect(store_state.workflow_dependency_job_ids_by_job_id['missing']).to be_nil
+  end
 end

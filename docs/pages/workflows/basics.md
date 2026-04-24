@@ -37,6 +37,20 @@ end
 This is the core idea: Karya treats related work as one inspectable workflow,
 not a pile of unrelated background jobs.
 
+Workflow steps are bound to concrete jobs at enqueue time. Karya stores the
+whole run as one immutable batch, then applies prerequisite checks when workers
+reserve jobs:
+
+- root steps are eligible immediately
+- chained steps wait for their prerequisite job to succeed
+- fan-out children become eligible together after their shared parent succeeds
+- fan-in steps wait until every prerequisite has succeeded
+
+Failed, cancelled, dead-lettered, retry-pending, reserved, running, and still
+queued prerequisite jobs do not unblock dependent steps. Retry can still move a
+failed prerequisite back through normal execution; once that prerequisite
+succeeds, dependent queued work becomes eligible.
+
 ### Batch Identity And Aggregate State
 
 Workflow batches give related runtime jobs one stable identity. Batch creation

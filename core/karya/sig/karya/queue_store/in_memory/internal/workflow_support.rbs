@@ -1,0 +1,20 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module WorkflowSupport
+          def enqueue_workflow: (
+            definition: Karya::Workflow::Definition,
+            jobs_by_step_id: Hash[Karya::state_name, Job],
+            batch_id: Karya::state_name,
+            now: Time
+          ) -> BulkMutationReport
+
+          private
+
+          def workflow_dependencies_satisfied?: (Job job) -> bool
+        end
+      end
+    end
+  end
+end

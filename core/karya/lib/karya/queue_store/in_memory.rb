@@ -58,6 +58,7 @@ module Karya
       include Internal::ReserveSelectionSupport
       include Internal::RetrySupport
       include Internal::UniquenessSupport
+      include Internal::WorkflowSupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
       DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = 1024

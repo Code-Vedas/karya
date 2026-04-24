@@ -17,6 +17,9 @@ module Karya
     class UnknownBatchError < InvalidBatchError
     end
 
+    class InvalidExecutionError < Error
+    end
+
     def self.define: (state_name id) ?{ -> void } -> Definition
     def self.catalog: (definitions: Array[Definition]) -> Catalog
 
@@ -302,6 +305,12 @@ module Karya
 
     def self.normalize_identifier: (Symbol field_name, state_name value) -> String
     def self.normalize_batch_identifier: (Symbol field_name, state_name value) -> String
+    def self.normalize_execution_identifier: (Symbol field_name, state_name value) -> String
+    def self.build_execution_binding: (
+      definition: Definition,
+      jobs_by_step_id: Hash[state_name, Job],
+      batch_id: state_name
+    ) -> ExecutionBinding
 
     class Builder
       @id: state_name
@@ -315,6 +324,72 @@ module Karya
 
       attr_reader id: state_name
       attr_reader steps: Array[Step]
+    end
+
+    class ExecutionBinding
+      @definition: Definition
+      @batch_id: String
+      @jobs_by_step_id: Hash[String, Job]
+      @jobs: Array[Job]
+      @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+
+      attr_reader batch_id: String
+      attr_reader jobs: Array[Job]
+      attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+
+      def initialize: (
+        definition: Definition,
+        jobs_by_step_id: Hash[state_name, Job],
+        batch_id: state_name
+      ) -> void
+
+    private
+
+      attr_reader definition: Definition
+      attr_reader jobs_by_step_id: Hash[String, Job]
+
+      def validate_definition: (Definition value) -> Definition
+      def validate_step_coverage: (Hash[String, Job] normalized_jobs) -> void
+      def validate_jobs: () -> void
+
+      class JobMap
+        @jobs_by_step_id: Hash[state_name, Job]
+
+        def initialize: (Hash[state_name, Job] jobs_by_step_id) -> void
+        def to_h: () -> Hash[String, Job]
+
+      private
+
+        attr_reader jobs_by_step_id: Hash[state_name, Job]
+      end
+
+      class StepJob
+        @workflow_step: Step
+        @job: Job
+
+        def initialize: (Step workflow_step, Job job) -> void
+        def validate: () -> void
+
+      private
+
+        attr_reader job: Job
+        attr_reader workflow_step: Step
+        def step_label: () -> String
+      end
+
+      class DependencyJobIds
+        @definition: Definition
+        @jobs_by_step_id: Hash[String, Job]
+
+        def initialize: (definition: Definition, jobs_by_step_id: Hash[String, Job]) -> void
+        def to_h: () -> Hash[String, Array[String]]
+
+      private
+
+        attr_reader definition: Definition
+        attr_reader jobs_by_step_id: Hash[String, Job]
+        def dependency_job_ids: (Step workflow_step) -> Array[String]
+      end
     end
   end
 end

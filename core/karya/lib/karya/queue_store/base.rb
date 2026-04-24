@@ -70,6 +70,17 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Enqueue one complete workflow run atomically. Concrete jobs remain the
+      # canonical executable units; workflow metadata only gates reservation
+      # until prerequisite jobs have succeeded.
+      def enqueue_workflow(definition:, jobs_by_step_id:, batch_id:, now:)
+        _definition = definition
+        _jobs_by_step_id = jobs_by_step_id
+        _batch_id = batch_id
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       # Reserve must atomically move one durable queued job to reserved and
       # persist its lease token, worker id, reserved_at, and expires_at before
       # returning the reservation. A returned reservation is the only

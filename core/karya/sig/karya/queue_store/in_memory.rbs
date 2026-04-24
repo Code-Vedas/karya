@@ -37,6 +37,12 @@ module Karya
       def enqueue: (job: Job, now: Time) -> Job
       def enqueue_many: (jobs: Array[Job], now: Time, ?batch_id: Karya::state_name?) -> BulkMutationReport
       def batch_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::BatchSnapshot
+      def enqueue_workflow: (
+        definition: Karya::Workflow::Definition,
+        jobs_by_step_id: Hash[Karya::state_name, Job],
+        batch_id: Karya::state_name,
+        now: Time
+      ) -> BulkMutationReport
       def reserve: (
         worker_id: String,
         lease_duration: Karya::lease_duration_value,
@@ -140,6 +146,7 @@ module Karya
       ) -> Reservation
       def track_fairness_history?: (Array[String] queues) -> bool
       def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
+      def workflow_dependencies_satisfied?: (Job job) -> bool
     end
   end
 end
