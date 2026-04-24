@@ -20,7 +20,7 @@ module Karya
           def half_open_probe_count: (String scope_key) -> Integer
           def register_half_open_probe: (Job job, String reservation_token, Time now) -> nil
           def record_execution_success: (Job job, Time now) -> nil
-          def record_execution_failure: (Job job, failure_classification, Time now) -> nil
+          def record_execution_failure: (Job job, Karya::failure_classification failure_classification, Time now) -> nil
           def open_circuit_breaker: (String scope_key, Time now, CircuitBreaker::Policy policy) -> nil
           def reopen_circuit_breaker: (String scope_key, Time now, CircuitBreaker::Policy policy) -> nil
           def close_circuit_breaker: (String scope_key) -> nil
