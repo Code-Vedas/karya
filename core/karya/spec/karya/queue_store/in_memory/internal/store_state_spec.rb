@@ -148,25 +148,30 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     step_job_ids = { 'root' => 'job-root' }
     dependency_job_ids = []
     dependency_job_ids_by_job_id = { 'job-root' => dependency_job_ids }
+    compensation_jobs_by_step_id = { 'root' => instance_double(Karya::Job) }
 
     registration = store_state.register_workflow(
       batch_id: 'batch-1',
       workflow_id: 'invoice_closeout',
       step_job_ids:,
-      dependency_job_ids_by_job_id:
+      dependency_job_ids_by_job_id:,
+      compensation_jobs_by_step_id:
     )
     step_job_ids['root'] = 'mutated'
     dependency_job_ids << 'mutated'
     dependency_job_ids_by_job_id['job-root'] = ['mutated']
+    compensation_jobs_by_step_id['root'] = instance_double(Karya::Job)
 
     expect(registration.workflow_id).to eq('invoice_closeout')
     expect(registration.step_job_ids).to eq('root' => 'job-root')
     expect(registration.dependency_job_ids_by_job_id).to eq('job-root' => [])
+    expect(registration.compensation_jobs_by_step_id.keys).to eq(['root'])
     expect(registration.step_job_ids).to be_frozen
     expect(registration.dependency_job_ids_by_job_id).to be_frozen
     expect(registration.dependency_job_ids_by_job_id.fetch('job-root')).to be_frozen
+    expect(registration.compensation_jobs_by_step_id).to be_frozen
     expect(registration).to be_frozen
-    expect(store_state.workflow_registrations_by_batch_id['batch-1']).to eq(registration)
+    expect(store_state.workflow_registrations_by_batch_id.fetch('batch-1')).to eq(registration)
     expect(store_state.workflow_registrations_by_batch_id['missing']).to be_nil
   end
 
@@ -183,12 +188,33 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
       dependency_job_ids_by_job_id: {
         'job-root' => [],
         'job-child' => ['job-root']
-      }
+      },
+      compensation_jobs_by_step_id: {}
     )
 
     expect(store_state.prune_terminal_batches(0)).to eq(['batch-1'])
 
     expect(store_state.workflow_registrations_by_batch_id).to eq({})
     expect(store_state.workflow_dependency_job_ids_by_job_id).to eq({})
+  end
+
+  it 'stores workflow rollback metadata by workflow batch id' do
+    compensation_job_ids = ['rollback-job-1']
+
+    rollback = store_state.register_workflow_rollback(
+      batch_id: 'batch-1',
+      rollback_batch_id: 'batch-1.rollback',
+      reason: 'operator rollback',
+      requested_at: Time.utc(2026, 4, 24, 12, 0, 0),
+      compensation_job_ids:
+    )
+    compensation_job_ids << 'mutated'
+
+    expect(rollback.rollback_batch_id).to eq('batch-1.rollback')
+    expect(rollback.compensation_job_ids).to eq(['rollback-job-1'])
+    expect(rollback.compensation_job_ids).to be_frozen
+    expect(rollback).to be_frozen
+    expect(store_state.workflow_rollbacks_by_batch_id.fetch('batch-1')).to eq(rollback)
+    expect(store_state.workflow_rollbacks_by_batch_id['missing']).to be_nil
   end
 end

@@ -12,13 +12,29 @@ RSpec.describe Karya::QueueStore::InMemory do
   let(:token_generator) { -> { token_sequence.next } }
   let(:created_at) { Time.utc(2026, 4, 24, 12, 0, 0) }
 
-  def workflow_job(step_id, handler: step_id, arguments: {}, priority: 0)
+  def workflow_job(step_id, handler: step_id, arguments: {}, priority: 0, uniqueness_key: nil, uniqueness_scope: nil)
     Karya::Job.new(
       id: "job-#{step_id}",
       queue: :billing,
       handler:,
       arguments:,
       priority:,
+      uniqueness_key:,
+      uniqueness_scope:,
+      state: :submission,
+      created_at:
+    )
+  end
+
+  def compensation_job(step_id, handler: :"undo_#{step_id}", arguments: {}, priority: 0, uniqueness_key: nil, uniqueness_scope: nil)
+    Karya::Job.new(
+      id: "rollback-job-#{step_id}",
+      queue: :billing,
+      handler:,
+      arguments:,
+      priority:,
+      uniqueness_key:,
+      uniqueness_scope:,
       state: :submission,
       created_at:
     )
@@ -266,7 +282,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         state: :blocked
       )
 
-      root = reserve(3)
+      root = reserve(3, handler_names: ['root'])
       expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 4).state).to eq(:running)
       run_successfully(root, start_offset: 5, complete_offset: 6)
 
@@ -373,6 +389,210 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.workflow_snapshot(batch_id: :plain_batch, now: created_at + 3)
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "plain_batch" is not a workflow batch')
+    end
+
+    it 'rolls back succeeded compensable steps in reverse definition order' do
+      definition = Karya::Workflow.define(:rollback_chain) do
+        step :first, handler: :first, compensate_with: :undo_first
+        step :second, handler: :second, depends_on: :first, compensate_with: :undo_second
+        step :third, handler: :third, depends_on: :second, compensate_with: :undo_third
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          first: workflow_job(:first),
+          second: workflow_job(:second),
+          third: workflow_job(:third)
+        },
+        compensation_jobs_by_step_id: {
+          first: compensation_job(:first),
+          second: compensation_job(:second),
+          third: compensation_job(:third)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      first = reserve(2)
+      run_successfully(first, start_offset: 3, complete_offset: 4)
+      second = reserve(5)
+      run_successfully(second, start_offset: 6, complete_offset: 7)
+      third = reserve(8)
+      store.start_execution(reservation_token: third.token, now: created_at + 9)
+      store.fail_execution(reservation_token: third.token, now: created_at + 10, failure_classification: :error)
+
+      report = store.rollback_workflow(batch_id: :batch_one, now: created_at + 11, reason: 'operator rollback')
+
+      expect(report.action).to eq(:rollback_workflow)
+      expect(report.changed_jobs.map(&:id)).to eq(%w[rollback-job-second rollback-job-first])
+      expect(store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 12).job_ids)
+        .to eq(%w[rollback-job-second rollback-job-first])
+      expect(reserve(13).job_id).to eq('rollback-job-second')
+      expect(reserve(14)).to be_nil
+    end
+
+    it 'serializes rollback compensation through dependency gating' do
+      definition = Karya::Workflow.define(:rollback_order) do
+        step :first, handler: :first, compensate_with: :undo_first
+        step :second, handler: :second, compensate_with: :undo_second
+        step :third, handler: :third
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          first: workflow_job(:first),
+          second: workflow_job(:second),
+          third: workflow_job(:third)
+        },
+        compensation_jobs_by_step_id: {
+          first: compensation_job(:first),
+          second: compensation_job(:second)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      first = reserve(2)
+      second = reserve(3)
+      third = reserve(4)
+      run_successfully(first, start_offset: 5, complete_offset: 6)
+      run_successfully(second, start_offset: 7, complete_offset: 8)
+      store.start_execution(reservation_token: third.token, now: created_at + 9)
+      store.fail_execution(reservation_token: third.token, now: created_at + 10, failure_classification: :error)
+      store.rollback_workflow(batch_id: :batch_one, now: created_at + 11, reason: 'operator rollback')
+
+      second_rollback = reserve(12)
+      expect(second_rollback.job_id).to eq('rollback-job-second')
+      expect(reserve(13, handler_names: ['undo_first'])).to be_nil
+      run_successfully(second_rollback, start_offset: 14, complete_offset: 15)
+      expect(reserve(16, handler_names: ['undo_first']).job_id).to eq('rollback-job-first')
+    end
+
+    it 'rejects invalid rollback requests without partial rollback writes' do
+      definition = Karya::Workflow.define(:rollback_reject) do
+        step :root, handler: :root, compensate_with: :undo_root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        compensation_jobs_by_step_id: { root: compensation_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 2, reason: 'operator rollback')
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "batch_one" must be failed before rollback')
+      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 3) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+    end
+
+    it 'records no-op rollback when every compensation step is skipped' do
+      definition = Karya::Workflow.define(:rollback_noop) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      root = reserve(2)
+      run_successfully(root, start_offset: 3, complete_offset: 4)
+      child = reserve(5)
+      store.start_execution(reservation_token: child.token, now: created_at + 6)
+      store.fail_execution(reservation_token: child.token, now: created_at + 7, failure_classification: :error)
+
+      report = store.rollback_workflow(batch_id: :batch_one, now: created_at + 8, reason: 'operator rollback')
+
+      expect(report.action).to eq(:rollback_workflow)
+      expect(report.requested_job_ids).to eq([])
+      expect(report.changed_jobs).to eq([])
+      expect(reserve(9)).to be_nil
+      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 10) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+      expect do
+        store.enqueue_many(jobs: [workflow_job(:other)], batch_id: 'batch_one.rollback', now: created_at + 11)
+      end.to raise_error(Karya::Workflow::DuplicateBatchError, 'batch "batch_one.rollback" already exists')
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 12, reason: 'operator rollback')
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "batch_one" has already been rolled back')
+    end
+
+    it 'rejects no-op rollback when the deterministic rollback batch id already exists' do
+      definition = Karya::Workflow.define(:rollback_noop_conflict) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_many(jobs: [workflow_job(:other)], batch_id: 'batch_one.rollback', now: created_at + 1)
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        batch_id: :batch_one,
+        now: created_at + 2
+      )
+      root = reserve(3, handler_names: ['root'])
+      run_successfully(root, start_offset: 4, complete_offset: 5)
+      child = reserve(6, handler_names: ['child'])
+      store.start_execution(reservation_token: child.token, now: created_at + 7)
+      store.fail_execution(reservation_token: child.token, now: created_at + 8, failure_classification: :error)
+
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 9, reason: 'operator rollback')
+      end.to raise_error(Karya::Workflow::DuplicateBatchError, 'batch "batch_one.rollback" already exists')
+      store.cancel_jobs(job_ids: ['job-other'], now: created_at + 10)
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 11, reason: 'operator rollback')
+      end.to raise_error(Karya::Workflow::DuplicateBatchError, 'batch "batch_one.rollback" already exists')
+    end
+
+    it 'rejects duplicate rollback requests' do
+      definition = Karya::Workflow.define(:rollback_duplicate) do
+        step :root, handler: :root, compensate_with: :undo_root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        compensation_jobs_by_step_id: { root: compensation_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      root = reserve(2)
+      run_successfully(root, start_offset: 3, complete_offset: 4)
+      child = reserve(5)
+      store.start_execution(reservation_token: child.token, now: created_at + 6)
+      store.fail_execution(reservation_token: child.token, now: created_at + 7, failure_classification: :error)
+      store.rollback_workflow(batch_id: :batch_one, now: created_at + 8, reason: 'operator rollback')
+
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 9, reason: 'operator rollback')
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "batch_one" has already been rolled back')
+    end
+
+    it 'rejects rollback uniqueness conflicts without partial writes' do
+      definition = Karya::Workflow.define(:rollback_conflict) do
+        step :root, handler: :root, compensate_with: :undo_root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue(job: workflow_job(:other, uniqueness_key: 'rollback-key', uniqueness_scope: :queued), now: created_at + 1)
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        compensation_jobs_by_step_id: { root: compensation_job(:root, uniqueness_key: 'rollback-key', uniqueness_scope: :queued) },
+        batch_id: :batch_one,
+        now: created_at + 2
+      )
+      root = reserve(3, handler_names: ['root'])
+      run_successfully(root, start_offset: 4, complete_offset: 5)
+      child = reserve(6, handler_names: ['child'])
+      store.start_execution(reservation_token: child.token, now: created_at + 7)
+      store.fail_execution(reservation_token: child.token, now: created_at + 8, failure_classification: :error)
+
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 9, reason: 'operator rollback')
+      end.to raise_error(Karya::DuplicateUniquenessKeyError)
+      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 10) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
     end
 
     it 'rejects invalid workflow bindings without partial writes' do

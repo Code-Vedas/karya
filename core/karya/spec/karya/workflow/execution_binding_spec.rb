@@ -20,6 +20,10 @@ RSpec.describe 'Karya::Workflow::ExecutionBinding' do
     Karya::Job.new(id:, queue: :billing, handler:, arguments:, state: :submission, created_at:)
   end
 
+  def compensation_job(id:, handler:, arguments: {})
+    Karya::Job.new(id:, queue: :rollback, handler:, arguments:, state: :submission, created_at:)
+  end
+
   def jobs_by_step_id
     {
       ' calculate_totals ' => submission_job(
@@ -44,6 +48,31 @@ RSpec.describe 'Karya::Workflow::ExecutionBinding' do
     )
     expect(binding).to be_frozen
     expect(binding.jobs).to be_frozen
+  end
+
+  it 'binds compensation jobs for compensable workflow steps' do
+    definition = Karya::Workflow.define(:refund_invoice) do
+      step :capture_payment,
+           handler: :capture_payment,
+           compensate_with: :refund_payment,
+           compensation_arguments: { reason: :workflow_rollback }
+    end
+    binding = described_class.new(
+      definition:,
+      jobs_by_step_id: { capture_payment: submission_job(id: 'job-1', handler: :capture_payment) },
+      compensation_jobs_by_step_id: {
+        ' capture_payment ' => compensation_job(
+          id: 'rollback-job-1',
+          handler: :refund_payment,
+          arguments: { reason: :workflow_rollback }
+        )
+      },
+      batch_id: 'batch-1'
+    )
+
+    expect(binding.compensation_jobs_by_step_id.keys).to eq(['capture_payment'])
+    expect(binding.compensation_jobs_by_step_id.fetch('capture_payment').id).to eq('rollback-job-1')
+    expect(binding.compensation_jobs_by_step_id).to be_frozen
   end
 
   it 'rejects non-definition input' do
@@ -109,5 +138,99 @@ RSpec.describe 'Karya::Workflow::ExecutionBinding' do
         batch_id: 'batch-1'
       )
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow step "calculate_totals" job arguments must match workflow step arguments')
+  end
+
+  it 'rejects missing and unknown compensation job bindings' do
+    definition = Karya::Workflow.define(:refund_invoice) do
+      step :capture_payment,
+           handler: :capture_payment,
+           compensate_with: :refund_payment,
+           compensation_arguments: { reason: :workflow_rollback }
+    end
+    primary_jobs = { capture_payment: submission_job(id: 'job-1', handler: :capture_payment) }
+
+    expect do
+      described_class.new(definition:, jobs_by_step_id: primary_jobs, compensation_jobs_by_step_id: {}, batch_id: 'batch-1')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'missing workflow compensation job "capture_payment"')
+
+    expect do
+      described_class.new(
+        definition:,
+        jobs_by_step_id: primary_jobs,
+        compensation_jobs_by_step_id: { extra: compensation_job(id: 'rollback-job-1', handler: :refund_payment) },
+        batch_id: 'batch-1'
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'missing workflow compensation job "capture_payment"')
+
+    expect do
+      described_class.new(
+        definition:,
+        jobs_by_step_id: primary_jobs,
+        compensation_jobs_by_step_id: {
+          capture_payment: compensation_job(id: 'rollback-job-1', handler: :refund_payment, arguments: { reason: :workflow_rollback }),
+          extra: compensation_job(id: 'rollback-job-2', handler: :refund_payment)
+        },
+        batch_id: 'batch-1'
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'unknown workflow compensation job "extra"')
+  end
+
+  it 'rejects invalid compensation job values' do
+    definition = Karya::Workflow.define(:refund_invoice) do
+      step :capture_payment,
+           handler: :capture_payment,
+           compensate_with: :refund_payment,
+           compensation_arguments: { reason: :workflow_rollback }
+    end
+    primary_jobs = { capture_payment: submission_job(id: 'job-1', handler: :capture_payment) }
+
+    expect do
+      described_class.new(
+        definition:,
+        jobs_by_step_id: primary_jobs,
+        compensation_jobs_by_step_id: { capture_payment: 'rollback-job-1' },
+        batch_id: 'batch-1'
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow compensation "capture_payment" job must be a Karya::Job')
+
+    queued_job = compensation_job(id: 'rollback-job-1', handler: :refund_payment).transition_to(:queued, updated_at: created_at + 1)
+    expect do
+      described_class.new(
+        definition:,
+        jobs_by_step_id: primary_jobs,
+        compensation_jobs_by_step_id: { capture_payment: queued_job },
+        batch_id: 'batch-1'
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow compensation "capture_payment" job must be in :submission state')
+
+    expect do
+      described_class.new(
+        definition:,
+        jobs_by_step_id: primary_jobs,
+        compensation_jobs_by_step_id: { capture_payment: compensation_job(id: 'rollback-job-1', handler: :wrong) },
+        batch_id: 'batch-1'
+      )
+    end.to raise_error(
+      Karya::Workflow::InvalidExecutionError,
+      'workflow compensation "capture_payment" job handler must match workflow compensation handler'
+    )
+
+    expect do
+      described_class.new(
+        definition:,
+        jobs_by_step_id: primary_jobs,
+        compensation_jobs_by_step_id: {
+          capture_payment: compensation_job(
+            id: 'rollback-job-1',
+            handler: :refund_payment,
+            arguments: { reason: :manual_rollback }
+          )
+        },
+        batch_id: 'batch-1'
+      )
+    end.to raise_error(
+      Karya::Workflow::InvalidExecutionError,
+      'workflow compensation "capture_payment" job arguments must match workflow compensation arguments'
+    )
   end
 end

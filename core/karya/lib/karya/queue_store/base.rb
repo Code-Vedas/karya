@@ -73,11 +73,12 @@ module Karya
       # Enqueue one complete workflow run atomically. Concrete jobs remain the
       # canonical executable units; workflow metadata only gates reservation
       # until prerequisite jobs have succeeded.
-      def enqueue_workflow(definition:, jobs_by_step_id:, batch_id:, now:)
+      def enqueue_workflow(definition:, jobs_by_step_id:, batch_id:, now:, compensation_jobs_by_step_id: {})
         _definition = definition
         _jobs_by_step_id = jobs_by_step_id
         _batch_id = batch_id
         _now = now
+        _compensation_jobs_by_step_id = compensation_jobs_by_step_id
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
@@ -86,6 +87,14 @@ module Karya
       def workflow_snapshot(batch_id:, now:)
         _batch_id = batch_id
         _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Trigger explicit saga rollback for one failed workflow batch.
+      def rollback_workflow(batch_id:, now:, reason:)
+        _batch_id = batch_id
+        _now = now
+        _reason = reason
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 

@@ -11,6 +11,7 @@ module Karya
           def build_enqueue_batch: (batch_id: Karya::state_name, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch
           def store_optional_batch: (Karya::Workflow::Batch? batch) -> Karya::Workflow::Batch?
           def store_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
+          def workflow_rollback_batch_id?: (String batch_id) -> bool
           def fetch_batch: (String batch_id) -> Karya::Workflow::Batch
           def fetch_batch_jobs: (Karya::Workflow::Batch batch) -> Array[Job]
         end

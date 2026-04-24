@@ -72,6 +72,10 @@ operator search and governance layers choose targets:
   reservation of dependent steps until prerequisite jobs have succeeded
 - workflow snapshots derive workflow state from stored workflow metadata and
   current member job states without mutating the batch membership
+- workflow rollback is an explicit operator action for failed workflow batches;
+  it creates one immutable rollback batch when compensation jobs exist, records
+  a no-op rollback boundary when every compensation step is skipped, and rejects
+  duplicate rollback requests
 - bulk retry returns failed or `retry_pending` jobs to normal queued execution
   when they are still eligible and uniqueness-safe
 - bulk cancellation can stop queued, retry-pending, reserved, or running jobs;

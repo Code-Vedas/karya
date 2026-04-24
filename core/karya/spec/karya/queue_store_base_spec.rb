@@ -49,6 +49,12 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #workflow_snapshot/)
   end
 
+  it 'requires rollback_workflow to be implemented' do
+    expect do
+      store.rollback_workflow(batch_id: 'batch-1', now: Time.utc(2026, 3, 27, 12, 0, 0), reason: 'operator rollback')
+    end.to raise_error(NotImplementedError, /implement #rollback_workflow/)
+  end
+
   it 'requires reserve to be implemented' do
     expect do
       store.reserve(

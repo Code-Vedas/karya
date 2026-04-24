@@ -47,4 +47,28 @@ RSpec.describe Karya::Workflow do
       expect(catalog.fetch(:invoice_closeout)).to eq(definition)
     end
   end
+
+  describe '.build_execution_binding' do
+    it 'builds a workflow execution binding for existing internal callers' do
+      definition = described_class.define(:invoice_closeout) do
+        step :calculate_totals, handler: :calculate_totals
+      end
+      job = Karya::Job.new(
+        id: 'job-1',
+        queue: :billing,
+        handler: :calculate_totals,
+        state: :submission,
+        created_at: Time.utc(2026, 4, 24, 12, 0, 0)
+      )
+
+      binding = described_class.send(
+        :build_execution_binding,
+        definition:,
+        jobs_by_step_id: { calculate_totals: job },
+        batch_id: 'batch-1'
+      )
+
+      expect(binding.jobs).to eq([job])
+    end
+  end
 end

@@ -49,7 +49,9 @@ module Karya
               max_size: max_batch_size
             )
             batch_id = batch.id
-            raise Workflow::DuplicateBatchError, "batch #{batch_id.inspect} already exists" if state.batches_by_id.key?(batch_id)
+            if state.batches_by_id.key?(batch_id) || workflow_rollback_batch_id?(batch_id)
+              raise Workflow::DuplicateBatchError, "batch #{batch_id.inspect} already exists"
+            end
 
             batch
           end
@@ -67,6 +69,12 @@ module Karya
             state.register_batch(batch)
             state.prune_terminal_batches(completed_batch_retention_limit)
             batch
+          end
+
+          def workflow_rollback_batch_id?(batch_id)
+            state.workflow_rollbacks_by_batch_id.any? do |_workflow_batch_id, rollback|
+              rollback.rollback_batch_id == batch_id
+            end
           end
 
           def fetch_batch(batch_id)

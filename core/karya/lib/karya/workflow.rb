@@ -61,6 +61,11 @@ module Karya
     end
     module_function :build_execution_binding
 
+    def build_compensated_execution_binding(definition:, jobs_by_step_id:, batch_id:, compensation_jobs_by_step_id:)
+      ExecutionBinding.new(definition:, jobs_by_step_id:, batch_id:, compensation_jobs_by_step_id:)
+    end
+    module_function :build_compensated_execution_binding
+
     # Owner-local DSL builder for workflow definition.
     class Builder
       def initialize(id)
@@ -68,8 +73,8 @@ module Karya
         @steps = []
       end
 
-      def step(id, handler:, arguments: {}, depends_on: nil)
-        steps << Step.new(id:, handler:, arguments:, depends_on:)
+      def step(id, handler:, arguments: {}, depends_on: nil, compensate_with: nil, compensation_arguments: {})
+        steps << Step.new(id:, handler:, arguments:, depends_on:, compensate_with:, compensation_arguments:)
         nil
       end
 
@@ -87,5 +92,6 @@ module Karya
     private_class_method :normalize_batch_identifier
     private_class_method :normalize_execution_identifier
     private_class_method :build_execution_binding
+    private_class_method :build_compensated_execution_binding
   end
 end

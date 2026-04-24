@@ -14,6 +14,10 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     Karya::Job.new(id:, queue: :billing, handler: :sync_billing, state:, created_at:)
   end
 
+  def rollback_job(id)
+    Karya::Job.new(id:, queue: :rollback, handler: :undo, state: :submission, created_at:)
+  end
+
   it 'treats non-workflow jobs and root workflow jobs as ready' do
     plain_job = job(id: 'job-1', state: :queued)
     root_job = job(id: 'job-2', state: :queued)
@@ -69,5 +73,49 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     expect do
       store.send(:fetch_workflow_registration, 'batch-1')
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "batch-1" is not a workflow batch')
+  end
+
+  it 'builds rollback jobs in reverse definition order with serial dependencies' do
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    helper = workflow_support.const_get(:RollbackPlan, false)
+    registration = store.send(:state).register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'first' => 'job-1', 'second' => 'job-2', 'third' => 'job-3' },
+      compensation_jobs_by_step_id: {
+        'first' => rollback_job('rollback-job-1'),
+        'second' => rollback_job('rollback-job-2'),
+        'third' => rollback_job('rollback-job-3')
+      }
+    )
+
+    result = helper.new(
+      registration:,
+      jobs: [job(id: 'job-1', state: :succeeded), job(id: 'job-2', state: :failed), job(id: 'job-3', state: :succeeded)]
+    ).to_plan
+
+    expect(result.jobs.map(&:id)).to eq(%w[rollback-job-3 rollback-job-1])
+    expect(result.dependency_job_ids_by_job_id).to eq(
+      'rollback-job-3' => [],
+      'rollback-job-1' => ['rollback-job-3']
+    )
+  end
+
+  it 'builds empty rollback plans when every compensation step is skipped' do
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    helper = workflow_support.const_get(:RollbackPlan, false)
+    registration = store.send(:state).register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'first' => 'job-1' },
+      compensation_jobs_by_step_id: { 'first' => rollback_job('rollback-job-1') }
+    )
+
+    result = helper.new(registration:, jobs: [job(id: 'job-1', state: :failed)]).to_plan
+
+    expect(result.jobs).to eq([])
+    expect(result.dependency_job_ids_by_job_id).to eq({})
   end
 end
