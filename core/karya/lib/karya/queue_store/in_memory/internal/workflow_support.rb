@@ -17,12 +17,18 @@ module Karya
             @mutex.synchronize do
               binding = Workflow.send(:build_execution_binding, definition:, jobs_by_step_id:, batch_id:)
               jobs = binding.jobs
-              batch = build_enqueue_batch(batch_id: binding.batch_id, jobs:, now: normalized_now)
+              workflow_batch_id = binding.batch_id
+              batch = build_enqueue_batch(batch_id: workflow_batch_id, jobs:, now: normalized_now)
               validate_bulk_enqueue_uniqueness(jobs, normalized_now)
               expire_reservations_locked(normalized_now)
               queued_jobs = jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               store_batch(batch)
-              state.register_workflow_dependencies(binding.dependency_job_ids_by_job_id)
+              state.workflow_dependency_job_ids_by_job_id.merge!(binding.dependency_job_ids_by_job_id)
+              state.register_workflow(
+                batch_id: workflow_batch_id,
+                workflow_id: definition.id,
+                step_job_ids: StepJobIds.new(definition:, jobs:).to_h
+              )
               BulkMutationReport.new(
                 action: :enqueue_many,
                 performed_at: normalized_now,
@@ -33,7 +39,53 @@ module Karya
             end
           end
 
+          def workflow_snapshot(batch_id:, now:)
+            normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
+            normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
+
+            @mutex.synchronize do
+              batch = fetch_batch(normalized_batch_id)
+              workflow_batch_id = batch.id
+              registration = fetch_workflow_registration(workflow_batch_id)
+              jobs = batch.job_ids.map { |job_id| state.jobs_by_id.fetch(job_id) }
+              Workflow::Snapshot.new(
+                workflow_id: registration.workflow_id,
+                batch_id: workflow_batch_id,
+                captured_at: normalized_now,
+                step_job_ids: registration.step_job_ids,
+                dependency_job_ids_by_job_id: state.workflow_dependency_job_ids_by_job_id,
+                jobs:
+              )
+            end
+          end
+
           private
+
+          # Builds step-to-job metadata in definition order.
+          class StepJobIds
+            def initialize(definition:, jobs:)
+              @definition = definition
+              @jobs = jobs
+            end
+
+            def to_h
+              definition.steps.each_with_object({}).with_index do |(workflow_step, step_jobs), index|
+                step_jobs[workflow_step.id] = jobs.fetch(index).id
+              end.freeze
+            end
+
+            private
+
+            attr_reader :definition, :jobs
+          end
+          private_constant :StepJobIds
+
+          def fetch_workflow_registration(batch_id)
+            registration = state.workflow_registrations_by_batch_id[batch_id]
+            return registration if registration
+
+            raise Workflow::InvalidExecutionError, "batch #{batch_id.inspect} is not a workflow batch"
+          end
 
           def workflow_dependencies_satisfied?(job)
             prerequisite_job_ids = state.workflow_dependency_job_ids_by_job_id[job.id]

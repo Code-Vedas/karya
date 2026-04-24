@@ -20,6 +20,8 @@ module Karya
         now: Time
       ) -> BulkMutationReport
 
+      def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
+
       def reserve: (
         worker_id: String,
         lease_duration: Karya::lease_duration_value,

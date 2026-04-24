@@ -32,7 +32,11 @@ module Karya
                       :reservation_tokens_in_order,
                       :reservations_by_token,
                       :stuck_job_recoveries_by_id,
-                      :workflow_dependency_job_ids_by_job_id
+                      :workflow_dependency_job_ids_by_job_id,
+                      :workflow_registrations_by_batch_id
+
+          # Immutable owner-local workflow registration metadata for one batch.
+          WorkflowRegistration = Struct.new(:workflow_id, :step_job_ids)
 
           def initialize(expired_tombstone_limit:)
             @batches_by_id = {}
@@ -60,6 +64,7 @@ module Karya
             @terminal_batch_ids_index = {}
             @terminal_batch_ids_in_order = []
             @workflow_dependency_job_ids_by_job_id = {}
+            @workflow_registrations_by_batch_id = {}
           end
 
           def queue_job_ids_for(queue)
@@ -238,11 +243,14 @@ module Karya
             pruned_batch_ids
           end
 
-          def register_workflow_dependencies(dependency_job_ids_by_job_id)
-            dependency_job_ids_by_job_id.each do |job_id, dependency_job_ids|
-              workflow_dependency_job_ids_by_job_id[job_id] = dependency_job_ids
-            end
+          def register_workflow(batch_id:, workflow_id:, step_job_ids:)
+            workflow_registrations_by_batch_id[batch_id] = WorkflowRegistration.new(
+              workflow_id,
+              step_job_ids
+            ).freeze
           end
+
+          private_constant :WorkflowRegistration
 
           private
 

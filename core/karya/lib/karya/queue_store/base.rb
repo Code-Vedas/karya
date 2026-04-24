@@ -81,6 +81,14 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Inspect one workflow run by its batch id. Backends must derive
+      # workflow state from stored workflow metadata and current member jobs.
+      def workflow_snapshot(batch_id:, now:)
+        _batch_id = batch_id
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       # Reserve must atomically move one durable queued job to reserved and
       # persist its lease token, worker id, reserved_at, and expires_at before
       # returning the reservation. A returned reservation is the only

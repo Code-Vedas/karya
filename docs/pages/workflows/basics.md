@@ -51,6 +51,18 @@ queued prerequisite jobs do not unblock dependent steps. Retry can still move a
 failed prerequisite back through normal execution; once that prerequisite
 succeeds, dependent queued work becomes eligible.
 
+Workflow snapshots expose the current workflow state separately from the batch
+aggregate state:
+
+- `pending` when steps are queued and ready but not yet active
+- `running` while at least one step is active, or workflow progress has made
+  queued follow-up work eligible
+- `blocked` when queued dependent steps are waiting on prerequisites
+- `succeeded` when every step succeeded
+- `cancelled` when every step was cancelled
+- `failed` when a step failed, was dead-lettered, or terminal mixed outcomes
+  prevent workflow success
+
 ### Batch Identity And Aggregate State
 
 Workflow batches give related runtime jobs one stable identity. Batch creation

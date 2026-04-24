@@ -30,6 +30,7 @@ module Karya
           @terminal_batch_ids_index: Hash[String, bool]
           @terminal_batch_ids_in_order: Array[String]
           @workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
+          @workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
 
           attr_reader breaker_failures_by_scope: Hash[String, Array[Time]]
           attr_reader batches_by_id: Hash[String, Karya::Workflow::Batch]
@@ -51,6 +52,7 @@ module Karya
           attr_reader reservations_by_token: Hash[String, Reservation]
           attr_reader stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
           attr_reader workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
+          attr_reader workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
 
           def initialize: (expired_tombstone_limit: Integer) -> void
           def queue_job_ids_for: (String queue) -> Array[String]
@@ -78,11 +80,20 @@ module Karya
           def reservation_token_in_use?: (String reservation_token) -> bool
           def register_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
           def prune_terminal_batches: (Integer retention_limit, ?changed_job: Job?) -> Array[String]
-          def register_workflow_dependencies: (Hash[String, Array[String]] dependency_job_ids_by_job_id) -> Hash[String, Array[String]]
+          def register_workflow: (batch_id: String, workflow_id: String, step_job_ids: Hash[String, String]) -> WorkflowRegistration
 
           private
 
           def terminal_batch?: (Karya::Workflow::Batch batch) -> bool
+
+          class WorkflowRegistration
+            @workflow_id: String
+            @step_job_ids: Hash[String, String]
+
+            attr_reader workflow_id: String
+            attr_reader step_job_ids: Hash[String, String]
+          end
+
           def trim_fair_queue_history: () -> void
           def prune_expired_reservation_tokens: () -> bool?
         end
