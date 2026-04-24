@@ -26,6 +26,12 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #enqueue_many/)
   end
 
+  it 'requires batch_snapshot to be implemented' do
+    expect do
+      store.batch_snapshot(batch_id: 'batch-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #batch_snapshot/)
+  end
+
   it 'requires reserve to be implemented' do
     expect do
       store.reserve(

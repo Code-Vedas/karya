@@ -14,6 +14,7 @@ module Karya
           MAX_TRACKED_FAIR_QUEUE_LISTS = 128
 
           attr_reader :executions_by_token,
+                      :batches_by_id,
                       :breaker_failures_by_scope,
                       :breaker_states_by_scope,
                       :execution_tokens_in_order,
@@ -33,6 +34,7 @@ module Karya
                       :stuck_job_recoveries_by_id
 
           def initialize(expired_tombstone_limit:)
+            @batches_by_id = {}
             @breaker_failures_by_scope = {}
             @breaker_states_by_scope = {}
             @executions_by_token = {}

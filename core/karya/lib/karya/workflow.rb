@@ -6,6 +6,8 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative 'primitives/identifier'
+require_relative 'workflow/batch'
+require_relative 'workflow/batch_snapshot'
 require_relative 'workflow/catalog'
 require_relative 'workflow/dependency'
 require_relative 'workflow/definition'
@@ -16,6 +18,12 @@ module Karya
   module Workflow
     # Raised when a workflow definition or composition graph is invalid.
     class InvalidDefinitionError < Error; end
+    # Raised when a workflow batch or batch inspection request is invalid.
+    class InvalidBatchError < Error; end
+    # Raised when a workflow batch id conflicts with existing batch state.
+    class DuplicateBatchError < InvalidBatchError; end
+    # Raised when workflow batch state cannot be found.
+    class UnknownBatchError < InvalidBatchError; end
 
     module_function
 
@@ -33,6 +41,11 @@ module Karya
       Primitives::Identifier.new(field_name, value, error_class: InvalidDefinitionError).normalize
     end
     module_function :normalize_identifier
+
+    def normalize_batch_identifier(field_name, value)
+      Primitives::Identifier.new(field_name, value, error_class: InvalidBatchError).normalize
+    end
+    module_function :normalize_batch_identifier
 
     # Owner-local DSL builder for workflow definition.
     class Builder
@@ -57,5 +70,6 @@ module Karya
 
     private_constant :Builder
     private_class_method :normalize_identifier
+    private_class_method :normalize_batch_identifier
   end
 end

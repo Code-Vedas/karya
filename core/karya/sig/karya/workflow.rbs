@@ -8,8 +8,162 @@ module Karya
     class InvalidDefinitionError < Error
     end
 
+    class InvalidBatchError < Error
+    end
+
+    class DuplicateBatchError < InvalidBatchError
+    end
+
+    class UnknownBatchError < InvalidBatchError
+    end
+
     def self.define: (state_name id) ?{ -> void } -> Definition
     def self.catalog: (definitions: Array[Definition]) -> Catalog
+
+    class Batch
+      @id: String
+      @job_ids: Array[String]
+      @created_at: Time
+      @updated_at: Time
+
+      attr_reader id: String
+      attr_reader job_ids: Array[String]
+      attr_reader created_at: Time
+      attr_reader updated_at: Time
+
+      def initialize: (
+        id: state_name,
+        job_ids: Array[state_name],
+        created_at: Time,
+        ?updated_at: Time,
+        ?max_size: Integer
+      ) -> void
+
+    private
+
+      class Timestamp
+        @name: Symbol
+        @value: Time
+
+        def initialize: (Symbol name, Time value) -> void
+        def to_time: () -> Time
+
+      private
+
+        attr_reader name: Symbol
+        attr_reader value: Time
+      end
+
+      class JobIdList
+        @job_ids: Array[state_name]
+        @max_size: Integer
+
+        def initialize: (Array[state_name] job_ids, max_size: Integer) -> void
+        def to_a: () -> Array[String]
+
+      private
+
+        attr_reader job_ids: Array[state_name]
+        attr_reader max_size: Integer
+        def validate_size: (Array[String] normalized_job_ids) -> void
+        def validate_unique: (Array[String] normalized_job_ids) -> void
+      end
+    end
+
+    class BatchSnapshot
+      @batch_id: String
+      @captured_at: Time
+      @job_ids: Array[String]
+      @jobs: Array[Job]
+      @state_counts: Hash[state_name, Integer]
+      @total_count: Integer
+      @completed_count: Integer
+      @failed_count: Integer
+      @aggregate_state: Karya::batch_aggregate_state
+
+      attr_reader batch_id: String
+      attr_reader captured_at: Time
+      attr_reader job_ids: Array[String]
+      attr_reader jobs: Array[Job]
+      attr_reader state_counts: Hash[state_name, Integer]
+      attr_reader total_count: Integer
+      attr_reader completed_count: Integer
+      attr_reader failed_count: Integer
+      attr_reader aggregate_state: Karya::batch_aggregate_state
+
+      def initialize: (
+        batch_id: state_name,
+        captured_at: Time,
+        job_ids: Array[state_name],
+        jobs: Array[Job]
+      ) -> void
+
+    private
+
+      class Timestamp
+        @name: Symbol
+        @value: Time
+
+        def initialize: (Symbol name, Time value) -> void
+        def to_time: () -> Time
+
+      private
+
+        attr_reader name: Symbol
+        attr_reader value: Time
+      end
+
+      class JobIdList
+        @job_ids: Array[state_name]
+
+        def initialize: (Array[state_name] job_ids) -> void
+        def to_a: () -> Array[String]
+
+      private
+
+        attr_reader job_ids: Array[state_name]
+      end
+
+      class JobList
+        @jobs: Array[Job]
+
+        def initialize: (Array[Job] jobs) -> void
+        def to_a: () -> Array[Job]
+
+      private
+
+        attr_reader jobs: Array[Job]
+      end
+
+      class Summary
+        @jobs: Array[Job]
+        @state_counts: Hash[state_name, Integer]?
+
+        def initialize: (Array[Job] jobs) -> void
+        def state_counts: () -> Hash[state_name, Integer]
+        def completed_count: () -> Integer
+        def failed_count: () -> Integer
+
+      private
+
+        attr_reader jobs: Array[Job]
+      end
+
+      class AggregateState
+        @jobs: Array[Job]
+
+        def initialize: (Array[Job] jobs) -> void
+        def to_sym: () -> Karya::batch_aggregate_state
+
+      private
+
+        attr_reader jobs: Array[Job]
+        def any_state?: (Array[state_name] states) -> bool
+        def only_state?: (state_name state) -> bool
+      end
+
+      def validate_membership: () -> void
+    end
 
     class Dependency
       @step_id: String
@@ -147,6 +301,7 @@ module Karya
   private
 
     def self.normalize_identifier: (Symbol field_name, state_name value) -> String
+    def self.normalize_batch_identifier: (Symbol field_name, state_name value) -> String
 
     class Builder
       @id: state_name

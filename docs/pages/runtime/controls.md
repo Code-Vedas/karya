@@ -66,6 +66,8 @@ operator search and governance layers choose targets:
 
 - bulk enqueue is atomic; any invalid or duplicate item rejects the whole batch
   without partial writes
+- bulk enqueue can attach a stable workflow batch id; batch membership is
+  immutable, and aggregate batch state is inspected from current member jobs
 - bulk retry returns failed or `retry_pending` jobs to normal queued execution
   when they are still eligible and uniqueness-safe
 - bulk cancellation can stop queued, retry-pending, reserved, or running jobs;

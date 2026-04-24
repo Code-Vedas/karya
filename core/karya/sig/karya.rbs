@@ -186,6 +186,7 @@ module Karya
     :discard_dead_letter_jobs
   type queue_control_action = :pause_queue | :resume_queue
   type bulk_skip_reason = :not_found | :ineligible_state | :duplicate_request | :uniqueness_conflict
+  type batch_aggregate_state = :failed | :running | :succeeded | :cancelled | :completed
   type bulk_skipped_job = {
     job_id: String,
     reason: bulk_skip_reason,

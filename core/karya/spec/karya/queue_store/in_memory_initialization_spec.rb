@@ -53,6 +53,18 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /finite non-negative Integer/)
     end
 
+    it 'rejects invalid max batch size values' do
+      expect do
+        described_class.new(max_batch_size: 0)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /max_batch_size must be a positive Integer/)
+    end
+
+    it 'rejects unknown keyword options' do
+      expect do
+        described_class.new(unknown_option: true)
+      end.to raise_error(ArgumentError, 'unknown keywords: unknown_option')
+    end
+
     it 'rejects invalid policy_set values' do
       expect do
         described_class.new(policy_set: Object.new)

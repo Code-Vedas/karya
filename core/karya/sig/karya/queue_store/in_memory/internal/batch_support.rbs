@@ -1,0 +1,19 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module BatchSupport
+          def batch_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::BatchSnapshot
+
+          private
+
+          def build_optional_enqueue_batch: (batch_id: Karya::state_name?, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch?
+          def build_enqueue_batch: (batch_id: Karya::state_name, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch
+          def store_optional_batch: (Karya::Workflow::Batch? batch) -> Karya::Workflow::Batch?
+          def store_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
+          def fetch_batch: (String batch_id) -> Karya::Workflow::Batch
+        end
+      end
+    end
+  end
+end

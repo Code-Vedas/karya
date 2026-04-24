@@ -47,6 +47,57 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(store.reserve(queue: 'shipping', worker_id: 'worker-2', lease_duration: 30, now: created_at + 3).job_id).to eq('job-2')
     end
 
+    it 'atomically creates an immutable workflow batch when batch_id is provided' do
+      report = store.enqueue_many(
+        jobs: [
+          submission_job(id: 'job-1', created_at:),
+          submission_job(id: 'job-2', created_at:)
+        ],
+        now: created_at + 1,
+        batch_id: :invoice_closeout
+      )
+      snapshot = store.batch_snapshot(batch_id: ' invoice_closeout ', now: created_at + 2)
+
+      expect(report.changed_jobs.map(&:id)).to eq(%w[job-1 job-2])
+      expect(snapshot).to have_attributes(
+        batch_id: 'invoice_closeout',
+        job_ids: %w[job-1 job-2],
+        total_count: 2,
+        completed_count: 0,
+        failed_count: 0,
+        aggregate_state: :running
+      )
+      expect(snapshot.state_counts).to eq(queued: 2)
+    end
+
+    it 'rejects duplicate batch ids without partial writes' do
+      store.enqueue_many(jobs: [submission_job(id: 'job-1', created_at:)], now: created_at + 1, batch_id: 'batch_1')
+
+      expect do
+        store.enqueue_many(jobs: [submission_job(id: 'job-2', created_at:)], now: created_at + 2, batch_id: ' batch_1 ')
+      end.to raise_error(Karya::Workflow::DuplicateBatchError, 'batch "batch_1" already exists')
+
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3).job_id).to eq('job-1')
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)).to be_nil
+    end
+
+    it 'rejects oversize workflow batches without partial writes' do
+      limited_store = described_class.new(max_batch_size: 1)
+
+      expect do
+        limited_store.enqueue_many(
+          jobs: [
+            submission_job(id: 'job-1', created_at:),
+            submission_job(id: 'job-2', created_at:)
+          ],
+          now: created_at + 1,
+          batch_id: 'batch_1'
+        )
+      end.to raise_error(Karya::Workflow::InvalidBatchError, 'batch size must be at most 1 jobs')
+
+      expect(limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)).to be_nil
+    end
+
     it 'rejects an in-batch duplicate without partial writes' do
       jobs = [
         submission_job(id: 'job-1', created_at:),
@@ -126,6 +177,95 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(report.changed_jobs.map(&:id)).to eq(%w[job-1 job-2])
+    end
+
+    it 'does not create a batch when enqueue validation fails' do
+      jobs = [
+        submission_job(id: 'job-1', created_at:, idempotency_key: 'same-key'),
+        submission_job(id: 'job-2', created_at:, idempotency_key: 'same-key')
+      ]
+
+      expect do
+        store.enqueue_many(jobs:, now: created_at + 1, batch_id: 'batch_1')
+      end.to raise_error(Karya::DuplicateIdempotencyKeyError, /same-key/)
+
+      expect do
+        store.batch_snapshot(batch_id: 'batch_1', now: created_at + 2)
+      end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_1" is not registered')
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)).to be_nil
+    end
+
+    it 'reflects current member job states in batch snapshots' do
+      retry_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 60, multiplier: 1)
+      store.enqueue_many(
+        jobs: %w[job-reserved job-running job-retry job-failed job-dead job-cancelled job-queued].map do |job_id|
+          submission_job(id: job_id, created_at:)
+        end,
+        now: created_at + 1,
+        batch_id: 'batch_1'
+      )
+      reserved = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 60, now: created_at + 2)
+      running = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 60, now: created_at + 3)
+      retry_pending = store.reserve(queue: 'billing', worker_id: 'worker-3', lease_duration: 60, now: created_at + 4)
+      failed = store.reserve(queue: 'billing', worker_id: 'worker-4', lease_duration: 60, now: created_at + 5)
+      store.start_execution(reservation_token: running.token, now: created_at + 6)
+      store.start_execution(reservation_token: retry_pending.token, now: created_at + 7)
+      store.fail_execution(reservation_token: retry_pending.token, now: created_at + 8, retry_policy:, failure_classification: :error)
+      store.start_execution(reservation_token: failed.token, now: created_at + 9)
+      store.fail_execution(reservation_token: failed.token, now: created_at + 10, failure_classification: :error)
+      store.dead_letter_jobs(job_ids: ['job-dead'], now: created_at + 11, reason: 'operator isolated')
+      store.cancel_jobs(job_ids: ['job-cancelled'], now: created_at + 12)
+
+      snapshot = store.batch_snapshot(batch_id: 'batch_1', now: created_at + 13)
+
+      expect(snapshot.jobs.map(&:id)).to eq(%w[job-reserved job-running job-retry job-failed job-dead job-cancelled job-queued])
+      expect(snapshot.state_counts).to eq(
+        reserved: 1,
+        running: 1,
+        retry_pending: 1,
+        failed: 1,
+        dead_letter: 1,
+        cancelled: 1,
+        queued: 1
+      )
+      expect(snapshot.failed_count).to eq(2)
+      expect(snapshot.completed_count).to eq(1)
+      expect(snapshot.aggregate_state).to eq(:failed)
+      expect(reserved.job_id).to eq('job-reserved')
+    end
+
+    it 'derives terminal aggregate states from snapshots' do
+      store.enqueue_many(
+        jobs: [submission_job(id: 'job-1', created_at:), submission_job(id: 'job-2', created_at:)],
+        now: created_at + 1,
+        batch_id: :successful_batch
+      )
+      first = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 60, now: created_at + 2)
+      second = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 60, now: created_at + 3)
+      store.start_execution(reservation_token: first.token, now: created_at + 4)
+      store.complete_execution(reservation_token: first.token, now: created_at + 5)
+      store.start_execution(reservation_token: second.token, now: created_at + 6)
+      store.complete_execution(reservation_token: second.token, now: created_at + 7)
+
+      expect(store.batch_snapshot(batch_id: :successful_batch, now: created_at + 8).aggregate_state).to eq(:succeeded)
+
+      store.enqueue_many(
+        jobs: [submission_job(id: 'job-3', created_at:), submission_job(id: 'job-4', created_at:)],
+        now: created_at + 9,
+        batch_id: :mixed_terminal_batch
+      )
+      third = store.reserve(queue: 'billing', worker_id: 'worker-3', lease_duration: 60, now: created_at + 10)
+      store.start_execution(reservation_token: third.token, now: created_at + 11)
+      store.complete_execution(reservation_token: third.token, now: created_at + 12)
+      store.cancel_jobs(job_ids: ['job-4'], now: created_at + 13)
+
+      expect(store.batch_snapshot(batch_id: :mixed_terminal_batch, now: created_at + 14).aggregate_state).to eq(:completed)
+    end
+
+    it 'raises a workflow-domain error for unknown batch snapshots' do
+      expect do
+        store.batch_snapshot(batch_id: :missing, now: created_at + 1)
+      end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "missing" is not registered')
     end
   end
 

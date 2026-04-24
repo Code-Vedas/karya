@@ -9,7 +9,9 @@ module Karya
     module Base
       def enqueue: (job: Job, now: Time) -> Job
 
-      def enqueue_many: (jobs: Array[Job], now: Time) -> BulkMutationReport
+      def enqueue_many: (jobs: Array[Job], now: Time, ?batch_id: Karya::state_name?) -> BulkMutationReport
+
+      def batch_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::BatchSnapshot
 
       def reserve: (
         worker_id: String,
