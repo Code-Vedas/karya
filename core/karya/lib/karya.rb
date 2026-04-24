@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative 'karya/base'
+require_relative 'karya/internal/immutable_argument_graph'
 require_relative 'karya/internal/null_logger'
 require_relative 'karya/version'
 

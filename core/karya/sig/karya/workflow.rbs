@@ -8,7 +8,7 @@ module Karya
     class InvalidDefinitionError < Error
     end
 
-    def self.define: (state_name id) -> Definition
+    def self.define: (state_name id) ?{ -> void } -> Definition
     def self.catalog: (definitions: Array[Definition]) -> Catalog
 
     class Dependency
@@ -38,6 +38,31 @@ module Karya
         ?arguments: Hash[state_name, job_argument],
         ?depends_on: (state_name | Array[state_name] | nil)
       ) -> void
+
+    private
+
+      class Arguments
+        @arguments: Hash[Karya::state_name, Karya::job_argument]
+
+        def initialize: (Hash[Karya::state_name, Karya::job_argument] arguments) -> void
+        def normalize: () -> Karya::job_arguments
+
+      private
+
+        attr_reader arguments: Hash[Karya::state_name, Karya::job_argument]
+      end
+
+      class Dependencies
+        @value: (state_name | Array[state_name] | nil)
+
+        def initialize: ((state_name | Array[state_name] | nil) value) -> void
+        def normalize: () -> Array[String]
+
+      private
+
+        attr_reader value: (state_name | Array[state_name] | nil)
+        def raw_dependencies: () -> Array[state_name]
+      end
     end
 
     class Definition
@@ -51,6 +76,51 @@ module Karya
 
       def initialize: (id: state_name, steps: Array[Step]) -> void
       def step: (state_name step_id) -> Step?
+
+    private
+
+      class Graph
+        @steps: Array[Step]
+        @steps_by_id: Hash[String, Step]
+        @dependencies: Array[Dependency]
+
+        attr_reader steps: Array[Step]
+        attr_reader dependencies: Array[Dependency]
+
+        def initialize: (untyped raw_steps) -> void
+
+      private
+
+        attr_reader steps_by_id: Hash[String, Step]
+        def normalize_steps: (untyped value) -> Array[Step]
+        def validate_duplicate_step_ids: (Array[Step] workflow_steps) -> void
+        def validate_dependency_targets: () -> void
+        def validate_step_dependencies: (Step workflow_step) -> void
+        def validate_acyclic: () -> void
+        def detect_cycle: (String step_id, Hash[String, Symbol] visit_states) -> void
+
+        class DependencyList
+          @steps: Array[Step]
+
+          def initialize: (Array[Step] steps) -> void
+          def dependencies: () -> Array[Dependency]
+
+        private
+
+          attr_reader steps: Array[Step]
+
+          class StepDependencies
+            @workflow_step: Step
+
+            def initialize: (Step workflow_step) -> void
+            def to_a: () -> Array[Dependency]
+
+          private
+
+            attr_reader workflow_step: Step
+          end
+        end
+      end
     end
 
     class Catalog
@@ -60,6 +130,22 @@ module Karya
 
       def initialize: (definitions: Array[Definition]) -> void
       def fetch: (state_name workflow_id) -> Definition
+    end
+
+  private
+
+    class Builder
+      @id: state_name
+      @steps: Array[Step]
+
+      def initialize: (state_name id) -> void
+      def step: (state_name id, handler: state_name, ?arguments: Hash[state_name, job_argument], ?depends_on: (state_name | Array[state_name] | nil)) -> nil
+      def to_definition: () -> Definition
+
+    private
+
+      attr_reader id: state_name
+      attr_reader steps: Array[Step]
     end
   end
 end

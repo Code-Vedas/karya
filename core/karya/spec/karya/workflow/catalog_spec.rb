@@ -20,6 +20,14 @@ RSpec.describe Karya::Workflow::Catalog do
     expect(catalog).to be_frozen
   end
 
+  it 'raises a workflow domain error for unknown workflow ids' do
+    catalog = described_class.new(definitions: [definition])
+
+    expect do
+      catalog.fetch(:missing)
+    end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'workflow "missing" is not registered')
+  end
+
   it 'rejects duplicate workflow ids' do
     duplicate_definition = Karya::Workflow.define(' invoice_closeout ') do
       step :capture_payment, handler: :capture_payment

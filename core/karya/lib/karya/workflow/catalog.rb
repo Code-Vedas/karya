@@ -29,6 +29,8 @@ module Karya
         normalized_workflow_id = Workflow.send(:normalize_identifier, :workflow_id, workflow_id)
 
         definitions.fetch(normalized_workflow_id)
+      rescue KeyError => e
+        raise InvalidDefinitionError, "workflow #{normalized_workflow_id.inspect} is not registered", cause: e
       end
     end
   end
