@@ -1,0 +1,27 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module ExpirationSupport
+          private
+
+          class ExpiringJob
+            def initialize: (Job job) -> void
+            def expired?: (Time now) -> bool
+            def to_failed_job: (Time now) -> Job
+          end
+
+          private
+
+          def expire_jobs_locked: (Time now) -> Array[Job]
+          def expire_queued_jobs: (Time now, Array[Job] expired_jobs) -> void
+          def expire_retry_pending_jobs: (Time now, Array[Job] expired_jobs) -> void
+          def expire_reserved_job: (Reservation reservation, Job reserved_job, Time now) -> Job
+          def expire_queued_job?: (String job_id, Time now, Array[Job] expired_jobs) -> bool
+          def job_expired?: (Job job, Time now) -> bool
+          def build_expired_job: (Job job, Time now) -> Job
+        end
+      end
+    end
+  end
+end

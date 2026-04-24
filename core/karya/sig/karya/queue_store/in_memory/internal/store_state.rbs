@@ -1,0 +1,81 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        class StoreState
+          MAX_TRACKED_FAIR_QUEUE_LISTS: Integer
+
+          @breaker_failures_by_scope: Hash[String, Array[Time]]
+          @breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
+          @executions_by_token: Hash[String, Reservation]
+          @execution_tokens_in_order: Array[String]
+          @expired_reservation_tokens: Hash[String, bool]
+          @expired_reservation_tokens_in_order: Array[String]
+          @expired_tombstone_limit: Integer
+          @execution_tokens_by_job_id: Hash[String, String]
+          @half_open_probe_admissions_by_scope: Hash[String, Array[String]]
+          @jobs_by_id: Hash[String, Job]
+          @last_reserved_queue_by_subscription: Hash[[Array[String], Array[String]?], String]
+          @paused_queues: Hash[String, Time]
+          @rate_limit_admissions_by_key: Hash[String, Array[Time]]
+          @queued_job_ids_by_queue: Hash[String, Array[String]]
+          @retry_pending_job_ids: Array[String]
+          @retry_pending_job_ids_index: Hash[String, bool]
+          @reservation_tokens_by_job_id: Hash[String, String]
+          @reservation_tokens_in_order: Array[String]
+          @reservations_by_token: Hash[String, Reservation]
+          @stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
+
+          attr_reader breaker_failures_by_scope: Hash[String, Array[Time]]
+          attr_reader breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
+          attr_reader executions_by_token: Hash[String, Reservation]
+          attr_reader execution_tokens_in_order: Array[String]
+          attr_reader expired_reservation_tokens: Hash[String, bool]
+          attr_reader expired_reservation_tokens_in_order: Array[String]
+          attr_reader execution_tokens_by_job_id: Hash[String, String]
+          attr_reader half_open_probe_admissions_by_scope: Hash[String, Array[String]]
+          attr_reader jobs_by_id: Hash[String, Job]
+          attr_reader last_reserved_queue_by_subscription: Hash[[Array[String], Array[String]?], String]
+          attr_reader paused_queues: Hash[String, Time]
+          attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
+          attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
+          attr_reader retry_pending_job_ids: Array[String]
+          attr_reader reservation_tokens_by_job_id: Hash[String, String]
+          attr_reader reservation_tokens_in_order: Array[String]
+          attr_reader reservations_by_token: Hash[String, Reservation]
+          attr_reader stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
+
+          def initialize: (expired_tombstone_limit: Integer) -> void
+          def queue_job_ids_for: (String queue) -> Array[String]
+          def delete_queue: (String queue) -> Array[String]?
+          def mark_queue_paused: (String queue, Time now) -> (:changed | :unchanged)
+          def unmark_queue_paused: (String queue) -> (:changed | :unchanged)
+          def queue_paused?: (String queue) -> bool
+          def last_reserved_queue_for: ([Array[String], Array[String]?] subscription_key) -> String?
+          def record_reserved_queue: ([Array[String], Array[String]?] subscription_key, String queue) -> String
+          def register_retry_pending: (String job_id) -> Array[String]
+          def delete_retry_pending: (String job_id) -> String?
+          def rate_limit_admissions_for: (String key) -> Array[Time]
+          def breaker_failures_for: (String key) -> Array[Time]
+          def half_open_probe_admissions_for: (String key) -> Array[String]
+          def delete_rate_limit_key: (String key) -> Array[Time]?
+          def clear_half_open_probe_admissions: (String key) -> Array[String]?
+          def register_stuck_job_recovery: (job_id: String, now: Time, reason: String) -> Karya::stuck_job_recovery
+          def reserve: (Reservation reservation) -> Array[String]
+          def activate_execution: (String reservation_token, Reservation reservation) -> Array[String]
+          def reservation_token_for_job: (String job_id) -> String?
+          def execution_token_for_job: (String job_id) -> String?
+          def delete_reservation_token: (String reservation_token) -> String?
+          def delete_execution_token: (String reservation_token) -> String?
+          def mark_expired: (String reservation_token) -> bool?
+          def reservation_token_in_use?: (String reservation_token) -> bool
+
+          private
+
+          def trim_fair_queue_history: () -> void
+          def prune_expired_reservation_tokens: () -> bool?
+        end
+      end
+    end
+  end
+end

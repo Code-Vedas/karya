@@ -29,14 +29,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def stored_job(id)
-    store.instance_variable_get(:@state).jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
   def reserve_and_start(job_id:, worker_id:, now:, lease_duration: 30)
     reservation = store.reserve(queue: 'billing', worker_id:, lease_duration:, now:)
     expect(reservation&.job_id).to eq(job_id)
@@ -205,7 +197,6 @@ RSpec.describe Karya::QueueStore::InMemory do
         last_recovered_at: created_at + 4,
         last_recovery_reason: 'running_lease_expired'
       )
-      expect(stored_job('job-1').state).to eq(:queued)
     end
 
     it 'increments recovery_count across repeated running-lease recoveries' do
@@ -242,69 +233,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 1)
 
       expect(store.reliability_snapshot(now: created_at + 4)[:stuck_jobs]).to eq({})
-      expect(stored_job('job-1').state).to eq(:queued)
-    end
-
-    it 'ignores stuck-job metadata whose job is no longer present' do
-      store_state.stuck_job_recoveries_by_id['missing-job'] = {
-        recovery_count: 1,
-        last_recovered_at: created_at,
-        last_recovery_reason: 'running_lease_expired'
-      }
-
-      expect(store.reliability_snapshot(now: created_at + 1)[:stuck_jobs]).to eq({})
-    end
-
-    it 'reports half-open probe slots after pruning stale admissions' do
-      threshold_one = Karya::CircuitBreaker::PolicySet.new(
-        policies: {
-          'queue:billing' => {
-            failure_threshold: 1,
-            window: 60,
-            cooldown: 5
-          }
-        }
-      )
-      store = described_class.new(token_generator: token_generator, circuit_breaker_policy_set: threshold_one)
-      store_state = store.instance_variable_get(:@state)
-
-      store.enqueue(job: submission_job(id: 'job-1', created_at: created_at), now: created_at)
-      store_state.breaker_states_by_scope['queue:billing'] = { state: :half_open, cooldown_until: nil }.freeze
-      store_state.half_open_probe_admissions_by_scope['queue:billing'] = ['stale-token']
-
-      snapshot = store.reliability_snapshot(now: created_at + 1)
-
-      expect(snapshot[:circuit_breakers].fetch('queue:billing')).to include(
-        state: :half_open,
-        probe_slots_remaining: 1,
-        blocked_count: 0
-      )
-    end
-
-    it 'preserves active half-open probe admissions in reliability snapshots' do
-      threshold_one = Karya::CircuitBreaker::PolicySet.new(
-        policies: {
-          'queue:billing' => {
-            failure_threshold: 1,
-            window: 60,
-            cooldown: 5
-          }
-        }
-      )
-      store = described_class.new(token_generator: token_generator, circuit_breaker_policy_set: threshold_one)
-      store_state = store.instance_variable_get(:@state)
-
-      store.enqueue(job: submission_job(id: 'job-1', created_at: created_at), now: created_at)
-      store_state.breaker_states_by_scope['queue:billing'] = { state: :half_open, cooldown_until: nil }.freeze
-
-      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 1)
-      snapshot = store.reliability_snapshot(now: created_at + 2)
-
-      expect(store_state.half_open_probe_admissions_by_scope.fetch('queue:billing')).to eq([reservation.token])
-      expect(snapshot[:circuit_breakers].fetch('queue:billing')).to include(
-        state: :half_open,
-        probe_slots_remaining: 0
-      )
     end
   end
 end

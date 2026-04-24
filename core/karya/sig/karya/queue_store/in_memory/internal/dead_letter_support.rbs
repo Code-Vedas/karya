@@ -1,0 +1,35 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module DeadLetterSupport
+          AVAILABLE_ACTIONS: Array[Symbol]
+          RETRY_EXHAUSTED_REASON: String
+          CLASSIFICATION_ESCALATED_REASON: String
+
+          private
+
+          class JobTransition
+            def initialize: (job: Job, now: Time) -> void
+            def dead_letter: (String reason) -> Job
+            def clear_dead_letter_metadata: (next_state: :queued | :retry_pending | :cancelled, next_retry_at: Time?) -> Job
+          end
+
+          class SnapshotEntry
+            def initialize: (job: Job) -> void
+            def to_h: () -> Karya::dead_letter_snapshot_entry
+          end
+
+          def prepare_dead_letter_snapshot: (Time now) -> nil
+          def dead_letter_requested_job: (String job_id, Time now, String reason, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+          def replay_dead_letter_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+          def retry_dead_letter_job: (String job_id, Time now, Time next_retry_at, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+          def discard_dead_letter_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+          def recover_dead_letter_job: (String job_id, :queued | :retry_pending next_state, Time now, Time? next_retry_at, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+          def cleanup_dead_letter_indexes: (Job job) -> void
+          def snapshot_dead_letters: () -> Array[Karya::dead_letter_snapshot_entry]
+        end
+      end
+    end
+  end
+end

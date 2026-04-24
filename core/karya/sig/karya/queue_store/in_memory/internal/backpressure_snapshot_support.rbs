@@ -1,0 +1,44 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module BackpressureSnapshotSupport
+          private
+
+          class ConcurrencySnapshot
+            def self.from_policy: (Backpressure::ConcurrencyPolicy policy, active_count: Integer, blocked_count: Integer) -> instance
+            def initialize: (scope: String, limit: Integer, active_count: Integer, blocked_count: Integer) -> void
+            def to_h: () -> Karya::backpressure_concurrency_snapshot
+          end
+
+          class RateLimitSnapshot
+            def self.from_policy: (Backpressure::RateLimitPolicy policy, window_count: Integer, blocked_count: Integer) -> instance
+            def initialize: (scope: String, limit: Integer, period: Numeric, window_count: Integer, blocked_count: Integer) -> void
+            def to_h: () -> Karya::backpressure_rate_limit_snapshot
+          end
+
+          private
+
+          def build_backpressure_snapshot: (Time now) -> Karya::backpressure_snapshot
+          def snapshot_concurrency: (Hash[[:concurrency, String] | [:rate_limit, String], Integer] blocked_counts, Hash[String, Integer] counts) -> Hash[String, Karya::backpressure_concurrency_snapshot]
+          def snapshot_rate_limits: (Hash[[:concurrency, String] | [:rate_limit, String], Integer] blocked_counts, Hash[String, Integer] rate_limit_counts) -> Hash[String, Karya::backpressure_rate_limit_snapshot]
+          def active_concurrency_counts: () -> Hash[String, Integer]
+          def each_active_reservation: () { (Reservation reservation) -> void } -> nil
+          def each_queued_job: () { (Job job) -> void } -> nil
+          def add_concurrency_counts: (Hash[String, Integer] counts, Reservation reservation) -> nil
+          def active_rate_limit_counts: (Time now) -> Hash[String, Integer]
+          def current_rate_limit_count: (String scope_key, Backpressure::RateLimitPolicy policy, Time now) -> Integer
+          def queued_blocked_counts: (concurrency_counts: Hash[String, Integer], rate_limit_counts: Hash[String, Integer]) -> Hash[[:concurrency, String] | [:rate_limit, String], Integer]
+          def add_blocked_counts: (Hash[[:concurrency, String] | [:rate_limit, String], Integer] counts, Job job, concurrency_counts: Hash[String, Integer], rate_limit_counts: Hash[String, Integer]) -> nil
+          def count_blocked_scopes: (
+            Hash[[:concurrency, String] | [:rate_limit, String], Integer] counts,
+            scope_type: :concurrency | :rate_limit,
+            job: Job,
+            job_scope: Symbol?,
+            active_counts: Hash[String, Integer]
+          ) -> nil
+        end
+      end
+    end
+  end
+end

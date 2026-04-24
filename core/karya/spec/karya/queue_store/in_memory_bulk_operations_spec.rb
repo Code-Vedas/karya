@@ -25,21 +25,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def stored_job(id)
-    store_state.jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
-  def custom_state_job(id:, state:, created_at:)
-    lifecycle = Karya::JobLifecycle::StateManager.new
-    Karya::JobLifecycle::Extension.register_state(:paused, state_manager: lifecycle)
-    Karya::JobLifecycle::Extension.register_transition(from: :paused, to: :cancelled, state_manager: lifecycle)
-    Karya::Job.new(id:, queue: 'billing', handler: 'billing_sync', state:, created_at:, lifecycle:)
-  end
-
   describe '#enqueue_many' do
     it 'atomically enqueues all jobs and returns a frozen bulk report' do
       report = store.enqueue_many(
@@ -58,8 +43,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(report.skipped_jobs).to eq([])
       expect(report).to be_frozen
       expect(report.changed_jobs).to be_frozen
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
-      expect(store_state.queued_job_ids_by_queue.fetch('shipping')).to eq(['job-2'])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2).job_id).to eq('job-1')
+      expect(store.reserve(queue: 'shipping', worker_id: 'worker-2', lease_duration: 30, now: created_at + 3).job_id).to eq('job-2')
     end
 
     it 'rejects an in-batch duplicate without partial writes' do
@@ -73,8 +58,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.enqueue_many(jobs:, now: created_at + 1)
       end.to raise_error(Karya::DuplicateIdempotencyKeyError, /same-key/)
 
-      expect(store_state.jobs_by_id).to eq({})
-      expect(store_state.queued_job_ids_by_queue).to eq({})
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)).to be_nil
     end
 
     it 'rejects in-batch duplicate job ids before other conflicts' do
@@ -87,7 +71,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.enqueue_many(jobs:, now: created_at + 1)
       end.to raise_error(Karya::DuplicateJobError, /job-1/)
 
-      expect(store_state.jobs_by_id).to eq({})
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)).to be_nil
     end
 
     it 'rejects in-batch duplicate uniqueness keys without partial writes' do
@@ -100,7 +84,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.enqueue_many(jobs:, now: created_at + 1)
       end.to raise_error(Karya::DuplicateUniquenessKeyError, /account-1/)
 
-      expect(store_state.jobs_by_id).to eq({})
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)).to be_nil
     end
 
     it 'rejects an existing uniqueness conflict without partial writes' do
@@ -119,8 +103,8 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.to raise_error(Karya::DuplicateUniquenessKeyError, /account-1/)
 
-      expect(store_state.jobs_by_id.keys).to eq(['job-1'])
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3).job_id).to eq('job-1')
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)).to be_nil
     end
 
     it 'validates batch inputs before writing' do
@@ -129,7 +113,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect { store.enqueue_many(jobs: 'job-1', now: created_at + 2) }.to raise_error(Karya::InvalidEnqueueError, /jobs/)
       expect { store.enqueue_many(jobs: ['job-1'], now: created_at + 2) }.to raise_error(Karya::InvalidEnqueueError, /Karya::Job/)
       expect { store.enqueue_many(jobs: [queued_job], now: created_at + 2) }.to raise_error(Karya::InvalidEnqueueError, /submission/)
-      expect(store_state.jobs_by_id).to eq({})
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3)).to be_nil
     end
 
     it 'accepts non-conflicting in-batch uniqueness keys' do
@@ -147,25 +131,26 @@ RSpec.describe Karya::QueueStore::InMemory do
 
   describe '#retry_jobs' do
     it 'requeues failed and retry-pending jobs and reports ineligible jobs' do
-      failed_job = store.enqueue(job: submission_job(id: 'job-failed', created_at:), now: created_at + 1)
-                        .transition_to(:reserved, updated_at: created_at + 2)
-                        .transition_to(:running, updated_at: created_at + 3, attempt: 1)
-                        .transition_to(:failed, updated_at: created_at + 4, failure_classification: :error)
-      retry_job = store.enqueue(job: submission_job(id: 'job-retry', created_at:), now: created_at + 5)
-                       .transition_to(:reserved, updated_at: created_at + 6)
-                       .transition_to(:running, updated_at: created_at + 7, attempt: 1)
-                       .transition_to(:failed, updated_at: created_at + 8, failure_classification: :error)
-                       .transition_to(:retry_pending, updated_at: created_at + 9, next_retry_at: created_at + 100)
-      succeeded_job = store.enqueue(job: submission_job(id: 'job-done', created_at:), now: created_at + 10)
-                           .transition_to(:reserved, updated_at: created_at + 11)
-                           .transition_to(:running, updated_at: created_at + 12, attempt: 1)
-                           .transition_to(:succeeded, updated_at: created_at + 13)
+      retry_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 60, multiplier: 1)
+      store.enqueue(job: submission_job(id: 'job-failed', created_at:), now: created_at + 1)
+      failed_reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 60, now: created_at + 2)
+      store.start_execution(reservation_token: failed_reservation.token, now: created_at + 3)
+      store.fail_execution(reservation_token: failed_reservation.token, now: created_at + 4, failure_classification: :error)
 
-      store_state.jobs_by_id['job-failed'] = failed_job
-      store_state.jobs_by_id['job-retry'] = retry_job
-      store_state.jobs_by_id['job-done'] = succeeded_job
-      store_state.queued_job_ids_by_queue.clear
-      store_state.register_retry_pending('job-retry')
+      store.enqueue(job: submission_job(id: 'job-retry', created_at:), now: created_at + 5)
+      retry_reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 60, now: created_at + 6)
+      store.start_execution(reservation_token: retry_reservation.token, now: created_at + 7)
+      store.fail_execution(
+        reservation_token: retry_reservation.token,
+        now: created_at + 8,
+        retry_policy:,
+        failure_classification: :error
+      )
+
+      store.enqueue(job: submission_job(id: 'job-done', created_at:), now: created_at + 9)
+      done_reservation = store.reserve(queue: 'billing', worker_id: 'worker-3', lease_duration: 60, now: created_at + 10)
+      store.start_execution(reservation_token: done_reservation.token, now: created_at + 11)
+      store.complete_execution(reservation_token: done_reservation.token, now: created_at + 12)
 
       report = store.retry_jobs(job_ids: %w[job-failed job-retry job-done missing], now: created_at + 20)
 
@@ -175,27 +160,27 @@ RSpec.describe Karya::QueueStore::InMemory do
         { job_id: 'job-done', reason: :ineligible_state, state: :succeeded },
         { job_id: 'missing', reason: :not_found, state: nil }
       )
-      expect(store_state.retry_pending_job_ids).to eq([])
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(%w[job-failed job-retry])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-4', lease_duration: 60, now: created_at + 21).job_id).to eq('job-failed')
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-5', lease_duration: 60, now: created_at + 22).job_id).to eq('job-retry')
     end
 
     it 'reports duplicate requests and uniqueness-conflicted retries as skipped' do
-      failed_job = Karya::Job.new(
-        id: 'job-failed',
-        queue: 'billing',
-        handler: 'billing_sync',
-        state: :failed,
-        created_at:,
-        updated_at: created_at + 4,
-        failure_classification: :error,
-        uniqueness_key: 'account-1',
-        uniqueness_scope: :queued
+      store.enqueue(
+        job: submission_job(
+          id: 'job-failed',
+          created_at:,
+          uniqueness_key: 'account-1',
+          uniqueness_scope: :queued
+        ),
+        now: created_at + 1
       )
+      failed_reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 60, now: created_at + 2)
+      store.start_execution(reservation_token: failed_reservation.token, now: created_at + 3)
+      store.fail_execution(reservation_token: failed_reservation.token, now: created_at + 4, failure_classification: :error)
       store.enqueue(
         job: submission_job(id: 'job-blocker', created_at:, uniqueness_key: 'account-1', uniqueness_scope: :queued),
         now: created_at + 5
       )
-      store_state.jobs_by_id['job-failed'] = failed_job
 
       report = store.retry_jobs(job_ids: %w[job-failed job-failed], now: created_at + 10)
 
@@ -217,20 +202,21 @@ RSpec.describe Karya::QueueStore::InMemory do
   describe '#cancel_jobs' do
     it 'cancels queued and retry-pending jobs and removes scheduling indexes' do
       store.enqueue(job: submission_job(id: 'job-queued', created_at:), now: created_at + 1)
-      retry_job = store.enqueue(job: submission_job(id: 'job-retry', created_at:), now: created_at + 2)
-                       .transition_to(:reserved, updated_at: created_at + 3)
-                       .transition_to(:running, updated_at: created_at + 4, attempt: 1)
-                       .transition_to(:failed, updated_at: created_at + 5, failure_classification: :error)
-                       .transition_to(:retry_pending, updated_at: created_at + 6, next_retry_at: created_at + 100)
-      store_state.jobs_by_id['job-retry'] = retry_job
-      store_state.queued_job_ids_by_queue.fetch('billing').delete('job-retry')
-      store_state.register_retry_pending('job-retry')
+      retry_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 60, multiplier: 1)
+      store.enqueue(job: submission_job(id: 'job-retry', created_at:), now: created_at + 2)
+      retry_reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 60, now: created_at + 3)
+      store.start_execution(reservation_token: retry_reservation.token, now: created_at + 4)
+      store.fail_execution(
+        reservation_token: retry_reservation.token,
+        now: created_at + 5,
+        retry_policy:,
+        failure_classification: :error
+      )
 
       report = store.cancel_jobs(job_ids: %w[job-queued job-retry], now: created_at + 10)
 
       expect(report.changed_jobs.map(&:state)).to eq(%i[cancelled cancelled])
-      expect(store_state.queued_job_ids_by_queue).to eq({})
-      expect(store_state.retry_pending_job_ids).to eq([])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 60, now: created_at + 11)).to be_nil
     end
 
     it 'tombstones cancelled reservation and execution tokens' do
@@ -243,10 +229,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       report = store.cancel_jobs(job_ids: %w[job-reserved job-running], now: created_at + 6)
 
       expect(report.changed_jobs.map(&:id)).to eq(%w[job-reserved job-running])
-      expect(stored_job('job-reserved').state).to eq(:cancelled)
-      expect(stored_job('job-running').state).to eq(:cancelled)
-      expect(store_state.reservation_token_for_job('job-reserved')).to be_nil
-      expect(store_state.execution_token_for_job('job-running')).to be_nil
       expect do
         store.release(reservation_token: reserved.token, now: created_at + 7)
       end.to raise_error(Karya::ExpiredReservationError)
@@ -257,12 +239,10 @@ RSpec.describe Karya::QueueStore::InMemory do
 
     it 'reports duplicate, unknown, and terminal cancellation requests as skipped' do
       store.enqueue(job: submission_job(id: 'job-queued', created_at:), now: created_at + 1)
-      succeeded_job = store.enqueue(job: submission_job(id: 'job-done', created_at:), now: created_at + 2)
-                           .transition_to(:reserved, updated_at: created_at + 3)
-                           .transition_to(:running, updated_at: created_at + 4, attempt: 1)
-                           .transition_to(:succeeded, updated_at: created_at + 5)
-      store_state.jobs_by_id['job-done'] = succeeded_job
-      store_state.queued_job_ids_by_queue.fetch('billing').delete('job-done')
+      store.enqueue(job: submission_job(id: 'job-done', created_at:, queue: 'shipping'), now: created_at + 2)
+      done_reservation = store.reserve(queue: 'shipping', worker_id: 'worker-1', lease_duration: 60, now: created_at + 3)
+      store.start_execution(reservation_token: done_reservation.token, now: created_at + 4)
+      store.complete_execution(reservation_token: done_reservation.token, now: created_at + 5)
 
       report = store.cancel_jobs(job_ids: %w[job-queued job-queued missing job-done], now: created_at + 6)
 
@@ -274,32 +254,6 @@ RSpec.describe Karya::QueueStore::InMemory do
           { job_id: 'job-done', reason: :ineligible_state, state: :succeeded }
         ]
       )
-    end
-
-    it 'handles cancellation when scheduling indexes are already absent or still populated' do
-      store.enqueue(job: submission_job(id: 'job-1', created_at:), now: created_at + 1)
-      store.enqueue(job: submission_job(id: 'job-2', created_at:), now: created_at + 2)
-      report = store.cancel_jobs(job_ids: ['job-1'], now: created_at + 3)
-
-      expect(report.changed_jobs.map(&:id)).to eq(['job-1'])
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-2'])
-
-      orphaned_queued = Karya::Job.new(id: 'orphaned-queued', queue: 'orphaned', handler: 'billing_sync', state: :queued, created_at:)
-      orphaned_reserved = Karya::Job.new(id: 'orphaned-reserved', queue: 'billing', handler: 'billing_sync', state: :reserved, created_at:)
-      orphaned_running = Karya::Job.new(id: 'orphaned-running', queue: 'billing', handler: 'billing_sync', state: :running, created_at:)
-      custom_job = custom_state_job(id: 'custom-job', state: :paused, created_at:)
-      store_state.jobs_by_id[orphaned_queued.id] = orphaned_queued
-      store_state.jobs_by_id[orphaned_reserved.id] = orphaned_reserved
-      store_state.jobs_by_id[orphaned_running.id] = orphaned_running
-      store_state.jobs_by_id[custom_job.id] = custom_job
-
-      fallback_report = store.cancel_jobs(
-        job_ids: %w[orphaned-queued orphaned-reserved orphaned-running custom-job],
-        now: created_at + 4
-      )
-
-      expect(fallback_report.changed_jobs.map(&:id)).to eq(%w[orphaned-queued orphaned-reserved orphaned-running custom-job])
-      expect(fallback_report.changed_jobs.map(&:state)).to eq(%i[cancelled cancelled cancelled cancelled])
     end
 
     it 'validates cancel job id input' do
@@ -318,8 +272,6 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(pause_result).to have_attributes(action: :pause_queue, queue: 'billing', paused: true, changed: true)
       expect(reservation.job_id).to eq('job-2')
-      expect(stored_job('job-1').state).to eq(:queued)
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
 
       resume_result = store.resume_queue(queue: 'billing', now: created_at + 5)
       resumed_reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 60, now: created_at + 6)

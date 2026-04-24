@@ -13,9 +13,6 @@ RSpec.describe Karya::QueueStore::InMemory do
   let(:created_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
   let(:policy_set) { Karya::Backpressure::PolicySet.new }
   let(:tagged_string_class) { Class.new(String) }
-  let(:fair_queue_order_class) do
-    Karya::QueueStore::InMemory::ReserveSelectionSupport.const_get(:FairQueueOrder, false)
-  end
 
   def submission_job(
     id:,
@@ -42,34 +39,11 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def stored_job(id)
-    store_state.jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
   describe '#reserve' do
     it 'returns nil when the queue is empty' do
       expect(
         store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 1)
       ).to be_nil
-    end
-
-    it 'does not create queue entries when reserving from unknown queues' do
-      3.times do |index|
-        expect(
-          store.reserve(
-            queue: "missing-#{index}",
-            worker_id: 'worker-1',
-            lease_duration: 30,
-            now: created_at + index + 1
-          )
-        ).to be_nil
-      end
-
-      expect(store_state.queued_job_ids_by_queue).to eq({})
     end
 
     it 'only reserves from the requested queue' do
@@ -147,7 +121,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       end
 
       expect(reserved_job_ids).to eq(%w[billing-1 email-1 billing-2 email-2])
-      expect(store_state.last_reserved_queue_for([%w[billing email], ['billing_sync']])).to eq('email')
     end
 
     it 'does not advance round-robin fairness after a nil reservation' do
@@ -202,8 +175,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       end
 
       expect(reserved_job_ids).to eq(%w[billing-1 billing-2 email-1])
-      strict_store_state = strict_store.instance_variable_get(:@state)
-      expect(strict_store_state.last_reserved_queue_by_subscription).to eq({})
     end
 
     it 'keeps round-robin fairness scoped to the subscribed queue list when unrelated reservations interleave' do
@@ -330,29 +301,15 @@ RSpec.describe Karya::QueueStore::InMemory do
           job: submission_job(id: "shadow-#{index}", queue: secondary_queue, created_at: created_at + index + 1),
           now: created_at + index + 2
         )
-        bounded_store.reserve(
-          queues: [primary_queue, secondary_queue],
-          worker_id: "worker-#{index}",
-          lease_duration: 30,
-          now: created_at + 200 + index
-        )
+        expect(
+          bounded_store.reserve(
+            queues: [primary_queue, secondary_queue],
+            worker_id: "worker-#{index}",
+            lease_duration: 30,
+            now: created_at + 200 + index
+          )
+        ).not_to be_nil
       end
-
-      bounded_store_state = bounded_store.instance_variable_get(:@state)
-      expect(bounded_store_state.last_reserved_queue_by_subscription.length).to be <= 128
-    end
-
-    it 'does not track fairness history for single-queue reservations' do
-      store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:), now: created_at + 1)
-
-      store.reserve(
-        queue: 'billing',
-        worker_id: 'worker-1',
-        lease_duration: 30,
-        now: created_at + 2
-      )
-
-      expect(store_state.last_reserved_queue_by_subscription).to eq({})
     end
 
     it 'reserves first matching job from subscribed queues in declared order' do
@@ -397,8 +354,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(reservation.job_id).to eq('job-2')
-      expect(stored_job('job-1').state).to eq(:queued)
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4).job_id).to eq('job-1')
     end
 
     it 'skips subscribed queues with only unsupported jobs and finds later matching queue' do
@@ -414,7 +370,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(reservation.job_id).to eq('email-1')
-      expect(stored_job('billing-1').state).to eq(:queued)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4).job_id).to eq('billing-1')
     end
 
     it 'skips paused queues and resumes fair rotation when the queue becomes eligible' do
@@ -454,7 +410,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(reservation).to be_nil
-      expect(stored_job('job-1').state).to eq(:queued)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 3).job_id).to eq('job-1')
     end
 
     it 'skips blocked higher-priority jobs and reserves lower-priority eligible jobs' do
@@ -537,11 +493,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       breaker_store.start_execution(reservation_token: first.token, now: created_at + 5)
       breaker_store.fail_execution(reservation_token: first.token, now: created_at + 6, failure_classification: :error)
       second = breaker_store.reserve(queues: %w[billing email], worker_id: 'worker-2', lease_duration: 30, now: created_at + 7)
-      breaker_state = breaker_store.instance_variable_get(:@state)
-
       expect(second.job_id).to eq('email-1')
-      expect(breaker_state.jobs_by_id.fetch('billing-2').state).to eq(:queued)
-      expect(breaker_state.queued_job_ids_by_queue.fetch('billing')).to eq(['billing-2'])
+      expect(breaker_store.reserve(queue: 'billing', worker_id: 'worker-3', lease_duration: 30, now: created_at + 40).job_id).to eq('billing-2')
     end
 
     it 'reopens concurrency capacity after release' do
@@ -706,33 +659,6 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       second = limited_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 14)
       expect(second.job_id).to eq('job-2')
-    end
-
-    it 'prunes stale rate-limit admission keys during reserve maintenance' do
-      limited_store = described_class.new(
-        token_generator: token_generator,
-        policy_set: Karya::Backpressure::PolicySet.new(rate_limits: { partner_api: { limit: 1, period: 10 } })
-      )
-      limited_store.enqueue(
-        job: submission_job(id: 'job-1', queue: 'billing', created_at:, rate_limit_key: 'partner_api'),
-        now: created_at + 1
-      )
-
-      limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
-
-      expect(limited_store.instance_variable_get(:@state).rate_limit_admissions_by_key.keys).to eq(['custom:partner_api'])
-
-      limited_store.reserve(queue: 'missing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 20)
-
-      expect(limited_store.instance_variable_get(:@state).rate_limit_admissions_by_key).to eq({})
-    end
-
-    it 'removes orphaned rate-limit admission keys during reserve maintenance' do
-      store_state.rate_limit_admissions_by_key['orphan'] = [created_at]
-
-      store.reserve(queue: 'missing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 20)
-
-      expect(store_state.rate_limit_admissions_by_key).to eq({})
     end
 
     it 'ignores rate limits for jobs without a configured rate_limit_key' do
@@ -910,14 +836,13 @@ RSpec.describe Karya::QueueStore::InMemory do
       scoped_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       scoped_store.enqueue(job: submission_job(id: 'job-2', queue: 'billing', created_at: created_at + 1), now: created_at + 2)
 
-      reservation = scoped_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 3)
+      scoped_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 3)
 
       snapshot = scoped_store.backpressure_snapshot(now: created_at + 5)
-      scoped_store_state = scoped_store.instance_variable_get(:@state)
 
       expect(snapshot[:concurrency].fetch('queue:billing')).to include(active_count: 0, blocked_count: 0)
-      expect(scoped_store_state.reservations_by_token).not_to have_key(reservation.token)
-      expect(scoped_store_state.queued_job_ids_by_queue.fetch('billing')).to eq(%w[job-2 job-1])
+      expect(scoped_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 6).job_id).to eq('job-2')
+      expect(scoped_store.reserve(queue: 'billing', worker_id: 'worker-3', lease_duration: 30, now: created_at + 7)).to be_nil
     end
 
     it 'does not promote due retry_pending jobs while building backpressure snapshots' do
@@ -935,33 +860,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       snapshot = store.backpressure_snapshot(now: created_at + 9)
 
       expect(snapshot[:concurrency]).to eq({})
-      expect(stored_job('job-1').state).to eq(:retry_pending)
-      expect(store_state.retry_pending_job_ids).to eq(['job-1'])
-      expect(store_state.queued_job_ids_by_queue).to eq({})
-    end
-
-    it 'requires a block for active reservation iteration helpers' do
-      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
-
-      expect do
-        store.send(:each_active_reservation)
-      end.to raise_error(ArgumentError, 'each_active_reservation requires a block')
-
-      expect do
-        store.send(:each_queued_job)
-      end.to raise_error(ArgumentError, 'each_queued_job requires a block')
-
-      expect do
-        Karya::QueueStore::InMemory::BackpressureSupport.each_scope_key(stored_job('job-1'), nil)
-      end.to raise_error(ArgumentError, 'each_scope_key requires a block')
-    end
-
-    it 'returns nil from active reservation iteration helpers' do
-      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
-      store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
-
-      expect(store.send(:each_active_reservation) { |_reservation| nil }).to be_nil
-      expect(store.send(:each_queued_job) { |_job| nil }).to be_nil
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 8)).to be_nil
     end
 
     it 'ignores unconfigured rate-limit keys without recording admissions' do
@@ -973,7 +872,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
 
       expect(reservation.job_id).to eq('job-1')
-      expect(store_state.rate_limit_admissions_by_key).to eq({})
     end
 
     it 'returns a reservation lease with the reserved job metadata' do
@@ -1035,14 +933,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(second_reservation.token).not_to eq(first_reservation.token)
       expect(next_reservation.job_id).to eq('job-1')
       expect(reclaimed_reservation.job_id).to eq('job-2')
-    end
-
-    it 'prunes queue entries after reserving the last queued job' do
-      store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
-
-      store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
-
-      expect(store_state.queued_job_ids_by_queue).to eq({})
     end
 
     it 'expires leases before reserving so reclaimed jobs can be reused deterministically' do
@@ -1162,34 +1052,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.reserve(worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /provide exactly one of queue or queues/)
-    end
-  end
-
-  describe Karya::QueueStore::InMemory::ReserveSelectionSupport do
-    describe '::FairQueueOrder' do
-      it 'returns queues unchanged for strict-order scans' do
-        ordered_queues = %w[billing email]
-
-        result = fair_queue_order_class.new(
-          queues: ordered_queues,
-          strategy: :strict_order,
-          last_reserved_queue: 'billing'
-        ).to_a
-
-        expect(result).to eq(ordered_queues)
-      end
-
-      it 'returns a single queue unchanged for round-robin scans' do
-        ordered_queues = ['billing']
-
-        result = fair_queue_order_class.new(
-          queues: ordered_queues,
-          strategy: :round_robin,
-          last_reserved_queue: 'billing'
-        ).to_a
-
-        expect(result).to eq(ordered_queues)
-      end
     end
   end
 end

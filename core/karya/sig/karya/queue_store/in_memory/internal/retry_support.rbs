@@ -1,0 +1,14 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module RetrySupport
+          private
+
+          def promote_due_retry_pending_jobs: (Time now) -> void
+          def retry_pending_job: (Job running_job, Time now, RetryPolicy retry_policy, Karya::failure_classification failure_classification, Time next_retry_at) -> Job
+        end
+      end
+    end
+  end
+end

@@ -1,0 +1,39 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module ReliabilitySnapshotSupport
+          private
+
+          class CircuitBreakerSnapshot
+            def self.from_policy: (
+              CircuitBreaker::Policy policy,
+              breaker_state: Karya::circuit_breaker_runtime_state,
+              failure_count: Integer,
+              blocked_count: Integer,
+              probe_slots_remaining: Integer?
+            ) -> instance
+            def initialize: (Karya::circuit_breaker_snapshot snapshot) -> void
+            def to_h: () -> Karya::circuit_breaker_snapshot
+          end
+
+          class StuckJobSnapshot
+            def self.from_job: (String job_id, Job job, Karya::stuck_job_recovery recovery_state) -> instance
+            def initialize: (Karya::stuck_job_snapshot snapshot) -> void
+            def to_h: () -> Karya::stuck_job_snapshot
+          end
+
+          private
+
+          def build_reliability_snapshot: (Time now) -> Karya::reliability_snapshot
+          def snapshot_circuit_breakers: (Time now, Hash[String, Integer] breaker_blocked_counts) -> Hash[String, Karya::circuit_breaker_snapshot]
+          def queued_breaker_blocked_counts: (Time now) -> Hash[String, Integer]
+          def snapshot_stuck_jobs: () -> Hash[String, Karya::stuck_job_snapshot]
+          def build_circuit_breaker_snapshot: (String scope_key, CircuitBreaker::Policy policy, Time now, Integer blocked_count) -> Karya::circuit_breaker_snapshot
+          def probe_slots_remaining: (String scope_key, CircuitBreaker::Policy policy, Karya::circuit_breaker_state state_name) -> Integer?
+          def increment_breaker_blocked_counts: (Hash[String, Integer] counts, Job job, Time now) -> nil
+        end
+      end
+    end
+  end
+end

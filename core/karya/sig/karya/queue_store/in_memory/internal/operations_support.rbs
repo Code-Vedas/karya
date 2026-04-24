@@ -1,0 +1,51 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module OperationsSupport
+          class BatchDuplicateDecision
+            def initialize: (job: Job, now: Time) -> void
+            def for: (accepted_job: Job, uniqueness_conflict: bool) -> Karya::uniqueness_decision?
+
+            private
+
+            attr_reader conflicting_job: Job
+            attr_reader job: Job
+            attr_reader now: Time
+            def job_id: () -> Karya::uniqueness_decision
+            def idempotency_key_decision: () -> Karya::uniqueness_decision
+            def uniqueness_key: () -> Karya::uniqueness_decision
+            def to_h: (result: Karya::uniqueness_decision_result, key_type: Karya::uniqueness_decision_key_type, key: String) -> Karya::uniqueness_decision
+          end
+
+          class RetryCandidate
+            def initialize: (job: Job, now: Time) -> void
+            def to_job: () -> Job?
+
+            private
+
+            attr_reader job: Job
+            attr_reader now: Time
+            def failed_job_retry: () -> Job
+            def retry_pending_job_retry: () -> Job
+          end
+
+          private
+
+          def validate_bulk_enqueue_jobs: (Array[Job] jobs) -> Array[Job]
+          def validate_bulk_enqueue_uniqueness: (Array[Job] jobs, Time now) -> Array[Job]
+          def duplicate_batch_decision: (Job job, Array[Job] accepted_jobs, Time now) -> Karya::uniqueness_decision?
+          def duplicate_uniqueness_key?: (Job job, Job accepted_job) -> bool
+          def enqueue_validated_job: (Job job, Time now) -> Job
+          def normalize_job_ids: (Array[String] job_ids) -> Array[String]
+          def retry_requested_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+          def cancel_requested_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
+          def cleanup_cancelled_job_indexes: (Job job) -> void
+          def delete_queued_job_id: (Job job) -> void
+          def cancel_reservation_for: (String job_id) -> void
+          def cancel_execution_for: (String job_id) -> void
+        end
+      end
+    end
+  end
+end

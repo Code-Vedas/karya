@@ -14,6 +14,8 @@ Use this file as the repo-root coding baseline.
 - Keep validation, normalization, and state transitions explicit.
 - Trace concrete state changes for time, retries, leases, shutdown, and shared
   state. Watch for TOCTOU gaps.
+- For request-derived runtime state, define semantic scope, collision posture,
+  and bounded growth explicitly in the same change.
 - Do not symbolize, intern, or cache unbounded input.
 - Do not add inline Reek suppressions such as `# :reek:` comments. Address the
   smell in code first; if an exclusion is unavoidable, keep it narrow in the
@@ -30,8 +32,22 @@ Use this file as the repo-root coding baseline.
   under `Karya::Internal`, with Ruby files in `lib/karya/internal/**` and
   signatures in `sig/karya/internal/**`. These constants are visible for
   implementation wiring but unsupported as public API.
-- Owner-local internals stay nested under their owning class/module and may be
-  typed inside that owner RBS file rather than as one RBS file per Ruby file.
+- Owner-local `Internal` namespaces stay nested under their owning
+  class/module and should be typed explicitly. Prefer dedicated owner-local RBS
+  files that mirror the Ruby file layout when the namespace spans multiple
+  files.
+- Owner-local nested helpers that are not under an `Internal` namespace do not
+  need explicit RBS by default. Type them only when they are needed for
+  correctness, visibility, or typechecking clarity.
+- Owner-local `Internal` Ruby files should prefer mirrored unit specs under
+  `spec/.../internal/**`.
+- Responsibility-split owner-local Ruby files outside `Internal` should also
+  prefer mirrored unit specs under their owner path when they own direct
+  behavior.
+- Large owner integration specs such as `in_memory_*` should cover public API
+  behavior only. Do not use owner-private setup or assertions there via
+  `instance_variable_get`, direct internal constant reach-in, or private state
+  helpers that inspect implementation storage.
 - For `core/karya` work, normally run:
 
 ```bash

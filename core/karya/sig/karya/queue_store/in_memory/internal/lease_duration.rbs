@@ -1,0 +1,19 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        class LeaseDuration
+          @value: Karya::lease_duration_value
+
+          def initialize: (Karya::lease_duration_value value) -> void
+          def normalize: () -> Karya::lease_duration_value
+
+          private
+
+          attr_reader value: Karya::lease_duration_value
+          def valid?: () -> bool
+        end
+      end
+    end
+  end
+end

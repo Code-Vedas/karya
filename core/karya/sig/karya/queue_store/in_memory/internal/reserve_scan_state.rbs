@@ -1,0 +1,13 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        class ReserveScanState
+          def initialize: (policy_set: Backpressure::PolicySet, state: Internal::StoreState) -> void
+          def concurrency_blocked?: (Job job) -> bool
+          def rate_limited?: (Job job) -> bool
+        end
+      end
+    end
+  end
+end

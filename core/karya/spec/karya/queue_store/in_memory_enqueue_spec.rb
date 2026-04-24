@@ -33,14 +33,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def stored_job(id)
-    store_state.jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
   describe '#enqueue' do
     it 'transitions submission jobs to queued with the provided timestamp' do
       queued_job = store.enqueue(
@@ -50,8 +42,8 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(queued_job.state).to eq(:queued)
       expect(queued_job.updated_at).to eq(Time.utc(2026, 3, 27, 12, 0, 5))
-      expect(stored_job('job-1')).to eq(queued_job)
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 6).job_id).to eq('job-1')
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 7)).to be_nil
     end
 
     it 'rejects duplicate job ids' do
@@ -61,8 +53,8 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 2)
       end.to raise_error(Karya::DuplicateJobError, /job-1/)
 
-      expect(stored_job('job-1')).to eq(original_job)
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3).job_id).to eq(original_job.id)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)).to be_nil
     end
 
     it 'rejects duplicate uniqueness keys while queued' do
@@ -90,9 +82,8 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
 
-      expect(stored_job('job-1')).to eq(original_job)
-      expect(store_state.jobs_by_id.keys).to eq(['job-1'])
-      expect(store_state.queued_job_ids_by_queue.fetch('billing')).to eq(['job-1'])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3).job_id).to eq(original_job.id)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)).to be_nil
     end
 
     it 'includes compact short-key uniqueness details in duplicate error messages' do
@@ -151,7 +142,6 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
 
-      expect(stored_job('job-2').state).to eq(:reserved)
       expect { store.release(reservation_token: reservation.token, now: created_at + 7) }.to raise_error(Karya::ExpiredReservationError)
       next_reservation = store.reserve(queue: 'shipping', worker_id: 'worker-2', lease_duration: 30, now: created_at + 8)
       expect(next_reservation.job_id).to eq('job-2')
@@ -180,8 +170,8 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.to raise_error(Karya::DuplicateIdempotencyKeyError, /submit-123/)
 
-      expect(stored_job('job-1')).to eq(original_job)
-      expect(store_state.jobs_by_id.keys).to eq(['job-1'])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3).job_id).to eq(original_job.id)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 4)).to be_nil
     end
 
     it 'does not recover expired reservations before raising duplicate idempotency errors' do
@@ -209,7 +199,6 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.to raise_error(Karya::DuplicateIdempotencyKeyError, /submit-123/)
 
-      expect(stored_job('job-2').state).to eq(:reserved)
       expect { store.release(reservation_token: reservation.token, now: created_at + 7) }.to raise_error(Karya::ExpiredReservationError)
       next_reservation = store.reserve(queue: 'shipping', worker_id: 'worker-2', lease_duration: 30, now: created_at + 8)
       expect(next_reservation.job_id).to eq('job-2')
@@ -240,7 +229,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.to raise_error(Karya::DuplicateJobError, /job-1/)
 
-      expect(stored_job('job-1')).to eq(original_job)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 3).job_id).to eq(original_job.id)
     end
 
     it 'accepts long idempotency and uniqueness keys with control and unicode characters' do
@@ -319,9 +308,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.not_to raise_error
 
-      expect(stored_job('job-1').state).to eq(:failed)
-      expect(stored_job('job-1').failure_classification).to eq(:expired)
-      expect(stored_job('job-2').state).to eq(:queued)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 4).job_id).to eq('job-2')
     end
 
     it 'treats expired queued-scope reservations as requeued blockers during duplicate checks' do
@@ -350,7 +337,6 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
 
-      expect(stored_job('job-1').state).to eq(:reserved)
       expect { store.release(reservation_token: reservation.token, now: created_at + 6) }.to raise_error(Karya::ExpiredReservationError)
     end
 
@@ -383,14 +369,11 @@ RSpec.describe Karya::QueueStore::InMemory do
         )
       end.not_to raise_error
 
-      expect(stored_job('job-1').state).to eq(:reserved)
       expired_job = store.start_execution(reservation_token: reservation.token, now: created_at + 6)
 
       expect(expired_job.id).to eq('job-1')
       expect(expired_job.state).to eq(:failed)
-      expect(stored_job('job-1').state).to eq(:failed)
-      expect(stored_job('job-1').failure_classification).to eq(:expired)
-      expect(stored_job('job-2').state).to eq(:queued)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 7).job_id).to eq('job-2')
     end
 
     it 'treats due retry-pending uniqueness jobs as queued blockers during duplicate checks' do
@@ -507,8 +490,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.enqueue(job: queued_job, now: created_at + 1)
       end.to raise_error(Karya::InvalidEnqueueError, /submission/)
 
-      expect(store_state.jobs_by_id).to eq({})
-      expect(store_state.queued_job_ids_by_queue).to eq({})
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)).to be_nil
     end
 
     it 'rejects non-job values' do

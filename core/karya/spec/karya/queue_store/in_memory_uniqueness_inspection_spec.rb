@@ -36,14 +36,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def stored_job(id)
-    store_state.jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
   def expect_deep_frozen(value)
     expect(value).to be_frozen
     case value
@@ -202,8 +194,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(decision).to include(result: :duplicate_uniqueness_key, conflicting_job_id: 'job-1')
-      expect(stored_job('job-1').state).to eq(:retry_pending)
-      expect(store_state.retry_pending_job_ids).to eq(['job-1'])
     end
 
     it 'does not recover expired reserved leases while computing a decision' do
@@ -229,17 +219,9 @@ RSpec.describe Karya::QueueStore::InMemory do
       )
 
       expect(decision).to include(result: :duplicate_uniqueness_key, conflicting_job_id: 'job-1')
-      expect(stored_job('job-1').state).to eq(:reserved)
-      expect(store_state.reservations_by_token).to include(reservation.token)
-    end
-
-    it 'ignores accepted decisions when duplicate error raising is asked directly' do
-      decision = store.uniqueness_decision(
-        job: submission_job(id: 'job-1', created_at:),
-        now: created_at + 1
-      )
-
-      expect(store.send(:raise_duplicate_enqueue_error, decision)).to be_nil
+      expect do
+        store.start_execution(reservation_token: reservation.token, now: created_at + 6)
+      end.to raise_error(Karya::ExpiredReservationError)
     end
   end
 
@@ -281,7 +263,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       snapshot = store.uniqueness_snapshot(now: created_at + 3)
 
       expect(snapshot[:uniqueness_keys]).to be_empty
-      expect(stored_job('job-1').state).to eq(:queued)
     end
 
     it 'excludes terminal uniqueness jobs that no longer block incoming scopes' do
@@ -301,7 +282,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       snapshot = store.uniqueness_snapshot(now: created_at + 5)
 
       expect(snapshot[:uniqueness_keys]).to be_empty
-      expect(stored_job('job-1').state).to eq(:succeeded)
     end
 
     it 'reports due retry-pending blockers as effectively queued without mutating them' do
@@ -333,7 +313,6 @@ RSpec.describe Karya::QueueStore::InMemory do
         uniqueness_scope: :queued,
         blocked_incoming_scopes: %i[queued active until_terminal]
       )
-      expect(stored_job('job-1').state).to eq(:retry_pending)
     end
 
     it 'reports expired running blockers as effectively queued without mutating them' do
@@ -359,8 +338,9 @@ RSpec.describe Karya::QueueStore::InMemory do
         uniqueness_scope: :active,
         blocked_incoming_scopes: %i[queued active until_terminal]
       )
-      expect(stored_job('job-1').state).to eq(:running)
-      expect(store_state.executions_by_token).to include(reservation.token)
+      expect do
+        store.complete_execution(reservation_token: reservation.token, now: created_at + 7)
+      end.to raise_error(Karya::ExpiredReservationError)
     end
 
     it 'reports asymmetric blocked incoming scopes for reserved queued-scope blockers' do

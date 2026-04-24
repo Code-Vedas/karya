@@ -17,24 +17,7 @@ require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
 require_relative 'queue_control_result'
 require_relative 'recovery_report'
-require_relative 'in_memory/backpressure_support'
-require_relative 'in_memory/backpressure_snapshot_support'
-require_relative 'in_memory/dead_letter_support'
-require_relative 'in_memory/expiration_support'
-require_relative 'in_memory/execution_support'
-require_relative 'in_memory/execution_recovery'
-require_relative 'in_memory/handler_matcher'
-require_relative 'in_memory/lease_duration'
-require_relative 'in_memory/operations_support'
-require_relative 'in_memory/reliability_snapshot_support'
-require_relative 'in_memory/reliability_support'
-require_relative 'in_memory/recovery_support'
-require_relative 'in_memory/request_support'
-require_relative 'in_memory/reserve_selection_support'
-require_relative 'in_memory/retry_support'
-require_relative 'in_memory/reserve_scan_state'
-require_relative 'in_memory/store_state'
-require_relative 'in_memory/uniqueness_support'
+require_relative 'in_memory/internal'
 require_relative '../job'
 require_relative '../primitives/identifier'
 require_relative '../primitives/queue_list'
@@ -54,20 +37,24 @@ module Karya
     # durable enqueue acknowledgment or restart/takeover recovery must use a
     # shared persistent backend implementing the Base durability contract.
     class InMemory
+      # Owner-local implementation helpers for the executable reference store.
+      module Internal
+      end
+
       include Base
-      include BackpressureSupport
-      include BackpressureSnapshotSupport
-      include DeadLetterSupport
-      include ExecutionSupport
-      include ExpirationSupport
-      include OperationsSupport
-      include ReliabilitySupport
-      include ReliabilitySnapshotSupport
-      include RecoverySupport
-      include RequestSupport
-      include ReserveSelectionSupport
-      include RetrySupport
-      include UniquenessSupport
+      include Internal::BackpressureSupport
+      include Internal::BackpressureSnapshotSupport
+      include Internal::DeadLetterSupport
+      include Internal::ExecutionSupport
+      include Internal::ExpirationSupport
+      include Internal::OperationsSupport
+      include Internal::ReliabilitySupport
+      include Internal::ReliabilitySnapshotSupport
+      include Internal::RecoverySupport
+      include Internal::RequestSupport
+      include Internal::ReserveSelectionSupport
+      include Internal::RetrySupport
+      include Internal::UniquenessSupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
@@ -94,7 +81,7 @@ module Karya
         @fairness_policy = fairness_policy
         @reservation_token_sequence = 0
         @mutex = Mutex.new
-        @state = StoreState.new(expired_tombstone_limit:)
+        @state = Internal::StoreState.new(expired_tombstone_limit:)
       end
 
       def enqueue(job:, now:)
@@ -248,7 +235,7 @@ module Karya
 
       attr_reader :circuit_breaker_policy_set, :fairness_policy, :policy_set, :state, :token_generator
 
-      private_constant :LeaseDuration, :HandlerMatcher, :ReserveScanState
+      private_constant :Internal
 
       def validate_enqueue(job)
         raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)
@@ -366,15 +353,11 @@ module Karya
         fairness_policy.strategy == :round_robin && queues.length > 1
       end
 
-      private_constant :ExecutionSupport, :ExpirationSupport, :OperationsSupport, :RecoverySupport, :RequestSupport, :ReliabilitySupport
-
       def raise_expired_reservation_error(reservation_token, reservation_label)
         return unless state.expired_reservation_tokens.key?(reservation_token)
 
         raise ExpiredReservationError, "reservation #{reservation_label} has expired"
       end
-
-      private_constant :ExecutionRecovery, :StoreState
     end
   end
 end

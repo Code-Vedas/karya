@@ -1,0 +1,23 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        class HandlerMatcher
+          @match_all: bool
+          @handler_names: Hash[String, bool]
+
+          def initialize: (Array[String]? handler_names) -> void
+          def include?: (String handler_name) -> bool
+          def subscription_key_part: () -> Array[String]?
+
+          private
+
+          attr_reader handler_names: Hash[String, bool]
+          attr_reader match_all: bool
+
+          def normalize_present_handler_names: (Array[String] handler_names) -> Hash[String, bool]
+        end
+      end
+    end
+  end
+end

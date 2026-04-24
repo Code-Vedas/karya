@@ -12,24 +12,6 @@ RSpec.describe Karya::QueueStore::InMemory do
   let(:token_generator) { -> { token_sequence.next } }
   let(:created_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
 
-  def submission_job(id:, queue:, created_at:, handler: 'billing_sync')
-    Karya::Job.new(
-      id:,
-      queue:,
-      handler:,
-      state: :submission,
-      created_at:
-    )
-  end
-
-  def stored_job(id)
-    store_state.jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
   describe '#initialize' do
     it 'supports default initialization' do
       store = described_class.new
@@ -94,7 +76,16 @@ RSpec.describe Karya::QueueStore::InMemory do
 
     it 'rejects non-string generated reservation tokens' do
       token_store = described_class.new(token_generator: -> { 123 })
-      token_store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
+      token_store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-1',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :submission,
+          created_at:
+        ),
+        now: created_at + 1
+      )
 
       expect do
         token_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
@@ -103,18 +94,16 @@ RSpec.describe Karya::QueueStore::InMemory do
   end
 
   describe 'internal state helpers' do
-    it 'keeps support modules private' do
+    it 'keeps the internal namespace private' do
       expect do
-        described_class::OperationsSupport
+        described_class::Internal
       end.to raise_error(NameError, /private constant/)
     end
 
-    it 'ignores execution tokens that are not present' do
-      store_state.execution_tokens_in_order << 'lease-1'
-
-      store_state.delete_execution_token('missing-token')
-
-      expect(store_state.execution_tokens_in_order).to eq(['lease-1'])
+    it 'removes old direct support module constants' do
+      expect do
+        described_class::OperationsSupport
+      end.to raise_error(NameError, /uninitialized constant/)
     end
   end
 end

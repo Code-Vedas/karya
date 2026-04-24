@@ -1,0 +1,15 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module RecoverySupport
+          private
+
+          def requeue_reservation: (Reservation reservation, Time now) -> Job
+          def requeue_expired_reservation: (Reservation reservation, Time now) -> Job
+          def requeue_expired_execution: (Reservation reservation, Time now) -> Job
+        end
+      end
+    end
+  end
+end
