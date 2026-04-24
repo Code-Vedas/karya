@@ -1,0 +1,17 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module RequestSupport
+          private
+
+          def next_token: () -> String
+          def build_reservation: (reserved_job: Job, worker_id: String, reserved_at: Time, lease_duration: Karya::lease_duration_value) -> Reservation
+          def ensure_unique_reservation_token: (String reservation_token) -> nil
+          def normalize_reserve_queues: (queue: String?, queues: Array[String]?) -> Array[String]
+          def normalize_reserve_request: (worker_id: String, lease_duration: Karya::lease_duration_value, now: Time, ?queue: String?, ?queues: Array[String]?, ?handler_names: Array[String]?) -> { handler_matcher: Internal::HandlerMatcher, lease_duration: Karya::lease_duration_value, now: Time, queues: Array[String], subscription_key: [Array[String], Array[String]?], worker_id: String }
+        end
+      end
+    end
+  end
+end

@@ -21,10 +21,6 @@ RSpec.describe Karya::QueueStore::InMemory, :integration do
     )
   end
 
-  def stored_job(job_id)
-    store.instance_variable_get(:@state).jobs_by_id.fetch(job_id)
-  end
-
   it 'requeues an expired reservation and allows another worker to reserve the same job' do
     store.enqueue(job: submission_job(id: 'job-reservation'), now: base_time)
     reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 5, now: base_time + 1)
@@ -36,7 +32,7 @@ RSpec.describe Karya::QueueStore::InMemory, :integration do
     replacement = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 5, now: base_time + 11)
 
     expect(replacement.job_id).to eq('job-reservation')
-    expect(stored_job('job-reservation').state).to eq(:reserved)
+    expect { store.release(reservation_token: replacement.token, now: base_time + 12) }.not_to raise_error
   end
 
   it 'requeues an expired execution so the job can be retried deterministically' do
@@ -51,8 +47,8 @@ RSpec.describe Karya::QueueStore::InMemory, :integration do
     replacement = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 5, now: base_time + 6)
 
     expect(replacement.job_id).to eq('job-execution')
-    expect(stored_job('job-execution').state).to eq(:reserved)
-    expect(stored_job('job-execution').attempt).to eq(1)
+    retried_job = store.start_execution(reservation_token: replacement.token, now: base_time + 6.5)
+    expect(retried_job.attempt).to eq(2)
   end
 
   it 'keeps recovered until-terminal uniqueness blocked until the recovered job completes' do

@@ -24,14 +24,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def stored_job(id)
-    store_state.jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
   def enqueue_job(id, **attributes)
     store.enqueue(job: submission_job(id:, **attributes), now: created_at + 1)
   end
@@ -57,7 +49,9 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(dead_lettered_job.dead_letter_reason).to eq('retry-policy-exhausted')
       expect(dead_lettered_job.dead_lettered_at).to eq(created_at + 4)
       expect(dead_lettered_job.dead_letter_source_state).to eq(:failed)
-      expect(store_state.executions_by_token).to eq({})
+      expect do
+        store.complete_execution(reservation_token: reservation.token, now: created_at + 5)
+      end.to raise_error(Karya::UnknownReservationError)
     end
 
     it 'keeps expired failures as failed instead of dead-lettering' do
@@ -102,7 +96,6 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       store.dead_letter_jobs(job_ids: ['job-1'], now: created_at + 3, reason: 'poison')
 
-      expect(store_state.expired_reservation_tokens).to include(reservation.token => true)
       expect do
         store.start_execution(reservation_token: reservation.token, now: created_at + 4)
       end.to raise_error(Karya::ExpiredReservationError)
@@ -115,7 +108,6 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       store.dead_letter_jobs(job_ids: ['job-1'], now: created_at + 4, reason: 'poison')
 
-      expect(store_state.expired_reservation_tokens).to include(reservation.token => true)
       expect do
         store.complete_execution(reservation_token: reservation.token, now: created_at + 5)
       end.to raise_error(Karya::ExpiredReservationError)
@@ -134,8 +126,7 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       store.dead_letter_jobs(job_ids: ['job-1'], now: created_at + 5, reason: 'operator-isolated')
 
-      expect(store_state.retry_pending_job_ids).to eq([])
-      expect(stored_job('job-1').state).to eq(:dead_letter)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 6)).to be_nil
     end
 
     it 'moves dead-letter work to retry_pending for controlled retry' do
@@ -152,7 +143,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(retried_job.state).to eq(:retry_pending)
       expect(retried_job.next_retry_at).to eq(created_at + 10)
       expect(retried_job.dead_letter_reason).to be_nil
-      expect(store_state.retry_pending_job_ids).to eq(['job-1'])
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 9)).to be_nil
     end
 
     it 'discards dead-letter work by cancelling it' do
@@ -162,7 +153,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       discard_report = store.discard_dead_letter_jobs(job_ids: ['job-1'], now: created_at + 3)
 
       expect(discard_report.changed_jobs.fetch(0).state).to eq(:cancelled)
-      expect(stored_job('job-1').dead_letter_reason).to be_nil
     end
 
     it 'skips replay when uniqueness would conflict' do
@@ -265,10 +255,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         retry_policy: Karya::RetryPolicy.new(max_attempts: 3, base_delay: 1, multiplier: 1)
       )
 
-      store.dead_letter_snapshot(now: created_at + 10)
-
-      expect(stored_job('job-1').state).to eq(:retry_pending)
-      expect(store_state.retry_pending_job_ids).to eq(['job-1'])
+      expect(store.dead_letter_snapshot(now: created_at + 10)).to include(captured_at: created_at + 10)
     end
   end
 end

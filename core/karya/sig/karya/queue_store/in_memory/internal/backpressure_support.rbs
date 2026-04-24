@@ -1,0 +1,22 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module BackpressureSupport
+          QUEUE_SCOPE_KEY_PREFIX: String
+          HANDLER_SCOPE_KEY_PREFIX: String
+
+          def self.each_scope_key: (Job job, Backpressure::Scope? explicit_scope) { (String scope_key) -> void } -> nil
+          def self.build_scope_key: (String prefix, String value) -> String
+
+          private
+
+          def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
+          def prune_stale_rate_limit_admissions: (Time now) -> void
+          def build_reserve_scan_state: () -> Internal::ReserveScanState
+          def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
+        end
+      end
+    end
+  end
+end

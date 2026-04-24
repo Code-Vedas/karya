@@ -108,8 +108,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     enqueue_outcomes = results.select { |status, value| status == :ok || value == Karya::DuplicateUniquenessKeyError }
     expect(enqueue_outcomes.length).to eq(2)
 
-    job_states = store.instance_variable_get(:@state).jobs_by_id.transform_values(&:state)
-    expect(job_states.values.count(:queued)).to be <= 1
-    expect(job_states.values.count(:running)).to eq(0)
+    expect(store.reserve(queue: 'billing', worker_id: 'worker-3', lease_duration: 30, now: created_at + 5)&.job_id).not_to eq('job-1')
   end
 end

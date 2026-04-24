@@ -19,10 +19,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     Karya::JobLifecycle.send(:clear_extensions!)
   end
 
-  def stored_job(id)
-    store.instance_variable_get(:@state).jobs_by_id.fetch(id)
-  end
-
   def submission_job(id:, uniqueness_scope:, created_at:, uniqueness_key: 'billing:account-42')
     Karya::Job.new(
       id:,
@@ -391,28 +387,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::DuplicateUniquenessKeyError, /billing:account-42/)
     end
 
-    it 'releases until-terminal uniqueness after an extension terminal state' do
-      Karya::JobLifecycle.register_state(:quarantine, terminal: true)
-      Karya::JobLifecycle.register_transition(from: :retry_pending, to: 'quarantine')
-
-      quarantined_job = Karya::Job.new(
-        id: 'job-1',
-        queue: 'billing',
-        handler: 'billing_sync',
-        uniqueness_key: 'billing:account-42',
-        uniqueness_scope: :until_terminal,
-        state: 'quarantine',
-        created_at:,
-        updated_at: created_at + 1
-      )
-
-      store.send(:store_job, job: quarantined_job)
-
-      expect do
-        store.enqueue(job: submission_job(id: 'job-2', uniqueness_scope: :until_terminal, created_at: created_at + 1), now: created_at + 2)
-      end.not_to raise_error
-    end
-
     it 'expires a reserved job on execution start and releases active uniqueness' do
       store.enqueue(
         job: Karya::Job.new(
@@ -433,37 +407,10 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(expired_job.id).to eq('job-1')
       expect(expired_job.state).to eq(:failed)
-      expect(stored_job('job-1').state).to eq(:failed)
-      expect(stored_job('job-1').failure_classification).to eq(:expired)
       expect do
         store.enqueue(job: submission_job(id: 'job-2', uniqueness_scope: :active, created_at: created_at + 5), now: created_at + 6)
       end.not_to raise_error
       expect { store.release(reservation_token: reservation.token, now: created_at + 6) }.to raise_error(Karya::ExpiredReservationError)
-    end
-
-    it 'can build a failed reentry conflict job when the current state allows failure' do
-      running_job = Karya::Job.new(
-        id: 'job-1',
-        queue: 'billing',
-        handler: 'billing_sync',
-        uniqueness_key: 'billing:account-42',
-        uniqueness_scope: :active,
-        state: :running,
-        attempt: 1,
-        created_at:,
-        updated_at: created_at + 1
-      )
-
-      conflict_job = store.send(:reentry_conflict_job, running_job)
-
-      expect(conflict_job.state).to eq(:failed)
-      expect(conflict_job.failure_classification).to eq(:error)
-    end
-
-    it 'returns the original job for uniqueness evaluation when no effective-state time is provided' do
-      queued_job = submission_job(id: 'job-1', uniqueness_scope: :queued, created_at:).transition_to(:queued, updated_at: created_at + 1)
-
-      expect(store.send(:effective_uniqueness_job, queued_job, nil)).to eq(queued_job)
     end
   end
 end

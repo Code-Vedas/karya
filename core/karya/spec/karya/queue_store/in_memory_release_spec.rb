@@ -22,14 +22,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def stored_job(id)
-    store_state.jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
   describe '#release' do
     it 'returns an active reservation to the queue' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)

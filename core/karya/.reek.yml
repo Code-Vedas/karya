@@ -27,7 +27,7 @@ detectors:
     enabled: true
     max_instance_variables: 10
     exclude:
-      - Karya::QueueStore::InMemory::StoreState
+      - Karya::QueueStore::InMemory::Internal::StoreState
       - Karya::WorkerSupervisor::Configuration
   DataClump:
     enabled: false
@@ -42,37 +42,31 @@ detectors:
       - Karya::RetryPolicy#normalize_multiplier
       - Karya::RetryPolicy#normalize_non_negative_numeric
       - Karya::Worker#execute_handler
-      - Karya::QueueStore::InMemory::ExecutionSupport#finalized_execution_job
+      - Karya::QueueStore::InMemory::Internal::ExecutionSupport#finalized_execution_job
       - Karya::QueueStore::InMemory#store_and_requeue_if_needed
-      - Karya::QueueStore::InMemory::UniquenessSupport#effective_retry_pending_uniqueness_job
-      - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_concurrency
-      - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#snapshot_rate_limits
-      - Karya::QueueStore::InMemory::ReliabilitySnapshotSupport#build_circuit_breaker_snapshot
-      - Karya::QueueStore::InMemory::ReliabilitySnapshotSupport#snapshot_stuck_jobs
+      - Karya::QueueStore::InMemory::Internal::UniquenessSupport#effective_retry_pending_uniqueness_job
   UtilityFunction:
     enabled: true
     exclude:
       - Karya::JobLifecycle::StateManager#initialize_base_transitions
       - Karya::JobLifecycle::StateManager#canonical_state?
       - Karya::Worker::Configuration#normalize_default_execution_timeout
-      - Karya::QueueStore::InMemory::ExpirationSupport#job_expired?
-      - Karya::QueueStore::InMemory::ExpirationSupport#build_expired_job
-      - Karya::QueueStore::InMemory::ExecutionSupport#collect_expired_leases
-      - Karya::QueueStore::InMemory::UniquenessSupport#uniqueness_scope_blocks_state?
-      - Karya::QueueStore::InMemory::UniquenessSupport#incoming_uniqueness_state
-      - Karya::QueueStore::InMemory::UniquenessSupport#reentry_conflict_job
-      - Karya::QueueStore::InMemory::UniquenessSupport#lease_expired_for_uniqueness?
+      - Karya::QueueStore::InMemory::Internal::ExpirationSupport#job_expired?
+      - Karya::QueueStore::InMemory::Internal::ExpirationSupport#build_expired_job
+      - Karya::QueueStore::InMemory::Internal::ExecutionSupport#collect_expired_leases
+      - Karya::QueueStore::InMemory::Internal::UniquenessSupport#uniqueness_scope_blocks_state?
+      - Karya::QueueStore::InMemory::Internal::UniquenessSupport#incoming_uniqueness_state
+      - Karya::QueueStore::InMemory::Internal::UniquenessSupport#reentry_conflict_job
+      - Karya::QueueStore::InMemory::Internal::UniquenessSupport#lease_expired_for_uniqueness?
       - Karya::CircuitBreaker::PolicySet#policy_for_scope
   DuplicateMethodCall:
     exclude:
       - Karya::Worker#execute_handler
-      - Karya::QueueStore::InMemory::BackpressureSnapshotSupport#add_blocked_counts
   NestedIterators:
     exclude:
-      - Karya::QueueStore::InMemory::ExpirationSupport#expire_queued_jobs
+      - Karya::QueueStore::InMemory::Internal::ExpirationSupport#expire_queued_jobs
   NilCheck:
     exclude:
-      - Karya::QueueStore::InMemory::HandlerMatcher#initialize
       - Karya::Internal::RetryPolicyResolver#normalize
       - Karya::Internal::RetryPolicyResolver#self.normalize_policy_set
       - Karya::RetryPolicySet#policy_for

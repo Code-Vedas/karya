@@ -74,14 +74,20 @@ The canonical core package lives under `core/karya/`. Other gems follow the same
 ```bash
 cd core/karya
 bundle install
-bundle exec rspec
-bundle exec rubocop
+bin/rspec-unit
+bin/rubocop
+bin/reek
+rbs -I sig validate
 bundle exec bundle-audit check --update
 gitleaks dir --no-banner .
 bundle exec exe/karya --help
 ```
 
 The `core/karya/spec/support/` directory is reserved for shared gem-level test helpers. Framework dummy-app helpers will be added separately.
+
+When `core/karya` code is split into responsibility-named files, mirror that
+split in unit specs under `core/karya/spec/` where the file owns direct
+behavior. Keep broad owner specs focused on public APIs and integration flows.
 
 ### Issue
 

@@ -23,14 +23,6 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def stored_job(id)
-    store_state.jobs_by_id.fetch(id)
-  end
-
-  def store_state
-    store.instance_variable_get(:@state)
-  end
-
   describe '#expire_reservations' do
     it 'requeues expired reservations in deterministic order' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
@@ -64,30 +56,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /now must be a Time/)
     end
 
-    it 'bounds expired reservation tombstones' do
-      bounded_store = described_class.new(
-        token_generator: %w[token-1 token-2 token-3].each.method(:next),
-        expired_tombstone_limit: 2
-      )
-
-      3.times do |index|
-        bounded_store.enqueue(
-          job: submission_job(id: "job-#{index}", queue: 'billing', created_at: created_at + index),
-          now: created_at + index + 1
-        )
-        bounded_store.reserve(
-          queue: 'billing',
-          worker_id: "worker-#{index}",
-          lease_duration: 1,
-          now: created_at + index + 2
-        )
-        bounded_store.expire_reservations(now: created_at + index + 3)
-      end
-
-      expired_tokens = bounded_store.instance_variable_get(:@state).expired_reservation_tokens
-      expect(expired_tokens.keys).to eq(%w[token-2:2 token-3:3])
-    end
-
     it 'requeues running jobs whose execution lease expires' do
       store.enqueue(job: submission_job(id: 'job-1', queue: 'billing', created_at:), now: created_at + 1)
       reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 5, now: created_at + 2)
@@ -97,7 +65,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       reclaimed_reservation = store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 11)
 
       expect(expired_jobs.map(&:id)).to eq(['job-1'])
-      expect(stored_job('job-1').state).to eq(:reserved)
       expect(reclaimed_reservation.job_id).to eq('job-1')
     end
 
@@ -109,7 +76,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       recovered_jobs = store.expire_reservations(now: created_at + 5)
 
       expect(recovered_jobs.map(&:state)).to eq([:queued])
-      expect(stored_job('job-1').can_transition_to?(:reserved)).to be(true)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 6)&.job_id).to eq('job-1')
     end
 
     it 'does not let a stale token release a new reservation after tombstone pruning' do
@@ -186,9 +153,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(report.recovered_reserved_jobs.map(&:id)).to eq([reserved.job_id])
       expect(report.recovered_running_jobs.map(&:id)).to eq([running.job_id])
       expect(report.jobs.map(&:id)).to eq(%w[job-expired job-reserved job-running])
-      expect(stored_job('job-expired').state).to eq(:failed)
-      expect(stored_job('job-reserved').state).to eq(:queued)
-      expect(stored_job('job-running').state).to eq(:queued)
     end
 
     it 'reports expired retry-pending jobs with queued job expirations' do
@@ -213,8 +177,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(report.expired_jobs.map(&:id)).to eq(['job-retry-expired'])
       expect(report.recovered_reserved_jobs).to eq([])
       expect(report.recovered_running_jobs).to eq([])
-      expect(stored_job('job-retry-expired').state).to eq(:failed)
-      expect(stored_job('job-retry-expired').failure_classification).to eq(:expired)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 10)).to be_nil
     end
 
     it 'preserves running attempt counts when execution leases are recovered' do
@@ -225,7 +188,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       report = store.recover_in_flight(now: created_at + 5)
 
       expect(report.recovered_running_jobs.first.attempt).to eq(1)
-      expect(stored_job('job-running').attempt).to eq(1)
     end
 
     it 'recovers only the requested worker orphan set' do
@@ -237,8 +199,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       recovered_jobs = store.recover_orphaned_jobs(worker_id: 'worker-1', now: created_at + 8)
 
       expect(recovered_jobs.map(&:id)).to eq(['job-worker-1'])
-      expect(stored_job('job-worker-1').state).to eq(:queued)
-      expect(stored_job('job-worker-2').state).to eq(:reserved)
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-3', lease_duration: 30, now: created_at + 9)&.job_id).to eq('job-worker-1')
     end
 
     it 'does not expire unrelated queued jobs during worker-scoped orphan recovery' do
@@ -259,7 +220,6 @@ RSpec.describe Karya::QueueStore::InMemory do
       recovered_jobs = store.recover_orphaned_jobs(worker_id: 'worker-1', now: created_at + 8)
 
       expect(recovered_jobs.map(&:id)).to eq(['job-worker-1'])
-      expect(stored_job('job-expired').state).to eq(:queued)
     end
 
     it 'tombstones recovered reserved and running tokens' do

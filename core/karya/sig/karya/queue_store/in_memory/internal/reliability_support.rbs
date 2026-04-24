@@ -1,0 +1,33 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module ReliabilitySupport
+          COUNTED_FAILURE_CLASSIFICATIONS: Array[Symbol]
+          STUCK_JOB_RECOVERY_REASON: String
+          CLOSED_BREAKER_STATE: Karya::circuit_breaker_runtime_state
+
+          private
+
+          def prepare_reliability_snapshot: (Time now) -> nil
+          def synchronize_circuit_breakers: (Time now) -> nil
+          def circuit_breaker_blocked?: (Job job, Time now) -> bool
+          def circuit_breaker_scope_blocked?: (String scope_key, CircuitBreaker::Policy policy, Time now) -> bool
+          def circuit_breaker_state_for: (String scope_key, Time now) -> Karya::circuit_breaker_runtime_state
+          def prune_breaker_failures: (String scope_key, CircuitBreaker::Policy policy, Time now) -> Array[Time]
+          def prune_half_open_probe_admissions: (String scope_key) -> Array[String]
+          def active_probe_token?: (String token) -> bool
+          def half_open_probe_count: (String scope_key) -> Integer
+          def register_half_open_probe: (Job job, String reservation_token, Time now) -> nil
+          def record_execution_success: (Job job, Time now) -> nil
+          def record_execution_failure: (Job job, failure_classification, Time now) -> nil
+          def open_circuit_breaker: (String scope_key, Time now, CircuitBreaker::Policy policy) -> nil
+          def reopen_circuit_breaker: (String scope_key, Time now, CircuitBreaker::Policy policy) -> nil
+          def close_circuit_breaker: (String scope_key) -> nil
+          def register_stuck_job_recovery: (Job job, Time now) -> nil
+          def clear_stuck_job_recovery: (String job_id) -> Karya::stuck_job_recovery?
+        end
+      end
+    end
+  end
+end

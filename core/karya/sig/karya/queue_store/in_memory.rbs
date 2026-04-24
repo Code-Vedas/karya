@@ -11,17 +11,13 @@ module Karya
       @policy_set: Backpressure::PolicySet
       @circuit_breaker_policy_set: CircuitBreaker::PolicySet
       @fairness_policy: Fairness::Policy
-
       @reservation_token_sequence: Integer
-
       @mutex: Thread::Mutex
-
-      @state: StoreState
+      @state: Internal::StoreState
 
       include Base
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024
-
       RESERVE_QUEUES_ERROR_MESSAGE: String
 
       def initialize: (
@@ -33,9 +29,7 @@ module Karya
       ) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
-
       def enqueue_many: (jobs: Array[Job], now: Time) -> BulkMutationReport
-
       def reserve: (
         worker_id: String,
         lease_duration: Karya::lease_duration_value,
@@ -44,42 +38,26 @@ module Karya
         ?queues: Array[String]?,
         ?handler_names: Array[String]?
       ) -> Reservation?
-
       def release: (reservation_token: String, now: Time) -> Job
-
       def start_execution: (reservation_token: String, now: Time) -> Job
-
       def complete_execution: (reservation_token: String, now: Time) -> Job
-
       def fail_execution: (
         reservation_token: String,
         now: Time,
         failure_classification: failure_classification_input,
         ?retry_policy: RetryPolicy?
       ) -> Job
-
       def retry_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-
       def cancel_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-
       def dead_letter_jobs: (job_ids: Array[String], now: Time, reason: String) -> BulkMutationReport
-
       def replay_dead_letter_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-
       def retry_dead_letter_jobs: (job_ids: Array[String], now: Time, next_retry_at: Time) -> BulkMutationReport
-
       def discard_dead_letter_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-
       def pause_queue: (queue: String, now: Time) -> QueueControlResult
-
       def resume_queue: (queue: String, now: Time) -> QueueControlResult
-
       def recover_orphaned_jobs: (worker_id: String, now: Time) -> Array[Job]
-
       def recover_in_flight: (now: Time) -> RecoveryReport
-
       def expire_reservations: (now: Time) -> Array[Job]
-
       def expire_jobs: (now: Time) -> Array[Job]
 
       # Inspection helper exposed only by QueueStore::InMemory.
@@ -115,205 +93,27 @@ module Karya
       private
 
       attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
-
       attr_reader fairness_policy: Fairness::Policy
-
       attr_reader policy_set: Backpressure::PolicySet
-
-      attr_reader state: StoreState
-
+      attr_reader state: Internal::StoreState
       attr_reader token_generator: Method | Proc
 
-      # Encapsulates subscription handler matching for reservation scans.
-      class HandlerMatcher
-        @match_all: bool
-
-        @handler_names: Hash[String, bool]
-
-        def initialize: (Array[Karya::state_name]? handler_names) -> void
-
-        def include?: (String handler_name) -> bool
-
-        def subscription_key_part: () -> Array[String]?
-
-        private
-
-        attr_reader handler_names: Hash[String, bool]
-
-        attr_reader match_all: bool
-
-        def normalize_present_handler_names: (Array[Karya::state_name] handler_names) -> Hash[String, bool]
-      end
-
-      # Internal mutable state for the single-process queue store.
-      class StoreState
-        MAX_TRACKED_FAIR_QUEUE_LISTS: Integer
-
-        @breaker_failures_by_scope: Hash[String, Array[Time]]
-        @breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
-        @executions_by_token: Hash[String, Reservation]
-
-        @execution_tokens_in_order: Array[String]
-
-        @expired_reservation_tokens: Hash[String, bool]
-
-        @expired_reservation_tokens_in_order: Array[String]
-
-        @expired_tombstone_limit: Integer
-
-        @execution_tokens_by_job_id: Hash[String, String]
-        @half_open_probe_admissions_by_scope: Hash[String, Array[String]]
-        @jobs_by_id: Hash[String, Job]
-        @last_reserved_queue_by_subscription: Hash[[Array[String], Array[String]?], String]
-        @paused_queues: Hash[String, Time]
-        @rate_limit_admissions_by_key: Hash[String, Array[Time]]
-
-        @queued_job_ids_by_queue: Hash[String, Array[String]]
-        @retry_pending_job_ids: Array[String]
-        @retry_pending_job_ids_index: Hash[String, bool]
-
-        @reservation_tokens_by_job_id: Hash[String, String]
-        @reservation_tokens_in_order: Array[String]
-
-        @reservations_by_token: Hash[String, Reservation]
-        @stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
-
-        attr_reader breaker_failures_by_scope: Hash[String, Array[Time]]
-        attr_reader breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
-        attr_reader executions_by_token: Hash[String, Reservation]
-
-        attr_reader execution_tokens_in_order: Array[String]
-
-        attr_reader expired_reservation_tokens: Hash[String, bool]
-
-        attr_reader expired_reservation_tokens_in_order: Array[String]
-
-        attr_reader execution_tokens_by_job_id: Hash[String, String]
-
-        attr_reader half_open_probe_admissions_by_scope: Hash[String, Array[String]]
-        attr_reader jobs_by_id: Hash[String, Job]
-        attr_reader last_reserved_queue_by_subscription: Hash[[Array[String], Array[String]?], String]
-        attr_reader paused_queues: Hash[String, Time]
-        attr_reader rate_limit_admissions_by_key: Hash[String, Array[Time]]
-
-        attr_reader queued_job_ids_by_queue: Hash[String, Array[String]]
-        attr_reader retry_pending_job_ids: Array[String]
-
-        attr_reader reservation_tokens_by_job_id: Hash[String, String]
-
-        attr_reader reservation_tokens_in_order: Array[String]
-
-        attr_reader reservations_by_token: Hash[String, Reservation]
-        attr_reader stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
-
-        def initialize: (expired_tombstone_limit: Integer) -> void
-
-        def queue_job_ids_for: (String queue) -> Array[String]
-
-        def delete_queue: (String queue) -> Array[String]?
-
-        def mark_queue_paused: (String queue, Time now) -> (:changed | :unchanged)
-
-        def unmark_queue_paused: (String queue) -> (:changed | :unchanged)
-
-        def queue_paused?: (String queue) -> bool
-
-        def last_reserved_queue_for: ([Array[String], Array[String]?] subscription_key) -> String?
-
-        def record_reserved_queue: ([Array[String], Array[String]?] subscription_key, String queue) -> String
-
-        def register_retry_pending: (String job_id) -> Array[String]
-
-        def delete_retry_pending: (String job_id) -> String?
-
-        def rate_limit_admissions_for: (String key) -> Array[Time]
-
-        def breaker_failures_for: (String key) -> Array[Time]
-
-        def half_open_probe_admissions_for: (String key) -> Array[String]
-
-        def delete_rate_limit_key: (String key) -> Array[Time]?
-
-        def clear_half_open_probe_admissions: (String key) -> Array[String]?
-
-        def register_stuck_job_recovery: (job_id: String, now: Time, reason: String) -> Karya::stuck_job_recovery
-
-        def reserve: (Reservation reservation) -> Array[String]
-
-        def activate_execution: (String reservation_token, Reservation reservation) -> Array[String]
-
-        def reservation_token_for_job: (String job_id) -> String?
-
-        def execution_token_for_job: (String job_id) -> String?
-
-        def delete_reservation_token: (String reservation_token) -> String?
-
-        def delete_execution_token: (String reservation_token) -> String?
-
-        def mark_expired: (String reservation_token) -> bool?
-
-        def reservation_token_in_use?: (String reservation_token) -> bool
-
-        private
-
-        def trim_fair_queue_history: () -> void
-
-        def prune_expired_reservation_tokens: () -> bool?
-      end
-
-      # Validates and normalizes lease durations accepted by the queue store.
-      class LeaseDuration
-        @value: Karya::lease_duration_value
-
-        def initialize: (Karya::lease_duration_value value) -> void
-
-        def normalize: () -> Karya::lease_duration_value
-
-        private
-
-        attr_reader value: Karya::lease_duration_value
-
-        def valid?: () -> bool
-      end
-
-      # Snapshot of backpressure state reused during one reserve scan.
-      class ReserveScanState
-        def initialize: (policy_set: Backpressure::PolicySet, state: StoreState) -> void
-
-        def concurrency_blocked?: (Job job) -> bool
-
-        def rate_limited?: (Job job) -> bool
-      end
-
-      private
-
       def validate_enqueue: (Job job) -> nil
-
       def expire_reservations_locked: (Time now) -> Array[Job]
-
       def prepare_backpressure_snapshot: (Time now) -> void
-
       def recover_in_flight_locked: (Time now, ?worker_id: String?, ?include_global_maintenance: bool) -> RecoveryReport
-
-      def perform_reserve_maintenance: (Time now) -> ReserveScanState
-
+      def perform_reserve_maintenance: (Time now) -> Internal::ReserveScanState
       def normalize_identifier: (Symbol name, String value, error_class: Karya::error_class) -> String
-
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
-
       def store_and_requeue_if_needed: (Job job) -> Job
-
-      def build_reserve_scan_state: () -> ReserveScanState
-
       def reserve_matching_job: (
-        handler_matcher: HandlerMatcher,
+        handler_matcher: Internal::HandlerMatcher,
         lease_duration: Karya::lease_duration_value,
         now: Time,
         queues: Array[String],
         subscription_key: [Array[String], Array[String]?],
         worker_id: String
       ) -> Reservation?
-
       def reserve_job: (
         matched_queue: String,
         matched_job_id: String,
@@ -324,423 +124,8 @@ module Karya
         subscription_key: [Array[String], Array[String]?],
         now: Time
       ) -> Reservation
-
       def track_fairness_history?: (Array[String] queues) -> bool
-
-      def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
-
-      def prune_stale_rate_limit_admissions: (Time now) -> void
-
-      def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
-
-      def build_backpressure_snapshot: (Time now) -> Karya::backpressure_snapshot
-
-      def snapshot_concurrency: (
-        Hash[[:concurrency, String] | [:rate_limit, String], Integer] blocked_counts,
-        Hash[String, Integer] counts
-      ) -> Hash[String, Karya::backpressure_concurrency_snapshot]
-
-      def snapshot_rate_limits: (
-        Hash[[:concurrency, String] | [:rate_limit, String], Integer] blocked_counts,
-        Hash[String, Integer] rate_limit_counts
-      ) -> Hash[String, Karya::backpressure_rate_limit_snapshot]
-
-      def active_concurrency_counts: () -> Hash[String, Integer]
-
-      def each_active_reservation: () { (Reservation reservation) -> void } -> void
-
-      def each_queued_job: () { (Job job) -> void } -> void
-
-      def add_concurrency_counts: (Hash[String, Integer] counts, Reservation reservation) -> void
-
-      def active_rate_limit_counts: (Time now) -> Hash[String, Integer]
-
-      def current_rate_limit_count: (String scope_key, Backpressure::RateLimitPolicy policy, Time now) -> Integer
-
-      def queued_blocked_counts: (
-        concurrency_counts: Hash[String, Integer],
-        rate_limit_counts: Hash[String, Integer]
-      ) -> Hash[[:concurrency, String] | [:rate_limit, String], Integer]
-
-      def add_blocked_counts: (
-        Hash[[:concurrency, String] | [:rate_limit, String], Integer] counts,
-        Job job,
-        concurrency_counts: Hash[String, Integer],
-        rate_limit_counts: Hash[String, Integer]
-      ) -> void
-
       def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
-
-      module DeadLetterSupport
-        AVAILABLE_ACTIONS: Array[Symbol]
-
-        RETRY_EXHAUSTED_REASON: String
-
-        CLASSIFICATION_ESCALATED_REASON: String
-
-        private
-
-        class JobTransition
-          def initialize: (job: Job, now: Time) -> void
-
-          def dead_letter: (String reason) -> Job
-
-          def clear_dead_letter_metadata: (
-            next_state: :queued | :retry_pending | :cancelled,
-            next_retry_at: Time?
-          ) -> Job
-        end
-
-        class SnapshotEntry
-          def initialize: (job: Job) -> void
-
-          def to_h: () -> Karya::dead_letter_snapshot_entry
-        end
-
-        def prepare_dead_letter_snapshot: (Time now) -> nil
-
-        def dead_letter_requested_job: (
-          String job_id,
-          Time now,
-          String reason,
-          Array[Job] changed_jobs,
-          Array[Karya::bulk_skipped_job] skipped_jobs
-        ) -> void
-
-        def replay_dead_letter_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
-
-        def retry_dead_letter_job: (
-          String job_id,
-          Time now,
-          Time next_retry_at,
-          Array[Job] changed_jobs,
-          Array[Karya::bulk_skipped_job] skipped_jobs
-        ) -> void
-
-        def discard_dead_letter_job: (String job_id, Time now, Array[Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
-
-        def recover_dead_letter_job: (
-          String job_id,
-          :queued | :retry_pending next_state,
-          Time now,
-          Time? next_retry_at,
-          Array[Job] changed_jobs,
-          Array[Karya::bulk_skipped_job] skipped_jobs
-        ) -> void
-
-        def cleanup_dead_letter_indexes: (Job job) -> void
-
-        def snapshot_dead_letters: () -> Array[Karya::dead_letter_snapshot_entry]
-      end
-
-      module ExecutionSupport
-        private
-
-        def finalize_execution: (
-          reservation_token: String,
-          now: Time,
-          next_state: :succeeded | :failed,
-          ?retry_policy: RetryPolicy?,
-          ?failure_classification: failure_classification_input?
-        ) -> Job
-
-        def finalized_execution_job: (
-          running_job: Job,
-          next_state: :succeeded | :failed,
-          now: Time,
-          retry_policy: RetryPolicy?,
-          failure_classification: failure_classification?
-        ) -> Job
-
-        def persist_finalized_execution: (
-          finalized_job: Job,
-          normalized_token: String
-        ) -> nil
-
-        def fetch_active_reservation: (String reservation_token, Time now) -> Reservation
-
-        def collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now, ?worker_id: String?) -> Array[Reservation]
-      end
-
-      module ExpirationSupport
-        private
-
-        def expire_jobs_locked: (Time now) -> Array[Job]
-
-        def expire_queued_jobs: (Time now, Array[Job] expired_jobs) -> void
-
-        def expire_retry_pending_jobs: (Time now, Array[Job] expired_jobs) -> void
-
-        def expire_reserved_job: (Reservation reservation, Job reserved_job, Time now) -> Job
-
-        def expire_queued_job?: (String job_id, Time now, Array[Job] expired_jobs) -> bool
-
-        def job_expired?: (Job job, Time now) -> bool
-
-        def build_expired_job: (Job job, Time now) -> Job
-      end
-
-      module RecoverySupport
-        private
-
-        def requeue_reservation: (Reservation reservation, Time now) -> Job
-
-        def requeue_expired_reservation: (Reservation reservation, Time now) -> Job
-
-        def requeue_expired_execution: (Reservation reservation, Time now) -> Job
-      end
-
-      module ReserveSelectionSupport
-        private
-
-        class FairQueueOrder
-          def initialize: (
-            queues: Array[String],
-            strategy: Karya::normalized_fairness_strategy,
-            last_reserved_queue: String?
-          ) -> void
-
-          def to_a: () -> Array[String]
-        end
-
-        def find_reserved_job: (
-          Array[String] queues,
-          [Array[String], Array[String]?] subscription_key,
-          HandlerMatcher handler_matcher,
-          ReserveScanState reserve_scan_state,
-          Time now
-        ) -> [String, Integer, String]?
-
-        def fair_queue_order: (Array[String] queues, [Array[String], Array[String]?] subscription_key) -> Array[String]
-
-        def matching_job_for: (
-          String queue,
-          HandlerMatcher handler_matcher,
-          ReserveScanState reserve_scan_state,
-          Time now
-        ) -> [Integer, String]?
-      end
-
-      module UniquenessSupport
-        class DuplicateKeySummary
-          MAX_PREVIEW_LENGTH: Integer
-
-          def initialize: (String key) -> void
-
-          def to_s: () -> String
-
-          private
-
-          attr_reader key: String
-
-          def preview: () -> String
-        end
-
-        class Decision
-          @captured_at: Time
-          @job_id: String
-          @uniqueness_scope: Karya::uniqueness_scope?
-
-          def initialize: (job: Job, now: Time) -> void
-
-          def accept: () -> Karya::uniqueness_decision
-
-          def reject: (
-            result: Karya::uniqueness_decision_result,
-            key_type: Karya::uniqueness_decision_key_type,
-            key: String,
-            conflicting_job_id: String
-          ) -> Karya::uniqueness_decision
-
-          private
-
-          def to_h: (
-            action: Karya::uniqueness_decision_action,
-            result: Karya::uniqueness_decision_result,
-            key_type: Karya::uniqueness_decision_key_type?,
-            key: String?,
-            conflicting_job_id: String?
-          ) -> Karya::uniqueness_decision
-        end
-
-        class IdempotencyKeySnapshot
-          @key: String
-          @job_id: String
-          @queue: String
-          @handler: String
-          @state: Karya::state_name
-          @created_at: Time
-          @updated_at: Time?
-
-          def initialize: (job: Job, key: String) -> void
-
-          def to_h: () -> Karya::idempotency_key_snapshot
-        end
-
-        class UniquenessKeySnapshot
-          @key: String
-          @job_id: String
-          @queue: String
-          @handler: String
-          @state: Karya::state_name
-          @effective_state: Karya::state_name
-          @uniqueness_scope: Karya::uniqueness_scope
-          @blocked_incoming_scopes: Array[Karya::uniqueness_scope]
-
-          def initialize: (
-            job: Job,
-            effective_job: Job,
-            key: String,
-            blocked_scopes: Array[Karya::uniqueness_scope]
-          ) -> void
-
-          def to_h: () -> Karya::uniqueness_key_snapshot
-        end
-
-        class DuplicateSearch
-          @jobs_by_id: Hash[String, Job]
-          @job_id: String
-          @key: String?
-          @key_name: :idempotency_key | :uniqueness_key
-          @exclude_job_id: String?
-          @skipped_job_ids: Array[String?]
-
-          def initialize: (
-            jobs_by_id: Hash[String, Job],
-            job: Job,
-            key: String?,
-            key_name: :idempotency_key | :uniqueness_key,
-            exclude_job_id: String?
-          ) -> void
-
-          def call: () { (Job existing_job) -> bool } -> Job?
-
-          private
-
-          def skip_job_id?: (String existing_job_id) -> bool
-        end
-
-        class StuckRecoveryClearance
-          def initialize: (Job job) -> void
-
-          def clear?: () -> bool
-        end
-
-        private
-
-        def store_job: (job: Job) -> Job
-
-        def build_uniqueness_decision: (Job job, Time now) -> Karya::uniqueness_decision
-
-        def duplicate_job_id: (Job job) -> Job?
-
-        def duplicate_idempotency_job: (Job job, ?exclude_job_id: String?) -> Job?
-
-        def duplicate_uniqueness_job: (Job job, Time? now, ?exclude_job_id: String?) -> Job?
-
-        def duplicate_search: (
-          Job job,
-          key: String?,
-          key_name: :idempotency_key | :uniqueness_key,
-          exclude_job_id: String?
-        ) -> DuplicateSearch
-
-        def build_uniqueness_snapshot: (Time now) -> Karya::uniqueness_snapshot
-
-        def snapshot_idempotency_keys: () -> Hash[String, Karya::idempotency_key_snapshot]
-
-        def snapshot_uniqueness_keys: (Time now) -> Hash[String, Array[Karya::uniqueness_key_snapshot]]
-
-        def blocked_incoming_scopes: (Job existing_job) -> Array[Karya::uniqueness_scope]
-
-        def uniqueness_scope_conflicts?: (Job existing_job, Karya::uniqueness_scope incoming_scope) -> bool
-
-        def uniqueness_conflict?: (Job job, ?exclude_job_id: String?, ?now: Time?) -> bool
-
-        def uniqueness_conflict_between?: (Job existing_job, Job incoming_job) -> bool
-
-        def uniqueness_scope_blocks_state?: (Karya::uniqueness_scope? scope, Karya::state_name state) -> bool
-
-        def incoming_uniqueness_state: (Job job) -> Karya::state_name
-
-        def effective_uniqueness_job: (Job job, Time? now) -> Job?
-
-        def effective_queued_uniqueness_job: (Job job, Time now) -> Job?
-
-        def effective_retry_pending_uniqueness_job: (Job job, Time now) -> Job?
-
-        def effective_reserved_uniqueness_job: (Job job, Time now) -> Job?
-
-        def effective_running_uniqueness_job: (Job job, Time now) -> Job
-
-        def lease_expired_for_uniqueness?: (Hash[String, Reservation] leases_by_token, String job_id, Time now) -> bool
-
-        def resolve_reentry_uniqueness: (Job job, ?now: Time?) -> Job
-
-        def resolve_reentry_and_store: (Job job, ?now: Time?) -> Job
-
-        def reentry_conflict_job: (Job job) -> Job
-
-        def raise_duplicate_enqueue_error: (Karya::uniqueness_decision duplicate_decision) -> nil
-
-        def raise_duplicate_uniqueness_key_error: (job_id: String, uniqueness_key: String) -> nil
-
-        def raise_duplicate_idempotency_key_error: (job_id: String, idempotency_key: String) -> nil
-      end
-
-      module RequestSupport
-        private
-
-        def next_token: () -> ::String
-
-        def build_reservation: (reserved_job: Job, worker_id: String, reserved_at: Time, lease_duration: Karya::lease_duration_value) -> Reservation
-
-        def ensure_unique_reservation_token: (String reservation_token) -> nil
-
-        def normalize_reserve_queues: (queue: String?, queues: Array[String]?) -> Array[String]
-
-        def normalize_reserve_request: (
-          worker_id: String,
-          lease_duration: Karya::lease_duration_value,
-          now: Time,
-          ?queue: String?,
-          ?queues: Array[String]?,
-          ?handler_names: Array[String]?
-        ) -> {
-          handler_matcher: HandlerMatcher,
-          lease_duration: Karya::lease_duration_value,
-          now: Time,
-          queues: Array[String],
-          subscription_key: [Array[String], Array[String]?],
-          worker_id: String
-        }
-      end
-
-      module RetrySupport
-        private
-
-        def promote_due_retry_pending_jobs: (Time now) -> void
-
-        def retry_pending_job: (Job running_job, Time now, RetryPolicy retry_policy, failure_classification, Time next_retry_at) -> Job
-
-      end
-
-      # Rebuilds a running job as queued when execution lease recovery is required.
-      class ExecutionRecovery
-        @running_job: Job
-
-        @now: Time
-
-        def initialize: (Job running_job, Time now) -> void
-
-        def to_queued_job: () -> Job
-
-        private
-
-        attr_reader now: Time
-
-        attr_reader running_job: Job
-      end
     end
   end
 end

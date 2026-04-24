@@ -189,6 +189,9 @@ For any public constants/methods:
 - **Required:** Verify ALL implementation details are consistently scoped
 - When a refactor extracts support modules or support classes, verify those new
   objects are not accidentally exposed as public extension points.
+- When an owner is split across responsibility-named Ruby files, check whether
+  direct unit coverage mirrors that split and whether large owner specs still
+  focus on public behavior instead of helper mechanics.
 
 ### RBS Truthfulness
 
@@ -201,6 +204,9 @@ For any Ruby change that has a mirrored file under `sig/`:
   module/class structure all still match runtime behavior.
 - Flag stale signatures for removed methods, removed modules, or old constants.
 - **Required:** Treat RBS drift as a correctness issue, not documentation debt.
+- **Required:** Treat spec-layout drift as a review concern when extracted
+  owner-local files leave all direct behavior buried only in a monolithic owner
+  spec.
 
 ## Architecture Guidelines Review
 

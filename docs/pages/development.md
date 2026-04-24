@@ -50,6 +50,13 @@ wiring, but they are not supported public API. Owner-local helpers can remain
 nested under their owning class or module and may be typed inside that owner’s
 RBS file instead of having a one-to-one file mapping.
 
+## Unit Spec Mirroring
+
+When `core/karya` code is split into responsibility-named owner-local files,
+prefer mirrored unit specs under `core/karya/spec/` for those files. Keep large
+owner specs focused on public API behavior, orchestration, and integration
+flows, while direct helper behavior lives beside the mirrored unit spec.
+
 ## Documentation Workflow
 
 The docs site under `docs/` is the source of truth for:

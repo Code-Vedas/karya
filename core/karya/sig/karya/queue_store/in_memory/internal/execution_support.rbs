@@ -1,0 +1,17 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        module ExecutionSupport
+          private
+
+          def finalize_execution: (reservation_token: String, now: Time, next_state: :succeeded | :failed, ?retry_policy: RetryPolicy?, ?failure_classification: failure_classification_input?) -> Job
+          def finalized_execution_job: (running_job: Job, next_state: :succeeded | :failed, now: Time, retry_policy: RetryPolicy?, failure_classification: failure_classification?) -> Job
+          def persist_finalized_execution: (finalized_job: Job, normalized_token: String) -> nil
+          def fetch_active_reservation: (String reservation_token, Time now) -> Reservation
+          def collect_expired_leases: (Hash[String, Reservation] leases_by_token, Array[String] tokens_in_order, Time now, ?worker_id: String?) -> Array[Reservation]
+        end
+      end
+    end
+  end
+end
