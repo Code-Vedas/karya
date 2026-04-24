@@ -55,6 +55,46 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #rollback_workflow/)
   end
 
+  it 'requires retry_workflow_steps to be implemented' do
+    expect do
+      store.retry_workflow_steps(batch_id: 'batch-1', step_ids: ['root'], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #retry_workflow_steps/)
+  end
+
+  it 'requires dead_letter_workflow_steps to be implemented' do
+    expect do
+      store.dead_letter_workflow_steps(
+        batch_id: 'batch-1',
+        step_ids: ['root'],
+        now: Time.utc(2026, 3, 27, 12, 0, 0),
+        reason: 'manual'
+      )
+    end.to raise_error(NotImplementedError, /implement #dead_letter_workflow_steps/)
+  end
+
+  it 'requires replay_workflow_steps to be implemented' do
+    expect do
+      store.replay_workflow_steps(batch_id: 'batch-1', step_ids: ['root'], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #replay_workflow_steps/)
+  end
+
+  it 'requires retry_dead_letter_workflow_steps to be implemented' do
+    expect do
+      store.retry_dead_letter_workflow_steps(
+        batch_id: 'batch-1',
+        step_ids: ['root'],
+        now: Time.utc(2026, 3, 27, 12, 0, 0),
+        next_retry_at: Time.utc(2026, 3, 27, 12, 5, 0)
+      )
+    end.to raise_error(NotImplementedError, /implement #retry_dead_letter_workflow_steps/)
+  end
+
+  it 'requires discard_workflow_steps to be implemented' do
+    expect do
+      store.discard_workflow_steps(batch_id: 'batch-1', step_ids: ['root'], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #discard_workflow_steps/)
+  end
+
   it 'requires reserve to be implemented' do
     expect do
       store.reserve(

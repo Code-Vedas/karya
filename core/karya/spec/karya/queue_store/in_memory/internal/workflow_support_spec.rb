@@ -75,6 +75,44 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     expect(result).to be_frozen
   end
 
+  it 'resolves explicit workflow step control targets in request order' do
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    helper = workflow_support.const_get(:WorkflowControlTargets, false)
+    registration = store.send(:state).register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'first' => 'job-1', 'second' => 'job-2' },
+      compensation_jobs_by_step_id: {}
+    )
+
+    result = helper.new(registration:, step_ids: [' second ', :first]).job_ids
+
+    expect(result).to eq(%w[job-2 job-1])
+    expect(result).to be_frozen
+  end
+
+  it 'rejects invalid workflow step control target lists' do
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    helper = workflow_support.const_get(:WorkflowControlTargets, false)
+    registration = store.send(:state).register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'first' => 'job-1' },
+      compensation_jobs_by_step_id: {}
+    )
+
+    expect { helper.new(registration:, step_ids: 'first').job_ids }
+      .to raise_error(Karya::Workflow::InvalidExecutionError, 'step_ids must be an Array')
+    expect { helper.new(registration:, step_ids: []).job_ids }
+      .to raise_error(Karya::Workflow::InvalidExecutionError, 'step_ids must not be empty')
+    expect { helper.new(registration:, step_ids: [:first, ' first ']).job_ids }
+      .to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate workflow step "first"')
+    expect { helper.new(registration:, step_ids: [:missing]).job_ids }
+      .to raise_error(Karya::Workflow::InvalidExecutionError, 'unknown workflow step "missing"')
+  end
+
   it 'raises workflow-domain errors for non-workflow batches' do
     expect do
       store.send(:fetch_workflow_registration, 'batch-1')

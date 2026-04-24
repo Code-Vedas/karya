@@ -99,6 +99,83 @@ module Karya
             end
           end
 
+          def retry_workflow_steps(batch_id:, step_ids:, now:)
+            normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
+
+            @mutex.synchronize do
+              workflow_control_report(
+                action: :retry_workflow_steps,
+                batch_id:,
+                step_ids:,
+                now: normalized_now
+              ) do |job_id, changed_jobs, skipped_jobs|
+                retry_requested_job(job_id, normalized_now, changed_jobs, skipped_jobs)
+              end
+            end
+          end
+
+          def dead_letter_workflow_steps(batch_id:, step_ids:, now:, reason:)
+            normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
+            normalized_reason = Karya::Internal::DeadLetterReason.normalize(reason, error_class: Workflow::InvalidExecutionError)
+
+            @mutex.synchronize do
+              workflow_control_report(
+                action: :dead_letter_workflow_steps,
+                batch_id:,
+                step_ids:,
+                now: normalized_now
+              ) do |job_id, changed_jobs, skipped_jobs|
+                dead_letter_requested_job(job_id, normalized_now, normalized_reason, changed_jobs, skipped_jobs)
+              end
+            end
+          end
+
+          def replay_workflow_steps(batch_id:, step_ids:, now:)
+            normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
+
+            @mutex.synchronize do
+              workflow_control_report(
+                action: :replay_workflow_steps,
+                batch_id:,
+                step_ids:,
+                now: normalized_now
+              ) do |job_id, changed_jobs, skipped_jobs|
+                replay_dead_letter_job(job_id, normalized_now, changed_jobs, skipped_jobs)
+              end
+            end
+          end
+
+          def retry_dead_letter_workflow_steps(batch_id:, step_ids:, now:, next_retry_at:)
+            normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
+            normalized_next_retry_at = normalize_time(:next_retry_at, next_retry_at, error_class: Workflow::InvalidExecutionError)
+
+            @mutex.synchronize do
+              workflow_control_report(
+                action: :retry_dead_letter_workflow_steps,
+                batch_id:,
+                step_ids:,
+                now: normalized_now
+              ) do |job_id, changed_jobs, skipped_jobs|
+                retry_dead_letter_job(job_id, normalized_now, normalized_next_retry_at, changed_jobs, skipped_jobs)
+              end
+            end
+          end
+
+          def discard_workflow_steps(batch_id:, step_ids:, now:)
+            normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
+
+            @mutex.synchronize do
+              workflow_control_report(
+                action: :discard_workflow_steps,
+                batch_id:,
+                step_ids:,
+                now: normalized_now
+              ) do |job_id, changed_jobs, skipped_jobs|
+                discard_dead_letter_job(job_id, normalized_now, changed_jobs, skipped_jobs)
+              end
+            end
+          end
+
           private
 
           def normalize_rollback_reason(reason)
@@ -203,7 +280,68 @@ module Karya
 
             attr_reader :definition, :jobs
           end
-          private_constant :Rollback, :RollbackBatchId, :RollbackDependencies, :RollbackPlan, :StepJobIds
+
+          # Normalizes an explicit workflow step target list for operator controls.
+          class WorkflowStepIds
+            def initialize(step_ids)
+              @step_ids = step_ids
+            end
+
+            def to_a
+              raise Workflow::InvalidExecutionError, 'step_ids must be an Array' unless step_ids.is_a?(Array)
+              raise Workflow::InvalidExecutionError, 'step_ids must not be empty' if step_ids.empty?
+
+              normalize_step_ids
+            end
+
+            private
+
+            attr_reader :step_ids
+
+            def normalize_step_ids
+              normalized = []
+              seen = {}
+              step_ids.each do |step_id|
+                normalized_step_id = Workflow.send(:normalize_execution_identifier, :step_id, step_id)
+                raise Workflow::InvalidExecutionError, "duplicate workflow step #{normalized_step_id.inspect}" if seen.key?(normalized_step_id)
+
+                seen[normalized_step_id] = true
+                normalized << normalized_step_id
+              end
+              normalized.freeze
+            end
+          end
+
+          # Resolves explicit workflow step ids to primary workflow job ids.
+          class WorkflowControlTargets
+            def initialize(registration:, step_ids:)
+              @registration = registration
+              @step_ids = WorkflowStepIds.new(step_ids).to_a
+            end
+
+            def job_ids
+              step_ids.map do |step_id|
+                step_job_ids.fetch(step_id) do
+                  raise Workflow::InvalidExecutionError, "unknown workflow step #{step_id.inspect}"
+                end
+              end.freeze
+            end
+
+            private
+
+            attr_reader :registration, :step_ids
+
+            def step_job_ids
+              registration.step_job_ids
+            end
+          end
+          private_constant :Rollback,
+                           :RollbackBatchId,
+                           :RollbackDependencies,
+                           :RollbackPlan,
+                           :StepJobIds,
+                           :WorkflowControlTargets,
+                           :WorkflowStepIds
 
           def fetch_workflow_registration(batch_id)
             registration = state.workflow_registrations_by_batch_id[batch_id]
@@ -245,6 +383,23 @@ module Karya
             return unless state.workflow_rollbacks_by_batch_id[batch_id]
 
             raise Workflow::InvalidExecutionError, "workflow batch #{batch_id.inspect} has already been rolled back"
+          end
+
+          def workflow_control_report(action:, batch_id:, step_ids:, now:, &block)
+            Karya::Internal::BulkMutation::ReportBuilder.new(
+              action:,
+              job_ids: workflow_control_job_ids(batch_id, step_ids),
+              now:
+            ).to_report do |job_id, changed_jobs, skipped_jobs|
+              block.yield(job_id, changed_jobs, skipped_jobs)
+            end
+          end
+
+          def workflow_control_job_ids(batch_id, step_ids)
+            normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
+            batch = fetch_batch(normalized_batch_id)
+            registration = fetch_workflow_registration(batch.id)
+            WorkflowControlTargets.new(registration:, step_ids:).job_ids
           end
 
           # Builds workflow snapshots from stored workflow metadata.

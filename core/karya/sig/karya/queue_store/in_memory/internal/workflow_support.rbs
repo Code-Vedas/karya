@@ -12,6 +12,21 @@ module Karya
           ) -> BulkMutationReport
           def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
           def rollback_workflow: (batch_id: Karya::state_name, now: Time, reason: String) -> BulkMutationReport
+          def retry_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> BulkMutationReport
+          def dead_letter_workflow_steps: (
+            batch_id: Karya::state_name,
+            step_ids: Array[Karya::state_name],
+            now: Time,
+            reason: String
+          ) -> BulkMutationReport
+          def replay_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> BulkMutationReport
+          def retry_dead_letter_workflow_steps: (
+            batch_id: Karya::state_name,
+            step_ids: Array[Karya::state_name],
+            now: Time,
+            next_retry_at: Time
+          ) -> BulkMutationReport
+          def discard_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> BulkMutationReport
 
           private
 
@@ -86,12 +101,45 @@ module Karya
             attr_reader jobs: Array[Job]
           end
 
+          class WorkflowStepIds
+            @step_ids: Array[Karya::state_name]
+
+            def initialize: (Array[Karya::state_name] step_ids) -> void
+            def to_a: () -> Array[String]
+
+          private
+
+            attr_reader step_ids: Array[Karya::state_name]
+            def normalize_step_ids: () -> Array[String]
+          end
+
+          class WorkflowControlTargets
+            @registration: InMemory::Internal::StoreState::WorkflowRegistration
+            @step_ids: Array[String]
+
+            def initialize: (registration: InMemory::Internal::StoreState::WorkflowRegistration, step_ids: Array[Karya::state_name]) -> void
+            def job_ids: () -> Array[String]
+
+          private
+
+            attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
+            attr_reader step_ids: Array[String]
+            def step_job_ids: () -> Hash[String, String]
+          end
+
           def fetch_workflow_registration: (String batch_id) -> InMemory::Internal::StoreState::WorkflowRegistration
           def normalize_rollback_reason: (String reason) -> String
           def prepare_rollback: (String batch_id, Time now) -> Rollback
           def build_rollback_batch: (batch_id: String, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch?
           def raise_duplicate_batch: (String batch_id) -> nil
           def raise_duplicate_rollback: (String batch_id) -> nil
+          def workflow_control_report: (
+            action: Karya::bulk_mutation_action,
+            batch_id: Karya::state_name,
+            step_ids: Array[Karya::state_name],
+            now: Time
+          ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> BulkMutationReport
+          def workflow_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids) -> Array[String]
           def workflow_dependencies_satisfied?: (Job job) -> bool
 
           class WorkflowSnapshotBuilder
