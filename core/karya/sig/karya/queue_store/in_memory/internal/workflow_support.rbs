@@ -126,6 +126,7 @@ module Karya
 
           private
 
+            ACTIVE_JOB_STATES: Array[Symbol]
             WAITING_JOB_STATES: Array[Symbol]
             attr_reader snapshot: Karya::Workflow::Snapshot
             attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
