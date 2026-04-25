@@ -87,6 +87,18 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
   end
 
+  it 'rejects non-string rollback reasons with workflow terminology' do
+    expect do
+      store.send(:normalize_rollback_reason, :operator_rollback)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be a String')
+  end
+
+  it 'rejects overlong rollback reasons with workflow terminology' do
+    expect do
+      store.send(:normalize_rollback_reason, 'a' * 1025)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be at most 1024 characters')
+  end
+
   it 'builds frozen rollback batch ids' do
     expect(rollback_batch_id('batch-1')).to eq('__karya_workflow_rollback_v1__62617463682d31')
     expect(rollback_batch_id('batch-1')).to be_frozen

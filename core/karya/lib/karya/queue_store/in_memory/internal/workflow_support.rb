@@ -102,9 +102,16 @@ module Karya
           private
 
           def normalize_rollback_reason(reason)
-            Karya::Internal::DeadLetterReason.normalize(reason, error_class: Workflow::InvalidExecutionError)
-          rescue Workflow::InvalidExecutionError => e
-            raise Workflow::InvalidExecutionError, e.message.gsub('dead_letter_reason', 'reason'), cause: e
+            max_length = Karya::Internal::DeadLetterReason::MAX_LENGTH
+            too_long_message = "reason must be at most #{max_length} characters"
+
+            raise Workflow::InvalidExecutionError, 'reason must be a String' unless reason.is_a?(String)
+
+            normalized_reason = reason.strip
+            raise Workflow::InvalidExecutionError, 'reason must be present' if normalized_reason.empty?
+            raise Workflow::InvalidExecutionError, too_long_message if normalized_reason.length > max_length
+
+            normalized_reason.freeze
           end
 
           # Groups the validated rollback batch and enqueue plan.
