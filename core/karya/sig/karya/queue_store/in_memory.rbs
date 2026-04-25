@@ -108,9 +108,9 @@ module Karya
       attr_reader token_generator: Method | Proc
 
       def validate_initializer_limits: (
-        expired_tombstone_limit: Object?,
-        completed_batch_retention_limit: Object?,
-        max_batch_size: Object?
+        expired_tombstone_limit: Integer?,
+        completed_batch_retention_limit: Integer?,
+        max_batch_size: Integer?
       ) -> nil
       def validate_enqueue: (Job job) -> nil
       def expire_reservations_locked: (Time now) -> Array[Job]
