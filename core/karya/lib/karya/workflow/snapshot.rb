@@ -228,6 +228,7 @@ module Karya
           dependency_job_ids_by_job_id.each_with_object({}) do |(job_id, dependency_job_ids), normalized|
             normalized_job_id = Workflow.send(:normalize_execution_identifier, :job_id, job_id)
             raise InvalidExecutionError, 'dependency job ids must be an Array' unless dependency_job_ids.is_a?(Array)
+            raise InvalidExecutionError, "duplicate dependency job id #{normalized_job_id.inspect}" if normalized.key?(normalized_job_id)
 
             normalized[normalized_job_id] = DependencyJobIdList.new(dependency_job_ids).to_a
           end.freeze

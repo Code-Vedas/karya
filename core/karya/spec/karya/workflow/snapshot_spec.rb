@@ -166,6 +166,10 @@ RSpec.describe Karya::Workflow::Snapshot do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'dependency job ids must be an Array')
 
     expect do
+      snapshot(jobs:, dependencies: { 'job_root' => [], ' job_root ' => [] })
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate dependency job id "job_root"')
+
+    expect do
       snapshot(jobs:, step_job_ids: { root: 'job_other' })
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'step_job_ids must match jobs in order')
   end

@@ -96,6 +96,12 @@ module Karya
             @step_job_ids: Hash[String, String]
             @dependency_job_ids_by_job_id: Hash[String, Array[String]]
 
+            def initialize: (
+              String workflow_id,
+              Hash[String, String] step_job_ids,
+              Hash[String, Array[String]] dependency_job_ids_by_job_id
+            ) -> void
+
             attr_reader workflow_id: String
             attr_reader step_job_ids: Hash[String, String]
             attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
