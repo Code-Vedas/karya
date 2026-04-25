@@ -42,6 +42,12 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
+  def rollback_batch_id(batch_id)
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
+  end
+
   def run_successfully(reservation, start_offset:, complete_offset:)
     store.start_execution(reservation_token: reservation.token, now: created_at + start_offset)
     store.complete_execution(reservation_token: reservation.token, now: created_at + complete_offset)
@@ -117,12 +123,12 @@ RSpec.describe Karya::QueueStore::InMemory do
     rollback_snapshot = store.workflow_snapshot(batch_id: :invoice_closeout_batch, now: created_at + 16).rollback
     expect(rollback_snapshot).to have_attributes(
       workflow_batch_id: 'invoice_closeout_batch',
-      rollback_batch_id: 'invoice_closeout_batch.rollback',
+      rollback_batch_id: rollback_batch_id('invoice_closeout_batch'),
       reason: 'operator rollback',
       compensation_job_ids: %w[rollback-job-capture rollback-job-authorize],
       compensation_count: 2
     )
-    expect(store.batch_snapshot(batch_id: 'invoice_closeout_batch.rollback', now: created_at + 16).job_ids)
+    expect(store.batch_snapshot(batch_id: rollback_batch_id('invoice_closeout_batch'), now: created_at + 16).job_ids)
       .to eq(%w[rollback-job-capture rollback-job-authorize])
   end
 
@@ -148,7 +154,7 @@ RSpec.describe Karya::QueueStore::InMemory do
     authorize_rollback = reserve(26, handler_names: ['undo_authorize'])
     expect(authorize_rollback.job_id).to eq('rollback-job-authorize')
     run_successfully(authorize_rollback, start_offset: 27, complete_offset: 28)
-    expect(store.batch_snapshot(batch_id: 'invoice_closeout_batch.rollback', now: created_at + 29).aggregate_state).to eq(:succeeded)
+    expect(store.batch_snapshot(batch_id: rollback_batch_id('invoice_closeout_batch'), now: created_at + 29).aggregate_state).to eq(:succeeded)
   end
 
   it 'keeps workflow and rollback metadata stable across step retry-dead-letter and discard controls' do
@@ -185,7 +191,7 @@ RSpec.describe Karya::QueueStore::InMemory do
     expect(snapshot.step_states).to eq('root' => :succeeded, 'child' => :cancelled)
     expect(snapshot.job_ids).to eq(%w[job-root job-child])
     expect(snapshot.rollback).to have_attributes(
-      rollback_batch_id: 'batch_one.rollback',
+      rollback_batch_id: rollback_batch_id('batch_one'),
       compensation_job_ids: ['rollback-job-root']
     )
     expect(store.batch_snapshot(batch_id: :batch_one, now: created_at + 13).job_ids).to eq(%w[job-root job-child])
