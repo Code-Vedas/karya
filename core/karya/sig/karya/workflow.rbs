@@ -168,6 +168,210 @@ module Karya
       def validate_membership: () -> void
     end
 
+    class Snapshot
+      @identity: Identity
+      @membership: Membership
+      @summary_data: SummaryData
+
+      def initialize: (
+        workflow_id: state_name,
+        batch_id: state_name,
+        captured_at: Time,
+        step_job_ids: Hash[state_name, state_name],
+        dependency_job_ids_by_job_id: Hash[state_name, Array[state_name]],
+        jobs: Array[Job]
+      ) -> void
+
+      def workflow_id: () -> String
+      def batch_id: () -> String
+      def captured_at: () -> Time
+      def job_ids: () -> Array[String]
+      def jobs: () -> Array[Job]
+      def step_states: () -> Hash[String, state_name]
+      def state_counts: () -> Hash[state_name, Integer]
+      def total_count: () -> Integer
+      def completed_count: () -> Integer
+      def failed_count: () -> Integer
+      def state: () -> Karya::workflow_state
+
+    private
+
+      attr_reader identity: Identity
+      attr_reader membership: Membership
+      attr_reader summary_data: SummaryData
+
+      class Attributes
+        @attributes: Hash[Symbol, workflow_snapshot_attribute_value]
+
+        def initialize: (Hash[Symbol, workflow_snapshot_attribute_value] attributes) -> void
+        def fetch: (Symbol name) -> workflow_snapshot_attribute_value
+        def identity: () -> Identity
+        def membership: () -> Membership
+
+      private
+
+        attr_reader attributes: Hash[Symbol, workflow_snapshot_attribute_value]
+        def validate_keys: () -> void
+      end
+
+      class Identity
+        @workflow_id: String
+        @batch_id: String
+        @captured_at: Time
+
+        attr_reader workflow_id: String
+        attr_reader batch_id: String
+        attr_reader captured_at: Time
+
+        def initialize: (workflow_id: String, batch_id: String, captured_at: Time) -> void
+      end
+
+      class Membership
+        @step_job_ids: Hash[String, String]
+        @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+        @jobs: Array[Job]
+        @job_ids: Array[String]
+        @step_states: Hash[String, state_name]
+
+        attr_reader step_job_ids: Hash[String, String]
+        attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+        attr_reader jobs: Array[Job]
+        attr_reader job_ids: Array[String]
+        attr_reader step_states: Hash[String, state_name]
+
+        def initialize: (
+          step_job_ids: Hash[String, String],
+          dependency_job_ids_by_job_id: Hash[String, Array[String]],
+          jobs: Array[Job]
+        ) -> void
+
+      private
+
+        def validate_membership: () -> void
+        def build_step_states: () -> Hash[String, state_name]
+      end
+
+      class SummaryData
+        @state_counts: Hash[state_name, Integer]
+        @total_count: Integer
+        @completed_count: Integer
+        @failed_count: Integer
+        @state: Karya::workflow_state
+
+        attr_reader state_counts: Hash[state_name, Integer]
+        attr_reader total_count: Integer
+        attr_reader completed_count: Integer
+        attr_reader failed_count: Integer
+        attr_reader state: Karya::workflow_state
+
+        def initialize: (Membership membership) -> void
+      end
+
+      class Timestamp
+        @name: Symbol
+        @value: Time
+
+        def initialize: (Symbol name, Time value) -> void
+        def to_time: () -> Time
+
+      private
+
+        attr_reader name: Symbol
+        attr_reader value: Time
+      end
+
+      class StepJobIds
+        @step_job_ids: Hash[state_name, state_name]
+
+        def initialize: (Hash[state_name, state_name] step_job_ids) -> void
+        def to_h: () -> Hash[String, String]
+
+      private
+
+        attr_reader step_job_ids: Hash[state_name, state_name]
+      end
+
+      class DependencyJobIds
+        @dependency_job_ids_by_job_id: Hash[state_name, Array[state_name]]
+
+        def initialize: (Hash[state_name, Array[state_name]] dependency_job_ids_by_job_id) -> void
+        def to_h: () -> Hash[String, Array[String]]
+
+      private
+
+        attr_reader dependency_job_ids_by_job_id: Hash[state_name, Array[state_name]]
+      end
+
+      class DependencyJobIdList
+        @dependency_job_ids: Array[state_name]
+
+        def initialize: (Array[state_name] dependency_job_ids) -> void
+        def to_a: () -> Array[String]
+
+      private
+
+        attr_reader dependency_job_ids: Array[state_name]
+      end
+
+      class JobList
+        @jobs: Array[Job]
+
+        def initialize: (Array[Job] jobs) -> void
+        def to_a: () -> Array[Job]
+
+      private
+
+        attr_reader jobs: Array[Job]
+      end
+
+      class Summary
+        @jobs: Array[Job]
+        @state_counts: Hash[state_name, Integer]?
+
+        def initialize: (Array[Job] jobs) -> void
+        def state_counts: () -> Hash[state_name, Integer]
+        def completed_count: () -> Integer
+        def failed_count: () -> Integer
+
+      private
+
+        attr_reader jobs: Array[Job]
+      end
+
+      class JobState
+        @job: Job
+
+        def initialize: (Job job) -> void
+        def active?: () -> bool
+
+      private
+
+        attr_reader job: Job
+      end
+
+      class State
+        @jobs: Array[Job]
+        @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+        @jobs_by_id: Hash[String, Job]
+
+        def initialize: (jobs: Array[Job], dependency_job_ids_by_job_id: Hash[String, Array[String]]) -> void
+        def to_sym: () -> Karya::workflow_state
+
+      private
+
+        attr_reader jobs: Array[Job]
+        attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+        attr_reader jobs_by_id: Hash[String, Job]
+        def failed?: () -> bool
+        def only_state?: (state_name state) -> bool
+        def terminal_mixed?: () -> bool
+        def running?: () -> bool
+        def progressed?: () -> bool
+        def blocked?: () -> bool
+        def dependency_blocked?: (Job job) -> bool
+      end
+    end
+
     class Dependency
       @step_id: String
       @depends_on_step_id: String

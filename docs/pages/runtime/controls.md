@@ -70,6 +70,8 @@ operator search and governance layers choose targets:
   immutable, and aggregate batch state is inspected from current member jobs
 - workflow enqueue stores all step jobs in one immutable batch and gates
   reservation of dependent steps until prerequisite jobs have succeeded
+- workflow snapshots derive workflow state from stored workflow metadata and
+  current member job states without mutating the batch membership
 - bulk retry returns failed or `retry_pending` jobs to normal queued execution
   when they are still eligible and uniqueness-safe
 - bulk cancellation can stop queued, retry-pending, reserved, or running jobs;

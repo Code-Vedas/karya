@@ -25,6 +25,7 @@ module Karya
   type normalized_state_name = String
   type normalized_state_name_array = Array[normalized_state_name]
   type normalized_transition_map = Hash[normalized_state_name, normalized_state_name_array]
+  type workflow_snapshot_attribute_value = state_name | Time | Hash[state_name, state_name] | Hash[state_name, state_name_array] | Array[Job]
   type handler_parameter = [Symbol, Symbol?]
   type handler_parameters = Array[handler_parameter]
   type handler_dispatch_mode = :none | :positional_hash | :keywords
@@ -187,6 +188,7 @@ module Karya
   type queue_control_action = :pause_queue | :resume_queue
   type bulk_skip_reason = :not_found | :ineligible_state | :duplicate_request | :uniqueness_conflict
   type batch_aggregate_state = :failed | :running | :succeeded | :cancelled | :completed
+  type workflow_state = :pending | :running | :blocked | :succeeded | :failed | :cancelled
   type bulk_skipped_job = {
     job_id: String,
     reason: bulk_skip_reason,

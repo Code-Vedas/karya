@@ -12,6 +12,7 @@ require_relative 'workflow/catalog'
 require_relative 'workflow/dependency'
 require_relative 'workflow/definition'
 require_relative 'workflow/execution_binding'
+require_relative 'workflow/snapshot'
 require_relative 'workflow/step'
 
 module Karya

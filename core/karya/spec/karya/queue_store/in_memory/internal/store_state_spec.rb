@@ -88,11 +88,22 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
   it 'removes stale job batch membership when pruning a missing batch entry' do
     store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
     store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.register_batch(batch('batch-2', ['job-2']))
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'root' => 'job-1' },
+      dependency_job_ids_by_job_id: { 'job-1' => [] }
+    )
+    store_state.workflow_dependency_job_ids_by_job_id['job-1'] = []
+    store_state.workflow_dependency_job_ids_by_job_id['job-2'] = []
     store_state.batches_by_id.delete('batch-1')
 
     store_state.prune_terminal_batches(0)
 
-    expect(store_state.instance_variable_get(:@batch_id_by_job_id)).to eq({})
+    expect(store_state.instance_variable_get(:@batch_id_by_job_id)).to eq('job-2' => 'batch-2')
+    expect(store_state.workflow_registrations_by_batch_id).to eq({})
+    expect(store_state.workflow_dependency_job_ids_by_job_id).to eq('job-2' => [])
   end
 
   it 'leaves stale changed-job batch membership for explicit pruning cleanup' do
@@ -133,13 +144,51 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.batches_by_id.keys).to eq(['batch-1'])
   end
 
-  it 'stores workflow dependency metadata by job id' do
-    dependencies = { 'job-1' => [], 'job-2' => ['job-1'] }
+  it 'stores workflow registrations by batch id' do
+    step_job_ids = { 'root' => 'job-root' }
+    dependency_job_ids = []
+    dependency_job_ids_by_job_id = { 'job-root' => dependency_job_ids }
 
-    store_state.register_workflow_dependencies(dependencies)
+    registration = store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids:,
+      dependency_job_ids_by_job_id:
+    )
+    step_job_ids['root'] = 'mutated'
+    dependency_job_ids << 'mutated'
+    dependency_job_ids_by_job_id['job-root'] = ['mutated']
 
-    expect(store_state.workflow_dependency_job_ids_by_job_id['job-1']).to eq([])
-    expect(store_state.workflow_dependency_job_ids_by_job_id['job-2']).to eq(['job-1'])
-    expect(store_state.workflow_dependency_job_ids_by_job_id['missing']).to be_nil
+    expect(registration.workflow_id).to eq('invoice_closeout')
+    expect(registration.step_job_ids).to eq('root' => 'job-root')
+    expect(registration.dependency_job_ids_by_job_id).to eq('job-root' => [])
+    expect(registration.step_job_ids).to be_frozen
+    expect(registration.dependency_job_ids_by_job_id).to be_frozen
+    expect(registration.dependency_job_ids_by_job_id.fetch('job-root')).to be_frozen
+    expect(registration).to be_frozen
+    expect(store_state.workflow_registrations_by_batch_id['batch-1']).to eq(registration)
+    expect(store_state.workflow_registrations_by_batch_id['missing']).to be_nil
+  end
+
+  it 'removes workflow metadata when pruning terminal batches' do
+    store_state.jobs_by_id['job-root'] = succeeded_job('job-root')
+    store_state.jobs_by_id['job-child'] = succeeded_job('job-child')
+    store_state.register_batch(batch('batch-1', %w[job-root job-child]))
+    store_state.workflow_dependency_job_ids_by_job_id['job-root'] = []
+    store_state.workflow_dependency_job_ids_by_job_id['job-child'] = ['job-root']
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'root' => 'job-root', 'child' => 'job-child' },
+      dependency_job_ids_by_job_id: {
+        'job-root' => [],
+        'job-child' => ['job-root']
+      }
+    )
+
+    expect(store_state.prune_terminal_batches(0)).to eq(['batch-1'])
+
+    expect(store_state.workflow_registrations_by_batch_id).to eq({})
+    expect(store_state.workflow_dependency_job_ids_by_job_id).to eq({})
   end
 end

@@ -43,6 +43,12 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #enqueue_workflow/)
   end
 
+  it 'requires workflow_snapshot to be implemented' do
+    expect do
+      store.workflow_snapshot(batch_id: 'batch-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #workflow_snapshot/)
+  end
+
   it 'requires reserve to be implemented' do
     expect do
       store.reserve(

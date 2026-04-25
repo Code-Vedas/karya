@@ -245,6 +245,136 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(reserve(6, handler_names: ['child']).job_id).to eq('job-child')
     end
 
+    it 'registers workflow metadata and snapshots chain progress' do
+      definition = Karya::Workflow.define(:snapshot_chain) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      blocked = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 2)
+      expect(blocked).to have_attributes(
+        workflow_id: 'snapshot_chain',
+        batch_id: 'batch_one',
+        job_ids: %w[job-root job-child],
+        step_states: { 'root' => :queued, 'child' => :queued },
+        state: :blocked
+      )
+
+      root = reserve(3)
+      expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 4).state).to eq(:running)
+      run_successfully(root, start_offset: 5, complete_offset: 6)
+
+      ready = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 7)
+      expect(ready.step_states).to eq('root' => :succeeded, 'child' => :queued)
+      expect(ready.state).to eq(:running)
+    end
+
+    it 'runs in-flight maintenance before building workflow snapshots' do
+      definition = Karya::Workflow.define(:snapshot_recovery) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      reserve(2)
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 63)
+
+      expect(snapshot.step_states).to eq('root' => :queued, 'child' => :queued)
+      expect(snapshot.state).to eq(:blocked)
+    end
+
+    it 'limits workflow snapshot dependency metadata to the workflow batch' do
+      definition = Karya::Workflow.define(:snapshot_scope) do
+        step :root, handler: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      store.send(:state).workflow_dependency_job_ids_by_job_id['outside-job'] = 'invalid'
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 2)
+
+      expect(snapshot.job_ids).to eq(['job-root'])
+      expect(snapshot.state).to eq(:pending)
+    end
+
+    it 'snapshots fan-out and fan-in states' do
+      definition = Karya::Workflow.define(:snapshot_fan_in) do
+        step :capture, handler: :capture
+        step :pack, handler: :pack
+        step :notify, handler: :notify, depends_on: %i[capture pack]
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          capture: workflow_job(:capture),
+          pack: workflow_job(:pack),
+          notify: workflow_job(:notify)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      capture = reserve(2)
+      pack = reserve(3)
+
+      expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 4).state).to eq(:running)
+      run_successfully(capture, start_offset: 5, complete_offset: 6)
+      expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 7).state).to eq(:running)
+      run_successfully(pack, start_offset: 8, complete_offset: 9)
+
+      expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 10).state).to eq(:running)
+    end
+
+    it 'moves failed workflows out of failed when prerequisite jobs are retried' do
+      definition = Karya::Workflow.define(:snapshot_retry) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      root = reserve(2)
+      store.start_execution(reservation_token: root.token, now: created_at + 3)
+      store.fail_execution(reservation_token: root.token, now: created_at + 4, failure_classification: :error)
+      expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 5).state).to eq(:failed)
+
+      store.retry_jobs(job_ids: ['job-root'], now: created_at + 6)
+      expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 7).state).to eq(:blocked)
+      retried_root = reserve(8)
+      run_successfully(retried_root, start_offset: 9, complete_offset: 10)
+
+      expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 11).state).to eq(:running)
+    end
+
+    it 'reports workflow snapshot errors for unknown and non-workflow batches' do
+      expect do
+        store.workflow_snapshot(batch_id: :missing, now: created_at + 1)
+      end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "missing" is not registered')
+
+      store.enqueue_many(jobs: [workflow_job(:root)], batch_id: :plain_batch, now: created_at + 2)
+
+      expect do
+        store.workflow_snapshot(batch_id: :plain_batch, now: created_at + 3)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "plain_batch" is not a workflow batch')
+    end
+
     it 'rejects invalid workflow bindings without partial writes' do
       definition = Karya::Workflow.define(:invalid_binding) do
         step :root, handler: :root
@@ -260,6 +390,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow step "root" job handler must match workflow step handler')
 
       expect { store.batch_snapshot(batch_id: :batch_one, now: created_at + 2) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one" is not registered')
+      expect { store.workflow_snapshot(batch_id: :batch_one, now: created_at + 2) }
         .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one" is not registered')
       expect(reserve(3)).to be_nil
     end
