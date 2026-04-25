@@ -11,25 +11,31 @@ module Karya
       module Internal
         # Builds nested child workflow snapshots and resolves workflow state for one batch.
         class WorkflowChildState
-          def initialize(state:, now:, cache: {})
+          def initialize(state:, now:, cache: {}, visiting: {})
             @store_state = state
             @now = now
             @cache = cache
+            @visiting = visiting
           end
 
           def resolve(batch_id)
-            cache.fetch(batch_id) do
-              cache[batch_id] = StateSnapshot.new(batch_id:, state: store_state, now:, cache:).state
-            end
+            return cache.fetch(batch_id) if cache.key?(batch_id)
+            raise Workflow::InvalidExecutionError, "child workflow cycle detected at batch #{batch_id.inspect}" if visiting.key?(batch_id)
+
+            visiting[batch_id] = true
+            cache[batch_id] = StateSnapshot.new(batch_id:, state: store_state, now:, cache:, visiting:).state
+          ensure
+            visiting.delete(batch_id)
           end
 
           # Recursively builds one workflow snapshot state using registered child relationships.
           class StateSnapshot
-            def initialize(batch_id:, state:, now:, cache:)
+            def initialize(batch_id:, state:, now:, cache:, visiting:)
               @batch_id = batch_id
               @store_state = state
               @now = now
               @cache = cache
+              @visiting = visiting
             end
 
             def state
@@ -47,7 +53,7 @@ module Karya
 
             private
 
-            attr_reader :batch_id, :cache, :now, :store_state
+            attr_reader :batch_id, :cache, :now, :store_state, :visiting
 
             def batch
               @batch ||= store_state.batches_by_id.fetch(batch_id)
@@ -63,17 +69,18 @@ module Karya
 
             def child_workflows
               store_state.workflow_children.for_parent_batch(batch_id).map do |relationship|
-                RelationshipSnapshot.new(relationship:, store_state:, now:, cache:).to_snapshot
+                RelationshipSnapshot.new(relationship:, store_state:, now:, cache:, visiting:).to_snapshot
               end.freeze
             end
 
             # Builds one nested child workflow snapshot from stored relationship metadata.
             class RelationshipSnapshot
-              def initialize(relationship:, store_state:, now:, cache:)
+              def initialize(relationship:, store_state:, now:, cache:, visiting:)
                 @relationship = relationship
                 @store_state = store_state
                 @now = now
                 @cache = cache
+                @visiting = visiting
               end
 
               def to_snapshot
@@ -90,16 +97,14 @@ module Karya
 
               private
 
-              attr_reader :cache, :now, :relationship, :store_state
+              attr_reader :cache, :now, :relationship, :store_state, :visiting
 
               def child_batch_id
                 relationship.child_batch_id
               end
 
               def child_state
-                cache.fetch(child_batch_id) do
-                  cache[child_batch_id] = WorkflowChildState.new(state: store_state, now:, cache:).resolve(child_batch_id)
-                end
+                WorkflowChildState.new(state: store_state, now:, cache:, visiting:).resolve(child_batch_id)
               end
             end
 
@@ -110,7 +115,7 @@ module Karya
 
           private
 
-          attr_reader :cache, :now, :store_state
+          attr_reader :cache, :now, :store_state, :visiting
         end
       end
     end

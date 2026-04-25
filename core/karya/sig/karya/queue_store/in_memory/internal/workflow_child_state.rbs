@@ -6,11 +6,13 @@ module Karya
           @store_state: InMemory::Internal::StoreState
           @now: Time
           @cache: Hash[String, Karya::workflow_state]
+          @visiting: Hash[String, bool]
 
           def initialize: (
             state: InMemory::Internal::StoreState,
             now: Time,
-            ?cache: Hash[String, Karya::workflow_state]
+            ?cache: Hash[String, Karya::workflow_state],
+            ?visiting: Hash[String, bool]
           ) -> void
           def resolve: (String batch_id) -> Karya::workflow_state
 
@@ -19,18 +21,21 @@ module Karya
           attr_reader store_state: InMemory::Internal::StoreState
           attr_reader now: Time
           attr_reader cache: Hash[String, Karya::workflow_state]
+          attr_reader visiting: Hash[String, bool]
 
           class StateSnapshot
             @batch_id: String
             @store_state: InMemory::Internal::StoreState
             @now: Time
             @cache: Hash[String, Karya::workflow_state]
+            @visiting: Hash[String, bool]
 
             def initialize: (
               batch_id: String,
               state: InMemory::Internal::StoreState,
               now: Time,
-              cache: Hash[String, Karya::workflow_state]
+              cache: Hash[String, Karya::workflow_state],
+              visiting: Hash[String, bool]
             ) -> void
             def state: () -> Karya::workflow_state
 
@@ -40,6 +45,7 @@ module Karya
             attr_reader store_state: InMemory::Internal::StoreState
             attr_reader now: Time
             attr_reader cache: Hash[String, Karya::workflow_state]
+            attr_reader visiting: Hash[String, bool]
             def batch: () -> Karya::Workflow::Batch
             def registration: () -> InMemory::Internal::StoreState::WorkflowRegistration
             def jobs: () -> Array[Job]
@@ -50,12 +56,14 @@ module Karya
               @store_state: InMemory::Internal::StoreState
               @now: Time
               @cache: Hash[String, Karya::workflow_state]
+              @visiting: Hash[String, bool]
 
               def initialize: (
                 relationship: InMemory::Internal::StoreState::WorkflowChildren::Relationship,
                 store_state: InMemory::Internal::StoreState,
                 now: Time,
-                cache: Hash[String, Karya::workflow_state]
+                cache: Hash[String, Karya::workflow_state],
+                visiting: Hash[String, bool]
               ) -> void
               def to_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot
 
@@ -65,6 +73,7 @@ module Karya
               attr_reader store_state: InMemory::Internal::StoreState
               attr_reader now: Time
               attr_reader cache: Hash[String, Karya::workflow_state]
+              attr_reader visiting: Hash[String, bool]
               def child_batch_id: () -> String
               def child_state: () -> Karya::workflow_state
             end

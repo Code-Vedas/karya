@@ -175,8 +175,8 @@ succeed before workers can reserve the parent-side step:
 
 ```text
 symptom: parent child step stays queued
-first checks: workflow_snapshot.fetch_step(:payment).child_workflow
-next move: inspect and recover the child workflow by child_batch_id
+first checks: workflow_snapshot.fetch_step(:payment).child_workflow_id, workflow_snapshot.fetch_step(:payment).child_workflow
+next move: if child_workflow is nil, enqueue or register the declared child workflow; otherwise inspect and recover it by child_batch_id
 ```
 
 If the child workflow is failed or cancelled, run `sync_child_workflows` against

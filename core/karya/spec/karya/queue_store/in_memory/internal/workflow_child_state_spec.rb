@@ -74,4 +74,48 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowChildState' do
     expect(workflow_child_state.resolve('risk-review-batch')).to eq(:succeeded)
     expect(workflow_child_state.resolve('payment-batch')).to eq(:running)
   end
+
+  it 'raises a workflow execution error for child workflow cycles' do
+    store_state.jobs_by_id['job-a'] = job('job-a', state: :queued)
+    store_state.jobs_by_id['job-b'] = job('job-b', state: :queued)
+    store_state.register_batch(batch('batch-a', ['job-a']))
+    store_state.register_batch(batch('batch-b', ['job-b']))
+    store_state.register_workflow(
+      batch_id: 'batch-a',
+      workflow_id: 'workflow-a',
+      step_job_ids: { 'step_a' => 'job-a' },
+      dependency_job_ids_by_job_id: { 'job-a' => [] },
+      compensation_jobs_by_step_id: {},
+      child_workflow_ids_by_step_id: { 'step_a' => 'workflow-b' }
+    )
+    store_state.register_workflow(
+      batch_id: 'batch-b',
+      workflow_id: 'workflow-b',
+      step_job_ids: { 'step_b' => 'job-b' },
+      dependency_job_ids_by_job_id: { 'job-b' => [] },
+      compensation_jobs_by_step_id: {},
+      child_workflow_ids_by_step_id: { 'step_b' => 'workflow-a' }
+    )
+    store_state.workflow_children.register(
+      parent_workflow_id: 'workflow-a',
+      parent_batch_id: 'batch-a',
+      parent_step_id: 'step_a',
+      parent_job_id: 'job-a',
+      child_workflow_id: 'workflow-b',
+      child_batch_id: 'batch-b'
+    )
+    store_state.workflow_children.register(
+      parent_workflow_id: 'workflow-b',
+      parent_batch_id: 'batch-b',
+      parent_step_id: 'step_b',
+      parent_job_id: 'job-b',
+      child_workflow_id: 'workflow-a',
+      child_batch_id: 'batch-a'
+    )
+
+    expect { workflow_child_state.resolve('batch-a') }.to raise_error(
+      Karya::Workflow::InvalidExecutionError,
+      'child workflow cycle detected at batch "batch-a"'
+    )
+  end
 end
