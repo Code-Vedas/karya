@@ -62,6 +62,21 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::UniquenessSupport' do
     end.not_to raise_error
   end
 
+  it 'does not run batch pruning from generic terminal job storage' do
+    limited_store = store_class.new(completed_batch_retention_limit: 0)
+    state = limited_store.send(:state)
+    batch_job = Karya::Job.new(id: 'job-1', queue: 'billing', handler: 'billing_sync', state: :succeeded, created_at:)
+    unrelated_job = Karya::Job.new(id: 'job-2', queue: 'billing', handler: 'billing_sync', state: :succeeded, created_at:)
+    batch = Karya::Workflow::Batch.new(id: 'batch-1', job_ids: ['job-1'], created_at:)
+
+    limited_store.send(:store_job, job: batch_job)
+    state.register_batch(batch)
+    limited_store.send(:store_job, job: unrelated_job)
+
+    expect(state.batches_by_id.keys).to eq(['batch-1'])
+    expect(state.prune_terminal_batches(0)).to eq(['batch-1'])
+  end
+
   it 'can build a failed reentry conflict job when the current state allows failure' do
     running_job = Karya::Job.new(
       id: 'job-1',

@@ -6,6 +6,8 @@ module Karya
           MAX_TRACKED_FAIR_QUEUE_LISTS: Integer
 
           @breaker_failures_by_scope: Hash[String, Array[Time]]
+          @batches_by_id: Hash[String, Karya::Workflow::Batch]
+          @batch_id_by_job_id: Hash[String, String]
           @breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
           @executions_by_token: Hash[String, Reservation]
           @execution_tokens_in_order: Array[String]
@@ -25,8 +27,11 @@ module Karya
           @reservation_tokens_in_order: Array[String]
           @reservations_by_token: Hash[String, Reservation]
           @stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
+          @terminal_batch_ids_index: Hash[String, bool]
+          @terminal_batch_ids_in_order: Array[String]
 
           attr_reader breaker_failures_by_scope: Hash[String, Array[Time]]
+          attr_reader batches_by_id: Hash[String, Karya::Workflow::Batch]
           attr_reader breaker_states_by_scope: Hash[String, Karya::circuit_breaker_runtime_state]
           attr_reader executions_by_token: Hash[String, Reservation]
           attr_reader execution_tokens_in_order: Array[String]
@@ -69,9 +74,12 @@ module Karya
           def delete_execution_token: (String reservation_token) -> String?
           def mark_expired: (String reservation_token) -> bool?
           def reservation_token_in_use?: (String reservation_token) -> bool
+          def register_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
+          def prune_terminal_batches: (Integer retention_limit, ?changed_job: Job?) -> Array[String]
 
           private
 
+          def terminal_batch?: (Karya::Workflow::Batch batch) -> bool
           def trim_fair_queue_history: () -> void
           def prune_expired_reservation_tokens: () -> bool?
         end

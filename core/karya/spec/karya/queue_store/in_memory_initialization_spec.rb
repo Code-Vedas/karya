@@ -53,6 +53,33 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /finite non-negative Integer/)
     end
 
+    it 'rejects invalid max batch size values' do
+      expect do
+        described_class.new(max_batch_size: 0)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /max_batch_size must be a positive Integer/)
+    end
+
+    it 'rejects invalid completed batch retention limit values' do
+      expect do
+        described_class.new(completed_batch_retention_limit: -1)
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        /completed_batch_retention_limit must be a finite non-negative Integer/
+      )
+      expect do
+        described_class.new(completed_batch_retention_limit: nil)
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        /completed_batch_retention_limit must be a finite non-negative Integer/
+      )
+    end
+
+    it 'rejects unknown keyword options' do
+      expect do
+        described_class.new(unknown_option: true)
+      end.to raise_error(ArgumentError, 'unknown keywords: unknown_option')
+    end
+
     it 'rejects invalid policy_set values' do
       expect do
         described_class.new(policy_set: Object.new)
@@ -72,6 +99,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         described_class.new(fairness_policy: Object.new)
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /fairness_policy must be a Karya::Fairness::Policy/)
+    end
+
+    it 'rejects non-callable token generators' do
+      expect do
+        described_class.new(token_generator: nil)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /token_generator must respond to #call/)
     end
 
     it 'rejects non-string generated reservation tokens' do

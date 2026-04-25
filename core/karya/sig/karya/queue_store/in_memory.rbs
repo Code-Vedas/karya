@@ -7,10 +7,12 @@ module Karya
   module QueueStore
     # Single-process reference implementation for queue submission and reservation behavior.
     class InMemory
-      @token_generator: Method | Proc
+      @token_generator: Karya::callable_value
       @policy_set: Backpressure::PolicySet
       @circuit_breaker_policy_set: CircuitBreaker::PolicySet
       @fairness_policy: Fairness::Policy
+      @completed_batch_retention_limit: Integer
+      @max_batch_size: Integer
       @reservation_token_sequence: Integer
       @mutex: Thread::Mutex
       @state: Internal::StoreState
@@ -18,18 +20,23 @@ module Karya
       include Base
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: 1024
+      DEFAULT_MAX_BATCH_SIZE: 1000
       RESERVE_QUEUES_ERROR_MESSAGE: String
 
       def initialize: (
-        ?token_generator: (Method | Proc),
+        ?token_generator: Karya::callable_value,
         ?expired_tombstone_limit: Integer,
+        ?completed_batch_retention_limit: Integer,
+        ?max_batch_size: Integer,
         ?policy_set: Backpressure::PolicySet,
         ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
         ?fairness_policy: Fairness::Policy
       ) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
-      def enqueue_many: (jobs: Array[Job], now: Time) -> BulkMutationReport
+      def enqueue_many: (jobs: Array[Job], now: Time, ?batch_id: Karya::state_name?) -> BulkMutationReport
+      def batch_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::BatchSnapshot
       def reserve: (
         worker_id: String,
         lease_duration: Karya::lease_duration_value,
@@ -93,11 +100,18 @@ module Karya
       private
 
       attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
+      attr_reader completed_batch_retention_limit: Integer
       attr_reader fairness_policy: Fairness::Policy
+      attr_reader max_batch_size: Integer
       attr_reader policy_set: Backpressure::PolicySet
       attr_reader state: Internal::StoreState
-      attr_reader token_generator: Method | Proc
+      attr_reader token_generator: Karya::callable_value
 
+      def validate_initializer_limits: (
+        expired_tombstone_limit: Integer?,
+        completed_batch_retention_limit: Integer?,
+        max_batch_size: Integer?
+      ) -> nil
       def validate_enqueue: (Job job) -> nil
       def expire_reservations_locked: (Time now) -> Array[Job]
       def prepare_backpressure_snapshot: (Time now) -> void

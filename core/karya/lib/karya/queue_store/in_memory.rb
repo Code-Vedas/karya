@@ -19,11 +19,13 @@ require_relative 'queue_control_result'
 require_relative 'recovery_report'
 require_relative 'in_memory/internal'
 require_relative '../job'
+require_relative '../primitives/callable'
 require_relative '../primitives/identifier'
 require_relative '../primitives/queue_list'
 require_relative '../reservation'
 require_relative '../retry_policy'
 require_relative '../backpressure'
+require_relative '../workflow'
 
 module Karya
   module QueueStore
@@ -42,6 +44,7 @@ module Karya
       end
 
       include Base
+      include Internal::BatchSupport
       include Internal::BackpressureSupport
       include Internal::BackpressureSnapshotSupport
       include Internal::DeadLetterSupport
@@ -57,17 +60,102 @@ module Karya
       include Internal::UniquenessSupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = 1024
+      DEFAULT_MAX_BATCH_SIZE = 1000
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
 
-      def initialize(
-        token_generator: -> { SecureRandom.uuid },
-        expired_tombstone_limit: DEFAULT_EXPIRED_TOMBSTONE_LIMIT,
-        policy_set: Backpressure::PolicySet.new,
-        circuit_breaker_policy_set: CircuitBreaker::PolicySet.new,
-        fairness_policy: Fairness::Policy.new
-      )
-        valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
-        raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
+      # Normalizes constructor keyword options without growing the initializer
+      # parameter list as queue-store capabilities expand.
+      class InitializerOptions
+        # Reads constructor keyword options with explicit defaults.
+        class KeywordReader
+          def initialize(options)
+            @options = options
+          end
+
+          def keys = options.keys
+          def token_generator = fetch(:token_generator, -> { SecureRandom.uuid })
+          def expired_tombstone_limit = fetch(:expired_tombstone_limit, DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
+
+          def completed_batch_retention_limit
+            fetch(:completed_batch_retention_limit, DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT)
+          end
+
+          def max_batch_size = fetch(:max_batch_size, DEFAULT_MAX_BATCH_SIZE)
+          def policy_set = fetch(:policy_set, Backpressure::PolicySet.new)
+          def circuit_breaker_policy_set = fetch(:circuit_breaker_policy_set, CircuitBreaker::PolicySet.new)
+          def fairness_policy = fetch(:fairness_policy, Fairness::Policy.new)
+
+          private
+
+          attr_reader :options
+
+          def fetch(name, default)
+            options.fetch(name, default)
+          end
+        end
+
+        # Validates unknown keyword options.
+        class UnknownKeywords
+          def initialize(keys)
+            @keys = keys
+          end
+
+          def validate
+            raise ArgumentError, "unknown keywords: #{unexpected_keys.join(', ')}" unless unexpected_keys.empty?
+          end
+
+          private
+
+          attr_reader :keys
+
+          def unexpected_keys
+            keys - VALID_KEYS
+          end
+        end
+
+        VALID_KEYS = %i[
+          token_generator
+          expired_tombstone_limit
+          completed_batch_retention_limit
+          max_batch_size
+          policy_set
+          circuit_breaker_policy_set
+          fairness_policy
+        ].freeze
+
+        def initialize(options)
+          @reader = KeywordReader.new(options)
+          UnknownKeywords.new(reader.keys).validate
+        end
+
+        def token_generator = reader.token_generator
+        def expired_tombstone_limit = reader.expired_tombstone_limit
+        def completed_batch_retention_limit = reader.completed_batch_retention_limit
+        def max_batch_size = reader.max_batch_size
+        def policy_set = reader.policy_set
+        def circuit_breaker_policy_set = reader.circuit_breaker_policy_set
+        def fairness_policy = reader.fairness_policy
+
+        private
+
+        attr_reader :reader
+
+        private_constant :KeywordReader, :UnknownKeywords
+      end
+
+      def initialize(**options)
+        initializer_options = InitializerOptions.new(options)
+        expired_tombstone_limit = initializer_options.expired_tombstone_limit
+        completed_batch_retention_limit = initializer_options.completed_batch_retention_limit
+        max_batch_size = initializer_options.max_batch_size
+        token_generator = initializer_options.token_generator
+        policy_set = initializer_options.policy_set
+        circuit_breaker_policy_set = initializer_options.circuit_breaker_policy_set
+        fairness_policy = initializer_options.fairness_policy
+
+        validate_initializer_limits(expired_tombstone_limit:, completed_batch_retention_limit:, max_batch_size:)
+        Primitives::Callable.new(:token_generator, token_generator, error_class: InvalidQueueStoreOperationError).normalize
         raise InvalidQueueStoreOperationError, 'policy_set must be a Karya::Backpressure::PolicySet' unless policy_set.is_a?(Backpressure::PolicySet)
         raise InvalidQueueStoreOperationError, 'fairness_policy must be a Karya::Fairness::Policy' unless fairness_policy.is_a?(Fairness::Policy)
         unless circuit_breaker_policy_set.is_a?(CircuitBreaker::PolicySet)
@@ -76,6 +164,8 @@ module Karya
         end
 
         @token_generator = token_generator
+        @completed_batch_retention_limit = completed_batch_retention_limit
+        @max_batch_size = max_batch_size
         @policy_set = policy_set
         @circuit_breaker_policy_set = circuit_breaker_policy_set
         @fairness_policy = fairness_policy
@@ -233,9 +323,28 @@ module Karya
 
       private
 
-      attr_reader :circuit_breaker_policy_set, :fairness_policy, :policy_set, :state, :token_generator
+      attr_reader :circuit_breaker_policy_set,
+                  :completed_batch_retention_limit,
+                  :fairness_policy,
+                  :max_batch_size,
+                  :policy_set,
+                  :state,
+                  :token_generator
 
-      private_constant :Internal
+      private_constant :InitializerOptions, :Internal
+
+      def validate_initializer_limits(expired_tombstone_limit:, completed_batch_retention_limit:, max_batch_size:)
+        valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
+        raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
+
+        valid_batch_retention_limit = completed_batch_retention_limit.is_a?(Integer) &&
+                                      completed_batch_retention_limit >= 0
+        raise InvalidQueueStoreOperationError, 'completed_batch_retention_limit must be a finite non-negative Integer' unless valid_batch_retention_limit
+
+        return if max_batch_size.is_a?(Integer) && max_batch_size.positive?
+
+        raise InvalidQueueStoreOperationError, 'max_batch_size must be a positive Integer'
+      end
 
       def validate_enqueue(job)
         raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)

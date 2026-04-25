@@ -37,6 +37,23 @@ end
 This is the core idea: Karya treats related work as one inspectable workflow,
 not a pile of unrelated background jobs.
 
+### Batch Identity And Aggregate State
+
+Workflow batches give related runtime jobs one stable identity. Batch creation
+is atomic with bulk enqueue: either every member job and the batch membership
+are stored, or none of them are. Membership is immutable for a created batch,
+so later inspection can derive aggregate state from the current member jobs
+without guessing which jobs belong together.
+
+Batch aggregate state is derived from member job lifecycle state:
+
+- `failed` when any member is failed or dead-lettered
+- `running` while any member remains queued, reserved, running, retry-pending,
+  or otherwise nonterminal
+- `succeeded` when every member succeeded
+- `cancelled` when every member was cancelled
+- `completed` for terminal mixed success and cancellation outcomes
+
 ## Related Concepts
 
 - [Job Model](/runtime/job-model/): workflows build on the core job runtime

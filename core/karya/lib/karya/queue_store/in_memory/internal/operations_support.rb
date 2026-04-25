@@ -95,14 +95,16 @@ module Karya
 
           private_constant :BatchDuplicateDecision, :RetryCandidate
 
-          def enqueue_many(jobs:, now:)
+          def enqueue_many(jobs:, now:, batch_id: nil)
             normalized_now = normalize_time(:now, now, error_class: InvalidEnqueueError)
 
             @mutex.synchronize do
               validated_jobs = validate_bulk_enqueue_jobs(jobs)
+              batch = build_optional_enqueue_batch(batch_id:, jobs: validated_jobs, now: normalized_now)
               validate_bulk_enqueue_uniqueness(validated_jobs, normalized_now)
               expire_reservations_locked(normalized_now)
               queued_jobs = validated_jobs.map { |job| enqueue_validated_job(job, normalized_now) }
+              store_optional_batch(batch)
               BulkMutationReport.new(
                 action: :enqueue_many,
                 performed_at: normalized_now,
