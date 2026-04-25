@@ -53,7 +53,7 @@ RSpec.describe Karya::QueueStore::InMemory do
     store.complete_execution(reservation_token: reservation.token, now: created_at + complete_offset)
   end
 
-  def fail(reservation, start_offset:, fail_offset:)
+  def fail_execution(reservation, start_offset:, fail_offset:)
     store.start_execution(reservation_token: reservation.token, now: created_at + start_offset)
     store.fail_execution(reservation_token: reservation.token, now: created_at + fail_offset, failure_classification: :error)
   end
@@ -101,7 +101,7 @@ RSpec.describe Karya::QueueStore::InMemory do
     capture = reserve(8, handler_names: ['capture'])
     run_successfully(capture, start_offset: 9, complete_offset: 10)
     receipt = reserve(11, handler_names: ['emit_receipt'])
-    fail(receipt, start_offset: 12, fail_offset: 13)
+    fail_execution(receipt, start_offset: 12, fail_offset: 13)
   end
 
   def expect_failed_invoice_snapshot
@@ -172,7 +172,7 @@ RSpec.describe Karya::QueueStore::InMemory do
     root = reserve(2, handler_names: ['root'])
     run_successfully(root, start_offset: 3, complete_offset: 4)
     child = reserve(5, handler_names: ['child'])
-    fail(child, start_offset: 6, fail_offset: 7)
+    fail_execution(child, start_offset: 6, fail_offset: 7)
     store.rollback_workflow(batch_id: :batch_one, now: created_at + 8, reason: 'operator rollback')
 
     store.dead_letter_workflow_steps(batch_id: :batch_one, step_ids: [:child], now: created_at + 9, reason: 'operator isolated')
