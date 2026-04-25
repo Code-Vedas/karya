@@ -148,6 +148,11 @@ A workflow can be failed because one primary step is `failed` or
 Use explicit step ids for retry, replay, controlled retry, or discard. Karya
 does not infer target steps from workflow state.
 
+Rollback is only accepted after the workflow is `:failed` and no active or
+dependency-ready queued work remains. If the snapshot still shows reserved,
+running, retry-pending, or runnable queued steps, stop, complete, or recover
+that work before expecting rollback to succeed.
+
 ### Replay Or Retry Did Not Unblock Children
 
 Replay and retry only recover the target primary step job into normal

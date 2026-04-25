@@ -95,8 +95,9 @@ expected_result: capture_payment becomes cancelled; dependents do not unblock
 
 ### Rollback Boundary
 
-Rollback is separate from replay. It is an explicit operator action for failed
-workflow batches:
+Rollback is separate from replay. It is an explicit operator action for
+workflow batches whose workflow snapshot is already `:failed` and no longer has
+active or runnable work remaining:
 
 ```text
 workflow_batch_id: invoice-closeout-204
@@ -104,6 +105,10 @@ selected_action: rollback_workflow
 reason: payment provider settlement failed
 expected_result: compensation jobs are enqueued in a separate rollback batch
 ```
+
+If the workflow still has reserved, running, retry-pending, or dependency-ready
+queued work, `rollback_workflow` rejects the request as an invalid execution
+instead of starting compensation early.
 
 Rollback compensates succeeded compensable primary steps in reverse workflow
 definition order. If no succeeded step has compensation, Karya records the

@@ -131,8 +131,10 @@ still `failed`, `blocked`, `running`, or ready for the next operator decision.
 ## Rollback
 
 Rollback is explicit. Karya does not automatically roll back a failed workflow.
-When an operator requests rollback, Karya enqueues compensation jobs only for
-succeeded primary steps that declared compensation:
+An operator can request rollback only after the workflow snapshot is `:failed`
+and there are no active or dependency-ready queued step jobs left to run. Once
+that precondition holds, Karya enqueues compensation jobs only for succeeded
+primary steps that declared compensation:
 
 ```ruby
 store.rollback_workflow(
