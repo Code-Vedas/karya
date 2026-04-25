@@ -151,6 +151,41 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.batches_by_id.keys).to eq(['batch-1'])
   end
 
+  it 'retains terminal child batches while their parent batch is still active' do
+    store_state.jobs_by_id['job-parent'] = active_job('job-parent')
+    store_state.jobs_by_id['job-child'] = succeeded_job('job-child')
+    store_state.register_batch(batch('parent-batch', ['job-parent']))
+    store_state.register_batch(batch('child-batch', ['job-child']))
+    store_state.register_workflow(
+      batch_id: 'parent-batch',
+      workflow_id: 'parent',
+      step_job_ids: { 'child' => 'job-parent' },
+      dependency_job_ids_by_job_id: {},
+      compensation_jobs_by_step_id: {},
+      child_workflow_ids_by_step_id: { 'child' => 'payment' }
+    )
+    store_state.register_workflow(
+      batch_id: 'child-batch',
+      workflow_id: 'payment',
+      step_job_ids: { 'authorize' => 'job-child' },
+      dependency_job_ids_by_job_id: {},
+      compensation_jobs_by_step_id: {}
+    )
+    relationship = store_state.workflow_children.register(
+      parent_workflow_id: 'parent',
+      parent_batch_id: 'parent-batch',
+      parent_step_id: 'child',
+      parent_job_id: 'job-parent',
+      child_workflow_id: 'payment',
+      child_batch_id: 'child-batch'
+    )
+
+    expect(store_state.prune_terminal_batches(0)).to eq([])
+    expect(store_state.batches_by_id.keys).to contain_exactly('parent-batch', 'child-batch')
+    expect(store_state.workflow_children.for_child_batch('child-batch')).to eq(relationship)
+    expect(store_state.workflow_children.expected_child_workflow_id_by_job_id).to eq('job-parent' => 'payment')
+  end
+
   it 'stores workflow registrations by batch id' do
     step_job_ids = { 'root' => 'job-root' }
     dependency_job_ids = []

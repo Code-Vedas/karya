@@ -26,8 +26,23 @@ module Karya
   type normalized_state_name_array = Array[normalized_state_name]
   type normalized_transition_map = Hash[normalized_state_name, normalized_state_name_array]
   type child_workflow_snapshot_attribute_value = state_name | Karya::workflow_state
-  type step_snapshot_attribute_value = state_name | Job | Array[state_name] | Hash[state_name, state_name?]
-  type workflow_snapshot_attribute_value = state_name | Time | Hash[state_name, state_name] | Hash[state_name, state_name_array] | Array[Job] | Workflow::RollbackSnapshot | nil
+  type step_snapshot_attribute_value =
+    state_name |
+    Job |
+    Array[state_name] |
+    Hash[state_name, state_name?] |
+    Workflow::ChildWorkflowSnapshot |
+    nil
+  type workflow_snapshot_attribute_value =
+    state_name |
+    Time |
+    Hash[state_name, state_name] |
+    Hash[state_name, state_name_array] |
+    Array[Job] |
+    Array[Workflow::ChildWorkflowSnapshot] |
+    Workflow::ChildWorkflowSnapshot |
+    Workflow::RollbackSnapshot |
+    nil
   type handler_parameter = [Symbol, Symbol?]
   type handler_parameters = Array[handler_parameter]
   type handler_dispatch_mode = :none | :positional_hash | :keywords

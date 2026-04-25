@@ -148,6 +148,121 @@ module Karya
             end
           end
 
+          # Decides whether a terminal child batch must remain because its parent is still active.
+          class ChildBatchRetention
+            def initialize(batches_by_id:, workflow_children:, terminal_batch:)
+              @batches_by_id = batches_by_id
+              @workflow_children = workflow_children
+              @terminal_batch = terminal_batch
+            end
+
+            def retain?(batch_id)
+              relationship = workflow_children.for_child_batch(batch_id)
+              return false unless relationship
+
+              parent_batch = batches_by_id[relationship.parent_batch_id]
+              parent_batch && !terminal_batch.call(parent_batch)
+            end
+
+            private
+
+            attr_reader :batches_by_id, :terminal_batch, :workflow_children
+          end
+
+          # Prunes terminal batches while respecting active parent-child relationships.
+          class TerminalBatchPruner
+            def initialize(batch_indexes:, workflow_indexes:)
+              @batch_indexes = batch_indexes
+              @workflow_indexes = workflow_indexes
+            end
+
+            def call(retention_limit:, child_batch_retention:)
+              pruned_batch_ids = []
+              inspected_batch_count = 0
+
+              loop do
+                terminal_batch_count = terminal_batch_ids_in_order.length
+                break unless terminal_batch_count > retention_limit && inspected_batch_count < terminal_batch_count
+
+                batch_id = terminal_batch_ids_in_order.shift
+                if child_batch_retention.retain?(batch_id)
+                  terminal_batch_ids_in_order << batch_id
+                  inspected_batch_count += 1
+                  next
+                end
+
+                inspected_batch_count = 0
+                terminal_batch_ids_index.delete(batch_id)
+                batch = batches_by_id.delete(batch_id)
+                if batch
+                  cleanup_batch(batch_id:, batch:)
+                  pruned_batch_ids << batch_id
+                else
+                  cleanup_batch(batch_id:, batch: nil)
+                end
+              end
+
+              pruned_batch_ids
+            end
+
+            private
+
+            attr_reader :batch_indexes, :workflow_indexes
+
+            def batch_id_by_job_id
+              batch_indexes.fetch(:batch_id_by_job_id)
+            end
+
+            def batches_by_id
+              batch_indexes.fetch(:batches_by_id)
+            end
+
+            def terminal_batch_ids_in_order
+              batch_indexes.fetch(:terminal_batch_ids_in_order)
+            end
+
+            def terminal_batch_ids_index
+              batch_indexes.fetch(:terminal_batch_ids_index)
+            end
+
+            def workflow_children
+              workflow_indexes.fetch(:workflow_children)
+            end
+
+            def workflow_dependency_job_ids_by_job_id
+              workflow_indexes.fetch(:workflow_dependency_job_ids_by_job_id)
+            end
+
+            def workflow_registrations_by_batch_id
+              workflow_indexes.fetch(:workflow_registrations_by_batch_id)
+            end
+
+            def workflow_rollback_batch_ids
+              workflow_indexes.fetch(:workflow_rollback_batch_ids)
+            end
+
+            def workflow_rollbacks_by_batch_id
+              workflow_indexes.fetch(:workflow_rollbacks_by_batch_id)
+            end
+
+            def cleanup_batch(batch_id:, batch:)
+              PrunedBatchCleanup.call(
+                batch_id:,
+                batch:,
+                job_indexes: {
+                  batch_id_by_job_id:,
+                  workflow_dependency_job_ids_by_job_id:
+                },
+                workflow_indexes: {
+                  workflow_children:,
+                  workflow_rollback_batch_ids:,
+                  workflow_registrations_by_batch_id:,
+                  workflow_rollbacks_by_batch_id:
+                }
+              )
+            end
+          end
+
           # Workflow registration writers kept separate from generic store state.
           module WorkflowMetadata
             def register_workflow(
@@ -376,48 +491,26 @@ module Karya
               track_terminal_batch(batch_id)
             end
 
-            pruned_batch_ids = []
-
-            while @terminal_batch_ids_in_order.length > retention_limit
-              batch_id = @terminal_batch_ids_in_order.shift
-              @terminal_batch_ids_index.delete(batch_id)
-              batch = batches_by_id.delete(batch_id)
-              unless batch
-                PrunedBatchCleanup.call(
-                  batch_id:,
-                  batch: nil,
-                  job_indexes: {
-                    batch_id_by_job_id: @batch_id_by_job_id,
-                    workflow_dependency_job_ids_by_job_id:
-                  },
-                  workflow_indexes: {
-                    workflow_children:,
-                    workflow_rollback_batch_ids:,
-                    workflow_registrations_by_batch_id:,
-                    workflow_rollbacks_by_batch_id:
-                  }
-                )
-                next
-              end
-
-              PrunedBatchCleanup.call(
-                batch_id:,
-                batch:,
-                job_indexes: {
-                  batch_id_by_job_id: @batch_id_by_job_id,
-                  workflow_dependency_job_ids_by_job_id:
-                },
-                workflow_indexes: {
-                  workflow_children:,
-                  workflow_rollback_batch_ids:,
-                  workflow_registrations_by_batch_id:,
-                  workflow_rollbacks_by_batch_id:
-                }
-              )
-              pruned_batch_ids << batch_id
-            end
-
-            pruned_batch_ids
+            child_batch_retention = ChildBatchRetention.new(
+              batches_by_id:,
+              workflow_children:,
+              terminal_batch: method(:terminal_batch?)
+            )
+            TerminalBatchPruner.new(
+              batch_indexes: {
+                terminal_batch_ids_in_order: @terminal_batch_ids_in_order,
+                terminal_batch_ids_index: @terminal_batch_ids_index,
+                batches_by_id:,
+                batch_id_by_job_id: @batch_id_by_job_id
+              },
+              workflow_indexes: {
+                workflow_dependency_job_ids_by_job_id:,
+                workflow_children:,
+                workflow_rollback_batch_ids:,
+                workflow_registrations_by_batch_id:,
+                workflow_rollbacks_by_batch_id:
+              }
+            ).call(retention_limit:, child_batch_retention:)
           end
 
           private

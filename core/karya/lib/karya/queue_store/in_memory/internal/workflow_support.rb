@@ -531,7 +531,7 @@ module Karya
                 batch_id:,
                 captured_at: now,
                 step_job_ids: registration.step_job_ids,
-                dependency_job_ids_by_job_id: state.workflow_dependency_job_ids_by_job_id,
+                dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
                 jobs:,
                 child_workflow_ids_by_step_id: registration.child_workflow_ids_by_step_id
               ).state
