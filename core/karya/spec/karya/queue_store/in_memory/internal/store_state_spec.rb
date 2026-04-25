@@ -25,6 +25,12 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     Karya::Job.new(id:, queue: 'billing', handler: 'billing_sync', state: :queued, created_at:)
   end
 
+  def rollback_batch_id(batch_id)
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
+  end
+
   it 'ignores execution tokens that are not present' do
     store_state.execution_tokens_in_order << 'lease-1'
 
@@ -211,7 +217,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     )
     store_state.register_workflow_rollback(
       batch_id: 'batch-1',
-      rollback_batch_id: 'batch-1.rollback',
+      rollback_batch_id: rollback_batch_id('batch-1'),
       reason: 'operator rollback',
       requested_at: Time.utc(2026, 4, 24, 12, 0, 0),
       compensation_job_ids: []
@@ -229,18 +235,18 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
 
     rollback = store_state.register_workflow_rollback(
       batch_id: 'batch-1',
-      rollback_batch_id: 'batch-1.rollback',
+      rollback_batch_id: rollback_batch_id('batch-1'),
       reason: 'operator rollback',
       requested_at: Time.utc(2026, 4, 24, 12, 0, 0),
       compensation_job_ids:
     )
     compensation_job_ids << 'mutated'
 
-    expect(rollback.rollback_batch_id).to eq('batch-1.rollback')
+    expect(rollback.rollback_batch_id).to eq(rollback_batch_id('batch-1'))
     expect(rollback.compensation_job_ids).to eq(['rollback-job-1'])
     expect(rollback.compensation_job_ids).to be_frozen
     expect(rollback).to be_frozen
-    expect(store_state.workflow_rollback_batch_ids).to eq('batch-1.rollback' => true)
+    expect(store_state.workflow_rollback_batch_ids).to eq(rollback_batch_id('batch-1') => true)
     expect(store_state.workflow_rollbacks_by_batch_id.fetch('batch-1')).to eq(rollback)
     expect(store_state.workflow_rollbacks_by_batch_id['missing']).to be_nil
   end

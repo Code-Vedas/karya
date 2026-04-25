@@ -112,12 +112,15 @@ module Karya
 
           # Builds a deterministic rollback batch id for one workflow batch.
           class RollbackBatchId
+            PREFIX = '__karya_workflow_rollback_v1__'
+            private_constant :PREFIX
+
             def initialize(batch_id)
               @batch_id = batch_id
             end
 
             def to_s
-              "#{batch_id}.rollback".freeze
+              "#{PREFIX}#{batch_id.unpack1('H*')}".freeze
             end
 
             private

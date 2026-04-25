@@ -50,6 +50,12 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
+  def rollback_batch_id(batch_id)
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
+  end
+
   def run_successfully(reservation, start_offset:, complete_offset:)
     store.start_execution(reservation_token: reservation.token, now: created_at + start_offset)
     store.complete_execution(reservation_token: reservation.token, now: created_at + complete_offset)
@@ -424,7 +430,7 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect(report.action).to eq(:rollback_workflow)
       expect(report.changed_jobs.map(&:id)).to eq(%w[rollback-job-second rollback-job-first])
-      expect(store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 12).job_ids)
+      expect(store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 12).job_ids)
         .to eq(%w[rollback-job-second rollback-job-first])
       expect(reserve(13, queue: 'rollback').job_id).to eq('rollback-job-second')
       expect(reserve(14, queue: 'rollback')).to be_nil
@@ -481,8 +487,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.rollback_workflow(batch_id: :batch_one, now: created_at + 2, reason: 'operator rollback')
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "batch_one" must be failed before rollback')
-      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 3) }
-        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+      expect { store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 3) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, "batch #{rollback_batch_id('batch_one').inspect} is not registered")
     end
 
     it 'rejects rollback while failed workflows still have active jobs' do
@@ -519,8 +525,8 @@ RSpec.describe Karya::QueueStore::InMemory do
         Karya::Workflow::InvalidExecutionError,
         'workflow batch "batch_one" has active jobs and cannot be rolled back'
       )
-      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 11) }
-        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+      expect { store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 11) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, "batch #{rollback_batch_id('batch_one').inspect} is not registered")
     end
 
     it 'rejects rollback while failed workflows still have runnable waiting jobs' do
@@ -555,8 +561,8 @@ RSpec.describe Karya::QueueStore::InMemory do
         Karya::Workflow::InvalidExecutionError,
         'workflow batch "batch_one" has active jobs and cannot be rolled back'
       )
-      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 9) }
-        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+      expect { store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 9) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, "batch #{rollback_batch_id('batch_one').inspect} is not registered")
     end
 
     it 'rejects rollback while failed workflows still have retry-pending jobs' do
@@ -600,8 +606,8 @@ RSpec.describe Karya::QueueStore::InMemory do
         Karya::Workflow::InvalidExecutionError,
         'workflow batch "batch_one" has active jobs and cannot be rolled back'
       )
-      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 12) }
-        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+      expect { store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 12) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, "batch #{rollback_batch_id('batch_one').inspect} is not registered")
     end
 
     it 'recovers expired in-flight work before deciding rollback eligibility' do
@@ -666,11 +672,11 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(report.requested_job_ids).to eq([])
       expect(report.changed_jobs).to eq([])
       expect(reserve(9)).to be_nil
-      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 10) }
-        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+      expect { store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 10) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, "batch #{rollback_batch_id('batch_one').inspect} is not registered")
       expect do
-        store.enqueue_many(jobs: [workflow_job(:other)], batch_id: 'batch_one.rollback', now: created_at + 11)
-      end.to raise_error(Karya::Workflow::DuplicateBatchError, 'batch "batch_one.rollback" already exists')
+        store.enqueue_many(jobs: [workflow_job(:other)], batch_id: rollback_batch_id('batch_one'), now: created_at + 11)
+      end.to raise_error(Karya::Workflow::DuplicateBatchError, "batch #{rollback_batch_id('batch_one').inspect} already exists")
       expect do
         store.rollback_workflow(batch_id: :batch_one, now: created_at + 12, reason: 'operator rollback')
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "batch_one" has already been rolled back')
@@ -681,7 +687,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         step :root, handler: :root
         step :child, handler: :child, depends_on: :root
       end
-      store.enqueue_many(jobs: [workflow_job(:other)], batch_id: 'batch_one.rollback', now: created_at + 1)
+      store.enqueue_many(jobs: [workflow_job(:other)], batch_id: rollback_batch_id('batch_one'), now: created_at + 1)
       store.enqueue_workflow(
         definition:,
         jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
@@ -696,11 +702,11 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect do
         store.rollback_workflow(batch_id: :batch_one, now: created_at + 9, reason: 'operator rollback')
-      end.to raise_error(Karya::Workflow::DuplicateBatchError, 'batch "batch_one.rollback" already exists')
+      end.to raise_error(Karya::Workflow::DuplicateBatchError, "batch #{rollback_batch_id('batch_one').inspect} already exists")
       store.cancel_jobs(job_ids: ['job-other'], now: created_at + 10)
       expect do
         store.rollback_workflow(batch_id: :batch_one, now: created_at + 11, reason: 'operator rollback')
-      end.to raise_error(Karya::Workflow::DuplicateBatchError, 'batch "batch_one.rollback" already exists')
+      end.to raise_error(Karya::Workflow::DuplicateBatchError, "batch #{rollback_batch_id('batch_one').inspect} already exists")
     end
 
     it 'rejects duplicate rollback requests' do
@@ -749,8 +755,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.rollback_workflow(batch_id: :batch_one, now: created_at + 9, reason: 'operator rollback')
       end.to raise_error(Karya::DuplicateUniquenessKeyError)
-      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 10) }
-        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+      expect { store.batch_snapshot(batch_id: rollback_batch_id('batch_one'), now: created_at + 10) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, "batch #{rollback_batch_id('batch_one').inspect} is not registered")
     end
 
     it 'rejects invalid workflow bindings without partial writes' do

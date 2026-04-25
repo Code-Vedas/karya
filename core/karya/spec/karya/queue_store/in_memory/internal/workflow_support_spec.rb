@@ -18,6 +18,12 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     Karya::Job.new(id:, queue: :rollback, handler: :undo, state: :submission, created_at:)
   end
 
+  def rollback_batch_id(batch_id)
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
+  end
+
   it 'treats non-workflow jobs and root workflow jobs as ready' do
     plain_job = job(id: 'job-1', state: :queued)
     root_job = job(id: 'job-2', state: :queued)
@@ -82,14 +88,12 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
   end
 
   it 'builds frozen rollback batch ids' do
-    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
-    workflow_support = internal.const_get(:WorkflowSupport, false)
-    helper = workflow_support.const_get(:RollbackBatchId, false)
+    expect(rollback_batch_id('batch-1')).to eq('__karya_workflow_rollback_v1__62617463682d31')
+    expect(rollback_batch_id('batch-1')).to be_frozen
+  end
 
-    rollback_batch_id = helper.new('batch-1').to_s
-
-    expect(rollback_batch_id).to eq('batch-1.rollback')
-    expect(rollback_batch_id).to be_frozen
+  it 'builds distinct rollback batch ids for suffixed workflow batch ids' do
+    expect(rollback_batch_id('batch-1')).not_to eq(rollback_batch_id('batch-1.rollback'))
   end
 
   it 'builds rollback jobs in reverse definition order with serial dependencies' do
