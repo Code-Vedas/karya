@@ -68,10 +68,21 @@ module Karya
         attr_reader :options
 
         def validate_keys
-          unexpected_keys = options.keys - ALLOWED_KEYS
           return if unexpected_keys.empty?
 
-          raise ArgumentError, "unknown keyword: :#{unexpected_keys.first}"
+          raise ArgumentError, "#{unknown_keyword_label}: #{formatted_unexpected_keys}"
+        end
+
+        def unexpected_keys
+          options.keys - ALLOWED_KEYS
+        end
+
+        def unknown_keyword_label
+          unexpected_keys.length == 1 ? 'unknown keyword' : 'unknown keywords'
+        end
+
+        def formatted_unexpected_keys
+          unexpected_keys.map { |key| ":#{key}" }.join(', ')
         end
       end
 

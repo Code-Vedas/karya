@@ -74,6 +74,12 @@ RSpec.describe Karya::Workflow::Step do
     end.to raise_error(ArgumentError, 'unknown keyword: :unknown')
   end
 
+  it 'reports every unknown step option' do
+    expect do
+      described_class.new(id: :capture_payment, handler: :capture_payment, unknown: true, extra: true)
+    end.to raise_error(ArgumentError, 'unknown keywords: :unknown, :extra')
+  end
+
   it 'rejects duplicate dependency ids after normalization' do
     expect do
       described_class.new(id: :emit_receipt, handler: :emit_receipt, depends_on: [:calculate_totals, ' calculate_totals '])

@@ -29,7 +29,7 @@ RSpec.describe Karya::QueueStore::InMemory do
   def compensation_job(step_id, handler: :"undo_#{step_id}", arguments: {}, priority: 0, uniqueness_key: nil, uniqueness_scope: nil)
     Karya::Job.new(
       id: "rollback-job-#{step_id}",
-      queue: :billing,
+      queue: :rollback,
       handler:,
       arguments:,
       priority:,
@@ -40,9 +40,9 @@ RSpec.describe Karya::QueueStore::InMemory do
     )
   end
 
-  def reserve(now_offset, handler_names: nil)
+  def reserve(now_offset, handler_names: nil, queue: 'billing')
     store.reserve(
-      queue: 'billing',
+      queue:,
       handler_names:,
       worker_id: "worker-#{now_offset}",
       lease_duration: 60,
@@ -426,8 +426,8 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(report.changed_jobs.map(&:id)).to eq(%w[rollback-job-second rollback-job-first])
       expect(store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 12).job_ids)
         .to eq(%w[rollback-job-second rollback-job-first])
-      expect(reserve(13).job_id).to eq('rollback-job-second')
-      expect(reserve(14)).to be_nil
+      expect(reserve(13, queue: 'rollback').job_id).to eq('rollback-job-second')
+      expect(reserve(14, queue: 'rollback')).to be_nil
     end
 
     it 'serializes rollback compensation through dependency gating' do
@@ -459,11 +459,11 @@ RSpec.describe Karya::QueueStore::InMemory do
       store.fail_execution(reservation_token: third.token, now: created_at + 10, failure_classification: :error)
       store.rollback_workflow(batch_id: :batch_one, now: created_at + 11, reason: 'operator rollback')
 
-      second_rollback = reserve(12)
+      second_rollback = reserve(12, queue: 'rollback')
       expect(second_rollback.job_id).to eq('rollback-job-second')
-      expect(reserve(13, handler_names: ['undo_first'])).to be_nil
+      expect(reserve(13, handler_names: ['undo_first'], queue: 'rollback')).to be_nil
       run_successfully(second_rollback, start_offset: 14, complete_offset: 15)
-      expect(reserve(16, handler_names: ['undo_first']).job_id).to eq('rollback-job-first')
+      expect(reserve(16, handler_names: ['undo_first'], queue: 'rollback').job_id).to eq('rollback-job-first')
     end
 
     it 'rejects invalid rollback requests without partial rollback writes' do
