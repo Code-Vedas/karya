@@ -112,6 +112,104 @@ When diagnosing worker-runtime problems, confirm:
 - shutdown behavior matches operator intent, especially during drain and
   forced-stop escalation
 
+## Workflow Problems
+
+Workflow triage starts with the workflow snapshot. Batch snapshots explain
+membership and aggregate job state; workflow snapshots explain orchestration
+state, step readiness, blocking prerequisites, and rollback metadata.
+
+### Dependent Step Does Not Reserve
+
+Check the dependent step snapshot before treating the queue as stuck:
+
+```text
+symptom: emit_receipt stays queued
+first checks: workflow_snapshot.fetch_step(:emit_receipt).prerequisite_states
+next move: confirm every prerequisite job is succeeded
+```
+
+Reserved, running, queued, retry-pending, failed, dead-lettered, and cancelled
+prerequisites do not unblock dependent steps. A recovered prerequisite must
+succeed before children become eligible.
+
+### Workflow Is Failed
+
+Use `workflow_snapshot` to identify the step that moved the workflow into
+failed state:
+
+```text
+symptom: workflow state is failed
+first checks: step_states, failed_count, dead-lettered steps, rollback_requested?
+next move: choose explicit step recovery or explicit rollback
+```
+
+A workflow can be failed because one primary step is `failed` or
+`dead_letter`, or because terminal mixed outcomes prevent workflow success.
+Use explicit step ids for retry, replay, controlled retry, or discard. Karya
+does not infer target steps from workflow state.
+
+Rollback is only accepted after the workflow is `:failed` and no active or
+dependency-ready queued work remains. If the snapshot still shows reserved,
+running, retry-pending, or runnable queued steps, stop, complete, or recover
+that work before expecting rollback to succeed.
+
+### Replay Or Retry Did Not Unblock Children
+
+Replay and retry only recover the target primary step job into normal
+execution. They do not mark the prerequisite as successful:
+
+```text
+symptom: child still blocked after replay_workflow_steps
+first checks: recovered parent step state, reservation eligibility, next_retry_at
+next move: run the recovered parent to succeeded, then inspect the child step again
+```
+
+For dead-lettered work, `replay_workflow_steps` returns the step to `queued`;
+`retry_dead_letter_workflow_steps` returns it to `retry_pending` until the
+configured retry time. Dependents unblock only after the parent succeeds.
+
+### Rollback Has No Batch To Inspect
+
+No-op rollback is valid when every succeeded primary step is uncompensated:
+
+```text
+symptom: rollback_requested? is true but batch_snapshot(rollback_batch_id) is unknown
+first checks: rollback.compensation_job_ids, rollback.compensation_count
+next move: treat the rollback boundary as recorded when compensation_count is zero
+```
+
+Rollback metadata is still inspectable from the workflow snapshot. A physical
+rollback batch exists only when compensation jobs were enqueued.
+
+### Compensation Runs One Job At A Time
+
+Compensation jobs are dependency-gated so rollback happens in reverse workflow
+definition order:
+
+```text
+symptom: later compensation job is queued but not reserving
+first checks: rollback batch job states, earlier compensation job state
+next move: complete or recover the earlier compensation job
+```
+
+Compensation jobs are ordinary queue-store jobs. If a compensation job fails or
+is dead-lettered, use the normal job recovery controls for that rollback batch
+job before expecting the next compensation job to reserve.
+
+### Batch State And Workflow State Differ
+
+Batch aggregate state and workflow state answer different questions:
+
+```text
+symptom: batch aggregate and workflow state do not match
+first checks: batch_snapshot.aggregate_state, workflow_snapshot.state
+next move: use workflow state for orchestration decisions and batch state for member-job summaries
+```
+
+Batch state summarizes current member job lifecycle states. Workflow state adds
+orchestration meaning: pending roots, blocked dependents, failed prerequisites,
+eligible follow-up work, and rollback request metadata.
+
 ## Framework Integration Problems
 
 Look for:
@@ -155,6 +253,8 @@ next move: confirm whether the block is intentional before treating it as a bug
   dead-letter flows
 - [Workflows](/workflows/): replay, signals, checkpoints, and workflow
   recovery
+- [Workflow Examples](/workflows/examples/): concrete workflow recovery and
+  rollback scenarios
 - [Operator](/operator/): drilldowns, search, audit, and internal API
   issues
 - [Governance](/governance/): identity, policy, tenant boundaries, and

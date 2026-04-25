@@ -21,6 +21,7 @@ clear lifecycle, recovery model, and operator story.
 - [Signals](/workflows/signals/)
 - [Child Workflows](/workflows/child-workflows/)
 - [Versioning](/workflows/versioning/)
+- [Examples](/workflows/examples/)
 
 ## What This Section Covers
 
@@ -29,9 +30,10 @@ inspection, live interaction, and safe evolution semantics.
 
 ## About The Examples
 
-The examples in this section align with the Ruby workflow composition DSL that
-builds normalized immutable workflow definitions in `core/karya`.
+The examples in this section use the Ruby workflow composition DSL, concrete
+queue-store runtime behavior, workflow snapshots, rollback metadata, and
+operator recovery controls together.
 
-Later workflow tickets extend execution, recovery, interaction, and evolution
-semantics on top of that foundation, so the examples here focus on composition
-shape and operator meaning rather than every later runtime detail.
+They show workflow behavior as a product surface: how developers model a run,
+how workers reserve ready steps, and how operators inspect and recover the
+workflow without reaching into internal queue-store state.
