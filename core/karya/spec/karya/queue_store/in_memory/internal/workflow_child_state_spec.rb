@@ -118,4 +118,15 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowChildState' do
       'child workflow cycle detected at batch "batch-a"'
     )
   end
+
+  it 'preserves ancestor cycle markers when a nested cycle raise is rescued' do
+    visiting = { 'batch-a' => true }
+    resolver = described_class.new(state: store_state, now: captured_at, visiting:)
+
+    expect { resolver.resolve('batch-a') }.to raise_error(
+      Karya::Workflow::InvalidExecutionError,
+      'child workflow cycle detected at batch "batch-a"'
+    )
+    expect(visiting).to eq({ 'batch-a' => true })
+  end
 end

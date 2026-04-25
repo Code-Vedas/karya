@@ -188,8 +188,8 @@ module Karya
         def initialize(child_workflow_ids_by_step_id:, child_workflows:)
           @child_workflow_ids_by_step_id = child_workflow_ids_by_step_id
           @child_workflows = child_workflows
-          @child_workflows_by_step_id = child_workflows.to_h { |child_workflow| [child_workflow.parent_step_id, child_workflow] }.freeze
           validate_relationships
+          @child_workflows_by_step_id = child_workflows.to_h { |child_workflow| [child_workflow.parent_step_id, child_workflow] }.freeze
           freeze
         end
 
@@ -213,10 +213,16 @@ module Karya
         private
 
         def validate_relationships
+          seen_parent_step_ids = {}
+
           child_workflows.each do |child_workflow|
             parent_step_id = child_workflow.parent_step_id
+            inspected_parent_step_id = parent_step_id.inspect
+            raise InvalidExecutionError, "duplicate child workflow for step #{inspected_parent_step_id}" if seen_parent_step_ids.key?(parent_step_id)
+
+            seen_parent_step_ids[parent_step_id] = true
             expected_workflow_id = child_workflow_ids_by_step_id[parent_step_id]
-            raise InvalidExecutionError, "unknown child workflow step #{parent_step_id.inspect}" unless expected_workflow_id
+            raise InvalidExecutionError, "unknown child workflow step #{inspected_parent_step_id}" unless expected_workflow_id
             next if expected_workflow_id == child_workflow.child_workflow_id
 
             raise InvalidExecutionError, 'child workflow relationship id must match declared child workflow id'

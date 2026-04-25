@@ -207,6 +207,14 @@ RSpec.describe Karya::Workflow::Snapshot do
         child_workflows: [mismatched_relationship]
       )
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child workflow relationship id must match declared child workflow id')
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        child_workflow_ids_by_step_id: { child: :payment },
+        child_workflows: [relationship, relationship]
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate child workflow for step "child"')
   end
 
   it 'raises execution errors for unknown runtime step lookup' do

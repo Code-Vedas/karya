@@ -22,10 +22,12 @@ module Karya
             return cache.fetch(batch_id) if cache.key?(batch_id)
             raise Workflow::InvalidExecutionError, "child workflow cycle detected at batch #{batch_id.inspect}" if visiting.key?(batch_id)
 
+            added_to_visiting = false
             visiting[batch_id] = true
+            added_to_visiting = true
             cache[batch_id] = StateSnapshot.new(batch_id:, state: store_state, now:, cache:, visiting:).state
           ensure
-            visiting.delete(batch_id)
+            visiting.delete(batch_id) if added_to_visiting
           end
 
           # Recursively builds one workflow snapshot state using registered child relationships.
