@@ -264,7 +264,7 @@ module Karya
 
           # Validates rollback state eligibility.
           class RollbackState
-            ACTIVE_JOB_STATES = %i[reserved running].freeze
+            ACTIVE_JOB_STATES = %i[reserved running retry_pending].freeze
             WAITING_JOB_STATES = %i[queued submission].freeze
 
             def initialize(snapshot, dependency_job_ids_by_job_id)
