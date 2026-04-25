@@ -364,7 +364,6 @@ module Karya
             def cleanup_workflow_registration
               registration = workflow_registrations_by_batch_id.delete(batch_id)
               rollback = workflow_rollbacks_by_batch_id.delete(batch_id)
-              workflow_rollback_batch_ids.delete(batch_id)
               workflow_rollback_batch_ids.delete(rollback.rollback_batch_id) if rollback
               registration
             end
