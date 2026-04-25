@@ -16,7 +16,6 @@ module Karya
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
 
             @mutex.synchronize do
-              state.prune_terminal_batches(completed_batch_retention_limit)
               batch = fetch_batch(normalized_batch_id)
               job_ids = batch.job_ids
               jobs = fetch_batch_jobs(batch)
@@ -64,7 +63,9 @@ module Karya
           end
 
           def store_batch(batch)
-            state.batches_by_id[batch.id] = batch
+            state.register_batch(batch)
+            state.prune_terminal_batches(completed_batch_retention_limit)
+            batch
           end
 
           def fetch_batch(batch_id)

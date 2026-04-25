@@ -35,6 +35,7 @@ module Karya
 
           def initialize(expired_tombstone_limit:)
             @batches_by_id = {}
+            @batch_id_by_job_id = {}
             @breaker_failures_by_scope = {}
             @breaker_states_by_scope = {}
             @executions_by_token = {}
@@ -55,6 +56,8 @@ module Karya
             @reservation_tokens_in_order = []
             @reservations_by_token = {}
             @stuck_job_recoveries_by_id = {}
+            @terminal_batch_ids_index = {}
+            @terminal_batch_ids_in_order = []
           end
 
           def queue_job_ids_for(queue)
@@ -184,14 +187,48 @@ module Karya
               expired_reservation_tokens.key?(reservation_token)
           end
 
-          def prune_terminal_batches(retention_limit)
-            terminal_batch_ids = batches_by_id.filter_map do |batch_id, batch|
-              batch_id if terminal_batch?(batch)
+          def register_batch(batch)
+            batch_id = batch.id
+            batches_by_id[batch_id] = batch
+            batch.job_ids.each { |job_id| @batch_id_by_job_id[job_id] = batch_id }
+            if terminal_batch?(batch) && !@terminal_batch_ids_index[batch_id]
+              @terminal_batch_ids_index[batch_id] = true
+              @terminal_batch_ids_in_order << batch_id
             end
-            overflow_count = terminal_batch_ids.length - retention_limit
-            return [] unless overflow_count.positive?
+            batch
+          end
 
-            terminal_batch_ids.first(overflow_count).each { |batch_id| batches_by_id.delete(batch_id) }
+          def prune_terminal_batches(retention_limit, changed_job: nil)
+            if changed_job
+              batch_id = @batch_id_by_job_id[changed_job.id]
+              batch = batches_by_id[batch_id]
+              if batch
+                batch_terminal = terminal_batch?(batch)
+                batch_tracked = @terminal_batch_ids_index[batch_id]
+                case [batch_terminal, batch_tracked]
+                when [true, false], [true, nil]
+                  @terminal_batch_ids_index[batch_id] = true
+                  @terminal_batch_ids_in_order << batch_id
+                when [false, true]
+                  @terminal_batch_ids_index[batch_id] = false
+                  @terminal_batch_ids_in_order.delete(batch_id)
+                end
+              end
+            end
+
+            pruned_batch_ids = []
+
+            while @terminal_batch_ids_in_order.length > retention_limit
+              batch_id = @terminal_batch_ids_in_order.shift
+              @terminal_batch_ids_index.delete(batch_id)
+              batch = batches_by_id.delete(batch_id)
+              next unless batch
+
+              batch.job_ids.each { |job_id| @batch_id_by_job_id.delete(job_id) }
+              pruned_batch_ids << batch_id
+            end
+
+            pruned_batch_ids
           end
 
           private

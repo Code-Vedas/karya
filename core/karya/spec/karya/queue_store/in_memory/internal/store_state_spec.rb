@@ -11,6 +11,19 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
   let(:described_class) do
     Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:StoreState, false)
   end
+  let(:created_at) { Time.utc(2026, 4, 1, 12, 0, 0) }
+
+  def batch(id, job_ids)
+    Karya::Workflow::Batch.new(id:, job_ids:, created_at:)
+  end
+
+  def succeeded_job(id)
+    Karya::Job.new(id:, queue: 'billing', handler: 'billing_sync', state: :succeeded, created_at:)
+  end
+
+  def active_job(id)
+    Karya::Job.new(id:, queue: 'billing', handler: 'billing_sync', state: :queued, created_at:)
+  end
 
   it 'ignores execution tokens that are not present' do
     store_state.execution_tokens_in_order << 'lease-1'
@@ -43,11 +56,51 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
   end
 
   it 'keeps batches with missing member jobs during terminal batch pruning' do
-    store_state.batches_by_id['batch-1'] = Karya::Workflow::Batch.new(
-      id: 'batch-1',
-      job_ids: ['missing-job'],
-      created_at: Time.utc(2026, 4, 1, 12, 0, 0)
-    )
+    store_state.register_batch(batch('batch-1', ['missing-job']))
+
+    store_state.prune_terminal_batches(0)
+
+    expect(store_state.batches_by_id.keys).to eq(['batch-1'])
+  end
+
+  it 'records already-terminal batches when registering batch state' do
+    store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
+
+    store_state.register_batch(batch('batch-1', ['job-1']))
+
+    expect(store_state.prune_terminal_batches(0)).to eq(['batch-1'])
+  end
+
+  it 'skips stale terminal batch ids during pruning' do
+    store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
+    store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.batches_by_id.delete('batch-1')
+
+    expect(store_state.prune_terminal_batches(0)).to eq([])
+  end
+
+  it 'prunes terminal batches in terminal completion order' do
+    store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.register_batch(batch('batch-2', ['job-2']))
+
+    store_state.jobs_by_id['job-2'] = succeeded_job('job-2')
+    store_state.prune_terminal_batches(10, changed_job: succeeded_job('job-2'))
+    store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
+    store_state.prune_terminal_batches(10, changed_job: succeeded_job('job-1'))
+
+    expect(store_state.prune_terminal_batches(1)).to eq(['batch-2'])
+    expect(store_state.batches_by_id.keys).to eq(['batch-1'])
+  end
+
+  it 'removes terminal ordering when a member job becomes non-terminal again' do
+    store_state.register_batch(batch('batch-1', ['job-1']))
+    terminal_job = succeeded_job('job-1')
+    queued_job = active_job('job-1')
+
+    store_state.jobs_by_id['job-1'] = terminal_job
+    store_state.prune_terminal_batches(10, changed_job: terminal_job)
+    store_state.jobs_by_id['job-1'] = queued_job
+    store_state.prune_terminal_batches(10, changed_job: queued_job)
 
     store_state.prune_terminal_batches(0)
 
