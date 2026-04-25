@@ -523,6 +523,42 @@ RSpec.describe Karya::QueueStore::InMemory do
         .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
     end
 
+    it 'rejects rollback while failed workflows still have runnable waiting jobs' do
+      definition = Karya::Workflow.define(:rollback_runnable_waiting_jobs) do
+        step :root, handler: :root
+        step :first, handler: :first, depends_on: :root, compensate_with: :undo_first
+        step :second, handler: :second, depends_on: :root, compensate_with: :undo_second
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          root: workflow_job(:root),
+          first: workflow_job(:first),
+          second: workflow_job(:second)
+        },
+        compensation_jobs_by_step_id: {
+          first: compensation_job(:first),
+          second: compensation_job(:second)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      root = reserve(2)
+      run_successfully(root, start_offset: 3, complete_offset: 4)
+      first = reserve(5, handler_names: ['first'])
+      store.start_execution(reservation_token: first.token, now: created_at + 6)
+      store.fail_execution(reservation_token: first.token, now: created_at + 7, failure_classification: :error)
+
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 8, reason: 'operator rollback')
+      end.to raise_error(
+        Karya::Workflow::InvalidExecutionError,
+        'workflow batch "batch_one" has active jobs and cannot be rolled back'
+      )
+      expect { store.batch_snapshot(batch_id: 'batch_one.rollback', now: created_at + 9) }
+        .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
+    end
+
     it 'recovers expired in-flight work before deciding rollback eligibility' do
       definition = Karya::Workflow.define(:rollback_recovery_gate) do
         step :root, handler: :root, compensate_with: :undo_root

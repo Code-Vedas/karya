@@ -117,7 +117,7 @@ module Karya
             end
 
             def to_s
-              "#{batch_id}.rollback"
+              "#{batch_id}.rollback".freeze
             end
 
             private
@@ -209,7 +209,7 @@ module Karya
             raise_duplicate_rollback(workflow_batch_id)
             jobs = fetch_batch_jobs(batch)
             snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now:).to_snapshot
-            RollbackState.new(snapshot).validate
+            RollbackState.new(snapshot, registration.dependency_job_ids_by_job_id).validate
             plan = RollbackPlan.new(registration:, jobs:).to_plan
             rollback_batch_id = RollbackBatchId.new(workflow_batch_id).to_s
             rollback_batch = build_rollback_batch(batch_id: rollback_batch_id, jobs: plan.jobs, now:)
@@ -265,9 +265,12 @@ module Karya
           # Validates rollback state eligibility.
           class RollbackState
             ACTIVE_JOB_STATES = %i[reserved running].freeze
+            WAITING_JOB_STATES = %i[queued submission].freeze
 
-            def initialize(snapshot)
+            def initialize(snapshot, dependency_job_ids_by_job_id)
               @snapshot = snapshot
+              @dependency_job_ids_by_job_id = dependency_job_ids_by_job_id
+              @jobs_by_id = snapshot.jobs.to_h { |job| [job.id, job] }
             end
 
             def validate
@@ -278,14 +281,29 @@ module Karya
 
             private
 
-            attr_reader :snapshot
+            attr_reader :dependency_job_ids_by_job_id, :jobs_by_id, :snapshot
 
             def failed_snapshot?
               snapshot.state == :failed
             end
 
             def active_jobs?
-              snapshot.jobs.any? { |job| ACTIVE_JOB_STATES.include?(job.state) }
+              snapshot.jobs.any? { |job| active_job?(job) }
+            end
+
+            def active_job?(job)
+              ACTIVE_JOB_STATES.include?(job.state) || runnable_waiting_job?(job)
+            end
+
+            def runnable_waiting_job?(job)
+              WAITING_JOB_STATES.include?(job.state) && dependencies_satisfied?(job)
+            end
+
+            def dependencies_satisfied?(job)
+              dependency_job_ids_by_job_id.fetch(job.id, []).all? do |dependency_job_id|
+                dependency_job = jobs_by_id[dependency_job_id]
+                dependency_job && dependency_job.state == :succeeded
+              end
             end
 
             def validation_error_message

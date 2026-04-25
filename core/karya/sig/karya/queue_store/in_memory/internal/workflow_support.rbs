@@ -118,15 +118,23 @@ module Karya
 
           class RollbackState
             @snapshot: Karya::Workflow::Snapshot
+            @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            @jobs_by_id: Hash[String, Job]
 
-            def initialize: (Karya::Workflow::Snapshot snapshot) -> void
+            def initialize: (Karya::Workflow::Snapshot snapshot, Hash[String, Array[String]] dependency_job_ids_by_job_id) -> void
             def validate: () -> nil
 
           private
 
+            WAITING_JOB_STATES: Array[Symbol]
             attr_reader snapshot: Karya::Workflow::Snapshot
+            attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            attr_reader jobs_by_id: Hash[String, Job]
             def failed_snapshot?: () -> bool
             def active_jobs?: () -> bool
+            def active_job?: (Job job) -> bool
+            def runnable_waiting_job?: (Job job) -> bool
+            def dependencies_satisfied?: (Job job) -> bool
             def validation_error_message: () -> String
           end
         end

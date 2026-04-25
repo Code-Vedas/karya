@@ -81,6 +81,17 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
   end
 
+  it 'builds frozen rollback batch ids' do
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    helper = workflow_support.const_get(:RollbackBatchId, false)
+
+    rollback_batch_id = helper.new('batch-1').to_s
+
+    expect(rollback_batch_id).to eq('batch-1.rollback')
+    expect(rollback_batch_id).to be_frozen
+  end
+
   it 'builds rollback jobs in reverse definition order with serial dependencies' do
     internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
     workflow_support = internal.const_get(:WorkflowSupport, false)
