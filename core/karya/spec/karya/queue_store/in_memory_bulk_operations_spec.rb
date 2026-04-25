@@ -93,9 +93,48 @@ RSpec.describe Karya::QueueStore::InMemory do
           now: created_at + 1,
           batch_id: 'batch_1'
         )
-      end.to raise_error(Karya::Workflow::InvalidBatchError, 'batch size must be at most 1 jobs')
+      end.to raise_error(Karya::Workflow::InvalidBatchError, 'batch size must be at most 1 job')
 
       expect(limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)).to be_nil
+    end
+
+    it 'rejects invalid batch ids without partial writes' do
+      expect do
+        store.enqueue_many(
+          jobs: [submission_job(id: 'job-1', created_at:)],
+          now: created_at + 1,
+          batch_id: '   '
+        )
+      end.to raise_error(Karya::Workflow::InvalidBatchError, 'batch_id must be present')
+
+      expect(store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)).to be_nil
+    end
+
+    it 'prunes old terminal batches after the completed batch retention limit' do
+      tokens = %w[lease-1 lease-2].each
+      limited_store = described_class.new(completed_batch_retention_limit: 1, token_generator: -> { tokens.next })
+      limited_store.enqueue_many(
+        jobs: [submission_job(id: 'job-1', created_at:)],
+        now: created_at + 1,
+        batch_id: 'batch_1'
+      )
+      first = limited_store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      limited_store.start_execution(reservation_token: first.token, now: created_at + 3)
+      limited_store.complete_execution(reservation_token: first.token, now: created_at + 4)
+
+      limited_store.enqueue_many(
+        jobs: [submission_job(id: 'job-2', created_at:)],
+        now: created_at + 5,
+        batch_id: 'batch_2'
+      )
+      second = limited_store.reserve(queue: 'billing', worker_id: 'worker-2', lease_duration: 30, now: created_at + 6)
+      limited_store.start_execution(reservation_token: second.token, now: created_at + 7)
+      limited_store.complete_execution(reservation_token: second.token, now: created_at + 8)
+
+      expect do
+        limited_store.batch_snapshot(batch_id: 'batch_1', now: created_at + 9)
+      end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_1" is not registered')
+      expect(limited_store.batch_snapshot(batch_id: 'batch_2', now: created_at + 9).job_ids).to eq(['job-2'])
     end
 
     it 'rejects an in-batch duplicate without partial writes' do

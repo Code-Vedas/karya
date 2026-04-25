@@ -11,6 +11,7 @@ module Karya
       @policy_set: Backpressure::PolicySet
       @circuit_breaker_policy_set: CircuitBreaker::PolicySet
       @fairness_policy: Fairness::Policy
+      @completed_batch_retention_limit: Integer
       @max_batch_size: Integer
       @reservation_token_sequence: Integer
       @mutex: Thread::Mutex
@@ -19,12 +20,14 @@ module Karya
       include Base
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: 1024
       DEFAULT_MAX_BATCH_SIZE: 1000
       RESERVE_QUEUES_ERROR_MESSAGE: String
 
       def initialize: (
         ?token_generator: (Method | Proc),
         ?expired_tombstone_limit: Integer,
+        ?completed_batch_retention_limit: Integer,
         ?max_batch_size: Integer,
         ?policy_set: Backpressure::PolicySet,
         ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
@@ -97,12 +100,18 @@ module Karya
       private
 
       attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
+      attr_reader completed_batch_retention_limit: Integer
       attr_reader fairness_policy: Fairness::Policy
       attr_reader max_batch_size: Integer
       attr_reader policy_set: Backpressure::PolicySet
       attr_reader state: Internal::StoreState
       attr_reader token_generator: Method | Proc
 
+      def validate_initializer_limits: (
+        expired_tombstone_limit: Object?,
+        completed_batch_retention_limit: Object?,
+        max_batch_size: Object?
+      ) -> nil
       def validate_enqueue: (Job job) -> nil
       def expire_reservations_locked: (Time now) -> Array[Job]
       def prepare_backpressure_snapshot: (Time now) -> void

@@ -64,7 +64,10 @@ RSpec.describe Karya::Workflow::Batch do
   it 'rejects oversize membership' do
     expect do
       described_class.new(id: 'batch_1', job_ids: %w[step_1 step_2], created_at:, max_size: 1)
-    end.to raise_error(Karya::Workflow::InvalidBatchError, 'batch size must be at most 1 jobs')
+    end.to raise_error(Karya::Workflow::InvalidBatchError, 'batch size must be at most 1 job')
+    expect do
+      described_class.new(id: 'batch_1', job_ids: %w[step_1 step_2 step_3], created_at:, max_size: 2)
+    end.to raise_error(Karya::Workflow::InvalidBatchError, 'batch size must be at most 2 jobs')
   end
 
   it 'validates timestamps' do

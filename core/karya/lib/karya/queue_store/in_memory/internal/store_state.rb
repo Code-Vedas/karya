@@ -184,7 +184,24 @@ module Karya
               expired_reservation_tokens.key?(reservation_token)
           end
 
+          def prune_terminal_batches(retention_limit)
+            terminal_batch_ids = batches_by_id.filter_map do |batch_id, batch|
+              batch_id if terminal_batch?(batch)
+            end
+            overflow_count = terminal_batch_ids.length - retention_limit
+            return [] unless overflow_count.positive?
+
+            terminal_batch_ids.first(overflow_count).each { |batch_id| batches_by_id.delete(batch_id) }
+          end
+
           private
+
+          def terminal_batch?(batch)
+            batch.job_ids.all? do |job_id|
+              job = jobs_by_id[job_id]
+              job&.terminal?
+            end
+          end
 
           def trim_fair_queue_history
             last_reserved_queue_by_subscription.shift while last_reserved_queue_by_subscription.length > MAX_TRACKED_FAIR_QUEUE_LISTS

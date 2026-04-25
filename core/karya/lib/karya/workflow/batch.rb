@@ -66,7 +66,11 @@ module Karya
         def validate_size(normalized_job_ids)
           return if normalized_job_ids.length <= max_size
 
-          raise InvalidBatchError, "batch size must be at most #{max_size} jobs"
+          raise InvalidBatchError, "batch size must be at most #{max_size} #{job_label}"
+        end
+
+        def job_label
+          max_size == 1 ? 'job' : 'jobs'
         end
 
         def validate_unique(normalized_job_ids)

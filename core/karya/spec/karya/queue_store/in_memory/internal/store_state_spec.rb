@@ -41,4 +41,16 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
 
     expect(store_state.register_retry_pending('job-1')).to eq(['job-1'])
   end
+
+  it 'keeps batches with missing member jobs during terminal batch pruning' do
+    store_state.batches_by_id['batch-1'] = Karya::Workflow::Batch.new(
+      id: 'batch-1',
+      job_ids: ['missing-job'],
+      created_at: Time.utc(2026, 4, 1, 12, 0, 0)
+    )
+
+    store_state.prune_terminal_batches(0)
+
+    expect(store_state.batches_by_id.keys).to eq(['batch-1'])
+  end
 end

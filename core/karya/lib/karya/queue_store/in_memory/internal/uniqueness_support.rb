@@ -182,6 +182,7 @@ module Karya
             job_id = job.id
             state.jobs_by_id[job_id] = job
             clear_stuck_job_recovery(job_id) if StuckRecoveryClearance.new(job).clear?
+            state.prune_terminal_batches(completed_batch_retention_limit) if job.terminal?
             job
           end
 

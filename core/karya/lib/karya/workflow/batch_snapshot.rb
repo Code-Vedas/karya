@@ -55,7 +55,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      # Normalizes a snapshot job list while preserving current job objects.
+      # Normalizes snapshot job ids without interning request input.
       class JobIdList
         def initialize(job_ids)
           @job_ids = job_ids

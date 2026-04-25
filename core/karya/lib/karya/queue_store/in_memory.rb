@@ -59,6 +59,7 @@ module Karya
       include Internal::UniquenessSupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = 1024
       DEFAULT_MAX_BATCH_SIZE = 1000
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
 
@@ -74,6 +75,11 @@ module Karya
           def keys = options.keys
           def token_generator = fetch(:token_generator, -> { SecureRandom.uuid })
           def expired_tombstone_limit = fetch(:expired_tombstone_limit, DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
+
+          def completed_batch_retention_limit
+            fetch(:completed_batch_retention_limit, DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT)
+          end
+
           def max_batch_size = fetch(:max_batch_size, DEFAULT_MAX_BATCH_SIZE)
           def policy_set = fetch(:policy_set, Backpressure::PolicySet.new)
           def circuit_breaker_policy_set = fetch(:circuit_breaker_policy_set, CircuitBreaker::PolicySet.new)
@@ -110,6 +116,7 @@ module Karya
         VALID_KEYS = %i[
           token_generator
           expired_tombstone_limit
+          completed_batch_retention_limit
           max_batch_size
           policy_set
           circuit_breaker_policy_set
@@ -123,6 +130,7 @@ module Karya
 
         def token_generator = reader.token_generator
         def expired_tombstone_limit = reader.expired_tombstone_limit
+        def completed_batch_retention_limit = reader.completed_batch_retention_limit
         def max_batch_size = reader.max_batch_size
         def policy_set = reader.policy_set
         def circuit_breaker_policy_set = reader.circuit_breaker_policy_set
@@ -138,14 +146,13 @@ module Karya
       def initialize(**options)
         initializer_options = InitializerOptions.new(options)
         expired_tombstone_limit = initializer_options.expired_tombstone_limit
+        completed_batch_retention_limit = initializer_options.completed_batch_retention_limit
         max_batch_size = initializer_options.max_batch_size
         policy_set = initializer_options.policy_set
         circuit_breaker_policy_set = initializer_options.circuit_breaker_policy_set
         fairness_policy = initializer_options.fairness_policy
 
-        valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
-        raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
-        raise InvalidQueueStoreOperationError, 'max_batch_size must be a positive Integer' unless max_batch_size.is_a?(Integer) && max_batch_size.positive?
+        validate_initializer_limits(expired_tombstone_limit:, completed_batch_retention_limit:, max_batch_size:)
         raise InvalidQueueStoreOperationError, 'policy_set must be a Karya::Backpressure::PolicySet' unless policy_set.is_a?(Backpressure::PolicySet)
         raise InvalidQueueStoreOperationError, 'fairness_policy must be a Karya::Fairness::Policy' unless fairness_policy.is_a?(Fairness::Policy)
         unless circuit_breaker_policy_set.is_a?(CircuitBreaker::PolicySet)
@@ -154,6 +161,7 @@ module Karya
         end
 
         @token_generator = initializer_options.token_generator
+        @completed_batch_retention_limit = completed_batch_retention_limit
         @max_batch_size = max_batch_size
         @policy_set = policy_set
         @circuit_breaker_policy_set = circuit_breaker_policy_set
@@ -312,9 +320,28 @@ module Karya
 
       private
 
-      attr_reader :circuit_breaker_policy_set, :fairness_policy, :max_batch_size, :policy_set, :state, :token_generator
+      attr_reader :circuit_breaker_policy_set,
+                  :completed_batch_retention_limit,
+                  :fairness_policy,
+                  :max_batch_size,
+                  :policy_set,
+                  :state,
+                  :token_generator
 
       private_constant :InitializerOptions, :Internal
+
+      def validate_initializer_limits(expired_tombstone_limit:, completed_batch_retention_limit:, max_batch_size:)
+        valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
+        raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
+
+        valid_batch_retention_limit = completed_batch_retention_limit.is_a?(Integer) &&
+                                      completed_batch_retention_limit >= 0
+        raise InvalidQueueStoreOperationError, 'completed_batch_retention_limit must be a finite non-negative Integer' unless valid_batch_retention_limit
+
+        return if max_batch_size.is_a?(Integer) && max_batch_size.positive?
+
+        raise InvalidQueueStoreOperationError, 'max_batch_size must be a positive Integer'
+      end
 
       def validate_enqueue(job)
         raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)

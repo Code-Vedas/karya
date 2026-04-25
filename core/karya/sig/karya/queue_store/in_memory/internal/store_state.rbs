@@ -71,9 +71,11 @@ module Karya
           def delete_execution_token: (String reservation_token) -> String?
           def mark_expired: (String reservation_token) -> bool?
           def reservation_token_in_use?: (String reservation_token) -> bool
+          def prune_terminal_batches: (Integer retention_limit) -> Array[String]
 
           private
 
+          def terminal_batch?: (Karya::Workflow::Batch batch) -> bool
           def trim_fair_queue_history: () -> void
           def prune_expired_reservation_tokens: () -> bool?
         end

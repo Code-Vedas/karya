@@ -59,6 +59,21 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /max_batch_size must be a positive Integer/)
     end
 
+    it 'rejects invalid completed batch retention limit values' do
+      expect do
+        described_class.new(completed_batch_retention_limit: -1)
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        /completed_batch_retention_limit must be a finite non-negative Integer/
+      )
+      expect do
+        described_class.new(completed_batch_retention_limit: nil)
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        /completed_batch_retention_limit must be a finite non-negative Integer/
+      )
+    end
+
     it 'rejects unknown keyword options' do
       expect do
         described_class.new(unknown_option: true)
