@@ -140,8 +140,6 @@ module Karya
             now: Time
           ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> BulkMutationReport
           def workflow_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids) -> Array[String]
-          def workflow_dependencies_satisfied?: (Job job, now: Time) -> bool
-          def workflow_child_satisfied?: (Job job, now: Time) -> bool
 
           class WorkflowSnapshotBuilder
             @batch: Karya::Workflow::Batch
@@ -169,25 +167,23 @@ module Karya
             def rollback_snapshot: () -> Karya::Workflow::RollbackSnapshot?
             def child_workflow_snapshots: () -> Array[Karya::Workflow::ChildWorkflowSnapshot]
             def parent_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot?
+            def child_state_resolver: () -> InMemory::Internal::WorkflowChildState
           end
 
           class ChildWorkflowSnapshotBuilder
             @relationship: InMemory::Internal::StoreState::WorkflowChildren::Relationship
-            @state: InMemory::Internal::StoreState
-            @now: Time
+            @resolver: InMemory::Internal::WorkflowChildState
 
             def initialize: (
               relationship: InMemory::Internal::StoreState::WorkflowChildren::Relationship,
-              state: InMemory::Internal::StoreState,
-              now: Time
+              resolver: InMemory::Internal::WorkflowChildState
             ) -> void
             def to_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot
 
           private
 
             attr_reader relationship: InMemory::Internal::StoreState::WorkflowChildren::Relationship
-            attr_reader state: InMemory::Internal::StoreState
-            attr_reader now: Time
+            attr_reader resolver: InMemory::Internal::WorkflowChildState
             def child_state: () -> Karya::workflow_state
           end
 
@@ -225,6 +221,11 @@ module Karya
             def dependencies_satisfied?: (Job job) -> bool
             def validation_error_message: () -> String
           end
+
+        private
+
+          def workflow_dependencies_satisfied?: (Job job, now: Time) -> bool
+          def workflow_child_satisfied?: (Job job, now: Time) -> bool
         end
       end
     end

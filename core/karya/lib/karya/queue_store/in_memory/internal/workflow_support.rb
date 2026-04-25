@@ -443,7 +443,7 @@ module Karya
 
             def child_workflow_snapshots
               state.workflow_children.for_parent_batch(batch.id).map do |relationship|
-                ChildWorkflowSnapshotBuilder.new(relationship:, state:, now:).to_snapshot
+                ChildWorkflowSnapshotBuilder.new(relationship:, resolver: child_state_resolver).to_snapshot
               end.freeze
             end
 
@@ -451,16 +451,19 @@ module Karya
               relationship = state.workflow_children.for_child_batch(batch.id)
               return unless relationship
 
-              ChildWorkflowSnapshotBuilder.new(relationship:, state:, now:).to_snapshot
+              ChildWorkflowSnapshotBuilder.new(relationship:, resolver: child_state_resolver).to_snapshot
+            end
+
+            def child_state_resolver
+              @child_state_resolver ||= WorkflowChildState.new(state:, now:)
             end
           end
 
           # Builds public child workflow relationship snapshots from store metadata.
           class ChildWorkflowSnapshotBuilder
-            def initialize(relationship:, state:, now:)
+            def initialize(relationship:, resolver:)
               @relationship = relationship
-              @state = state
-              @now = now
+              @resolver = resolver
             end
 
             def to_snapshot
@@ -477,10 +480,10 @@ module Karya
 
             private
 
-            attr_reader :now, :relationship, :state
+            attr_reader :relationship, :resolver
 
             def child_state
-              WorkflowChildState.new(state:, now:).resolve(relationship.child_batch_id)
+              resolver.resolve(relationship.child_batch_id)
             end
           end
 
