@@ -619,7 +619,7 @@ module Karya
         attr_reader failed_count: Integer
         attr_reader state: Karya::workflow_state
 
-        def initialize: (Membership membership) -> void
+        def initialize: (Membership membership, ChildRelationships child_relationships) -> void
       end
 
       class Timestamp
@@ -706,17 +706,28 @@ module Karya
 
       class State
         @jobs: Array[Job]
+        @step_job_ids: Hash[String, String]
         @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+        @child_relationships: ChildRelationships
         @jobs_by_id: Hash[String, Job]
+        @step_id_by_job_id: Hash[String, String]
 
-        def initialize: (jobs: Array[Job], dependency_job_ids_by_job_id: Hash[String, Array[String]]) -> void
+        def initialize: (
+          jobs: Array[Job],
+          step_job_ids: Hash[String, String],
+          dependency_job_ids_by_job_id: Hash[String, Array[String]],
+          child_relationships: ChildRelationships
+        ) -> void
         def to_sym: () -> Karya::workflow_state
 
       private
 
         attr_reader jobs: Array[Job]
+        attr_reader step_job_ids: Hash[String, String]
         attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+        attr_reader child_relationships: ChildRelationships
         attr_reader jobs_by_id: Hash[String, Job]
+        attr_reader step_id_by_job_id: Hash[String, String]
         def failed?: () -> bool
         def only_state?: (state_name state) -> bool
         def terminal_mixed?: () -> bool
@@ -724,6 +735,7 @@ module Karya
         def progressed?: () -> bool
         def blocked?: () -> bool
         def dependency_blocked?: (Job job) -> bool
+        def child_workflow_blocked?: (Job job) -> bool
       end
     end
 

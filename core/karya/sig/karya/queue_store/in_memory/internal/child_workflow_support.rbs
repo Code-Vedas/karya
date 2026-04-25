@@ -61,30 +61,6 @@ module Karya
             attr_reader jobs: Array[Job]
           end
 
-          class ChildWorkflowIds
-            @definition: Karya::Workflow::Definition
-
-            def initialize: (Karya::Workflow::Definition definition) -> void
-            def to_h: () -> Hash[String, String]
-
-          private
-
-            attr_reader definition: Karya::Workflow::Definition
-          end
-
-          class StepChildWorkflow
-            @workflow_step: Karya::Workflow::Step
-
-            def initialize: (Karya::Workflow::Step workflow_step) -> void
-            def store_in: (Hash[String, String] child_workflow_ids) -> String?
-
-          private
-
-            attr_reader workflow_step: Karya::Workflow::Step
-            def id: () -> String
-            def child_workflow: () -> String?
-          end
-
           class ChildWorkflowMetadata
             @state: InMemory::Internal::StoreState
             @parent: ParentChildWorkflow

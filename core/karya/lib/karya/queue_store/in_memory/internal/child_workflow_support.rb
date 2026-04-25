@@ -101,52 +101,10 @@ module Karya
             attr_reader :definition, :jobs
           end
 
-          # Builds step-to-child-workflow metadata in definition order.
-          class ChildWorkflowIds
-            def initialize(definition)
-              @definition = definition
-            end
-
-            def to_h
-              definition.steps.each_with_object({}) do |workflow_step, child_workflow_ids|
-                StepChildWorkflow.new(workflow_step).store_in(child_workflow_ids)
-              end.freeze
-            end
-
-            private
-
-            attr_reader :definition
-          end
-
-          # Adds one declared child workflow id to an accumulator.
-          class StepChildWorkflow
-            def initialize(workflow_step)
-              @workflow_step = workflow_step
-            end
-
-            def store_in(child_workflow_ids)
-              child_workflow_ids[id] = child_workflow if workflow_step.child_workflow?
-            end
-
-            private
-
-            attr_reader :workflow_step
-
-            def id
-              workflow_step.id
-            end
-
-            def child_workflow
-              workflow_step.child_workflow
-            end
-          end
-
           private_constant :ChildStepJobIds,
-                           :ChildWorkflowIds,
                            :ChildWorkflowRequest,
                            :ChildWorkflowSyncRequest,
-                           :ParentChildWorkflow,
-                           :StepChildWorkflow
+                           :ParentChildWorkflow
 
           def enqueue_child_workflow_binding(parent:, parent_step_id:, binding:, definition:, now:)
             jobs = binding.jobs
@@ -179,7 +137,7 @@ module Karya
                 step_job_ids: ChildStepJobIds.new(definition:, jobs: binding.jobs).to_h,
                 dependency_job_ids_by_job_id: binding.dependency_job_ids_by_job_id,
                 compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id,
-                child_workflow_ids_by_step_id: ChildWorkflowIds.new(definition).to_h
+                child_workflow_ids_by_step_id: WorkflowChildIds.new(definition).to_h
               )
               state.workflow_children.register(
                 parent_workflow_id: parent.parent_workflow_id,

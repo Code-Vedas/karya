@@ -31,7 +31,7 @@ module Karya
         @step_inspection = StepInspection.new(identity:, membership:, child_relationships:)
         @parent = attributes.parent
         @rollback = attributes.rollback
-        @summary_data = SummaryData.new(membership)
+        @summary_data = SummaryData.new(membership, child_relationships)
         freeze
       end
 
@@ -368,7 +368,7 @@ module Karya
       class SummaryData
         attr_reader :completed_count, :failed_count, :state, :state_counts, :total_count
 
-        def initialize(membership)
+        def initialize(membership, child_relationships)
           jobs = membership.jobs
           summary = Summary.new(jobs)
           @state_counts = summary.state_counts
@@ -377,7 +377,9 @@ module Karya
           @failed_count = summary.failed_count
           @state = State.new(
             jobs:,
-            dependency_job_ids_by_job_id: membership.dependency_job_ids_by_job_id
+            step_job_ids: membership.step_job_ids,
+            dependency_job_ids_by_job_id: membership.dependency_job_ids_by_job_id,
+            child_relationships:
           ).to_sym
           freeze
         end
@@ -527,10 +529,13 @@ module Karya
 
       # Derives workflow state from current job states and prerequisites.
       class State
-        def initialize(jobs:, dependency_job_ids_by_job_id:)
+        def initialize(jobs:, step_job_ids:, dependency_job_ids_by_job_id:, child_relationships:)
           @jobs = jobs
+          @step_job_ids = step_job_ids
           @dependency_job_ids_by_job_id = dependency_job_ids_by_job_id
+          @child_relationships = child_relationships
           @jobs_by_id = jobs.to_h { |job| [job.id, job] }
+          @step_id_by_job_id = step_job_ids.to_h { |step_id, job_id| [job_id, step_id] }
         end
 
         def to_sym
@@ -547,7 +552,7 @@ module Karya
 
         private
 
-        attr_reader :dependency_job_ids_by_job_id, :jobs, :jobs_by_id
+        attr_reader :child_relationships, :dependency_job_ids_by_job_id, :jobs, :jobs_by_id, :step_id_by_job_id
 
         def failed?
           jobs.any? { |job| FAILED_STATES.include?(job.state) }
@@ -571,7 +576,7 @@ module Karya
 
         def blocked?
           jobs.any? do |job|
-            WAITING_STATES.include?(job.state) && dependency_blocked?(job)
+            WAITING_STATES.include?(job.state) && (dependency_blocked?(job) || child_workflow_blocked?(job))
           end
         end
 
@@ -580,6 +585,17 @@ module Karya
             dependency_job = jobs_by_id[dependency_job_id]
             !dependency_job || dependency_job.state != :succeeded
           end
+        end
+
+        def child_workflow_blocked?(job)
+          step_id = step_id_by_job_id.fetch(job.id)
+          child_workflow_id = child_relationships.child_workflow_id(step_id)
+          return false unless child_workflow_id
+
+          child_workflow = child_relationships.child_workflow(step_id)
+          return true unless child_workflow
+
+          child_workflow.child_state != :succeeded
         end
       end
 

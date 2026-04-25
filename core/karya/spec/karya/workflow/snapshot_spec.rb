@@ -127,6 +127,32 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect(result.fetch_step(:child)).to be_ready
   end
 
+  it 'treats waiting child workflow steps as blocked until the child succeeds' do
+    jobs = [job(id: 'job_child', state: :queued)]
+
+    missing_child = snapshot(
+      jobs:,
+      step_job_ids: { child: 'job_child' },
+      child_workflow_ids_by_step_id: { child: :payment }
+    )
+    running_child = snapshot(
+      jobs:,
+      step_job_ids: { child: 'job_child' },
+      child_workflow_ids_by_step_id: { child: :payment },
+      child_workflows: [child_workflow(state: :running)]
+    )
+    succeeded_child = snapshot(
+      jobs:,
+      step_job_ids: { child: 'job_child' },
+      child_workflow_ids_by_step_id: { child: :payment },
+      child_workflows: [child_workflow(state: :succeeded)]
+    )
+
+    expect(missing_child.state).to eq(:blocked)
+    expect(running_child.state).to eq(:blocked)
+    expect(succeeded_child.state).to eq(:pending)
+  end
+
   it 'exposes parent workflow metadata for child batch snapshots' do
     jobs = [job(id: 'job_authorize', state: :queued)]
     relationship = Karya::Workflow::ChildWorkflowSnapshot.new(
