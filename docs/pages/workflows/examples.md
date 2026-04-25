@@ -157,7 +157,7 @@ snapshot.rollback_requested?
 #=> true
 
 snapshot.rollback.rollback_batch_id
-#=> "invoice_closeout_123.rollback"
+#=> "opaque rollback batch id"
 
 store.batch_snapshot(batch_id: snapshot.rollback.rollback_batch_id, now: Time.now).job_ids
 #=> ["rollback-job-write_ledger", "rollback-job-capture_payment"]
