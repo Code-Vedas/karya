@@ -83,7 +83,7 @@ module Karya
 
           def reservable_candidate?(queued_job, handler_matcher, reserve_scan_state, now)
             return false unless handler_matcher.include?(queued_job.handler)
-            return false unless workflow_dependencies_satisfied?(queued_job)
+            return false unless workflow_dependencies_satisfied?(queued_job, now:)
             return false if reserve_scan_state.concurrency_blocked?(queued_job)
             return false if reserve_scan_state.rate_limited?(queued_job)
             return false if circuit_breaker_blocked?(queued_job, now)

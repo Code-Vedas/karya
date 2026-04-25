@@ -236,7 +236,7 @@ module Karya
           def sync_child_workflow_job(job_id:, now:, changed_jobs:, skipped_jobs:)
             relationship = state.workflow_children.for_parent_job(job_id)
             child_batch_id = relationship.child_batch_id
-            case child_workflow_state(child_batch_id)
+            case child_workflow_state(child_batch_id, now:)
             when :failed
               dead_letter_requested_job(job_id, now, "child workflow #{child_batch_id} failed", changed_jobs, skipped_jobs)
             when :cancelled
@@ -247,9 +247,9 @@ module Karya
             end
           end
 
-          def child_workflow_state(child_batch_id)
+          def child_workflow_state(child_batch_id, now:)
             batch_id = fetch_batch(child_batch_id).id
-            WorkflowChildState.new(state:, now: Time.at(0)).resolve(batch_id)
+            WorkflowChildState.new(state:, now:).resolve(batch_id)
           end
         end
       end

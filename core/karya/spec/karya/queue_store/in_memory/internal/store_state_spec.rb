@@ -186,6 +186,14 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_children.expected_child_workflow_id_by_job_id).to eq('job-parent' => 'payment')
   end
 
+  it 'does not allocate empty parent relationship indexes on read paths' do
+    workflow_children = store_state.workflow_children
+
+    expect(workflow_children.for_parent_step('missing-batch', 'missing-step')).to be_nil
+    expect(workflow_children.for_parent_batch('missing-batch')).to eq([])
+    expect(workflow_children.instance_variable_get(:@by_parent_batch_id)).to eq({})
+  end
+
   it 'stores workflow registrations by batch id' do
     step_job_ids = { 'root' => 'job-root' }
     dependency_job_ids = []

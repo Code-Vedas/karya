@@ -134,7 +134,7 @@ module Karya
             changed_jobs: Array[Job],
             skipped_jobs: Array[Karya::bulk_skipped_job]
           ) -> void
-          def child_workflow_state: (String child_batch_id) -> Karya::workflow_state
+          def child_workflow_state: (String child_batch_id, now: Time) -> Karya::workflow_state
         end
       end
     end

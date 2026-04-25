@@ -423,6 +423,8 @@ module Karya
         def validate_membership: (Hash[String, state_name?] normalized_states) -> void
       end
 
+    private
+
       def waiting?: () -> bool
       def prerequisites_succeeded?: () -> bool
       def child_workflow_succeeded?: () -> bool

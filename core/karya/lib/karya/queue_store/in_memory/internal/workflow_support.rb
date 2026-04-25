@@ -562,9 +562,9 @@ module Karya
           end
           private_constant :ChildWorkflowSnapshotBuilder, :RollbackSnapshotAttributes, :RollbackState, :WorkflowSnapshotBuilder
 
-          def workflow_dependencies_satisfied?(job)
+          def workflow_dependencies_satisfied?(job, now:)
             prerequisite_job_ids = state.workflow_dependency_job_ids_for(job.id)
-            return false unless workflow_child_satisfied?(job)
+            return false unless workflow_child_satisfied?(job, now:)
             return true unless prerequisite_job_ids
 
             prerequisite_job_ids.all? do |prerequisite_job_id|
@@ -573,7 +573,7 @@ module Karya
             end
           end
 
-          def workflow_child_satisfied?(job)
+          def workflow_child_satisfied?(job, now:)
             job_id = job.id
             workflow_children = state.workflow_children
             child_workflow_id = workflow_children.expected_child_workflow_id_by_job_id[job_id]
@@ -582,7 +582,7 @@ module Karya
             relationship = workflow_children.for_parent_job(job_id)
             return false unless relationship
 
-            child_workflow_state(relationship.child_batch_id) == :succeeded
+            child_workflow_state(relationship.child_batch_id, now:) == :succeeded
           end
         end
       end

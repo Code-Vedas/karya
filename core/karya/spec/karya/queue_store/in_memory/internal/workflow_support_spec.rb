@@ -29,8 +29,8 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     root_job = job(id: 'job-2', state: :queued)
     store.send(:state).workflow_dependency_job_ids_by_job_id['job-2'] = []
 
-    expect(store.send(:workflow_dependencies_satisfied?, plain_job)).to be(true)
-    expect(store.send(:workflow_dependencies_satisfied?, root_job)).to be(true)
+    expect(store.send(:workflow_dependencies_satisfied?, plain_job, now: created_at)).to be(true)
+    expect(store.send(:workflow_dependencies_satisfied?, root_job, now: created_at)).to be(true)
   end
 
   it 'requires every prerequisite job to be succeeded' do
@@ -41,20 +41,20 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     store.send(:state).jobs_by_id['job-2'] = queued
     store.send(:state).workflow_dependency_job_ids_by_job_id['job-3'] = %w[job-1 job-2]
 
-    expect(store.send(:workflow_dependencies_satisfied?, dependent)).to be(false)
+    expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(false)
 
     store.send(:state).jobs_by_id['job-2'] = job(id: 'job-2', state: :reserved)
-    expect(store.send(:workflow_dependencies_satisfied?, dependent)).to be(false)
+    expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(false)
 
     store.send(:state).jobs_by_id['job-2'] = job(id: 'job-2', state: :succeeded)
-    expect(store.send(:workflow_dependencies_satisfied?, dependent)).to be(true)
+    expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(true)
   end
 
   it 'treats missing prerequisite jobs as blocked' do
     dependent = job(id: 'job-2', state: :queued)
     store.send(:state).workflow_dependency_job_ids_by_job_id['job-2'] = ['missing']
 
-    expect(store.send(:workflow_dependencies_satisfied?, dependent)).to be(false)
+    expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(false)
   end
 
   it 'builds step-to-job metadata in workflow definition order' do

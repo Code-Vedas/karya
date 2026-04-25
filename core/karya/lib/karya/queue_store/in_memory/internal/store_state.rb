@@ -84,7 +84,7 @@ module Karya
                 child_workflow_id,
                 child_batch_id
               ).freeze
-              parent_relationships(parent_batch_id)[parent_step_id] = relationship
+              ensure_parent_relationships(parent_batch_id)[parent_step_id] = relationship
               @by_parent_job_id[parent_job_id] = relationship
               @by_child_batch_id[child_batch_id] = relationship
               relationship
@@ -129,6 +129,10 @@ module Karya
             private
 
             def parent_relationships(parent_batch_id)
+              @by_parent_batch_id[parent_batch_id] || {}
+            end
+
+            def ensure_parent_relationships(parent_batch_id)
               @by_parent_batch_id[parent_batch_id] ||= {}
             end
 

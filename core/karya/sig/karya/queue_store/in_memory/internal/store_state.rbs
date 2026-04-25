@@ -250,6 +250,7 @@ module Karya
           private
 
             def parent_relationships: (String parent_batch_id) -> Hash[String, WorkflowChildren::Relationship]
+            def ensure_parent_relationships: (String parent_batch_id) -> Hash[String, WorkflowChildren::Relationship]
             def delete_relationship: (
               WorkflowChildren::Relationship relationship,
               ?remove_parent_batch: bool
