@@ -32,16 +32,15 @@ module Karya
     # Single-process reference implementation for queue submission and reservation behavior.
     #
     # InMemory is intentionally ephemeral and suitable for development, tests,
-    # examples, and as the executable reference for `QueueStore::Base`
-    # semantics. It is not a durable backend: jobs, queue indexes, reservations,
+    # examples, and as the executable reference for `QueueStore::Base` semantics.
+    # It is not a durable backend: jobs, queue indexes, reservations,
     # active executions, retry state, and expired-token tombstones live only in
     # process memory and are lost on restart. Production deployments that need
     # durable enqueue acknowledgment or restart/takeover recovery must use a
     # shared persistent backend implementing the Base durability contract.
     class InMemory
       # Owner-local implementation helpers for the executable reference store.
-      module Internal
-      end
+      module Internal; end
 
       include Base
       include Internal::BatchSupport
@@ -61,8 +60,7 @@ module Karya
       include Internal::UniquenessSupport
       include Internal::WorkflowSupport
 
-      DEFAULT_EXPIRED_TOMBSTONE_LIMIT = 1024
-      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = 1024
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT = DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = 1024
       DEFAULT_MAX_BATCH_SIZE = 1000
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
 

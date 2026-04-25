@@ -289,11 +289,38 @@ module Karya
             end
           end
 
+          # Reads one child workflow batch state through the public snapshot model.
+          class ChildWorkflowState
+            def initialize(batch_id:, registration:, jobs:)
+              @batch_id = batch_id
+              @registration = registration
+              @jobs = jobs
+            end
+
+            def to_sym
+              Workflow::Snapshot.new(
+                workflow_id: registration.workflow_id,
+                batch_id:,
+                captured_at: Time.at(0),
+                step_job_ids: registration.step_job_ids,
+                dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
+                jobs:,
+                child_workflow_ids_by_step_id: registration.child_workflow_ids_by_step_id
+              ).state
+            end
+
+            private
+
+            attr_reader :batch_id, :jobs, :registration
+          end
+          private_constant :ChildWorkflowState
+
           def child_workflow_state(child_batch_id)
             child_batch = fetch_batch(child_batch_id)
-            child_registration = fetch_workflow_registration(child_batch.id)
+            batch_id = child_batch.id
+            child_registration = fetch_workflow_registration(batch_id)
             child_jobs = child_batch.job_ids.map { |job_id| state.jobs_by_id.fetch(job_id) }
-            workflow_snapshot_for(batch: child_batch, registration: child_registration, jobs: child_jobs, now: Time.at(0)).state
+            ChildWorkflowState.new(batch_id:, registration: child_registration, jobs: child_jobs).to_sym
           end
         end
       end

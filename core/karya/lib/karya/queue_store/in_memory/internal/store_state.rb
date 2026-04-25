@@ -129,16 +129,21 @@ module Karya
             end
 
             def delete_relationship(relationship, remove_parent_batch: true)
-              @by_child_batch_id.delete(relationship.child_batch_id)
-              @by_parent_job_id.delete(relationship.parent_job_id)
-              @expected_child_workflow_id_by_job_id.delete(relationship.parent_job_id)
+              child_batch_id = relationship.child_batch_id
+              parent_job_id = relationship.parent_job_id
+              parent_batch_id = relationship.parent_batch_id
+              parent_step_id = relationship.parent_step_id
+
+              @by_child_batch_id.delete(child_batch_id)
+              @by_parent_job_id.delete(parent_job_id)
+              @expected_child_workflow_id_by_job_id.delete(parent_job_id)
               return relationship unless remove_parent_batch
 
-              relationships = @by_parent_batch_id[relationship.parent_batch_id]
+              relationships = @by_parent_batch_id[parent_batch_id]
               return relationship unless relationships
 
-              relationships.delete(relationship.parent_step_id)
-              @by_parent_batch_id.delete(relationship.parent_batch_id) if relationships.empty?
+              relationships.delete(parent_step_id)
+              @by_parent_batch_id.delete(parent_batch_id) if relationships.empty?
               relationship
             end
           end
@@ -368,19 +373,7 @@ module Karya
               batch_id = @batch_id_by_job_id[changed_job.id]
               return [] unless batch_id
 
-              batch = batches_by_id[batch_id]
-              if batch
-                batch_terminal = terminal_batch?(batch)
-                batch_tracked = @terminal_batch_ids_index[batch_id]
-                case [batch_terminal, batch_tracked]
-                when [true, false], [true, nil]
-                  @terminal_batch_ids_index[batch_id] = true
-                  @terminal_batch_ids_in_order << batch_id
-                when [false, true]
-                  @terminal_batch_ids_index[batch_id] = false
-                  @terminal_batch_ids_in_order.delete(batch_id)
-                end
-              end
+              track_terminal_batch(batch_id)
             end
 
             pruned_batch_ids = []
@@ -428,6 +421,22 @@ module Karya
           end
 
           private
+
+          def track_terminal_batch(batch_id)
+            batch = batches_by_id[batch_id]
+            return unless batch
+
+            batch_terminal = terminal_batch?(batch)
+            batch_tracked = @terminal_batch_ids_index[batch_id]
+            case [batch_terminal, batch_tracked]
+            when [true, false], [true, nil]
+              @terminal_batch_ids_index[batch_id] = true
+              @terminal_batch_ids_in_order << batch_id
+            when [false, true]
+              @terminal_batch_ids_index[batch_id] = false
+              @terminal_batch_ids_in_order.delete(batch_id)
+            end
+          end
 
           def terminal_batch?(batch)
             batch.job_ids.all? do |job_id|

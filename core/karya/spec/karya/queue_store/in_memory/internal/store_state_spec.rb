@@ -182,6 +182,105 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_registrations_by_batch_id['missing']).to be_nil
   end
 
+  it 'cleans up child workflow relationships by parent batch' do
+    workflow_children = store_state.workflow_children
+
+    expect(workflow_children.delete_by_parent_batch('missing-batch')).to eq([])
+
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'child' => 'job-child' },
+      dependency_job_ids_by_job_id: {},
+      compensation_jobs_by_step_id: {},
+      child_workflow_ids_by_step_id: { 'child' => 'payment_flow' }
+    )
+    relationship = workflow_children.register(
+      parent_workflow_id: 'invoice_closeout',
+      parent_batch_id: 'batch-1',
+      parent_step_id: 'child',
+      parent_job_id: 'job-child',
+      child_workflow_id: 'payment_flow',
+      child_batch_id: 'child-batch-1'
+    )
+
+    expect(workflow_children.delete_by_parent_batch('batch-1')).to eq([relationship])
+    expect(workflow_children.for_parent_batch('batch-1')).to eq([])
+    expect(workflow_children.for_parent_job('job-child')).to be_nil
+    expect(workflow_children.for_child_batch('child-batch-1')).to be_nil
+    expect(workflow_children.expected_child_workflow_id_by_job_id).to eq({})
+  end
+
+  it 'cleans up child workflow relationships by child batch' do
+    workflow_children = store_state.workflow_children
+
+    expect(workflow_children.delete_by_child_batch('missing-child-batch')).to be_nil
+
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'child' => 'job-child', 'sibling' => 'job-sibling' },
+      dependency_job_ids_by_job_id: {},
+      compensation_jobs_by_step_id: {},
+      child_workflow_ids_by_step_id: { 'child' => 'payment_flow', 'sibling' => 'shipment_flow' }
+    )
+    relationship = workflow_children.register(
+      parent_workflow_id: 'invoice_closeout',
+      parent_batch_id: 'batch-1',
+      parent_step_id: 'child',
+      parent_job_id: 'job-child',
+      child_workflow_id: 'payment_flow',
+      child_batch_id: 'child-batch-1'
+    )
+    sibling_relationship = workflow_children.register(
+      parent_workflow_id: 'invoice_closeout',
+      parent_batch_id: 'batch-1',
+      parent_step_id: 'sibling',
+      parent_job_id: 'job-sibling',
+      child_workflow_id: 'shipment_flow',
+      child_batch_id: 'child-batch-2'
+    )
+
+    expect(workflow_children.delete_by_child_batch('child-batch-1')).to eq(relationship)
+    expect(workflow_children.for_parent_batch('batch-1')).to eq([sibling_relationship])
+    expect(workflow_children.for_parent_job('job-child')).to be_nil
+    expect(workflow_children.for_child_batch('child-batch-1')).to be_nil
+    expect(workflow_children.expected_child_workflow_id_by_job_id).to eq('job-sibling' => 'shipment_flow')
+
+    expect(workflow_children.delete_by_child_batch('child-batch-2')).to eq(sibling_relationship)
+    expect(workflow_children.for_parent_batch('batch-1')).to eq([])
+    expect(workflow_children.for_parent_job('job-sibling')).to be_nil
+    expect(workflow_children.for_child_batch('child-batch-2')).to be_nil
+    expect(workflow_children.expected_child_workflow_id_by_job_id).to eq({})
+  end
+
+  it 'tolerates child workflow cleanup when the parent batch index is already gone' do
+    workflow_children = store_state.workflow_children
+
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'child' => 'job-child' },
+      dependency_job_ids_by_job_id: {},
+      compensation_jobs_by_step_id: {},
+      child_workflow_ids_by_step_id: { 'child' => 'payment_flow' }
+    )
+    relationship = workflow_children.register(
+      parent_workflow_id: 'invoice_closeout',
+      parent_batch_id: 'batch-1',
+      parent_step_id: 'child',
+      parent_job_id: 'job-child',
+      child_workflow_id: 'payment_flow',
+      child_batch_id: 'child-batch-1'
+    )
+    workflow_children.instance_variable_get(:@by_parent_batch_id).delete('batch-1')
+
+    expect(workflow_children.delete_by_child_batch('child-batch-1')).to eq(relationship)
+    expect(workflow_children.for_parent_job('job-child')).to be_nil
+    expect(workflow_children.for_child_batch('child-batch-1')).to be_nil
+    expect(workflow_children.expected_child_workflow_id_by_job_id).to eq({})
+  end
+
   it 'removes workflow metadata when pruning terminal batches' do
     store_state.jobs_by_id['job-root'] = succeeded_job('job-root')
     store_state.jobs_by_id['job-child'] = succeeded_job('job-child')
