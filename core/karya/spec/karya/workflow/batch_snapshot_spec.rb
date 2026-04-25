@@ -48,6 +48,9 @@ RSpec.describe Karya::Workflow::BatchSnapshot do
     expect(snapshot).to be_frozen
     expect(snapshot.jobs).to be_frozen
     expect(snapshot.state_counts).to be_frozen
+    expect(snapshot.include_job?('job_1')).to be(true)
+    expect(snapshot.job(' job_2 ')).to eq(jobs.fetch(1))
+    expect(snapshot.fetch_job('job_1')).to eq(jobs.fetch(0))
   end
 
   it 'keeps membership validation private' do
@@ -104,6 +107,21 @@ RSpec.describe Karya::Workflow::BatchSnapshot do
         jobs: [job(id: 'job_1', state: :queued), job(id: 'job_3', state: :queued)]
       )
     end.to raise_error(Karya::Workflow::InvalidBatchError, 'job_ids must match jobs in order')
+  end
+
+  it 'raises unknown batch errors for missing member lookup' do
+    snapshot = described_class.new(
+      batch_id: 'batch_1',
+      captured_at:,
+      job_ids: ['job_1'],
+      jobs: [job(id: 'job_1', state: :queued)]
+    )
+
+    expect(snapshot.include_job?(:missing)).to be(false)
+    expect(snapshot.job(:missing)).to be_nil
+    expect do
+      snapshot.fetch_job(:missing)
+    end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_1" does not include job "missing"')
   end
 
   it 'validates captured time' do

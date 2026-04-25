@@ -18,14 +18,25 @@ RSpec.describe Karya::Workflow::Snapshot do
     Karya::Job.new(id:, queue: :billing, handler: :sync_billing, state:, created_at: captured_at)
   end
 
-  def snapshot(jobs:, step_job_ids: nil, dependencies: {})
+  def rollback
+    Karya::Workflow::RollbackSnapshot.new(
+      workflow_batch_id: 'batch_1',
+      rollback_batch_id: :'batch_1.rollback',
+      reason: 'operator rollback',
+      requested_at: captured_at + 1,
+      compensation_job_ids: ['rollback-job-root']
+    )
+  end
+
+  def snapshot(jobs:, step_job_ids: nil, dependencies: {}, rollback: nil)
     described_class.new(
       workflow_id: ' invoice_closeout ',
       batch_id: ' batch_1 ',
       captured_at:,
       step_job_ids: step_job_ids || jobs.to_h { |workflow_job| [workflow_job.id.delete_prefix('job_'), workflow_job.id] },
       dependency_job_ids_by_job_id: dependencies,
-      jobs:
+      jobs:,
+      rollback:
     )
   end
 
@@ -46,10 +57,45 @@ RSpec.describe Karya::Workflow::Snapshot do
       failed_count: 0,
       state: :running
     )
+    expect(result.steps.map(&:step_id)).to eq(%w[root child])
+    expect(result.step(:child)).to have_attributes(
+      step_id: 'child',
+      job_id: 'job_child',
+      state: :queued,
+      prerequisite_job_ids: ['job_root'],
+      prerequisite_states: { 'job_root' => :succeeded }
+    )
+    expect(result.fetch_step(' root ').job).to eq(jobs.fetch(0))
+    expect(result.job_for_step(:child)).to eq(jobs.fetch(1))
+    expect(result.job_id_for_step(:child)).to eq('job_child')
+    expect(result.state_for_step(:child)).to eq(:queued)
+    expect(result.rollback_requested?).to be(false)
+    expect(result.rollback).to be_nil
     expect(result).to be_frozen
     expect(result.jobs).to be_frozen
     expect(result.step_states).to be_frozen
     expect(result.state_counts).to be_frozen
+  end
+
+  it 'exposes rollback metadata when requested' do
+    result = snapshot(jobs: [job(id: 'job_root', state: :failed)], rollback:)
+
+    expect(result.rollback_requested?).to be(true)
+    expect(result.rollback).to have_attributes(
+      workflow_batch_id: 'batch_1',
+      rollback_batch_id: 'batch_1.rollback',
+      reason: 'operator rollback',
+      compensation_job_ids: ['rollback-job-root']
+    )
+  end
+
+  it 'raises execution errors for unknown runtime step lookup' do
+    result = snapshot(jobs: [job(id: 'job_root', state: :queued)])
+
+    expect(result.step(:missing)).to be_nil
+    expect do
+      result.fetch_step(:missing)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'unknown workflow step "missing"')
   end
 
   it 'rejects invalid identifiers and timestamps' do
@@ -152,6 +198,22 @@ RSpec.describe Karya::Workflow::Snapshot do
         unexpected: true
       )
     end.to raise_error(ArgumentError, 'unknown keyword: :unexpected')
+  end
+
+  it 'validates rollback metadata input' do
+    jobs = [job(id: 'job_root', state: :queued)]
+
+    expect do
+      described_class.new(
+        workflow_id: :workflow,
+        batch_id: :batch,
+        captured_at:,
+        step_job_ids: { root: 'job_root' },
+        dependency_job_ids_by_job_id: {},
+        jobs:,
+        rollback: 'rollback'
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'rollback must be Karya::Workflow::RollbackSnapshot')
   end
 
   it 'validates dependency mappings and membership' do

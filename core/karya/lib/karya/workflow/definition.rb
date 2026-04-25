@@ -9,7 +9,13 @@ module Karya
   module Workflow
     # Immutable normalized workflow definition built from ordered steps.
     class Definition
-      attr_reader :dependencies, :id, :steps
+      attr_reader :compensable_step_ids,
+                  :dependencies,
+                  :id,
+                  :leaf_step_ids,
+                  :root_step_ids,
+                  :step_ids,
+                  :steps
 
       def initialize(id:, steps:)
         @id = Workflow.send(:normalize_identifier, :workflow_id, id)
@@ -18,7 +24,14 @@ module Karya
         graph = Graph.new(steps)
         @steps = graph.steps
         @steps_by_id = @steps.to_h { |workflow_step| [workflow_step.id, workflow_step] }.freeze
+        inspection = graph.inspection
+        @step_ids = inspection.step_ids
         @dependencies = graph.dependencies
+        @dependencies_by_step_id = inspection.dependencies_by_step_id
+        @dependents_by_step_id = inspection.dependents_by_step_id
+        @root_step_ids = inspection.root_step_ids
+        @leaf_step_ids = inspection.leaf_step_ids
+        @compensable_step_ids = inspection.compensable_step_ids
         freeze
       end
 
@@ -27,13 +40,30 @@ module Karya
         steps_by_id[normalized_step_id]
       end
 
+      def fetch_step(step_id)
+        normalized_step_id = Workflow.send(:normalize_identifier, :step_id, step_id)
+        steps_by_id.fetch(normalized_step_id) do
+          raise InvalidDefinitionError, "unknown workflow step #{normalized_step_id.inspect}"
+        end
+      end
+
+      def dependencies_for(step_id)
+        workflow_step = fetch_step(step_id)
+        dependencies_by_step_id.fetch(workflow_step.id)
+      end
+
+      def dependents_for(step_id)
+        workflow_step = fetch_step(step_id)
+        dependents_by_step_id.fetch(workflow_step.id)
+      end
+
       private
 
-      attr_reader :steps_by_id
+      attr_reader :dependencies_by_step_id, :dependents_by_step_id, :steps_by_id
 
       # Owner-local graph normalizer and validator for workflow step composition.
       class Graph
-        attr_reader :dependencies, :steps
+        attr_reader :dependencies, :inspection, :steps
 
         def initialize(raw_steps)
           @steps = normalize_steps(raw_steps)
@@ -41,6 +71,7 @@ module Karya
           validate_dependency_targets
           validate_acyclic
           @dependencies = DependencyList.new(@steps).dependencies
+          @inspection = Inspection.new(@steps)
         end
 
         private
@@ -141,7 +172,150 @@ module Karya
           private_constant :StepDependencies
         end
 
-        private_constant :DependencyList
+        # Builds definition inspection indexes from normalized ordered steps.
+        class Inspection
+          attr_reader :compensable_step_ids,
+                      :dependencies_by_step_id,
+                      :dependents_by_step_id,
+                      :leaf_step_ids,
+                      :root_step_ids,
+                      :step_ids
+
+          def initialize(steps)
+            @steps = steps
+            @step_ids = steps.map(&:id).freeze
+            @dependencies_by_step_id = StepDependencies.new(steps).to_h
+            @dependents_by_step_id = StepDependents.new(steps).to_h
+            @root_step_ids = StepFilter.new(steps).root_ids
+            @leaf_step_ids = StepFilter.new(steps).leaf_ids(@dependents_by_step_id)
+            @compensable_step_ids = StepFilter.new(steps).compensable_ids
+            freeze
+          end
+
+          private
+
+          attr_reader :steps
+        end
+
+        # Builds direct dependency lookup by workflow step id.
+        class StepDependencies
+          def initialize(steps)
+            @steps = steps
+          end
+
+          def to_h
+            steps.to_h { |workflow_step| StepEntry.new(workflow_step).dependencies_pair }.freeze
+          end
+
+          private
+
+          attr_reader :steps
+        end
+
+        # Builds reverse dependency lookup by workflow step id.
+        class StepDependents
+          def initialize(steps)
+            @steps = steps
+          end
+
+          def to_h
+            grouped_pairs = DependencyPairs.new(steps).to_a.group_by(&:first)
+            step_ids.to_h do |step_id|
+              [step_id, grouped_pairs.fetch(step_id, []).map(&:last).freeze]
+            end.freeze
+          end
+
+          private
+
+          attr_reader :steps
+
+          def step_ids
+            steps.map(&:id)
+          end
+        end
+
+        # Builds ordered filtered step id lists.
+        class StepFilter
+          def initialize(steps)
+            @steps = steps
+          end
+
+          def root_ids
+            steps.filter_map { |workflow_step| StepEntry.new(workflow_step).root_id }.freeze
+          end
+
+          def leaf_ids(dependents_by_step_id)
+            steps.filter_map do |workflow_step|
+              StepEntry.new(workflow_step).leaf_id(dependents_by_step_id)
+            end.freeze
+          end
+
+          def compensable_ids
+            steps.filter_map { |workflow_step| StepEntry.new(workflow_step).compensable_id }.freeze
+          end
+
+          private
+
+          attr_reader :steps
+        end
+
+        # Builds reverse dependency edge pairs.
+        class DependencyPairs
+          def initialize(steps)
+            @steps = steps
+          end
+
+          def to_a
+            steps.flat_map { |workflow_step| StepEntry.new(workflow_step).dependent_pairs }
+          end
+
+          private
+
+          attr_reader :steps
+        end
+
+        # Reads one workflow step for inspection index builders.
+        class StepEntry
+          def initialize(workflow_step)
+            @workflow_step = workflow_step
+          end
+
+          def dependencies_pair
+            [id, workflow_step.depends_on]
+          end
+
+          def dependent_pairs
+            workflow_step.depends_on.map { |dependency_id| [dependency_id, id] }
+          end
+
+          def root_id
+            id if workflow_step.depends_on.empty?
+          end
+
+          def leaf_id(dependents_by_step_id)
+            id if dependents_by_step_id.fetch(id).empty?
+          end
+
+          def compensable_id
+            id if workflow_step.compensable?
+          end
+
+          private
+
+          attr_reader :workflow_step
+
+          def id
+            workflow_step.id
+          end
+        end
+
+        private_constant :DependencyList,
+                         :DependencyPairs,
+                         :Inspection,
+                         :StepDependencies,
+                         :StepDependents,
+                         :StepEntry,
+                         :StepFilter
       end
 
       private_constant :Graph

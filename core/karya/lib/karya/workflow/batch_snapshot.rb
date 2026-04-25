@@ -28,6 +28,7 @@ module Karya
         @job_ids = JobIdList.new(job_ids).to_a
         @jobs = JobList.new(jobs).to_a
         validate_membership
+        @jobs_by_id = @jobs.to_h { |job| [job.id, job] }.freeze
         summary = Summary.new(@jobs)
         @state_counts = summary.state_counts
         @total_count = @jobs.length
@@ -35,6 +36,23 @@ module Karya
         @failed_count = summary.failed_count
         @aggregate_state = AggregateState.new(@jobs).to_sym
         freeze
+      end
+
+      def include_job?(job_id)
+        normalized_job_id = Workflow.send(:normalize_batch_identifier, :job_id, job_id)
+        jobs_by_id.key?(normalized_job_id)
+      end
+
+      def job(job_id)
+        normalized_job_id = Workflow.send(:normalize_batch_identifier, :job_id, job_id)
+        jobs_by_id[normalized_job_id]
+      end
+
+      def fetch_job(job_id)
+        normalized_job_id = Workflow.send(:normalize_batch_identifier, :job_id, job_id)
+        jobs_by_id.fetch(normalized_job_id) do
+          raise UnknownBatchError, "batch #{batch_id.inspect} does not include job #{normalized_job_id.inspect}"
+        end
       end
 
       # Normalizes timestamps into immutable values.
@@ -156,6 +174,8 @@ module Karya
       private_constant :AggregateState, :COMPLETED_STATES, :FAILED_STATES, :JobIdList, :JobList, :Summary, :Timestamp
 
       private
+
+      attr_reader :jobs_by_id
 
       def validate_membership
         snapshot_job_ids = jobs.map(&:id)

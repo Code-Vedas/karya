@@ -71,7 +71,9 @@ operator search and governance layers choose targets:
 - workflow enqueue stores all step jobs in one immutable batch and gates
   reservation of dependent steps until prerequisite jobs have succeeded
 - workflow snapshots derive workflow state from stored workflow metadata and
-  current member job states without mutating the batch membership
+  current member job states without mutating the batch membership; this is the
+  operator/runtime read model for per-step readiness, blocking prerequisites,
+  and rollback request metadata
 - workflow rollback is an explicit operator action for failed workflow batches;
   it creates one immutable rollback batch only when there are compensation jobs
   to enqueue, records a no-op rollback boundary when no compensation jobs are

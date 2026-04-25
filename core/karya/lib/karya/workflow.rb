@@ -12,8 +12,10 @@ require_relative 'workflow/catalog'
 require_relative 'workflow/dependency'
 require_relative 'workflow/definition'
 require_relative 'workflow/execution_binding'
-require_relative 'workflow/snapshot'
+require_relative 'workflow/rollback_snapshot'
 require_relative 'workflow/step'
+require_relative 'workflow/step_snapshot'
+require_relative 'workflow/snapshot'
 
 module Karya
   # Canonical workflow composition model and Ruby-first authoring DSL.
