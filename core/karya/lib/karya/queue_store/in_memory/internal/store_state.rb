@@ -31,7 +31,8 @@ module Karya
                       :reservation_tokens_by_job_id,
                       :reservation_tokens_in_order,
                       :reservations_by_token,
-                      :stuck_job_recoveries_by_id
+                      :stuck_job_recoveries_by_id,
+                      :workflow_dependency_job_ids_by_job_id
 
           def initialize(expired_tombstone_limit:)
             @batches_by_id = {}
@@ -58,6 +59,7 @@ module Karya
             @stuck_job_recoveries_by_id = {}
             @terminal_batch_ids_index = {}
             @terminal_batch_ids_in_order = []
+            @workflow_dependency_job_ids_by_job_id = {}
           end
 
           def queue_job_ids_for(queue)
@@ -234,6 +236,12 @@ module Karya
             end
 
             pruned_batch_ids
+          end
+
+          def register_workflow_dependencies(dependency_job_ids_by_job_id)
+            dependency_job_ids_by_job_id.each do |job_id, dependency_job_ids|
+              workflow_dependency_job_ids_by_job_id[job_id] = dependency_job_ids
+            end
           end
 
           private

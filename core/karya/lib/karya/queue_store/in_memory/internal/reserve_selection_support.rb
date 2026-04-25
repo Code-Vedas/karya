@@ -68,10 +68,7 @@ module Karya
             queue_job_ids.each_with_index do |job_id, index|
               queued_job = state.jobs_by_id.fetch(job_id)
               queued_job_priority = queued_job.priority
-              next unless handler_matcher.include?(queued_job.handler)
-              next if reserve_scan_state.concurrency_blocked?(queued_job)
-              next if reserve_scan_state.rate_limited?(queued_job)
-              next if circuit_breaker_blocked?(queued_job, now)
+              next unless reservable_candidate?(queued_job, handler_matcher, reserve_scan_state, now)
               next if selected_job_priority && queued_job_priority <= selected_job_priority
 
               selected_job_id = job_id
@@ -82,6 +79,16 @@ module Karya
             return nil unless selected_job_id
 
             [selected_job_index, selected_job_id]
+          end
+
+          def reservable_candidate?(queued_job, handler_matcher, reserve_scan_state, now)
+            return false unless handler_matcher.include?(queued_job.handler)
+            return false unless workflow_dependencies_satisfied?(queued_job)
+            return false if reserve_scan_state.concurrency_blocked?(queued_job)
+            return false if reserve_scan_state.rate_limited?(queued_job)
+            return false if circuit_breaker_blocked?(queued_job, now)
+
+            true
           end
         end
       end

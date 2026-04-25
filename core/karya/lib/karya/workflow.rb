@@ -11,6 +11,7 @@ require_relative 'workflow/batch_snapshot'
 require_relative 'workflow/catalog'
 require_relative 'workflow/dependency'
 require_relative 'workflow/definition'
+require_relative 'workflow/execution_binding'
 require_relative 'workflow/step'
 
 module Karya
@@ -24,6 +25,8 @@ module Karya
     class DuplicateBatchError < InvalidBatchError; end
     # Raised when workflow batch state cannot be found.
     class UnknownBatchError < InvalidBatchError; end
+    # Raised when concrete jobs cannot be bound to a workflow definition.
+    class InvalidExecutionError < Error; end
 
     module_function
 
@@ -47,6 +50,16 @@ module Karya
     end
     module_function :normalize_batch_identifier
 
+    def normalize_execution_identifier(field_name, value)
+      Primitives::Identifier.new(field_name, value, error_class: InvalidExecutionError).normalize
+    end
+    module_function :normalize_execution_identifier
+
+    def build_execution_binding(definition:, jobs_by_step_id:, batch_id:)
+      ExecutionBinding.new(definition:, jobs_by_step_id:, batch_id:)
+    end
+    module_function :build_execution_binding
+
     # Owner-local DSL builder for workflow definition.
     class Builder
       def initialize(id)
@@ -68,8 +81,10 @@ module Karya
       attr_reader :id, :steps
     end
 
-    private_constant :Builder
+    private_constant :Builder, :ExecutionBinding
     private_class_method :normalize_identifier
     private_class_method :normalize_batch_identifier
+    private_class_method :normalize_execution_identifier
+    private_class_method :build_execution_binding
   end
 end
