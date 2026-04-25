@@ -145,16 +145,26 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
   end
 
   it 'stores workflow registrations by batch id' do
+    step_job_ids = { 'root' => 'job-root' }
+    dependency_job_ids = []
+    dependency_job_ids_by_job_id = { 'job-root' => dependency_job_ids }
+
     registration = store_state.register_workflow(
       batch_id: 'batch-1',
       workflow_id: 'invoice_closeout',
-      step_job_ids: { 'root' => 'job-root' },
-      dependency_job_ids_by_job_id: { 'job-root' => [] }
+      step_job_ids:,
+      dependency_job_ids_by_job_id:
     )
+    step_job_ids['root'] = 'mutated'
+    dependency_job_ids << 'mutated'
+    dependency_job_ids_by_job_id['job-root'] = ['mutated']
 
     expect(registration.workflow_id).to eq('invoice_closeout')
     expect(registration.step_job_ids).to eq('root' => 'job-root')
     expect(registration.dependency_job_ids_by_job_id).to eq('job-root' => [])
+    expect(registration.step_job_ids).to be_frozen
+    expect(registration.dependency_job_ids_by_job_id).to be_frozen
+    expect(registration.dependency_job_ids_by_job_id.fetch('job-root')).to be_frozen
     expect(registration).to be_frozen
     expect(store_state.workflow_registrations_by_batch_id['batch-1']).to eq(registration)
     expect(store_state.workflow_registrations_by_batch_id['missing']).to be_nil

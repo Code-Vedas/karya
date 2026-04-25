@@ -258,8 +258,8 @@ module Karya
           def register_workflow(batch_id:, workflow_id:, step_job_ids:, dependency_job_ids_by_job_id:)
             workflow_registrations_by_batch_id[batch_id] = WorkflowRegistration.new(
               workflow_id,
-              step_job_ids,
-              dependency_job_ids_by_job_id
+              step_job_ids.dup.freeze,
+              dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze
             ).freeze
           end
 
