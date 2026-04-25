@@ -83,6 +83,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
       batch_id: 'batch-1',
       workflow_id: 'invoice_closeout',
       step_job_ids: { 'first' => 'job-1', 'second' => 'job-2' },
+      dependency_job_ids_by_job_id: {},
       compensation_jobs_by_step_id: {}
     )
 
@@ -100,6 +101,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
       batch_id: 'batch-1',
       workflow_id: 'invoice_closeout',
       step_job_ids: { 'first' => 'job-1' },
+      dependency_job_ids_by_job_id: {},
       compensation_jobs_by_step_id: {}
     )
 
