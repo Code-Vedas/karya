@@ -201,6 +201,8 @@ module Karya
           def prune_terminal_batches(retention_limit, changed_job: nil)
             if changed_job
               batch_id = @batch_id_by_job_id[changed_job.id]
+              return [] unless batch_id
+
               batch = batches_by_id[batch_id]
               if batch
                 batch_terminal = terminal_batch?(batch)

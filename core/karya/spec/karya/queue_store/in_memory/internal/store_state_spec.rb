@@ -63,6 +63,12 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.batches_by_id.keys).to eq(['batch-1'])
   end
 
+  it 'does not prune terminal batches for changed jobs without batch membership' do
+    unrelated_job = succeeded_job('unrelated-job')
+
+    expect(store_state.prune_terminal_batches(0, changed_job: unrelated_job)).to eq([])
+  end
+
   it 'records already-terminal batches when registering batch state' do
     store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
 
@@ -87,6 +93,16 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     store_state.prune_terminal_batches(0)
 
     expect(store_state.instance_variable_get(:@batch_id_by_job_id)).to eq({})
+  end
+
+  it 'leaves stale changed-job batch membership for explicit pruning cleanup' do
+    terminal_job = succeeded_job('job-1')
+    store_state.jobs_by_id['job-1'] = terminal_job
+    store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.batches_by_id.delete('batch-1')
+
+    expect(store_state.prune_terminal_batches(10, changed_job: terminal_job)).to eq([])
+    expect(store_state.instance_variable_get(:@batch_id_by_job_id)).to eq('job-1' => 'batch-1')
   end
 
   it 'prunes terminal batches in terminal completion order' do
