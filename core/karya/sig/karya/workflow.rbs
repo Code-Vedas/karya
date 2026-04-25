@@ -858,24 +858,19 @@ module Karya
     class Definition
       @id: String
       @steps: Array[Step]
-      @step_ids: Array[String]
       @steps_by_id: Hash[String, Step]
+      @inspection: Graph::Inspection
       @dependencies: Array[Dependency]
-      @dependencies_by_step_id: Hash[String, Array[String]]
-      @dependents_by_step_id: Hash[String, Array[String]]
-      @root_step_ids: Array[String]
-      @leaf_step_ids: Array[String]
-      @compensable_step_ids: Array[String]
 
       attr_reader id: String
       attr_reader steps: Array[Step]
-      attr_reader step_ids: Array[String]
       attr_reader dependencies: Array[Dependency]
-      attr_reader root_step_ids: Array[String]
-      attr_reader leaf_step_ids: Array[String]
-      attr_reader compensable_step_ids: Array[String]
 
       def initialize: (id: state_name, steps: Array[Step]) -> void
+      def step_ids: () -> Array[String]
+      def root_step_ids: () -> Array[String]
+      def leaf_step_ids: () -> Array[String]
+      def compensable_step_ids: () -> Array[String]
       def child_step_ids: () -> Array[String]
       def step: (state_name step_id) -> Step?
       def fetch_step: (state_name step_id) -> Step
@@ -884,31 +879,8 @@ module Karya
 
     private
 
-      attr_reader dependencies_by_step_id: Hash[String, Array[String]]
-      attr_reader dependents_by_step_id: Hash[String, Array[String]]
+      attr_reader inspection: Graph::Inspection
       attr_reader steps_by_id: Hash[String, Step]
-
-      class ChildStepIds
-        @steps: Array[Step]
-
-        def initialize: (Array[Step] steps) -> void
-        def to_a: () -> Array[String]
-
-      private
-
-        attr_reader steps: Array[Step]
-
-        class StepChild
-          @workflow_step: Step
-
-          def initialize: (Step workflow_step) -> void
-          def id: () -> String?
-
-        private
-
-          attr_reader workflow_step: Step
-        end
-      end
 
       class Graph
         @steps: Array[Step]
