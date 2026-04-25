@@ -166,7 +166,7 @@ module Karya
               previous_job_id = nil
               jobs.each_with_object({}) do |job, dependencies|
                 job_id = job.id
-                dependencies[job_id] = previous_job_id ? [previous_job_id].freeze : []
+                dependencies[job_id] = previous_job_id ? [previous_job_id].freeze : [].freeze
                 previous_job_id = job_id
               end.freeze
             end

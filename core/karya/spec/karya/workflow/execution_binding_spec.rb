@@ -175,6 +175,35 @@ RSpec.describe 'Karya::Workflow::ExecutionBinding' do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'unknown workflow compensation job "extra"')
   end
 
+  it 'rejects duplicate-normalized compensation step ids with compensation wording' do
+    definition = Karya::Workflow.define(:refund_invoice) do
+      step :capture_payment,
+           handler: :capture_payment,
+           compensate_with: :refund_payment,
+           compensation_arguments: { reason: :workflow_rollback }
+    end
+
+    expect do
+      described_class.new(
+        definition:,
+        jobs_by_step_id: { capture_payment: submission_job(id: 'job-1', handler: :capture_payment) },
+        compensation_jobs_by_step_id: {
+          'capture_payment' => compensation_job(
+            id: 'rollback-job-1',
+            handler: :refund_payment,
+            arguments: { reason: :workflow_rollback }
+          ),
+          ' capture_payment ' => compensation_job(
+            id: 'rollback-job-2',
+            handler: :refund_payment,
+            arguments: { reason: :workflow_rollback }
+          )
+        },
+        batch_id: 'batch-1'
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate workflow compensation job "capture_payment"')
+  end
+
   it 'rejects invalid compensation job values' do
     definition = Karya::Workflow.define(:refund_invoice) do
       step :capture_payment,

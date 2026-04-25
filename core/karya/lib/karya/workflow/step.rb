@@ -21,12 +21,12 @@ module Karya
       def initialize(id:, handler:, **options)
         @id = Workflow.send(:normalize_identifier, :step_id, id)
         @handler = Workflow.send(:normalize_identifier, :handler, handler)
-        @options = Options.new(options)
-        @arguments = Arguments.new(@options.arguments, step_id: @id, handler: @handler).normalize
-        @depends_on = Dependencies.new(@options.depends_on).normalize
-        @compensate_with = CompensationHandler.new(@options.compensate_with).normalize
+        normalized_options = Options.new(options)
+        @arguments = Arguments.new(normalized_options.arguments, step_id: @id, handler: @handler).normalize
+        @depends_on = Dependencies.new(normalized_options.depends_on).normalize
+        @compensate_with = CompensationHandler.new(normalized_options.compensate_with).normalize
         @compensation_arguments = Arguments.new(
-          @options.compensation_arguments,
+          normalized_options.compensation_arguments,
           step_id: @id,
           handler: compensation_handler_label
         ).normalize

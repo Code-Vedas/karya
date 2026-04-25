@@ -389,7 +389,6 @@ module Karya
       @depends_on: Array[String]
       @compensate_with: String?
       @compensation_arguments: Hash[String, job_argument]
-      @options: Options
 
       attr_reader id: String
       attr_reader handler: String

@@ -107,6 +107,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
       'rollback-job-3' => [],
       'rollback-job-1' => ['rollback-job-3']
     )
+    expect(result.dependency_job_ids_by_job_id.fetch('rollback-job-3')).to be_frozen
   end
 
   it 'builds empty rollback plans when every compensation step is skipped' do

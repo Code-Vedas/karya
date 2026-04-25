@@ -53,8 +53,9 @@ module Karya
 
       # Normalizes caller-supplied step ids without interning request input.
       class JobMap
-        def initialize(jobs_by_step_id)
+        def initialize(jobs_by_step_id, label: 'workflow step job')
           @jobs_by_step_id = jobs_by_step_id
+          @label = label
         end
 
         def to_h
@@ -62,7 +63,7 @@ module Karya
 
           jobs_by_step_id.each_with_object({}) do |(step_id, job), normalized|
             normalized_step_id = Workflow.send(:normalize_execution_identifier, :step_id, step_id)
-            raise InvalidExecutionError, "duplicate workflow step job #{normalized_step_id.inspect}" if normalized.key?(normalized_step_id)
+            raise InvalidExecutionError, "duplicate #{label} #{normalized_step_id.inspect}" if normalized.key?(normalized_step_id)
 
             normalized[normalized_step_id] = job
           end.freeze
@@ -70,7 +71,7 @@ module Karya
 
         private
 
-        attr_reader :jobs_by_step_id
+        attr_reader :jobs_by_step_id, :label
       end
 
       # Validates one concrete job against its workflow step contract.
@@ -106,7 +107,7 @@ module Karya
         end
 
         def to_h
-          normalized_jobs = JobMap.new(jobs_by_step_id).to_h
+          normalized_jobs = JobMap.new(jobs_by_step_id, label: 'workflow compensation job').to_h
           validate_step_coverage(normalized_jobs)
           validate_jobs(normalized_jobs)
           normalized_jobs.freeze
