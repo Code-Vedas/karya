@@ -49,9 +49,12 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
-      # Enqueue a bounded batch atomically. Any invalid job, duplicate job id,
-      # duplicate idempotency key, or duplicate uniqueness key must reject the
-      # whole batch without making partial writes.
+      # Enqueue a bounded batch atomically. When `batch_id` is provided, the
+      # durable batch identity and immutable job membership must be persisted
+      # in the same atomic boundary as the queued jobs. Any invalid job,
+      # duplicate job id, duplicate idempotency key, duplicate uniqueness key,
+      # invalid batch, or duplicate batch id must reject the whole batch
+      # without making partial writes.
       def enqueue_many(jobs:, now:, batch_id: nil)
         _jobs = jobs
         _now = now
