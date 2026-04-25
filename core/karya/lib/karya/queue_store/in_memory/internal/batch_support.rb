@@ -16,6 +16,7 @@ module Karya
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
 
             @mutex.synchronize do
+              recover_in_flight_locked(normalized_now)
               batch = fetch_batch(normalized_batch_id)
               job_ids = batch.job_ids
               jobs = fetch_batch_jobs(batch)

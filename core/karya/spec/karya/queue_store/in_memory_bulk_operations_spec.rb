@@ -70,6 +70,17 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(snapshot.state_counts).to eq(queued: 2)
     end
 
+    it 'runs in-memory maintenance before reading batch member states' do
+      store.enqueue_many(jobs: [submission_job(id: 'job-1', created_at:)], now: created_at + 1, batch_id: 'batch_1')
+      reservation = store.reserve(queue: 'billing', worker_id: 'worker-1', lease_duration: 1, now: created_at + 2)
+
+      snapshot = store.batch_snapshot(batch_id: 'batch_1', now: created_at + 4)
+
+      expect(reservation.job_id).to eq('job-1')
+      expect(snapshot.jobs.map(&:state)).to eq([:queued])
+      expect(snapshot.state_counts).to eq(queued: 1)
+    end
+
     it 'rejects duplicate batch ids without partial writes' do
       store.enqueue_many(jobs: [submission_job(id: 'job-1', created_at:)], now: created_at + 1, batch_id: 'batch_1')
 

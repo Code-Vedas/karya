@@ -7,7 +7,7 @@ module Karya
   module QueueStore
     # Single-process reference implementation for queue submission and reservation behavior.
     class InMemory
-      @token_generator: Method | Proc
+      @token_generator: Karya::callable_value
       @policy_set: Backpressure::PolicySet
       @circuit_breaker_policy_set: CircuitBreaker::PolicySet
       @fairness_policy: Fairness::Policy
@@ -25,7 +25,7 @@ module Karya
       RESERVE_QUEUES_ERROR_MESSAGE: String
 
       def initialize: (
-        ?token_generator: (Method | Proc),
+        ?token_generator: Karya::callable_value,
         ?expired_tombstone_limit: Integer,
         ?completed_batch_retention_limit: Integer,
         ?max_batch_size: Integer,
@@ -105,7 +105,7 @@ module Karya
       attr_reader max_batch_size: Integer
       attr_reader policy_set: Backpressure::PolicySet
       attr_reader state: Internal::StoreState
-      attr_reader token_generator: Method | Proc
+      attr_reader token_generator: Karya::callable_value
 
       def validate_initializer_limits: (
         expired_tombstone_limit: Integer?,
