@@ -182,8 +182,8 @@ module Karya
         now: Time
       ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> BulkMutationReport
       def workflow_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids) -> Array[String]
-      def workflow_dependencies_satisfied?: (Job job) -> bool
-      def workflow_child_satisfied?: (Job job) -> bool
+      def workflow_dependencies_satisfied?: (Job job, now: Time) -> bool
+      def workflow_child_satisfied?: (Job job, now: Time) -> bool
     end
   end
 end

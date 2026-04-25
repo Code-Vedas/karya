@@ -246,6 +246,7 @@ module Karya
             def for_child_batch: (String child_batch_id) -> WorkflowChildren::Relationship?
             def delete_by_parent_batch: (String parent_batch_id) -> Array[WorkflowChildren::Relationship]
             def delete_by_child_batch: (String child_batch_id) -> WorkflowChildren::Relationship?
+            def delete_expected_children: (Array[String] parent_job_ids) -> Array[String]
 
           private
 

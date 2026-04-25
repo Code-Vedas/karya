@@ -319,7 +319,12 @@ module Karya
 
           include WorkflowMetadata
 
-          private_constant :WorkflowChildren, :WorkflowMetadata, :WorkflowRegistration, :WorkflowRollback
+          private_constant :ChildBatchRetention,
+                           :TerminalBatchPruner,
+                           :WorkflowChildren,
+                           :WorkflowMetadata,
+                           :WorkflowRegistration,
+                           :WorkflowRollback
 
           def initialize(expired_tombstone_limit:)
             @batches_by_id = {}
