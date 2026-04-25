@@ -18,9 +18,12 @@ module Karya
         validate_step_coverage(normalized_jobs)
         @jobs_by_step_id = normalized_jobs
         validate_jobs
-        @compensation_jobs_by_step_id = CompensationJobMap.new(definition:, jobs_by_step_id: compensation_jobs_by_step_id).to_h
-        @jobs = definition.steps.map { |workflow_step| normalized_jobs.fetch(workflow_step.id) }.freeze
-        @dependency_job_ids_by_job_id = DependencyJobIds.new(definition:, jobs_by_step_id: normalized_jobs).to_h
+        @compensation_jobs_by_step_id = CompensationJobMap.new(
+          definition: @definition,
+          jobs_by_step_id: compensation_jobs_by_step_id
+        ).to_h
+        @jobs = @definition.steps.map { |workflow_step| normalized_jobs.fetch(workflow_step.id) }.freeze
+        @dependency_job_ids_by_job_id = DependencyJobIds.new(definition: @definition, jobs_by_step_id: normalized_jobs).to_h
         freeze
       end
 
