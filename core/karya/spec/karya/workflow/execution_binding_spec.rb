@@ -175,6 +175,24 @@ RSpec.describe 'Karya::Workflow::ExecutionBinding' do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'unknown workflow compensation job "extra"')
   end
 
+  it 'rejects non-hash compensation job maps with compensation wording' do
+    definition = Karya::Workflow.define(:refund_invoice) do
+      step :capture_payment,
+           handler: :capture_payment,
+           compensate_with: :refund_payment,
+           compensation_arguments: { reason: :workflow_rollback }
+    end
+
+    expect do
+      described_class.new(
+        definition:,
+        jobs_by_step_id: { capture_payment: submission_job(id: 'job-1', handler: :capture_payment) },
+        compensation_jobs_by_step_id: [['capture_payment']],
+        batch_id: 'batch-1'
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'compensation_jobs_by_step_id must be a Hash')
+  end
+
   it 'rejects duplicate-normalized compensation step ids with compensation wording' do
     definition = Karya::Workflow.define(:refund_invoice) do
       step :capture_payment,

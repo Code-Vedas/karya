@@ -107,6 +107,8 @@ module Karya
         end
 
         def to_h
+          raise InvalidExecutionError, 'compensation_jobs_by_step_id must be a Hash' unless jobs_by_step_id.is_a?(Hash)
+
           normalized_jobs = JobMap.new(jobs_by_step_id, label: 'workflow compensation job').to_h
           validate_step_coverage(normalized_jobs)
           validate_jobs(normalized_jobs)
