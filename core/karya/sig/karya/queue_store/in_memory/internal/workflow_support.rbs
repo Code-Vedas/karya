@@ -21,6 +21,7 @@ module Karya
             @batch: Karya::Workflow::Batch?
             @plan: RollbackPlan::Plan
 
+            def initialize: (String workflow_batch_id, String rollback_batch_id, Karya::Workflow::Batch? batch, RollbackPlan::Plan plan) -> void
             attr_reader workflow_batch_id: String
             attr_reader rollback_batch_id: String
             attr_reader batch: Karya::Workflow::Batch?
@@ -55,6 +56,7 @@ module Karya
               @jobs: Array[Job]
               @dependency_job_ids_by_job_id: Hash[String, Array[String]]
 
+              def initialize: (Array[Job] jobs, Hash[String, Array[String]] dependency_job_ids_by_job_id) -> void
               attr_reader jobs: Array[Job]
               attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
             end

@@ -611,13 +611,15 @@ module Karya
 
       class JobMap
         @jobs_by_step_id: Hash[state_name, Job]
+        @label: String
 
-        def initialize: (Hash[state_name, Job] jobs_by_step_id) -> void
+        def initialize: (Hash[state_name, Job] jobs_by_step_id, ?label: String) -> void
         def to_h: () -> Hash[String, Job]
 
       private
 
         attr_reader jobs_by_step_id: Hash[state_name, Job]
+        attr_reader label: String
       end
 
       class StepJob
