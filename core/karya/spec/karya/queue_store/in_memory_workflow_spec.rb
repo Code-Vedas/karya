@@ -879,6 +879,22 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
     end
 
+    it 'rejects invalid dead-letter step control reasons with workflow-domain errors' do
+      definition = Karya::Workflow.define(:dead_letter_invalid_reason) do
+        step :root, handler: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      expect do
+        store.dead_letter_workflow_steps(batch_id: :batch_one, step_ids: [:root], now: created_at + 2, reason: " \t ")
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
+    end
+
     it 'records no-op rollback when every compensation step is skipped' do
       definition = Karya::Workflow.define(:rollback_noop) do
         step :root, handler: :root

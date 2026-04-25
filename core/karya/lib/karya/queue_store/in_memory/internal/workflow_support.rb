@@ -116,7 +116,7 @@ module Karya
 
           def dead_letter_workflow_steps(batch_id:, step_ids:, now:, reason:)
             normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
-            normalized_reason = Karya::Internal::DeadLetterReason.normalize(reason, error_class: Workflow::InvalidExecutionError)
+            normalized_reason = normalize_dead_letter_reason(reason)
 
             @mutex.synchronize do
               workflow_control_report(
@@ -177,6 +177,12 @@ module Karya
           end
 
           private
+
+          def normalize_dead_letter_reason(reason)
+            Karya::Internal::DeadLetterReason.normalize(reason, error_class: Workflow::InvalidExecutionError)
+          rescue Workflow::InvalidExecutionError => e
+            raise Workflow::InvalidExecutionError, e.message.gsub('dead_letter_reason', 'reason'), cause: e
+          end
 
           def normalize_rollback_reason(reason)
             max_length = Karya::Internal::DeadLetterReason::MAX_LENGTH

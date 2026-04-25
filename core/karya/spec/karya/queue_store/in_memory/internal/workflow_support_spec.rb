@@ -139,6 +139,12 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be at most 1024 characters')
   end
 
+  it 'rewrites dead-letter step control reason validation errors into workflow terminology' do
+    expect do
+      store.send(:normalize_dead_letter_reason, " \t ")
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
+  end
+
   it 'builds frozen rollback batch ids' do
     expect(rollback_batch_id('batch-1')).to eq('__karya_workflow_rollback_v1__62617463682d31')
     expect(rollback_batch_id('batch-1')).to be_frozen
