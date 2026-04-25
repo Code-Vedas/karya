@@ -50,7 +50,7 @@ module Karya
               batch = fetch_batch(normalized_batch_id)
               workflow_batch_id = batch.id
               registration = fetch_workflow_registration(workflow_batch_id)
-              jobs = batch.job_ids.map { |job_id| state.jobs_by_id.fetch(job_id) }
+              jobs = fetch_batch_jobs(batch)
               Workflow::Snapshot.new(
                 workflow_id: registration.workflow_id,
                 batch_id: workflow_batch_id,
