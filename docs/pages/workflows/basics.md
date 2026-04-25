@@ -63,6 +63,30 @@ aggregate state:
 - `failed` when a step failed, was dead-lettered, or terminal mixed outcomes
   prevent workflow success
 
+Steps can also declare compensation work for explicit saga rollback:
+
+```ruby
+workflow = Karya::Workflow.define(:invoice_closeout) do
+  step :capture_payment,
+       handler: :capture_payment,
+       compensate_with: :refund_payment,
+       compensation_arguments: { reason: :workflow_rollback }
+end
+```
+
+Compensation jobs are supplied when the workflow is enqueued, but they are not
+members of the primary workflow batch. For workflows with compensable steps,
+the caller must provide matching `compensation_jobs_by_step_id` at enqueue
+time. Each supplied compensation job must exactly match the step's
+`compensate_with` handler and `compensation_arguments`; Karya validates that
+contract at runtime and does not auto-generate compensation jobs from step
+metadata alone. When an operator requests rollback for a failed workflow,
+Karya creates a separate rollback batch and enqueues compensation jobs for
+succeeded compensable steps in reverse definition order. Queued compensation
+work is dependency-gated so rollback runs one compensation job at a time. If
+every succeeded step is uncompensated, rollback records the operator boundary
+without adding jobs.
+
 ### Batch Identity And Aggregate State
 
 Workflow batches give related runtime jobs one stable identity. Batch creation

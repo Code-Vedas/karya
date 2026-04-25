@@ -24,6 +24,62 @@ RSpec.describe Karya::Workflow::Step do
     expect(step).to be_frozen
   end
 
+  it 'normalizes optional compensation metadata' do
+    step = described_class.new(
+      id: :capture_payment,
+      handler: :capture_payment,
+      compensate_with: ' refund_payment ',
+      compensation_arguments: { reason: :workflow_rollback }
+    )
+
+    expect(step.compensable?).to be(true)
+    expect(step.compensate_with).to eq('refund_payment')
+    expect(step.compensation_arguments).to eq('reason' => :workflow_rollback)
+    expect(step.compensation_arguments).to be_frozen
+  end
+
+  it 'defaults compensation metadata to no-op rollback behavior' do
+    step = described_class.new(id: :capture_payment, handler: :capture_payment)
+
+    expect(step.compensable?).to be(false)
+    expect(step.compensate_with).to be_nil
+    expect(step.compensation_arguments).to eq({})
+  end
+
+  it 'rejects invalid compensation arguments' do
+    expect do
+      described_class.new(id: :capture_payment, handler: :capture_payment, compensation_arguments: [])
+    end.to raise_error(
+      Karya::Workflow::InvalidDefinitionError,
+      'workflow step "capture_payment" (handler "compensation") has invalid arguments: arguments must be a Hash'
+    )
+  end
+
+  it 'rejects compensation arguments without a compensation handler' do
+    expect do
+      described_class.new(
+        id: :capture_payment,
+        handler: :capture_payment,
+        compensation_arguments: { reason: :workflow_rollback }
+      )
+    end.to raise_error(
+      Karya::Workflow::InvalidDefinitionError,
+      'workflow step "capture_payment" cannot define compensation_arguments without compensate_with'
+    )
+  end
+
+  it 'rejects unknown step options' do
+    expect do
+      described_class.new(id: :capture_payment, handler: :capture_payment, unknown: true)
+    end.to raise_error(ArgumentError, 'unknown keyword: :unknown')
+  end
+
+  it 'reports every unknown step option' do
+    expect do
+      described_class.new(id: :capture_payment, handler: :capture_payment, unknown: true, extra: true)
+    end.to raise_error(ArgumentError, 'unknown keywords: :unknown, :extra')
+  end
+
   it 'rejects duplicate dependency ids after normalization' do
     expect do
       described_class.new(id: :emit_receipt, handler: :emit_receipt, depends_on: [:calculate_totals, ' calculate_totals '])

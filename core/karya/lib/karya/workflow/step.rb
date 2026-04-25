@@ -11,14 +11,79 @@ module Karya
   module Workflow
     # Immutable one-step workflow composition unit.
     class Step
-      attr_reader :arguments, :depends_on, :handler, :id
+      attr_reader :arguments,
+                  :compensate_with,
+                  :compensation_arguments,
+                  :depends_on,
+                  :handler,
+                  :id
 
-      def initialize(id:, handler:, arguments: {}, depends_on: nil)
+      def initialize(id:, handler:, **options)
         @id = Workflow.send(:normalize_identifier, :step_id, id)
         @handler = Workflow.send(:normalize_identifier, :handler, handler)
-        @arguments = Arguments.new(arguments, step_id: @id, handler: @handler).normalize
-        @depends_on = Dependencies.new(depends_on).normalize
+        normalized_options = Options.new(options)
+        @arguments = Arguments.new(normalized_options.arguments, step_id: @id, handler: @handler).normalize
+        @depends_on = Dependencies.new(normalized_options.depends_on).normalize
+        @compensate_with = CompensationHandler.new(normalized_options.compensate_with).normalize
+        @compensation_arguments = Arguments.new(
+          normalized_options.compensation_arguments,
+          step_id: @id,
+          handler: compensation_handler_label
+        ).normalize
+        validate_compensation_configuration
         freeze
+      end
+
+      def compensable?
+        !!compensate_with
+      end
+
+      # Centralizes optional constructor field defaults and key validation.
+      class Options
+        ALLOWED_KEYS = %i[arguments depends_on compensate_with compensation_arguments].freeze
+
+        def initialize(options)
+          @options = options
+          validate_keys
+        end
+
+        def arguments
+          options.fetch(:arguments, {})
+        end
+
+        def depends_on
+          options.fetch(:depends_on, nil)
+        end
+
+        def compensate_with
+          options.fetch(:compensate_with, nil)
+        end
+
+        def compensation_arguments
+          options.fetch(:compensation_arguments, {})
+        end
+
+        private
+
+        attr_reader :options
+
+        def validate_keys
+          return if unexpected_keys.empty?
+
+          raise ArgumentError, "#{unknown_keyword_label}: #{formatted_unexpected_keys}"
+        end
+
+        def unexpected_keys
+          options.keys - ALLOWED_KEYS
+        end
+
+        def unknown_keyword_label
+          unexpected_keys.length == 1 ? 'unknown keyword' : 'unknown keywords'
+        end
+
+        def formatted_unexpected_keys
+          unexpected_keys.map { |key| ":#{key}" }.join(', ')
+        end
       end
 
       # Normalizes workflow step arguments into the same immutable scalar graph
@@ -70,7 +135,39 @@ module Karya
         end
       end
 
-      private_constant :Arguments, :Dependencies
+      # Normalizes an optional compensation handler.
+      class CompensationHandler
+        def initialize(value)
+          @value = value
+        end
+
+        def normalize
+          case value
+          when NilClass
+            nil
+          else
+            Workflow.send(:normalize_identifier, :compensate_with, value)
+          end
+        end
+
+        private
+
+        attr_reader :value
+      end
+
+      private_constant :Arguments, :CompensationHandler, :Dependencies, :Options
+
+      private
+
+      def validate_compensation_configuration
+        return if compensate_with || compensation_arguments.empty?
+
+        raise InvalidDefinitionError, "workflow step #{id.inspect} cannot define compensation_arguments without compensate_with"
+      end
+
+      def compensation_handler_label
+        compensate_with || 'compensation'
+      end
     end
   end
 end

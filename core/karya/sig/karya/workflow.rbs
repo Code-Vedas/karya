@@ -387,18 +387,25 @@ module Karya
       @handler: String
       @arguments: Hash[String, job_argument]
       @depends_on: Array[String]
+      @compensate_with: String?
+      @compensation_arguments: Hash[String, job_argument]
 
       attr_reader id: String
       attr_reader handler: String
       attr_reader arguments: Hash[String, job_argument]
       attr_reader depends_on: Array[String]
+      attr_reader compensate_with: String?
+      attr_reader compensation_arguments: Hash[String, job_argument]
 
       def initialize: (
         id: state_name,
         handler: state_name,
         ?arguments: Hash[state_name, job_argument],
-        ?depends_on: (state_name | Array[state_name] | nil)
+        ?depends_on: (state_name | Array[state_name] | nil),
+        ?compensate_with: state_name?,
+        ?compensation_arguments: Hash[state_name, job_argument]
       ) -> void
+      def compensable?: () -> bool
 
     private
 
@@ -422,6 +429,23 @@ module Karya
         def context_message: () -> String
       end
 
+      class Options
+        ALLOWED_KEYS: Array[Symbol]
+
+        @options: Hash[Symbol, Hash[state_name, job_argument] | (state_name | Array[state_name] | nil)]
+
+        def initialize: (Hash[Symbol, Hash[state_name, job_argument] | (state_name | Array[state_name] | nil)] options) -> void
+        def arguments: () -> Hash[state_name, job_argument]
+        def depends_on: () -> (state_name | Array[state_name] | nil)
+        def compensate_with: () -> state_name?
+        def compensation_arguments: () -> Hash[state_name, job_argument]
+
+      private
+
+        attr_reader options: Hash[Symbol, Hash[state_name, job_argument] | (state_name | Array[state_name] | nil)]
+        def validate_keys: () -> void
+      end
+
       class Dependencies
         @value: (state_name | Array[state_name] | nil)
 
@@ -433,6 +457,19 @@ module Karya
         attr_reader value: (state_name | Array[state_name] | nil)
         def raw_dependencies: () -> Array[state_name]
       end
+
+      class CompensationHandler
+        @value: state_name?
+
+        def initialize: (state_name? value) -> void
+        def normalize: () -> String?
+
+      private
+
+        attr_reader value: state_name?
+      end
+
+      def compensation_handler_label: () -> String
     end
 
     class Definition
@@ -515,13 +552,26 @@ module Karya
       jobs_by_step_id: Hash[state_name, Job],
       batch_id: state_name
     ) -> ExecutionBinding
+    def self.build_compensated_execution_binding: (
+      definition: Definition,
+      jobs_by_step_id: Hash[state_name, Job],
+      batch_id: state_name,
+      compensation_jobs_by_step_id: Hash[state_name, Job]
+    ) -> ExecutionBinding
 
     class Builder
       @id: state_name
       @steps: Array[Step]
 
       def initialize: (state_name id) -> void
-      def step: (state_name id, handler: state_name, ?arguments: Hash[state_name, job_argument], ?depends_on: (state_name | Array[state_name] | nil)) -> nil
+      def step: (
+        state_name id,
+        handler: state_name,
+        ?arguments: Hash[state_name, job_argument],
+        ?depends_on: (state_name | Array[state_name] | nil),
+        ?compensate_with: state_name?,
+        ?compensation_arguments: Hash[state_name, job_argument]
+      ) -> nil
       def to_definition: () -> Definition
 
     private
@@ -534,17 +584,20 @@ module Karya
       @definition: Definition
       @batch_id: String
       @jobs_by_step_id: Hash[String, Job]
+      @compensation_jobs_by_step_id: Hash[String, Job]
       @jobs: Array[Job]
       @dependency_job_ids_by_job_id: Hash[String, Array[String]]
 
       attr_reader batch_id: String
       attr_reader jobs: Array[Job]
+      attr_reader compensation_jobs_by_step_id: Hash[String, Job]
       attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
 
       def initialize: (
         definition: Definition,
         jobs_by_step_id: Hash[state_name, Job],
-        batch_id: state_name
+        batch_id: state_name,
+        ?compensation_jobs_by_step_id: Hash[state_name, Job]
       ) -> void
 
     private
@@ -558,16 +611,47 @@ module Karya
 
       class JobMap
         @jobs_by_step_id: Hash[state_name, Job]
+        @label: String
 
-        def initialize: (Hash[state_name, Job] jobs_by_step_id) -> void
+        def initialize: (Hash[state_name, Job] jobs_by_step_id, ?label: String) -> void
         def to_h: () -> Hash[String, Job]
 
       private
 
         attr_reader jobs_by_step_id: Hash[state_name, Job]
+        attr_reader label: String
       end
 
       class StepJob
+        @workflow_step: Step
+        @job: Job
+
+        def initialize: (Step workflow_step, Job job) -> void
+        def validate: () -> void
+
+      private
+
+        attr_reader job: Job
+        attr_reader workflow_step: Step
+        def step_label: () -> String
+      end
+
+      class CompensationJobMap
+        @definition: Definition
+        @jobs_by_step_id: Hash[state_name, Job]
+
+        def initialize: (definition: Definition, jobs_by_step_id: Hash[state_name, Job]) -> void
+        def to_h: () -> Hash[String, Job]
+
+      private
+
+        attr_reader definition: Definition
+        attr_reader jobs_by_step_id: Hash[state_name, Job]
+        def validate_step_coverage: (Hash[String, Job] normalized_jobs) -> void
+        def validate_jobs: (Hash[String, Job] normalized_jobs) -> void
+      end
+
+      class CompensationJob
         @workflow_step: Step
         @job: Job
 

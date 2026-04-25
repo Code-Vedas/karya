@@ -7,11 +7,71 @@ module Karya
             definition: Karya::Workflow::Definition,
             jobs_by_step_id: Hash[Karya::state_name, Job],
             batch_id: Karya::state_name,
-            now: Time
+            now: Time,
+            ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
           ) -> BulkMutationReport
           def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
+          def rollback_workflow: (batch_id: Karya::state_name, now: Time, reason: String) -> BulkMutationReport
 
           private
+
+          class Rollback
+            @workflow_batch_id: String
+            @rollback_batch_id: String
+            @batch: Karya::Workflow::Batch?
+            @plan: RollbackPlan::Plan
+
+            def initialize: (String workflow_batch_id, String rollback_batch_id, Karya::Workflow::Batch? batch, RollbackPlan::Plan plan) -> void
+            attr_reader workflow_batch_id: String
+            attr_reader rollback_batch_id: String
+            attr_reader batch: Karya::Workflow::Batch?
+            attr_reader plan: RollbackPlan::Plan
+          end
+
+          class RollbackBatchId
+            @batch_id: String
+
+            def initialize: (String batch_id) -> void
+            def to_s: () -> String
+
+          private
+
+            attr_reader batch_id: String
+          end
+
+          class RollbackPlan
+            @registration: InMemory::Internal::StoreState::WorkflowRegistration
+            @jobs_by_id: Hash[String, Job]
+
+            def initialize: (registration: InMemory::Internal::StoreState::WorkflowRegistration, jobs: Array[Job]) -> void
+            def to_plan: () -> RollbackPlan::Plan
+
+          private
+
+            attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
+            attr_reader jobs_by_id: Hash[String, Job]
+            def ordered_compensation_jobs: () -> Array[Job]
+
+            class Plan
+              @jobs: Array[Job]
+              @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+
+              def initialize: (Array[Job] jobs, Hash[String, Array[String]] dependency_job_ids_by_job_id) -> void
+              attr_reader jobs: Array[Job]
+              attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            end
+          end
+
+          class RollbackDependencies
+            @jobs: Array[Job]
+
+            def initialize: (Array[Job] jobs) -> void
+            def to_h: () -> Hash[String, Array[String]]
+
+          private
+
+            attr_reader jobs: Array[Job]
+          end
 
           class StepJobIds
             @definition: Karya::Workflow::Definition
@@ -27,7 +87,57 @@ module Karya
           end
 
           def fetch_workflow_registration: (String batch_id) -> InMemory::Internal::StoreState::WorkflowRegistration
+          def normalize_rollback_reason: (String reason) -> String
+          def prepare_rollback: (String batch_id, Time now) -> Rollback
+          def build_rollback_batch: (batch_id: String, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch?
+          def raise_duplicate_batch: (String batch_id) -> nil
+          def raise_duplicate_rollback: (String batch_id) -> nil
           def workflow_dependencies_satisfied?: (Job job) -> bool
+
+          class WorkflowSnapshotBuilder
+            @batch: Karya::Workflow::Batch
+            @registration: InMemory::Internal::StoreState::WorkflowRegistration
+            @jobs: Array[Job]
+            @now: Time
+
+            def initialize: (
+              batch: Karya::Workflow::Batch,
+              registration: InMemory::Internal::StoreState::WorkflowRegistration,
+              jobs: Array[Job],
+              now: Time
+            ) -> void
+            def to_snapshot: () -> Karya::Workflow::Snapshot
+
+          private
+
+            attr_reader batch: Karya::Workflow::Batch
+            attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
+            attr_reader jobs: Array[Job]
+            attr_reader now: Time
+          end
+
+          class RollbackState
+            @snapshot: Karya::Workflow::Snapshot
+            @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            @jobs_by_id: Hash[String, Job]
+
+            def initialize: (Karya::Workflow::Snapshot snapshot, Hash[String, Array[String]] dependency_job_ids_by_job_id) -> void
+            def validate: () -> nil
+
+          private
+
+            ACTIVE_JOB_STATES: Array[Symbol]
+            WAITING_JOB_STATES: Array[Symbol]
+            attr_reader snapshot: Karya::Workflow::Snapshot
+            attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            attr_reader jobs_by_id: Hash[String, Job]
+            def failed_snapshot?: () -> bool
+            def active_jobs?: () -> bool
+            def active_job?: (Job job) -> bool
+            def runnable_waiting_job?: (Job job) -> bool
+            def dependencies_satisfied?: (Job job) -> bool
+            def validation_error_message: () -> String
+          end
         end
       end
     end

@@ -14,6 +14,16 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     Karya::Job.new(id:, queue: :billing, handler: :sync_billing, state:, created_at:)
   end
 
+  def rollback_job(id)
+    Karya::Job.new(id:, queue: :rollback, handler: :undo, state: :submission, created_at:)
+  end
+
+  def rollback_batch_id(batch_id)
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
+  end
+
   it 'treats non-workflow jobs and root workflow jobs as ready' do
     plain_job = job(id: 'job-1', state: :queued)
     root_job = job(id: 'job-2', state: :queued)
@@ -69,5 +79,79 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     expect do
       store.send(:fetch_workflow_registration, 'batch-1')
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "batch-1" is not a workflow batch')
+  end
+
+  it 'rewrites rollback reason validation errors into workflow terminology' do
+    expect do
+      store.send(:normalize_rollback_reason, " \t ")
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
+  end
+
+  it 'rejects non-string rollback reasons with workflow terminology' do
+    expect do
+      store.send(:normalize_rollback_reason, :operator_rollback)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be a String')
+  end
+
+  it 'rejects overlong rollback reasons with workflow terminology' do
+    expect do
+      store.send(:normalize_rollback_reason, 'a' * 1025)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be at most 1024 characters')
+  end
+
+  it 'builds frozen rollback batch ids' do
+    expect(rollback_batch_id('batch-1')).to eq('__karya_workflow_rollback_v1__62617463682d31')
+    expect(rollback_batch_id('batch-1')).to be_frozen
+  end
+
+  it 'builds distinct rollback batch ids for suffixed workflow batch ids' do
+    expect(rollback_batch_id('batch-1')).not_to eq(rollback_batch_id('batch-1.rollback'))
+  end
+
+  it 'builds rollback jobs in reverse definition order with serial dependencies' do
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    helper = workflow_support.const_get(:RollbackPlan, false)
+    registration = store.send(:state).register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'first' => 'job-1', 'second' => 'job-2', 'third' => 'job-3' },
+      dependency_job_ids_by_job_id: {},
+      compensation_jobs_by_step_id: {
+        'first' => rollback_job('rollback-job-1'),
+        'second' => rollback_job('rollback-job-2'),
+        'third' => rollback_job('rollback-job-3')
+      }
+    )
+
+    result = helper.new(
+      registration:,
+      jobs: [job(id: 'job-1', state: :succeeded), job(id: 'job-2', state: :failed), job(id: 'job-3', state: :succeeded)]
+    ).to_plan
+
+    expect(result.jobs.map(&:id)).to eq(%w[rollback-job-3 rollback-job-1])
+    expect(result.dependency_job_ids_by_job_id).to eq(
+      'rollback-job-3' => [],
+      'rollback-job-1' => ['rollback-job-3']
+    )
+    expect(result.dependency_job_ids_by_job_id.fetch('rollback-job-3')).to be_frozen
+  end
+
+  it 'builds empty rollback plans when every compensation step is skipped' do
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    helper = workflow_support.const_get(:RollbackPlan, false)
+    registration = store.send(:state).register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'first' => 'job-1' },
+      dependency_job_ids_by_job_id: {},
+      compensation_jobs_by_step_id: { 'first' => rollback_job('rollback-job-1') }
+    )
+
+    result = helper.new(registration:, jobs: [job(id: 'job-1', state: :failed)]).to_plan
+
+    expect(result.jobs).to eq([])
+    expect(result.dependency_job_ids_by_job_id).to eq({})
   end
 end

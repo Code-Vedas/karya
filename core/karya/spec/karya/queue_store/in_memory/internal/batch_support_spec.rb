@@ -14,6 +14,12 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::BatchSupport' do
     Karya::Job.new(id:, queue: :billing, handler: :sync_billing, state: :submission, created_at:)
   end
 
+  def rollback_batch_id(batch_id)
+    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
+  end
+
   it 'builds and stores owner-local batch state' do
     jobs = [submission_job('job_1'), submission_job('job_2')]
 
@@ -36,6 +42,20 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::BatchSupport' do
     expect do
       store.send(:fetch_batch, 'missing')
     end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "missing" is not registered')
+  end
+
+  it 'rejects batch ids reserved for workflow rollback batches' do
+    store.send(:state).register_workflow_rollback(
+      batch_id: 'batch_1',
+      rollback_batch_id: rollback_batch_id('batch_1'),
+      reason: 'operator rollback',
+      requested_at: created_at,
+      compensation_job_ids: []
+    )
+
+    expect do
+      store.send(:build_enqueue_batch, batch_id: rollback_batch_id('batch_1'), jobs: [submission_job('job_1')], now: created_at)
+    end.to raise_error(Karya::Workflow::DuplicateBatchError, "batch #{rollback_batch_id('batch_1').inspect} already exists")
   end
 
   it 'raises workflow-domain errors for batches with missing member jobs' do

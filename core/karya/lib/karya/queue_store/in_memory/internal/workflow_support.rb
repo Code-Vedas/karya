@@ -11,11 +11,17 @@ module Karya
       module Internal
         # Owner-local workflow enqueue and prerequisite readiness support.
         module WorkflowSupport
-          def enqueue_workflow(definition:, jobs_by_step_id:, batch_id:, now:)
+          def enqueue_workflow(definition:, jobs_by_step_id:, batch_id:, now:, compensation_jobs_by_step_id: {})
             normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
 
             @mutex.synchronize do
-              binding = Workflow.send(:build_execution_binding, definition:, jobs_by_step_id:, batch_id:)
+              binding = Workflow.send(
+                :build_compensated_execution_binding,
+                definition:,
+                jobs_by_step_id:,
+                batch_id:,
+                compensation_jobs_by_step_id:
+              )
               jobs = binding.jobs
               workflow_batch_id = binding.batch_id
               batch = build_enqueue_batch(batch_id: workflow_batch_id, jobs:, now: normalized_now)
@@ -24,17 +30,55 @@ module Karya
               queued_jobs = jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               dependency_job_ids_by_job_id = binding.dependency_job_ids_by_job_id
               store_batch(batch)
-              state.workflow_dependency_job_ids_by_job_id.merge!(dependency_job_ids_by_job_id)
+              state.workflow_dependency_job_ids_by_job_id.merge!(
+                dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }
+              )
               state.register_workflow(
                 batch_id: workflow_batch_id,
                 workflow_id: definition.id,
                 step_job_ids: StepJobIds.new(definition:, jobs:).to_h,
-                dependency_job_ids_by_job_id:
+                dependency_job_ids_by_job_id:,
+                compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id
               )
               BulkMutationReport.new(
                 action: :enqueue_many,
                 performed_at: normalized_now,
                 requested_job_ids: jobs.map(&:id),
+                changed_jobs: queued_jobs,
+                skipped_jobs: []
+              )
+            end
+          end
+
+          def rollback_workflow(batch_id:, now:, reason:)
+            normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
+            normalized_reason = normalize_rollback_reason(reason)
+            normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
+
+            @mutex.synchronize do
+              expire_reservations_locked(normalized_now)
+              rollback = prepare_rollback(normalized_batch_id, normalized_now)
+              rollback_plan = rollback.plan
+              rollback_jobs = rollback_plan.jobs
+              rollback_batch = rollback.batch
+              validate_bulk_enqueue_uniqueness(rollback_jobs, normalized_now)
+              queued_jobs = rollback_jobs.map { |job| enqueue_validated_job(job, normalized_now) }
+              queued_job_ids = queued_jobs.map(&:id)
+              store_batch(rollback_batch) if rollback_batch
+              state.workflow_dependency_job_ids_by_job_id.merge!(
+                rollback_plan.dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }
+              )
+              state.register_workflow_rollback(
+                batch_id: rollback.workflow_batch_id,
+                rollback_batch_id: rollback.rollback_batch_id,
+                reason: normalized_reason,
+                requested_at: normalized_now,
+                compensation_job_ids: queued_job_ids
+              )
+              BulkMutationReport.new(
+                action: :rollback_workflow,
+                performed_at: normalized_now,
+                requested_job_ids: queued_job_ids,
                 changed_jobs: queued_jobs,
                 skipped_jobs: []
               )
@@ -51,18 +95,96 @@ module Karya
               workflow_batch_id = batch.id
               registration = fetch_workflow_registration(workflow_batch_id)
               jobs = fetch_batch_jobs(batch)
-              Workflow::Snapshot.new(
-                workflow_id: registration.workflow_id,
-                batch_id: workflow_batch_id,
-                captured_at: normalized_now,
-                step_job_ids: registration.step_job_ids,
-                dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
-                jobs:
-              )
+              WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now).to_snapshot
             end
           end
 
           private
+
+          def normalize_rollback_reason(reason)
+            max_length = Karya::Internal::DeadLetterReason::MAX_LENGTH
+            too_long_message = "reason must be at most #{max_length} characters"
+
+            raise Workflow::InvalidExecutionError, 'reason must be a String' unless reason.is_a?(String)
+
+            normalized_reason = reason.strip
+            raise Workflow::InvalidExecutionError, 'reason must be present' if normalized_reason.empty?
+            raise Workflow::InvalidExecutionError, too_long_message if normalized_reason.length > max_length
+
+            normalized_reason.freeze
+          end
+
+          # Groups the validated rollback batch and enqueue plan.
+          Rollback = Struct.new(:workflow_batch_id, :rollback_batch_id, :batch, :plan)
+
+          # Builds a deterministic rollback batch id for one workflow batch.
+          class RollbackBatchId
+            PREFIX = '__karya_workflow_rollback_v1__'
+            private_constant :PREFIX
+
+            def initialize(batch_id)
+              @batch_id = batch_id
+            end
+
+            def to_s
+              "#{PREFIX}#{batch_id.unpack1('H*')}".freeze
+            end
+
+            private
+
+            attr_reader :batch_id
+          end
+
+          # Immutable rollback enqueue plan.
+          class RollbackPlan
+            # Immutable compensation jobs and dependency metadata.
+            Plan = Struct.new(:jobs, :dependency_job_ids_by_job_id)
+            private_constant :Plan
+
+            def initialize(registration:, jobs:)
+              @registration = registration
+              @jobs_by_id = jobs.to_h { |job| [job.id, job] }
+            end
+
+            def to_plan
+              compensation_jobs = ordered_compensation_jobs
+              Plan.new(compensation_jobs.freeze, RollbackDependencies.new(compensation_jobs).to_h).freeze
+            end
+
+            private
+
+            attr_reader :jobs_by_id, :registration
+
+            def ordered_compensation_jobs
+              step_job_ids = registration.step_job_ids
+              step_job_ids.keys.reverse.filter_map do |step_id|
+                primary_job = jobs_by_id.fetch(step_job_ids.fetch(step_id))
+                next unless primary_job.state == :succeeded
+
+                registration.compensation_jobs_by_step_id[step_id]
+              end
+            end
+          end
+
+          # Builds serial dependency metadata for rollback compensation jobs.
+          class RollbackDependencies
+            def initialize(jobs)
+              @jobs = jobs
+            end
+
+            def to_h
+              previous_job_id = nil
+              jobs.each_with_object({}) do |job, dependencies|
+                job_id = job.id
+                dependencies[job_id] = previous_job_id ? [previous_job_id].freeze : [].freeze
+                previous_job_id = job_id
+              end.freeze
+            end
+
+            private
+
+            attr_reader :jobs
+          end
 
           # Builds step-to-job metadata in definition order.
           class StepJobIds
@@ -81,7 +203,7 @@ module Karya
 
             attr_reader :definition, :jobs
           end
-          private_constant :StepJobIds
+          private_constant :Rollback, :RollbackBatchId, :RollbackDependencies, :RollbackPlan, :StepJobIds
 
           def fetch_workflow_registration(batch_id)
             registration = state.workflow_registrations_by_batch_id[batch_id]
@@ -89,6 +211,119 @@ module Karya
 
             raise Workflow::InvalidExecutionError, "batch #{batch_id.inspect} is not a workflow batch"
           end
+
+          def prepare_rollback(batch_id, now)
+            batch = fetch_batch(batch_id)
+            workflow_batch_id = batch.id
+            registration = fetch_workflow_registration(workflow_batch_id)
+            raise_duplicate_rollback(workflow_batch_id)
+            jobs = fetch_batch_jobs(batch)
+            snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now:).to_snapshot
+            RollbackState.new(snapshot, registration.dependency_job_ids_by_job_id).validate
+            plan = RollbackPlan.new(registration:, jobs:).to_plan
+            rollback_batch_id = RollbackBatchId.new(workflow_batch_id).to_s
+            rollback_batch = build_rollback_batch(batch_id: rollback_batch_id, jobs: plan.jobs, now:)
+            Rollback.new(workflow_batch_id, rollback_batch_id, rollback_batch, plan).freeze
+          end
+
+          def build_rollback_batch(batch_id:, jobs:, now:)
+            if jobs.empty?
+              raise_duplicate_batch(batch_id)
+              return nil
+            end
+
+            build_enqueue_batch(batch_id:, jobs:, now:)
+          end
+
+          def raise_duplicate_batch(batch_id)
+            return unless state.batches_by_id.key?(batch_id) || workflow_rollback_batch_id?(batch_id)
+
+            raise Workflow::DuplicateBatchError, "batch #{batch_id.inspect} already exists"
+          end
+
+          def raise_duplicate_rollback(batch_id)
+            return unless state.workflow_rollbacks_by_batch_id[batch_id]
+
+            raise Workflow::InvalidExecutionError, "workflow batch #{batch_id.inspect} has already been rolled back"
+          end
+
+          # Builds workflow snapshots from stored workflow metadata.
+          class WorkflowSnapshotBuilder
+            def initialize(batch:, registration:, jobs:, now:)
+              @batch = batch
+              @registration = registration
+              @jobs = jobs
+              @now = now
+            end
+
+            def to_snapshot
+              Workflow::Snapshot.new(
+                workflow_id: registration.workflow_id,
+                batch_id: batch.id,
+                captured_at: now,
+                step_job_ids: registration.step_job_ids,
+                dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
+                jobs:
+              )
+            end
+
+            private
+
+            attr_reader :batch, :jobs, :now, :registration
+          end
+
+          # Validates rollback state eligibility.
+          class RollbackState
+            ACTIVE_JOB_STATES = %i[reserved running retry_pending].freeze
+            WAITING_JOB_STATES = %i[queued submission].freeze
+
+            def initialize(snapshot, dependency_job_ids_by_job_id)
+              @snapshot = snapshot
+              @dependency_job_ids_by_job_id = dependency_job_ids_by_job_id
+              @jobs_by_id = snapshot.jobs.to_h { |job| [job.id, job] }
+            end
+
+            def validate
+              return if failed_snapshot? && !active_jobs?
+
+              raise Workflow::InvalidExecutionError, validation_error_message
+            end
+
+            private
+
+            attr_reader :dependency_job_ids_by_job_id, :jobs_by_id, :snapshot
+
+            def failed_snapshot?
+              snapshot.state == :failed
+            end
+
+            def active_jobs?
+              snapshot.jobs.any? { |job| active_job?(job) }
+            end
+
+            def active_job?(job)
+              ACTIVE_JOB_STATES.include?(job.state) || runnable_waiting_job?(job)
+            end
+
+            def runnable_waiting_job?(job)
+              WAITING_JOB_STATES.include?(job.state) && dependencies_satisfied?(job)
+            end
+
+            def dependencies_satisfied?(job)
+              dependency_job_ids_by_job_id.fetch(job.id, []).all? do |dependency_job_id|
+                dependency_job = jobs_by_id[dependency_job_id]
+                dependency_job && dependency_job.state == :succeeded
+              end
+            end
+
+            def validation_error_message
+              batch_id = snapshot.batch_id.inspect
+              return "workflow batch #{batch_id} must be failed before rollback" unless failed_snapshot?
+
+              "workflow batch #{batch_id} has active jobs and cannot be rolled back"
+            end
+          end
+          private_constant :RollbackState, :WorkflowSnapshotBuilder
 
           def workflow_dependencies_satisfied?(job)
             prerequisite_job_ids = state.workflow_dependency_job_ids_by_job_id[job.id]

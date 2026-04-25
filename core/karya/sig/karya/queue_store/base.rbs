@@ -17,10 +17,13 @@ module Karya
         definition: Karya::Workflow::Definition,
         jobs_by_step_id: Hash[Karya::state_name, Job],
         batch_id: Karya::state_name,
-        now: Time
+        now: Time,
+        ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
       ) -> BulkMutationReport
 
       def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
+
+      def rollback_workflow: (batch_id: Karya::state_name, now: Time, reason: String) -> BulkMutationReport
 
       def reserve: (
         worker_id: String,
