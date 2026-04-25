@@ -125,6 +125,9 @@ module Karya
           private
 
             attr_reader snapshot: Karya::Workflow::Snapshot
+            def failed_snapshot?: () -> bool
+            def active_jobs?: () -> bool
+            def validation_error_message: () -> String
           end
         end
       end

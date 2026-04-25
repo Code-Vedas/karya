@@ -264,19 +264,36 @@ module Karya
 
           # Validates rollback state eligibility.
           class RollbackState
+            ACTIVE_JOB_STATES = %i[reserved running].freeze
+
             def initialize(snapshot)
               @snapshot = snapshot
             end
 
             def validate
-              return if snapshot.state == :failed
+              return if failed_snapshot? && !active_jobs?
 
-              raise Workflow::InvalidExecutionError, "workflow batch #{snapshot.batch_id.inspect} must be failed before rollback"
+              raise Workflow::InvalidExecutionError, validation_error_message
             end
 
             private
 
             attr_reader :snapshot
+
+            def failed_snapshot?
+              snapshot.state == :failed
+            end
+
+            def active_jobs?
+              snapshot.jobs.any? { |job| ACTIVE_JOB_STATES.include?(job.state) }
+            end
+
+            def validation_error_message
+              batch_id = snapshot.batch_id.inspect
+              return "workflow batch #{batch_id} must be failed before rollback" unless failed_snapshot?
+
+              "workflow batch #{batch_id} has active jobs and cannot be rolled back"
+            end
           end
           private_constant :RollbackState, :WorkflowSnapshotBuilder
 
