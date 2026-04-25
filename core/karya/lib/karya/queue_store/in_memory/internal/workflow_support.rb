@@ -56,12 +56,12 @@ module Karya
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
 
             @mutex.synchronize do
+              expire_reservations_locked(normalized_now)
               rollback = prepare_rollback(normalized_batch_id, normalized_now)
               rollback_plan = rollback.plan
               rollback_jobs = rollback_plan.jobs
               rollback_batch = rollback.batch
               validate_bulk_enqueue_uniqueness(rollback_jobs, normalized_now)
-              expire_reservations_locked(normalized_now)
               queued_jobs = rollback_jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               queued_job_ids = queued_jobs.map(&:id)
               store_batch(rollback_batch) if rollback_batch

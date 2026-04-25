@@ -55,6 +55,19 @@ RSpec.describe Karya::Workflow::Step do
     )
   end
 
+  it 'rejects compensation arguments without a compensation handler' do
+    expect do
+      described_class.new(
+        id: :capture_payment,
+        handler: :capture_payment,
+        compensation_arguments: { reason: :workflow_rollback }
+      )
+    end.to raise_error(
+      Karya::Workflow::InvalidDefinitionError,
+      'workflow step "capture_payment" cannot define compensation_arguments without compensate_with'
+    )
+  end
+
   it 'rejects unknown step options' do
     expect do
       described_class.new(id: :capture_payment, handler: :capture_payment, unknown: true)

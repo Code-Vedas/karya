@@ -30,6 +30,7 @@ module Karya
           step_id: @id,
           handler: compensation_handler_label
         ).normalize
+        validate_compensation_configuration
         freeze
       end
 
@@ -37,7 +38,7 @@ module Karya
         !!compensate_with
       end
 
-      # Normalizes optional constructor fields without growing the public API.
+      # Centralizes optional constructor field defaults and key validation.
       class Options
         ALLOWED_KEYS = %i[arguments depends_on compensate_with compensation_arguments].freeze
 
@@ -146,6 +147,12 @@ module Karya
       private_constant :Arguments, :CompensationHandler, :Dependencies, :Options
 
       private
+
+      def validate_compensation_configuration
+        return if compensate_with || compensation_arguments.empty?
+
+        raise InvalidDefinitionError, "workflow step #{id.inspect} cannot define compensation_arguments without compensate_with"
+      end
 
       def compensation_handler_label
         compensate_with || 'compensation'

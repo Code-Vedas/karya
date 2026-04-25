@@ -485,6 +485,28 @@ RSpec.describe Karya::QueueStore::InMemory do
         .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
     end
 
+    it 'recovers expired in-flight work before deciding rollback eligibility' do
+      definition = Karya::Workflow.define(:rollback_recovery_gate) do
+        step :root, handler: :root, compensate_with: :undo_root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        compensation_jobs_by_step_id: { root: compensation_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      root = reserve(2)
+      store.start_execution(reservation_token: root.token, now: created_at + 3)
+
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 63, reason: 'operator rollback')
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "batch_one" must be failed before rollback')
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 64)
+      expect(snapshot.jobs.map(&:state)).to eq([:queued])
+    end
+
     it 'rejects invalid rollback reasons with rollback-domain errors' do
       definition = Karya::Workflow.define(:rollback_invalid_reason) do
         step :root, handler: :root, compensate_with: :undo_root
