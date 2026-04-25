@@ -101,6 +101,12 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::InvalidQueueStoreOperationError, /fairness_policy must be a Karya::Fairness::Policy/)
     end
 
+    it 'rejects non-callable token generators' do
+      expect do
+        described_class.new(token_generator: nil)
+      end.to raise_error(Karya::InvalidQueueStoreOperationError, /token_generator must respond to #call/)
+    end
+
     it 'rejects non-string generated reservation tokens' do
       token_store = described_class.new(token_generator: -> { 123 })
       token_store.enqueue(

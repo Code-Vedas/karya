@@ -19,6 +19,7 @@ require_relative 'queue_control_result'
 require_relative 'recovery_report'
 require_relative 'in_memory/internal'
 require_relative '../job'
+require_relative '../primitives/callable'
 require_relative '../primitives/identifier'
 require_relative '../primitives/queue_list'
 require_relative '../reservation'
@@ -148,11 +149,13 @@ module Karya
         expired_tombstone_limit = initializer_options.expired_tombstone_limit
         completed_batch_retention_limit = initializer_options.completed_batch_retention_limit
         max_batch_size = initializer_options.max_batch_size
+        token_generator = initializer_options.token_generator
         policy_set = initializer_options.policy_set
         circuit_breaker_policy_set = initializer_options.circuit_breaker_policy_set
         fairness_policy = initializer_options.fairness_policy
 
         validate_initializer_limits(expired_tombstone_limit:, completed_batch_retention_limit:, max_batch_size:)
+        Primitives::Callable.new(:token_generator, token_generator, error_class: InvalidQueueStoreOperationError).normalize
         raise InvalidQueueStoreOperationError, 'policy_set must be a Karya::Backpressure::PolicySet' unless policy_set.is_a?(Backpressure::PolicySet)
         raise InvalidQueueStoreOperationError, 'fairness_policy must be a Karya::Fairness::Policy' unless fairness_policy.is_a?(Fairness::Policy)
         unless circuit_breaker_policy_set.is_a?(CircuitBreaker::PolicySet)
@@ -160,7 +163,7 @@ module Karya
                 'circuit_breaker_policy_set must be a Karya::CircuitBreaker::PolicySet'
         end
 
-        @token_generator = initializer_options.token_generator
+        @token_generator = token_generator
         @completed_batch_retention_limit = completed_batch_retention_limit
         @max_batch_size = max_batch_size
         @policy_set = policy_set

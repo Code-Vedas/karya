@@ -222,7 +222,10 @@ module Karya
               batch_id = @terminal_batch_ids_in_order.shift
               @terminal_batch_ids_index.delete(batch_id)
               batch = batches_by_id.delete(batch_id)
-              next unless batch
+              unless batch
+                @batch_id_by_job_id.delete_if { |_job_id, stored_batch_id| stored_batch_id == batch_id }
+                next
+              end
 
               batch.job_ids.each { |job_id| @batch_id_by_job_id.delete(job_id) }
               pruned_batch_ids << batch_id

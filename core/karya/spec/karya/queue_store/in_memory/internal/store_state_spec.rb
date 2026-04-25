@@ -79,6 +79,16 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.prune_terminal_batches(0)).to eq([])
   end
 
+  it 'removes stale job batch membership when pruning a missing batch entry' do
+    store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
+    store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.batches_by_id.delete('batch-1')
+
+    store_state.prune_terminal_batches(0)
+
+    expect(store_state.instance_variable_get(:@batch_id_by_job_id)).to eq({})
+  end
+
   it 'prunes terminal batches in terminal completion order' do
     store_state.register_batch(batch('batch-1', ['job-1']))
     store_state.register_batch(batch('batch-2', ['job-2']))
