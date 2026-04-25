@@ -275,6 +275,43 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(ready.state).to eq(:running)
     end
 
+    it 'runs in-flight maintenance before building workflow snapshots' do
+      definition = Karya::Workflow.define(:snapshot_recovery) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      reserve(2)
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 63)
+
+      expect(snapshot.step_states).to eq('root' => :queued, 'child' => :queued)
+      expect(snapshot.state).to eq(:blocked)
+    end
+
+    it 'limits workflow snapshot dependency metadata to the workflow batch' do
+      definition = Karya::Workflow.define(:snapshot_scope) do
+        step :root, handler: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      store.send(:state).workflow_dependency_job_ids_by_job_id['outside-job'] = 'invalid'
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 2)
+
+      expect(snapshot.job_ids).to eq(['job-root'])
+      expect(snapshot.state).to eq(:pending)
+    end
+
     it 'snapshots fan-out and fan-in states' do
       definition = Karya::Workflow.define(:snapshot_fan_in) do
         step :capture, handler: :capture

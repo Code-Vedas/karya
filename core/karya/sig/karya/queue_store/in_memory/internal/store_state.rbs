@@ -80,7 +80,12 @@ module Karya
           def reservation_token_in_use?: (String reservation_token) -> bool
           def register_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
           def prune_terminal_batches: (Integer retention_limit, ?changed_job: Job?) -> Array[String]
-          def register_workflow: (batch_id: String, workflow_id: String, step_job_ids: Hash[String, String]) -> WorkflowRegistration
+          def register_workflow: (
+            batch_id: String,
+            workflow_id: String,
+            step_job_ids: Hash[String, String],
+            dependency_job_ids_by_job_id: Hash[String, Array[String]]
+          ) -> WorkflowRegistration
 
           private
 
@@ -89,9 +94,47 @@ module Karya
           class WorkflowRegistration
             @workflow_id: String
             @step_job_ids: Hash[String, String]
+            @dependency_job_ids_by_job_id: Hash[String, Array[String]]
 
             attr_reader workflow_id: String
             attr_reader step_job_ids: Hash[String, String]
+            attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+          end
+
+          class PrunedBatchCleanup
+            @batch_id: String
+            @batch: Karya::Workflow::Batch?
+            @batch_id_by_job_id: Hash[String, String]
+            @workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            @workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
+
+            def self.call: (
+              batch_id: String,
+              batch: Karya::Workflow::Batch?,
+              batch_id_by_job_id: Hash[String, String],
+              workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]],
+              workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
+            ) -> WorkflowRegistration?
+            def initialize: (
+              batch_id: String,
+              batch: Karya::Workflow::Batch?,
+              batch_id_by_job_id: Hash[String, String],
+              workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]],
+              workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
+            ) -> void
+            def call: () -> WorkflowRegistration?
+
+            private
+
+            attr_reader batch: Karya::Workflow::Batch?
+            attr_reader batch_id: String
+            attr_reader batch_id_by_job_id: Hash[String, String]
+            attr_reader workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            attr_reader workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
+
+            def pruned_job_ids: () -> Array[String]?
+            def cleanup_batch_jobs: () -> Array[String]?
+            def cleanup_stale_batch_membership: () -> Hash[String, String]
           end
 
           def trim_fair_queue_history: () -> void

@@ -36,7 +36,7 @@ module Karya
                       :workflow_registrations_by_batch_id
 
           # Immutable owner-local workflow registration metadata for one batch.
-          WorkflowRegistration = Struct.new(:workflow_id, :step_job_ids)
+          WorkflowRegistration = Struct.new(:workflow_id, :step_job_ids, :dependency_job_ids_by_job_id)
 
           def initialize(expired_tombstone_limit:)
             @batches_by_id = {}
@@ -232,21 +232,34 @@ module Karya
               @terminal_batch_ids_index.delete(batch_id)
               batch = batches_by_id.delete(batch_id)
               unless batch
-                @batch_id_by_job_id.delete_if { |_job_id, stored_batch_id| stored_batch_id == batch_id }
+                PrunedBatchCleanup.call(
+                  batch_id:,
+                  batch: nil,
+                  batch_id_by_job_id: @batch_id_by_job_id,
+                  workflow_dependency_job_ids_by_job_id:,
+                  workflow_registrations_by_batch_id:
+                )
                 next
               end
 
-              batch.job_ids.each { |job_id| @batch_id_by_job_id.delete(job_id) }
+              PrunedBatchCleanup.call(
+                batch_id:,
+                batch:,
+                batch_id_by_job_id: @batch_id_by_job_id,
+                workflow_dependency_job_ids_by_job_id:,
+                workflow_registrations_by_batch_id:
+              )
               pruned_batch_ids << batch_id
             end
 
             pruned_batch_ids
           end
 
-          def register_workflow(batch_id:, workflow_id:, step_job_ids:)
+          def register_workflow(batch_id:, workflow_id:, step_job_ids:, dependency_job_ids_by_job_id:)
             workflow_registrations_by_batch_id[batch_id] = WorkflowRegistration.new(
               workflow_id,
-              step_job_ids
+              step_job_ids,
+              dependency_job_ids_by_job_id
             ).freeze
           end
 
@@ -260,6 +273,46 @@ module Karya
               job&.terminal?
             end
           end
+
+          # Removes indexes owned by a pruned workflow or plain batch.
+          class PrunedBatchCleanup
+            def self.call(**)
+              new(**).call
+            end
+
+            def initialize(batch_id:, batch:, batch_id_by_job_id:, workflow_dependency_job_ids_by_job_id:, workflow_registrations_by_batch_id:)
+              @batch_id = batch_id
+              @batch = batch
+              @batch_id_by_job_id = batch_id_by_job_id
+              @workflow_dependency_job_ids_by_job_id = workflow_dependency_job_ids_by_job_id
+              @workflow_registrations_by_batch_id = workflow_registrations_by_batch_id
+            end
+
+            def call
+              pruned_job_ids ? cleanup_batch_jobs : cleanup_stale_batch_membership
+              workflow_registrations_by_batch_id.delete(batch_id)
+            end
+
+            private
+
+            attr_reader :batch, :batch_id, :batch_id_by_job_id, :workflow_dependency_job_ids_by_job_id, :workflow_registrations_by_batch_id
+
+            def pruned_job_ids
+              batch&.job_ids
+            end
+
+            def cleanup_batch_jobs
+              pruned_job_ids.each do |job_id|
+                batch_id_by_job_id.delete(job_id)
+                workflow_dependency_job_ids_by_job_id.delete(job_id)
+              end
+            end
+
+            def cleanup_stale_batch_membership
+              batch_id_by_job_id.delete_if { |_job_id, stored_batch_id| stored_batch_id == batch_id }
+            end
+          end
+          private_constant :PrunedBatchCleanup
 
           def trim_fair_queue_history
             last_reserved_queue_by_subscription.shift while last_reserved_queue_by_subscription.length > MAX_TRACKED_FAIR_QUEUE_LISTS

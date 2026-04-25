@@ -22,12 +22,14 @@ module Karya
               validate_bulk_enqueue_uniqueness(jobs, normalized_now)
               expire_reservations_locked(normalized_now)
               queued_jobs = jobs.map { |job| enqueue_validated_job(job, normalized_now) }
+              dependency_job_ids_by_job_id = binding.dependency_job_ids_by_job_id
               store_batch(batch)
-              state.workflow_dependency_job_ids_by_job_id.merge!(binding.dependency_job_ids_by_job_id)
+              state.workflow_dependency_job_ids_by_job_id.merge!(dependency_job_ids_by_job_id)
               state.register_workflow(
                 batch_id: workflow_batch_id,
                 workflow_id: definition.id,
-                step_job_ids: StepJobIds.new(definition:, jobs:).to_h
+                step_job_ids: StepJobIds.new(definition:, jobs:).to_h,
+                dependency_job_ids_by_job_id:
               )
               BulkMutationReport.new(
                 action: :enqueue_many,
@@ -44,6 +46,7 @@ module Karya
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
 
             @mutex.synchronize do
+              recover_in_flight_locked(normalized_now)
               batch = fetch_batch(normalized_batch_id)
               workflow_batch_id = batch.id
               registration = fetch_workflow_registration(workflow_batch_id)
@@ -53,7 +56,7 @@ module Karya
                 batch_id: workflow_batch_id,
                 captured_at: normalized_now,
                 step_job_ids: registration.step_job_ids,
-                dependency_job_ids_by_job_id: state.workflow_dependency_job_ids_by_job_id,
+                dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
                 jobs:
               )
             end
