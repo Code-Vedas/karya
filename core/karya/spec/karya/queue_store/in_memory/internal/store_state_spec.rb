@@ -339,6 +339,23 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_dependency_job_ids_by_job_id).to eq({})
   end
 
+  it 'removes expected child metadata when pruning a workflow that never enqueued its child batch' do
+    store_state.jobs_by_id['job-root'] = succeeded_job('job-root')
+    store_state.register_batch(batch('batch-1', ['job-root']))
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'child' => 'job-root' },
+      dependency_job_ids_by_job_id: { 'job-root' => [] },
+      compensation_jobs_by_step_id: {},
+      child_workflow_ids_by_step_id: { 'child' => 'payment_flow' }
+    )
+
+    expect(store_state.workflow_children.expected_child_workflow_id_by_job_id).to eq('job-root' => 'payment_flow')
+    expect(store_state.prune_terminal_batches(0)).to eq(['batch-1'])
+    expect(store_state.workflow_children.expected_child_workflow_id_by_job_id).to eq({})
+  end
+
   it 'removes workflow rollback metadata when pruning terminal batches' do
     store_state.jobs_by_id['job-root'] = succeeded_job('job-root')
     store_state.register_batch(batch('batch-1', ['job-root']))

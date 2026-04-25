@@ -122,6 +122,10 @@ module Karya
               delete_relationship(relationship)
             end
 
+            def delete_expected_children(parent_job_ids)
+              parent_job_ids.each { |parent_job_id| @expected_child_workflow_id_by_job_id.delete(parent_job_id) }
+            end
+
             private
 
             def parent_relationships(parent_batch_id)
@@ -593,15 +597,43 @@ module Karya
             def cleanup_workflow_registration
               registration = workflow_registrations_by_batch_id.delete(batch_id)
               rollback = workflow_rollbacks_by_batch_id.delete(batch_id)
-              cleanup_child_workflows
+              cleanup_child_workflows(registration)
               workflow_rollback_batch_ids.delete(rollback.rollback_batch_id) if rollback
               registration
             end
 
-            def cleanup_child_workflows
+            def cleanup_child_workflows(registration)
+              cleanup_expected_children(registration)
               workflow_children.delete_by_parent_batch(batch_id)
               workflow_children.delete_by_child_batch(batch_id)
             end
+
+            def cleanup_expected_children(registration)
+              ExpectedChildrenCleanup.new(registration, workflow_children).call
+            end
+
+            # Deletes declared child markers for a registration even when no child relationship exists.
+            class ExpectedChildrenCleanup
+              def initialize(registration, workflow_children)
+                @registration = registration
+                @workflow_children = workflow_children
+              end
+
+              def call
+                return unless registration
+
+                workflow_children.delete_expected_children(
+                  registration.child_workflow_ids_by_step_id.keys.map do |step_id|
+                    registration.step_job_ids.fetch(step_id)
+                  end
+                )
+              end
+
+              private
+
+              attr_reader :registration, :workflow_children
+            end
+            private_constant :ExpectedChildrenCleanup
 
             def batch_id_by_job_id
               job_indexes.fetch(:batch_id_by_job_id)

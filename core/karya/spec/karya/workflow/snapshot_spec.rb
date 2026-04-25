@@ -113,19 +113,43 @@ RSpec.describe Karya::Workflow::Snapshot do
       step_job_ids: { root: 'job_root', child: 'job_child' },
       dependencies: { 'job_child' => ['job_root'] },
       child_workflow_ids_by_step_id: { child: :payment },
-      child_workflows: [relationship],
-      parent: relationship
+      child_workflows: [relationship]
     )
 
     expect(result.child_workflows).to eq([relationship])
     expect(result.child_workflow(:child)).to eq(relationship)
     expect(result.fetch_child_workflow(' child ')).to eq(relationship)
-    expect(result.parent).to eq(relationship)
+    expect(result.parent).to be_nil
     expect(result.fetch_step(:child)).to have_attributes(
       child_workflow_id: 'payment',
       child_workflow: relationship
     )
     expect(result.fetch_step(:child)).to be_ready
+  end
+
+  it 'exposes parent workflow metadata for child batch snapshots' do
+    jobs = [job(id: 'job_authorize', state: :queued)]
+    relationship = Karya::Workflow::ChildWorkflowSnapshot.new(
+      parent_workflow_id: :invoice_closeout,
+      parent_batch_id: 'parent_batch',
+      parent_step_id: :child,
+      parent_job_id: :job_child,
+      child_workflow_id: :payment,
+      child_batch_id: 'batch_1',
+      child_state: :running
+    )
+
+    result = described_class.new(
+      workflow_id: 'payment',
+      batch_id: 'batch_1',
+      captured_at:,
+      step_job_ids: { authorize: 'job_authorize' },
+      dependency_job_ids_by_job_id: {},
+      jobs:,
+      parent: relationship
+    )
+
+    expect(result.parent).to eq(relationship)
   end
 
   it 'validates parent and child workflow relationship metadata' do
