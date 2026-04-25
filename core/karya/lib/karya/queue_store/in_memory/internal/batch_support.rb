@@ -72,9 +72,7 @@ module Karya
           end
 
           def workflow_rollback_batch_id?(batch_id)
-            state.workflow_rollbacks_by_batch_id.any? do |_workflow_batch_id, rollback|
-              rollback.rollback_batch_id == batch_id
-            end
+            state.workflow_rollback_batch_ids.key?(batch_id)
           end
 
           def fetch_batch(batch_id)

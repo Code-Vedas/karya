@@ -52,7 +52,7 @@ module Karya
 
           def rollback_workflow(batch_id:, now:, reason:)
             normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
-            normalized_reason = Karya::Internal::DeadLetterReason.normalize(reason, error_class: Workflow::InvalidExecutionError)
+            normalized_reason = normalize_rollback_reason(reason)
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
 
             @mutex.synchronize do
@@ -100,6 +100,12 @@ module Karya
           end
 
           private
+
+          def normalize_rollback_reason(reason)
+            Karya::Internal::DeadLetterReason.normalize(reason, error_class: Workflow::InvalidExecutionError)
+          rescue Workflow::InvalidExecutionError => e
+            raise Workflow::InvalidExecutionError, e.message.gsub('dead_letter_reason', 'reason'), cause: e
+          end
 
           # Groups the validated rollback batch and enqueue plan.
           Rollback = Struct.new(:workflow_batch_id, :rollback_batch_id, :batch, :plan)

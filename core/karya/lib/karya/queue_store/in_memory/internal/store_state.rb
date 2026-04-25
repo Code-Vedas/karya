@@ -33,6 +33,7 @@ module Karya
                       :reservations_by_token,
                       :stuck_job_recoveries_by_id,
                       :workflow_dependency_job_ids_by_job_id,
+                      :workflow_rollback_batch_ids,
                       :workflow_registrations_by_batch_id,
                       :workflow_rollbacks_by_batch_id
 
@@ -53,6 +54,7 @@ module Karya
             end
 
             def register_workflow_rollback(batch_id:, rollback_batch_id:, reason:, requested_at:, compensation_job_ids:)
+              workflow_rollback_batch_ids[rollback_batch_id] = true
               workflow_rollbacks_by_batch_id[batch_id] = WorkflowRollback.new(
                 batch_id,
                 rollback_batch_id,
@@ -93,6 +95,7 @@ module Karya
             @terminal_batch_ids_index = {}
             @terminal_batch_ids_in_order = []
             @workflow_dependency_job_ids_by_job_id = {}
+            @workflow_rollback_batch_ids = {}
             @workflow_registrations_by_batch_id = {}
             @workflow_rollbacks_by_batch_id = {}
           end
@@ -265,9 +268,15 @@ module Karya
                 PrunedBatchCleanup.call(
                   batch_id:,
                   batch: nil,
-                  batch_id_by_job_id: @batch_id_by_job_id,
-                  workflow_dependency_job_ids_by_job_id:,
-                  workflow_registrations_by_batch_id:
+                  job_indexes: {
+                    batch_id_by_job_id: @batch_id_by_job_id,
+                    workflow_dependency_job_ids_by_job_id:
+                  },
+                  workflow_indexes: {
+                    workflow_rollback_batch_ids:,
+                    workflow_registrations_by_batch_id:,
+                    workflow_rollbacks_by_batch_id:
+                  }
                 )
                 next
               end
@@ -275,9 +284,15 @@ module Karya
               PrunedBatchCleanup.call(
                 batch_id:,
                 batch:,
-                batch_id_by_job_id: @batch_id_by_job_id,
-                workflow_dependency_job_ids_by_job_id:,
-                workflow_registrations_by_batch_id:
+                job_indexes: {
+                  batch_id_by_job_id: @batch_id_by_job_id,
+                  workflow_dependency_job_ids_by_job_id:
+                },
+                workflow_indexes: {
+                  workflow_rollback_batch_ids:,
+                  workflow_registrations_by_batch_id:,
+                  workflow_rollbacks_by_batch_id:
+                }
               )
               pruned_batch_ids << batch_id
             end
@@ -300,22 +315,29 @@ module Karya
               new(**).call
             end
 
-            def initialize(batch_id:, batch:, batch_id_by_job_id:, workflow_dependency_job_ids_by_job_id:, workflow_registrations_by_batch_id:)
+            def initialize(
+              batch_id:,
+              batch:,
+              job_indexes:,
+              workflow_indexes:
+            )
               @batch_id = batch_id
               @batch = batch
-              @batch_id_by_job_id = batch_id_by_job_id
-              @workflow_dependency_job_ids_by_job_id = workflow_dependency_job_ids_by_job_id
-              @workflow_registrations_by_batch_id = workflow_registrations_by_batch_id
+              @job_indexes = job_indexes
+              @workflow_indexes = workflow_indexes
             end
 
             def call
               pruned_job_ids ? cleanup_batch_jobs : cleanup_stale_batch_membership
-              workflow_registrations_by_batch_id.delete(batch_id)
+              cleanup_workflow_registration
             end
 
             private
 
-            attr_reader :batch, :batch_id, :batch_id_by_job_id, :workflow_dependency_job_ids_by_job_id, :workflow_registrations_by_batch_id
+            attr_reader :batch,
+                        :batch_id,
+                        :job_indexes,
+                        :workflow_indexes
 
             def pruned_job_ids
               batch&.job_ids
@@ -337,6 +359,34 @@ module Karya
                 batch_id_by_job_id.delete(job_id)
                 workflow_dependency_job_ids_by_job_id.delete(job_id)
               end
+            end
+
+            def cleanup_workflow_registration
+              registration = workflow_registrations_by_batch_id.delete(batch_id)
+              rollback = workflow_rollbacks_by_batch_id.delete(batch_id)
+              workflow_rollback_batch_ids.delete(batch_id)
+              workflow_rollback_batch_ids.delete(rollback.rollback_batch_id) if rollback
+              registration
+            end
+
+            def batch_id_by_job_id
+              job_indexes.fetch(:batch_id_by_job_id)
+            end
+
+            def workflow_dependency_job_ids_by_job_id
+              job_indexes.fetch(:workflow_dependency_job_ids_by_job_id)
+            end
+
+            def workflow_rollback_batch_ids
+              workflow_indexes.fetch(:workflow_rollback_batch_ids)
+            end
+
+            def workflow_registrations_by_batch_id
+              workflow_indexes.fetch(:workflow_registrations_by_batch_id)
+            end
+
+            def workflow_rollbacks_by_batch_id
+              workflow_indexes.fetch(:workflow_rollbacks_by_batch_id)
             end
           end
           private_constant :PrunedBatchCleanup

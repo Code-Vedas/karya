@@ -85,6 +85,7 @@ module Karya
           end
 
           def fetch_workflow_registration: (String batch_id) -> InMemory::Internal::StoreState::WorkflowRegistration
+          def normalize_rollback_reason: (untyped reason) -> String
           def prepare_rollback: (String batch_id, Time now) -> Rollback
           def build_rollback_batch: (batch_id: String, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch?
           def raise_duplicate_batch: (String batch_id) -> nil

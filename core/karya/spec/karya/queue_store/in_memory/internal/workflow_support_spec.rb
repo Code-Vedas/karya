@@ -75,6 +75,12 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "batch-1" is not a workflow batch')
   end
 
+  it 'rewrites rollback reason validation errors into workflow terminology' do
+    expect do
+      store.send(:normalize_rollback_reason, " \t ")
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
+  end
+
   it 'builds rollback jobs in reverse definition order with serial dependencies' do
     internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
     workflow_support = internal.const_get(:WorkflowSupport, false)

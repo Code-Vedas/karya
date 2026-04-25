@@ -485,6 +485,23 @@ RSpec.describe Karya::QueueStore::InMemory do
         .to raise_error(Karya::Workflow::UnknownBatchError, 'batch "batch_one.rollback" is not registered')
     end
 
+    it 'rejects invalid rollback reasons with rollback-domain errors' do
+      definition = Karya::Workflow.define(:rollback_invalid_reason) do
+        step :root, handler: :root, compensate_with: :undo_root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        compensation_jobs_by_step_id: { root: compensation_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      expect do
+        store.rollback_workflow(batch_id: :batch_one, now: created_at + 2, reason: " \t ")
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
+    end
+
     it 'records no-op rollback when every compensation step is skipped' do
       definition = Karya::Workflow.define(:rollback_noop) do
         step :root, handler: :root
