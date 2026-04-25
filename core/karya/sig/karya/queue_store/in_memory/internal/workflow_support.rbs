@@ -88,12 +88,6 @@ module Karya
           def prepare_rollback: (String batch_id, Time now) -> Rollback
           def build_rollback_batch: (batch_id: String, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch?
           def raise_duplicate_batch: (String batch_id) -> nil
-          def workflow_snapshot_for: (
-            batch: Karya::Workflow::Batch,
-            registration: InMemory::Internal::StoreState::WorkflowRegistration,
-            jobs: Array[Job],
-            now: Time
-          ) -> Karya::Workflow::Snapshot
           def raise_duplicate_rollback: (String batch_id) -> nil
           def workflow_dependencies_satisfied?: (Job job) -> bool
 
@@ -102,14 +96,12 @@ module Karya
             @registration: InMemory::Internal::StoreState::WorkflowRegistration
             @jobs: Array[Job]
             @now: Time
-            @dependency_job_ids_by_job_id: Hash[String, Array[String]]
 
             def initialize: (
               batch: Karya::Workflow::Batch,
               registration: InMemory::Internal::StoreState::WorkflowRegistration,
               jobs: Array[Job],
-              now: Time,
-              dependency_job_ids_by_job_id: Hash[String, Array[String]]
+              now: Time
             ) -> void
             def to_snapshot: () -> Karya::Workflow::Snapshot
 
@@ -119,7 +111,6 @@ module Karya
             attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
             attr_reader jobs: Array[Job]
             attr_reader now: Time
-            attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
           end
 
           class RollbackState

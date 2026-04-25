@@ -93,7 +93,8 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
       batch_id: 'batch-1',
       workflow_id: 'invoice_closeout',
       step_job_ids: { 'root' => 'job-1' },
-      dependency_job_ids_by_job_id: { 'job-1' => [] }
+      dependency_job_ids_by_job_id: { 'job-1' => [] },
+      compensation_jobs_by_step_id: {}
     )
     store_state.workflow_dependency_job_ids_by_job_id['job-1'] = []
     store_state.workflow_dependency_job_ids_by_job_id['job-2'] = []

@@ -82,8 +82,6 @@ module Karya
           def reservation_token_in_use?: (String reservation_token) -> bool
           def register_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
           def prune_terminal_batches: (Integer retention_limit, ?changed_job: Job?) -> Array[String]
-          def register_workflow_dependencies: (Hash[String, Array[String]] dependency_job_ids_by_job_id) -> Hash[String, Array[String]]
-          def workflow_dependency_job_ids_for: (String job_id) -> Array[String]?
           def register_workflow: (
             batch_id: String,
             workflow_id: String,

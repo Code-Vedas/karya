@@ -83,6 +83,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
       batch_id: 'batch-1',
       workflow_id: 'invoice_closeout',
       step_job_ids: { 'first' => 'job-1', 'second' => 'job-2', 'third' => 'job-3' },
+      dependency_job_ids_by_job_id: {},
       compensation_jobs_by_step_id: {
         'first' => rollback_job('rollback-job-1'),
         'second' => rollback_job('rollback-job-2'),
@@ -110,6 +111,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
       batch_id: 'batch-1',
       workflow_id: 'invoice_closeout',
       step_job_ids: { 'first' => 'job-1' },
+      dependency_job_ids_by_job_id: {},
       compensation_jobs_by_step_id: { 'first' => rollback_job('rollback-job-1') }
     )
 

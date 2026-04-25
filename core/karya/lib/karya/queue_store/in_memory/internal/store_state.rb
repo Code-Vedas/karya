@@ -41,6 +41,32 @@ module Karya
           # Immutable owner-local rollback metadata for one workflow batch.
           WorkflowRollback = Struct.new(:batch_id, :rollback_batch_id, :reason, :requested_at, :compensation_job_ids)
 
+          # Workflow registration writers kept separate from generic store state.
+          module WorkflowMetadata
+            def register_workflow(batch_id:, workflow_id:, step_job_ids:, dependency_job_ids_by_job_id:, compensation_jobs_by_step_id:)
+              workflow_registrations_by_batch_id[batch_id] = WorkflowRegistration.new(
+                workflow_id,
+                step_job_ids.dup.freeze,
+                dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
+                compensation_jobs_by_step_id.dup.freeze
+              ).freeze
+            end
+
+            def register_workflow_rollback(batch_id:, rollback_batch_id:, reason:, requested_at:, compensation_job_ids:)
+              workflow_rollbacks_by_batch_id[batch_id] = WorkflowRollback.new(
+                batch_id,
+                rollback_batch_id,
+                reason,
+                requested_at,
+                compensation_job_ids.dup.freeze
+              ).freeze
+            end
+          end
+
+          include WorkflowMetadata
+
+          private_constant :WorkflowMetadata, :WorkflowRegistration, :WorkflowRollback
+
           def initialize(expired_tombstone_limit:)
             @batches_by_id = {}
             @batch_id_by_job_id = {}
@@ -258,37 +284,6 @@ module Karya
 
             pruned_batch_ids
           end
-
-          def register_workflow_dependencies(dependency_job_ids_by_job_id)
-            workflow_dependency_job_ids_by_job_id.merge!(
-              dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }
-            )
-          end
-
-          def workflow_dependency_job_ids_for(job_id)
-            workflow_dependency_job_ids_by_job_id[job_id]
-          end
-
-          def register_workflow(batch_id:, workflow_id:, step_job_ids:, dependency_job_ids_by_job_id:, compensation_jobs_by_step_id:)
-            workflow_registrations_by_batch_id[batch_id] = WorkflowRegistration.new(
-              workflow_id,
-              step_job_ids.dup.freeze,
-              dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
-              compensation_jobs_by_step_id.dup.freeze
-            ).freeze
-          end
-
-          def register_workflow_rollback(batch_id:, rollback_batch_id:, reason:, requested_at:, compensation_job_ids:)
-            workflow_rollbacks_by_batch_id[batch_id] = WorkflowRollback.new(
-              batch_id,
-              rollback_batch_id,
-              reason,
-              requested_at,
-              compensation_job_ids.dup.freeze
-            ).freeze
-          end
-
-          private_constant :WorkflowRegistration, :WorkflowRollback
 
           private
 

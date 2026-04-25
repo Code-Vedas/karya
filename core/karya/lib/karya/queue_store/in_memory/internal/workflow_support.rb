@@ -30,7 +30,9 @@ module Karya
               queued_jobs = jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               dependency_job_ids_by_job_id = binding.dependency_job_ids_by_job_id
               store_batch(batch)
-              state.register_workflow_dependencies(dependency_job_ids_by_job_id)
+              state.workflow_dependency_job_ids_by_job_id.merge!(
+                dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }
+              )
               state.register_workflow(
                 batch_id: workflow_batch_id,
                 workflow_id: definition.id,
@@ -63,7 +65,9 @@ module Karya
               queued_jobs = rollback_jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               queued_job_ids = queued_jobs.map(&:id)
               store_batch(rollback_batch) if rollback_batch
-              state.register_workflow_dependencies(rollback_plan.dependency_job_ids_by_job_id)
+              state.workflow_dependency_job_ids_by_job_id.merge!(
+                rollback_plan.dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }
+              )
               state.register_workflow_rollback(
                 batch_id: rollback.workflow_batch_id,
                 rollback_batch_id: rollback.rollback_batch_id,
@@ -91,7 +95,7 @@ module Karya
               workflow_batch_id = batch.id
               registration = fetch_workflow_registration(workflow_batch_id)
               jobs = fetch_batch_jobs(batch)
-              workflow_snapshot_for(batch:, registration:, jobs:, now: normalized_now)
+              WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now).to_snapshot
             end
           end
 
@@ -198,7 +202,7 @@ module Karya
             registration = fetch_workflow_registration(workflow_batch_id)
             raise_duplicate_rollback(workflow_batch_id)
             jobs = fetch_batch_jobs(batch)
-            snapshot = workflow_snapshot_for(batch:, registration:, jobs:, now:)
+            snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now:).to_snapshot
             RollbackState.new(snapshot).validate
             plan = RollbackPlan.new(registration:, jobs:).to_plan
             rollback_batch_id = RollbackBatchId.new(workflow_batch_id).to_s
@@ -221,16 +225,6 @@ module Karya
             raise Workflow::DuplicateBatchError, "batch #{batch_id.inspect} already exists"
           end
 
-          def workflow_snapshot_for(batch:, registration:, jobs:, now:)
-            WorkflowSnapshotBuilder.new(
-              batch:,
-              registration:,
-              jobs:,
-              now:,
-              dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id
-            ).to_snapshot
-          end
-
           def raise_duplicate_rollback(batch_id)
             return unless state.workflow_rollbacks_by_batch_id[batch_id]
 
@@ -239,12 +233,11 @@ module Karya
 
           # Builds workflow snapshots from stored workflow metadata.
           class WorkflowSnapshotBuilder
-            def initialize(batch:, registration:, jobs:, now:, dependency_job_ids_by_job_id:)
+            def initialize(batch:, registration:, jobs:, now:)
               @batch = batch
               @registration = registration
               @jobs = jobs
               @now = now
-              @dependency_job_ids_by_job_id = dependency_job_ids_by_job_id
             end
 
             def to_snapshot
@@ -253,14 +246,14 @@ module Karya
                 batch_id: batch.id,
                 captured_at: now,
                 step_job_ids: registration.step_job_ids,
-                dependency_job_ids_by_job_id:,
+                dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
                 jobs:
               )
             end
 
             private
 
-            attr_reader :batch, :dependency_job_ids_by_job_id, :jobs, :now, :registration
+            attr_reader :batch, :jobs, :now, :registration
           end
 
           # Validates rollback state eligibility.
