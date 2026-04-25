@@ -25,16 +25,16 @@ RSpec.describe Karya::QueueStore::InMemory do
   def compensation_job(step_id, handler: :"undo_#{step_id}")
     Karya::Job.new(
       id: "rollback-job-#{step_id}",
-      queue: :billing,
+      queue: :rollback,
       handler:,
       state: :submission,
       created_at:
     )
   end
 
-  def reserve(now_offset, handler_names: nil)
+  def reserve(now_offset, handler_names: nil, queue: 'billing')
     store.reserve(
-      queue: 'billing',
+      queue:,
       handler_names:,
       worker_id: "worker-#{now_offset}",
       lease_duration: 60,
@@ -133,14 +133,14 @@ RSpec.describe Karya::QueueStore::InMemory do
   end
 
   def recover_capture_compensation
-    capture_rollback = reserve(17, handler_names: ['undo_capture'])
+    capture_rollback = reserve(17, handler_names: ['undo_capture'], queue: 'rollback')
     expect(capture_rollback.job_id).to eq('rollback-job-capture')
-    expect(reserve(18, handler_names: ['undo_authorize'])).to be_nil
+    expect(reserve(18, handler_names: ['undo_authorize'], queue: 'rollback')).to be_nil
     store.start_execution(reservation_token: capture_rollback.token, now: created_at + 19)
     store.dead_letter_jobs(job_ids: ['rollback-job-capture'], now: created_at + 20, reason: 'operator isolated')
-    expect(reserve(21, handler_names: ['undo_authorize'])).to be_nil
+    expect(reserve(21, handler_names: ['undo_authorize'], queue: 'rollback')).to be_nil
     store.replay_dead_letter_jobs(job_ids: ['rollback-job-capture'], now: created_at + 22)
-    replayed_capture_rollback = reserve(23, handler_names: ['undo_capture'])
+    replayed_capture_rollback = reserve(23, handler_names: ['undo_capture'], queue: 'rollback')
     run_successfully(replayed_capture_rollback, start_offset: 24, complete_offset: 25)
   end
 
@@ -151,7 +151,7 @@ RSpec.describe Karya::QueueStore::InMemory do
     rollback_invoice_closeout
     recover_capture_compensation
 
-    authorize_rollback = reserve(26, handler_names: ['undo_authorize'])
+    authorize_rollback = reserve(26, handler_names: ['undo_authorize'], queue: 'rollback')
     expect(authorize_rollback.job_id).to eq('rollback-job-authorize')
     run_successfully(authorize_rollback, start_offset: 27, complete_offset: 28)
     expect(store.batch_snapshot(batch_id: rollback_batch_id('invoice_closeout_batch'), now: created_at + 29).aggregate_state).to eq(:succeeded)
