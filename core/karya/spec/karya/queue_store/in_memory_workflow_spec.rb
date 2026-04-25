@@ -693,7 +693,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       rollback_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 9).rollback
       expect(rollback_snapshot).to have_attributes(
         workflow_batch_id: 'batch_one',
-        rollback_batch_id: 'batch_one.rollback',
+        rollback_batch_id: rollback_batch_id('batch_one'),
         compensation_job_ids: [],
         compensation_count: 0
       )
