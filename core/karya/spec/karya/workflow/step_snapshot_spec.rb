@@ -152,4 +152,40 @@ RSpec.describe Karya::Workflow::StepSnapshot do
       )
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'prerequisite_states must be a Hash')
   end
+
+  it 'rejects duplicate normalized prerequisite job ids' do
+    expect do
+      described_class.new(
+        workflow_id: :workflow,
+        batch_id: :batch,
+        step_id: :child,
+        job_id: :'job-child',
+        job: job,
+        prerequisite_job_ids: ['job-root'],
+        prerequisite_states: { ' job-root ' => :queued, 'job-root' => :succeeded }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate prerequisite job "job-root"')
+  end
+
+  it 'rejects invalid prerequisite state values' do
+    expect do
+      described_class.new(
+        workflow_id: :workflow,
+        batch_id: :batch,
+        step_id: :child,
+        job_id: :'job-child',
+        job: job,
+        prerequisite_job_ids: ['job-root'],
+        prerequisite_states: { 'job-root' => ' not-a-state ' }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'Unknown job state: "not_a_state"')
+  end
+
+  it 'normalizes prerequisite state values and allows nil' do
+    result = snapshot(prerequisite_states: { ' job-root ' => ' SUCCEEDED ' })
+    missing = snapshot(prerequisite_states: { ' job-root ' => nil })
+
+    expect(result.prerequisite_states).to eq('job-root' => :succeeded)
+    expect(missing.prerequisite_states).to eq('job-root' => nil)
+  end
 end

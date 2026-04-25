@@ -274,21 +274,21 @@ module Karya
       class Attributes
         REQUIRED_ATTRIBUTES: Array[Symbol]
 
-        @attributes: Hash[Symbol, Object?]
+        @attributes: Hash[Symbol, step_snapshot_attribute_value]
 
-        def initialize: (Hash[Symbol, Object?] attributes) -> void
+        def initialize: (Hash[Symbol, step_snapshot_attribute_value] attributes) -> void
         def workflow_id: () -> String
         def batch_id: () -> String
         def step_id: () -> String
         def job_id: () -> String
         def job: () -> Job
         def prerequisite_job_ids: () -> Array[String]
-        def prerequisite_states: () -> Object?
+        def prerequisite_states: () -> Hash[state_name, state_name?]
 
       private
 
-        attr_reader attributes: Hash[Symbol, Object?]
-        def fetch: (Symbol name) -> Object?
+        attr_reader attributes: Hash[Symbol, step_snapshot_attribute_value]
+        def fetch: (Symbol name) -> step_snapshot_attribute_value
         def validate_keys: () -> void
       end
 

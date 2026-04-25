@@ -25,6 +25,7 @@ module Karya
   type normalized_state_name = String
   type normalized_state_name_array = Array[normalized_state_name]
   type normalized_transition_map = Hash[normalized_state_name, normalized_state_name_array]
+  type step_snapshot_attribute_value = state_name | Job | Array[state_name] | Hash[state_name, state_name?]
   type workflow_snapshot_attribute_value = state_name | Time | Hash[state_name, state_name] | Hash[state_name, state_name_array] | Array[Job]
   type handler_parameter = [Symbol, Symbol?]
   type handler_parameters = Array[handler_parameter]

@@ -70,14 +70,14 @@ queue-store internals:
 workflow.step_ids
 #=> ["calculate_totals", "capture_payment", "emit_receipt"]
 
-workflow.dependencies_for(:emit_receipt)
-#=> ["calculate_totals", "capture_payment"]
+workflow.dependencies_for(:capture_payment)
+#=> ["calculate_totals"]
 
 snapshot = store.workflow_snapshot(batch_id: :invoice_closeout_123, now: Time.now)
-snapshot.fetch_step(:emit_receipt).prerequisite_states
-#=> {"job-calculate_totals" => :succeeded, "job-capture_payment" => :queued}
+snapshot.fetch_step(:capture_payment).prerequisite_states
+#=> {"job-calculate_totals" => :succeeded}
 
-snapshot.fetch_step(:emit_receipt).blocked?
+snapshot.fetch_step(:capture_payment).blocked?
 #=> true
 ```
 

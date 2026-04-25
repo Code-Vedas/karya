@@ -168,7 +168,9 @@ module Karya
 
           normalized_states = prerequisite_states.each_with_object({}) do |(job_id, state), states|
             normalized_job_id = Workflow.send(:normalize_execution_identifier, :prerequisite_job_id, job_id)
-            states[normalized_job_id] = state
+            raise InvalidExecutionError, "duplicate prerequisite job #{normalized_job_id.inspect}" if states.key?(normalized_job_id)
+
+            states[normalized_job_id] = normalize_state(state)
           end
           validate_membership(normalized_states)
           prerequisite_job_ids.to_h { |job_id| [job_id, normalized_states[job_id]] }.freeze
@@ -177,6 +179,17 @@ module Karya
         private
 
         attr_reader :prerequisite_job_ids, :prerequisite_states
+
+        def normalize_state(state)
+          case state
+          when NilClass
+            nil
+          else
+            JobLifecycle.validate_state!(state)
+          end
+        rescue JobLifecycle::InvalidJobStateError => e
+          raise InvalidExecutionError, e.message, cause: e
+        end
 
         def validate_membership(normalized_states)
           unknown_job_id = normalized_states.keys.find { |job_id| !prerequisite_job_ids.include?(job_id) }
