@@ -480,19 +480,7 @@ module Karya
             attr_reader :now, :relationship, :state
 
             def child_state
-              batch = state.batches_by_id.fetch(relationship.child_batch_id)
-              batch_id = batch.id
-              registration = state.workflow_registrations_by_batch_id.fetch(batch_id)
-              jobs = batch.job_ids.map { |job_id| state.jobs_by_id.fetch(job_id) }
-              Workflow::Snapshot.new(
-                workflow_id: registration.workflow_id,
-                batch_id:,
-                captured_at: now,
-                step_job_ids: registration.step_job_ids,
-                dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
-                jobs:,
-                child_workflow_ids_by_step_id: registration.child_workflow_ids_by_step_id
-              ).state
+              WorkflowChildState.new(state:, now:).resolve(relationship.child_batch_id)
             end
           end
 
