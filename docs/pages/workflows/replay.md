@@ -38,6 +38,12 @@ then apply the same lifecycle rules as job-id controls. Retried and replayed
 steps stay in the original workflow batch; prerequisite gating continues to
 decide when dependent queued steps can reserve.
 
+`replay_workflow_steps`, `retry_dead_letter_workflow_steps`, and
+`discard_workflow_steps` only act when the targeted primary step job is
+currently `:dead_letter`. If the primary job is failed, queued, running, or in
+any other ineligible state, Karya leaves it unchanged and reports the targeted
+step as skipped.
+
 This is not event-history replay. Operators must name the target steps
 explicitly; Karya does not infer targets from workflow state, create a new
 workflow run, append batch membership, or reconstruct a workflow from a

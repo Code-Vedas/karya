@@ -12,6 +12,13 @@ RSpec.describe Karya::CLI, :e2e, :integration do
     Open3.capture3(*karya_command(*args), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
   end
 
+  def wait_for_runtime_phase(state_file, phase)
+    wait_until do
+      snapshot = read_runtime_state(state_file).fetch('snapshot')
+      snapshot.fetch('phase') == phase ? snapshot : nil
+    end
+  end
+
   it 'executes a queued job end-to-end through exe/karya worker' do
     Dir.mktmpdir('karya-cli-e2e') do |directory|
       state_file = File.join(directory, 'runtime.json')
@@ -109,10 +116,11 @@ RSpec.describe Karya::CLI, :e2e, :integration do
           ensure
             process_status ||= Timeout.timeout(10) { wait_thr.value }
             output = stdout_and_stderr.read
+            runtime_state = wait_for_runtime_phase(state_file, 'stopped')
 
             expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{output}" }
             expect(File.read(marker_file).strip).not_to be_empty
-            expect(read_runtime_state(state_file).fetch('snapshot').fetch('phase')).to eq('stopped')
+            expect(runtime_state.fetch('phase')).to eq('stopped')
           end
         end
       end
