@@ -37,4 +37,16 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::BatchSupport' do
       store.send(:fetch_batch, 'missing')
     end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "missing" is not registered')
   end
+
+  it 'raises workflow-domain errors for batches with missing member jobs' do
+    batch = Karya::Workflow::Batch.new(id: 'batch_1', job_ids: ['missing_job'], created_at:)
+    store.send(:store_batch, batch)
+
+    expect do
+      store.batch_snapshot(batch_id: 'batch_1', now: created_at + 1)
+    end.to raise_error(
+      Karya::Workflow::InvalidBatchError,
+      'batch "batch_1" member job "missing_job" is not registered'
+    )
+  end
 end

@@ -12,6 +12,7 @@ module Karya
           def store_optional_batch: (Karya::Workflow::Batch? batch) -> Karya::Workflow::Batch?
           def store_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
           def fetch_batch: (String batch_id) -> Karya::Workflow::Batch
+          def fetch_batch_jobs: (Karya::Workflow::Batch batch) -> Array[Job]
         end
       end
     end

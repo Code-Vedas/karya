@@ -16,9 +16,10 @@ module Karya
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
 
             @mutex.synchronize do
+              state.prune_terminal_batches(completed_batch_retention_limit)
               batch = fetch_batch(normalized_batch_id)
               job_ids = batch.job_ids
-              jobs = job_ids.map { |job_id| state.jobs_by_id.fetch(job_id) }
+              jobs = fetch_batch_jobs(batch)
               Workflow::BatchSnapshot.new(
                 batch_id: batch.id,
                 captured_at: normalized_now,
@@ -70,6 +71,14 @@ module Karya
             state.batches_by_id.fetch(batch_id)
           rescue KeyError => e
             raise Workflow::UnknownBatchError, "batch #{batch_id.inspect} is not registered", cause: e
+          end
+
+          def fetch_batch_jobs(batch)
+            batch.job_ids.map do |job_id|
+              state.jobs_by_id.fetch(job_id) do
+                raise Workflow::InvalidBatchError, "batch #{batch.id.inspect} member job #{job_id.inspect} is not registered"
+              end
+            end
           end
         end
       end
