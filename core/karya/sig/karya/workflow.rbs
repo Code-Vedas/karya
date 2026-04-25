@@ -725,7 +725,6 @@ module Karya
       private
 
         attr_reader jobs: Array[Job]
-        attr_reader step_job_ids: Hash[String, String]
         attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
         attr_reader child_relationships: ChildRelationships
         attr_reader jobs_by_id: Hash[String, Job]
