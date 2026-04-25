@@ -408,6 +408,217 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "plain_batch" is not a workflow batch')
     end
 
+    it 'retries explicit failed and retry-pending workflow steps without bypassing dependency gates' do
+      definition = Karya::Workflow.define(:workflow_retry_controls) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+        step :sidecar, handler: :sidecar
+      end
+      retry_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 60, multiplier: 1)
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          root: workflow_job(:root),
+          child: workflow_job(:child),
+          sidecar: workflow_job(:sidecar)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      root = reserve(2, handler_names: ['root'])
+      sidecar = reserve(3, handler_names: ['sidecar'])
+      store.start_execution(reservation_token: root.token, now: created_at + 4)
+      store.fail_execution(reservation_token: root.token, now: created_at + 5, failure_classification: :error)
+      store.start_execution(reservation_token: sidecar.token, now: created_at + 6)
+      store.fail_execution(
+        reservation_token: sidecar.token,
+        now: created_at + 7,
+        failure_classification: :error,
+        retry_policy:
+      )
+
+      report = store.retry_workflow_steps(batch_id: :batch_one, step_ids: %i[root sidecar child], now: created_at + 8)
+
+      expect(report).to have_attributes(
+        action: :retry_workflow_steps,
+        requested_job_ids: %w[job-root job-sidecar job-child]
+      )
+      expect(report.changed_jobs.map { |job| [job.id, job.state] }).to eq([['job-root', :queued], ['job-sidecar', :queued]])
+      expect(report.skipped_jobs).to eq([{ job_id: 'job-child', reason: :ineligible_state, state: :queued }])
+      expect(reserve(9, handler_names: ['child'])).to be_nil
+
+      retried_root = reserve(10, handler_names: ['root'])
+      run_successfully(retried_root, start_offset: 11, complete_offset: 12)
+
+      expect(reserve(13, handler_names: ['child']).job_id).to eq('job-child')
+    end
+
+    it 'dead-letters explicit workflow steps through the existing lifecycle path' do
+      definition = Karya::Workflow.define(:workflow_dead_letter_controls) do
+        step :queued, handler: :queued
+        step :reserved, handler: :reserved
+        step :running, handler: :running
+        step :failed, handler: :failed
+        step :retrying, handler: :retrying
+      end
+      retry_policy = Karya::RetryPolicy.new(max_attempts: 3, base_delay: 60, multiplier: 1)
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          queued: workflow_job(:queued),
+          reserved: workflow_job(:reserved),
+          running: workflow_job(:running),
+          failed: workflow_job(:failed),
+          retrying: workflow_job(:retrying)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      reserved = reserve(2, handler_names: ['reserved'])
+      running = reserve(3, handler_names: ['running'])
+      failed = reserve(4, handler_names: ['failed'])
+      retrying = reserve(5, handler_names: ['retrying'])
+      store.start_execution(reservation_token: running.token, now: created_at + 6)
+      store.start_execution(reservation_token: failed.token, now: created_at + 7)
+      store.fail_execution(reservation_token: failed.token, now: created_at + 8, failure_classification: :error)
+      store.start_execution(reservation_token: retrying.token, now: created_at + 9)
+      store.fail_execution(
+        reservation_token: retrying.token,
+        now: created_at + 10,
+        failure_classification: :error,
+        retry_policy:
+      )
+
+      report = store.dead_letter_workflow_steps(
+        batch_id: :batch_one,
+        step_ids: %i[queued reserved running failed retrying],
+        now: created_at + 11,
+        reason: 'operator isolated'
+      )
+
+      expect(report.action).to eq(:dead_letter_workflow_steps)
+      expect(report.changed_jobs.map(&:state)).to eq(%i[dead_letter dead_letter dead_letter dead_letter dead_letter])
+      expect(store.workflow_snapshot(batch_id: :batch_one, now: created_at + 12).step_states).to eq(
+        'queued' => :dead_letter,
+        'reserved' => :dead_letter,
+        'running' => :dead_letter,
+        'failed' => :dead_letter,
+        'retrying' => :dead_letter
+      )
+      expect do
+        store.start_execution(reservation_token: reserved.token, now: created_at + 13)
+      end.to raise_error(Karya::ExpiredReservationError)
+      expect do
+        store.complete_execution(reservation_token: running.token, now: created_at + 14)
+      end.to raise_error(Karya::ExpiredReservationError)
+    end
+
+    it 'replays dead-lettered workflow prerequisites in the original batch' do
+      definition = Karya::Workflow.define(:workflow_replay_controls) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      store.dead_letter_workflow_steps(batch_id: :batch_one, step_ids: [:root], now: created_at + 2, reason: 'manual')
+
+      report = store.replay_workflow_steps(batch_id: :batch_one, step_ids: [' root '], now: created_at + 3)
+
+      expect(report.action).to eq(:replay_workflow_steps)
+      expect(report.changed_jobs.fetch(0)).to have_attributes(id: 'job-root', state: :queued)
+      expect(store.batch_snapshot(batch_id: :batch_one, now: created_at + 4).job_ids).to eq(%w[job-root job-child])
+      expect(reserve(5, handler_names: ['child'])).to be_nil
+      root = reserve(6, handler_names: ['root'])
+      run_successfully(root, start_offset: 7, complete_offset: 8)
+      expect(reserve(9, handler_names: ['child']).job_id).to eq('job-child')
+    end
+
+    it 'moves dead-lettered workflow steps to retry_pending until their retry time' do
+      definition = Karya::Workflow.define(:workflow_retry_dead_letter_controls) do
+        step :root, handler: :root
+        step :child, handler: :child, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root), child: workflow_job(:child) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      store.dead_letter_workflow_steps(batch_id: :batch_one, step_ids: [:root], now: created_at + 2, reason: 'manual')
+
+      report = store.retry_dead_letter_workflow_steps(
+        batch_id: :batch_one,
+        step_ids: [:root],
+        now: created_at + 3,
+        next_retry_at: created_at + 10
+      )
+
+      expect(report.action).to eq(:retry_dead_letter_workflow_steps)
+      expect(report.changed_jobs.fetch(0)).to have_attributes(id: 'job-root', state: :retry_pending, next_retry_at: created_at + 10)
+      expect(reserve(9, handler_names: ['root'])).to be_nil
+      root = reserve(10, handler_names: ['root'])
+      run_successfully(root, start_offset: 11, complete_offset: 12)
+      expect(reserve(13, handler_names: ['child']).job_id).to eq('job-child')
+    end
+
+    it 'discards dead-lettered workflow steps through cancellation' do
+      definition = Karya::Workflow.define(:workflow_discard_controls) do
+        step :root, handler: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      store.dead_letter_workflow_steps(batch_id: :batch_one, step_ids: [:root], now: created_at + 2, reason: 'manual')
+
+      report = store.discard_workflow_steps(batch_id: :batch_one, step_ids: [:root], now: created_at + 3)
+
+      expect(report.action).to eq(:discard_workflow_steps)
+      expect(report.changed_jobs.fetch(0)).to have_attributes(id: 'job-root', state: :cancelled)
+    end
+
+    it 'rejects invalid workflow step controls without mutating workflow state' do
+      definition = Karya::Workflow.define(:workflow_control_validation) do
+        step :root, handler: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      store.enqueue_many(jobs: [workflow_job(:plain)], batch_id: :plain_batch, now: created_at + 2)
+
+      expect do
+        store.retry_workflow_steps(batch_id: :missing, step_ids: [:root], now: created_at + 3)
+      end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "missing" is not registered')
+      expect do
+        store.retry_workflow_steps(batch_id: :plain_batch, step_ids: [:root], now: created_at + 3)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "plain_batch" is not a workflow batch')
+      expect do
+        store.retry_workflow_steps(batch_id: :batch_one, step_ids: 'root', now: created_at + 3)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'step_ids must be an Array')
+      expect do
+        store.retry_workflow_steps(batch_id: :batch_one, step_ids: [], now: created_at + 3)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'step_ids must not be empty')
+      expect do
+        store.retry_workflow_steps(batch_id: :batch_one, step_ids: [:missing], now: created_at + 3)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'unknown workflow step "missing"')
+      expect do
+        store.retry_workflow_steps(batch_id: :batch_one, step_ids: [:root, ' root '], now: created_at + 3)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate workflow step "root"')
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 4)
+      expect(snapshot.step_states).to eq('root' => :queued)
+      expect(snapshot.rollback).to be_nil
+    end
+
     it 'rolls back succeeded compensable steps in reverse definition order' do
       definition = Karya::Workflow.define(:rollback_chain) do
         step :first, handler: :first, compensate_with: :undo_first
@@ -665,6 +876,22 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       expect do
         store.rollback_workflow(batch_id: :batch_one, now: created_at + 2, reason: " \t ")
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
+    end
+
+    it 'rejects invalid dead-letter step control reasons with workflow-domain errors' do
+      definition = Karya::Workflow.define(:dead_letter_invalid_reason) do
+        step :root, handler: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      expect do
+        store.dead_letter_workflow_steps(batch_id: :batch_one, step_ids: [:root], now: created_at + 2, reason: " \t ")
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'reason must be present')
     end
 

@@ -98,6 +98,52 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Retry explicit workflow steps by resolving step ids to primary job ids
+      # in an existing workflow batch.
+      def retry_workflow_steps(batch_id:, step_ids:, now:)
+        _batch_id = batch_id
+        _step_ids = step_ids
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Dead-letter explicit workflow steps by resolving step ids to primary
+      # job ids in an existing workflow batch.
+      def dead_letter_workflow_steps(batch_id:, step_ids:, now:, reason:)
+        _batch_id = batch_id
+        _step_ids = step_ids
+        _now = now
+        _reason = reason
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Replay explicit dead-lettered workflow steps in-place in the original
+      # workflow batch.
+      def replay_workflow_steps(batch_id:, step_ids:, now:)
+        _batch_id = batch_id
+        _step_ids = step_ids
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Move explicit dead-lettered workflow steps into retry_pending state.
+      def retry_dead_letter_workflow_steps(batch_id:, step_ids:, now:, next_retry_at:)
+        _batch_id = batch_id
+        _step_ids = step_ids
+        _now = now
+        _next_retry_at = next_retry_at
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Discard explicit dead-lettered workflow steps by cancelling their
+      # primary jobs.
+      def discard_workflow_steps(batch_id:, step_ids:, now:)
+        _batch_id = batch_id
+        _step_ids = step_ids
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       # Reserve must atomically move one durable queued job to reserved and
       # persist its lease token, worker id, reserved_at, and expires_at before
       # returning the reservation. A returned reservation is the only

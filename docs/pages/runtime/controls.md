@@ -79,6 +79,12 @@ operator search and governance layers choose targets:
   to enqueue, records a no-op rollback boundary when no compensation jobs are
   enqueued (including when every compensation step is skipped or when no steps
   are compensable), and rejects duplicate rollback requests
+- workflow step controls target explicit step ids in an existing workflow batch
+  for retry, dead-letter, replay, retry-dead-letter, and discard; these controls
+  operate on primary step jobs only and preserve original batch membership, but
+  replay, retry-dead-letter, and discard only act when the primary step job is
+  currently `:dead_letter` and otherwise skip the targeted step as ineligible;
+  they do not add selectors, automatic rollback, or event-history replay
 - bulk retry returns failed or `retry_pending` jobs to normal queued execution
   when they are still eligible and uniqueness-safe
 - bulk cancellation can stop queued, retry-pending, reserved, or running jobs;

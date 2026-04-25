@@ -64,4 +64,16 @@ RSpec.describe Karya::QueueStore::BulkMutationReport do
     expect { build_report(skipped_jobs: [{ job_id: 'job-2', reason: :unknown }]) }.to raise_error(Karya::InvalidQueueStoreOperationError, /reason/)
     expect { build_report(skipped_jobs: [{ job_id: 'job-2', reason: :not_found, state: 1 }]) }.to raise_error(Karya::InvalidQueueStoreOperationError, /state/)
   end
+
+  it 'accepts workflow step control actions' do
+    actions = %i[
+      retry_workflow_steps
+      dead_letter_workflow_steps
+      replay_workflow_steps
+      retry_dead_letter_workflow_steps
+      discard_workflow_steps
+    ]
+
+    expect(actions.map { |action| build_report(action:).action }).to eq(actions)
+  end
 end

@@ -186,7 +186,12 @@ module Karya
     :replay_dead_letter_jobs |
     :retry_dead_letter_jobs |
     :discard_dead_letter_jobs |
-    :rollback_workflow
+    :rollback_workflow |
+    :retry_workflow_steps |
+    :dead_letter_workflow_steps |
+    :replay_workflow_steps |
+    :retry_dead_letter_workflow_steps |
+    :discard_workflow_steps
   type queue_control_action = :pause_queue | :resume_queue
   type bulk_skip_reason = :not_found | :ineligible_state | :duplicate_request | :uniqueness_conflict
   type batch_aggregate_state = :failed | :running | :succeeded | :cancelled | :completed
