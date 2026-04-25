@@ -12,7 +12,7 @@ RSpec.describe Karya::Workflow::Batch do
     batch = described_class.new(
       id: ' billing-closeout ',
       job_ids: [' step_1 ', 'step_2'],
-      created_at:
+      created_at: created_at
     )
 
     expect(batch).to have_attributes(
