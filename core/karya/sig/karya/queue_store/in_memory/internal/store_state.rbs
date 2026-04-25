@@ -134,7 +134,7 @@ module Karya
 
             def pruned_job_ids: () -> Array[String]?
             def cleanup_batch_jobs: () -> Array[String]?
-            def cleanup_stale_batch_membership: () -> Hash[String, String]
+            def cleanup_stale_batch_membership: () -> Array[String]
           end
 
           def trim_fair_queue_history: () -> void

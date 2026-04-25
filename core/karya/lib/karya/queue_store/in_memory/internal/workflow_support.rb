@@ -72,8 +72,8 @@ module Karya
             end
 
             def to_h
-              definition.steps.each_with_object({}).with_index do |(workflow_step, step_jobs), index|
-                step_jobs[workflow_step.id] = jobs.fetch(index).id
+              definition.steps.each_with_object({}).with_index do |(workflow_step, step_job_ids), index|
+                step_job_ids[workflow_step.id] = jobs.fetch(index).id
               end.freeze
             end
 

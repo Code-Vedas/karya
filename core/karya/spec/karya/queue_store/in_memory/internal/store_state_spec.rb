@@ -88,18 +88,22 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
   it 'removes stale job batch membership when pruning a missing batch entry' do
     store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
     store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.register_batch(batch('batch-2', ['job-2']))
     store_state.register_workflow(
       batch_id: 'batch-1',
       workflow_id: 'invoice_closeout',
       step_job_ids: { 'root' => 'job-1' },
       dependency_job_ids_by_job_id: { 'job-1' => [] }
     )
+    store_state.workflow_dependency_job_ids_by_job_id['job-1'] = []
+    store_state.workflow_dependency_job_ids_by_job_id['job-2'] = []
     store_state.batches_by_id.delete('batch-1')
 
     store_state.prune_terminal_batches(0)
 
-    expect(store_state.instance_variable_get(:@batch_id_by_job_id)).to eq({})
+    expect(store_state.instance_variable_get(:@batch_id_by_job_id)).to eq('job-2' => 'batch-2')
     expect(store_state.workflow_registrations_by_batch_id).to eq({})
+    expect(store_state.workflow_dependency_job_ids_by_job_id).to eq('job-2' => [])
   end
 
   it 'leaves stale changed-job batch membership for explicit pruning cleanup' do

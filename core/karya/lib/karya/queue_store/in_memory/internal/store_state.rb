@@ -309,7 +309,14 @@ module Karya
             end
 
             def cleanup_stale_batch_membership
-              batch_id_by_job_id.delete_if { |_job_id, stored_batch_id| stored_batch_id == batch_id }
+              stale_job_ids = batch_id_by_job_id.each_with_object([]) do |(job_id, stored_batch_id), job_ids|
+                job_ids << job_id if stored_batch_id == batch_id
+              end
+
+              stale_job_ids.each do |job_id|
+                batch_id_by_job_id.delete(job_id)
+                workflow_dependency_job_ids_by_job_id.delete(job_id)
+              end
             end
           end
           private_constant :PrunedBatchCleanup
