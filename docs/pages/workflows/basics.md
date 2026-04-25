@@ -78,7 +78,7 @@ snapshot.fetch_step(:capture_payment).prerequisite_states
 #=> {"job-calculate_totals" => :succeeded}
 
 snapshot.fetch_step(:capture_payment).blocked?
-#=> true
+#=> false
 ```
 
 Steps can also declare compensation work for explicit saga rollback:
@@ -112,7 +112,7 @@ snapshot.rollback_requested?
 #=> true
 
 snapshot.rollback.rollback_batch_id
-#=> "invoice_closeout_123.rollback"
+#=> "opaque rollback batch id"
 ```
 
 ### Batch Identity And Aggregate State
@@ -137,10 +137,10 @@ APIs:
 
 ```ruby
 batch = store.batch_snapshot(batch_id: :invoice_closeout_123, now: Time.now)
-batch.include_job?(:job_capture_payment)
+batch.include_job?("job-capture_payment")
 #=> true
 
-batch.fetch_job(:job_capture_payment)
+batch.fetch_job("job-capture_payment")
 #=> #<Karya::Job ...>
 ```
 
