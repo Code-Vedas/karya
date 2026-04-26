@@ -401,11 +401,226 @@ RSpec.describe Karya::QueueStore::InMemory do
         store.workflow_snapshot(batch_id: :missing, now: created_at + 1)
       end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "missing" is not registered')
 
-      store.enqueue_many(jobs: [workflow_job(:root)], batch_id: :plain_batch, now: created_at + 2)
+      store.enqueue_many(
+        jobs: [
+          Karya::Job.new(
+            id: 'job-plain_root',
+            queue: :plain,
+            handler: :plain_root,
+            arguments: {},
+            priority: 0,
+            state: :submission,
+            created_at:,
+            scheduled_at: created_at,
+            updated_at: created_at
+          )
+        ],
+        batch_id: :plain_batch,
+        now: created_at + 2
+      )
 
       expect do
         store.workflow_snapshot(batch_id: :plain_batch, now: created_at + 3)
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "plain_batch" is not a workflow batch')
+    end
+
+    it 'delivers workflow signals and external events into snapshot inspection' do
+      definition = Karya::Workflow.define(:interactive) { step :root, handler: :root }
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      signal_report = store.deliver_workflow_signal(
+        batch_id: :batch_one,
+        signal: :manager_approved,
+        payload: { 'approved_by' => 'ops' },
+        now: created_at + 2
+      )
+      event_report = store.deliver_workflow_event(
+        batch_id: :batch_one,
+        event: :payment_received,
+        payload: { 'source' => 'stripe' },
+        now: created_at + 3
+      )
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 4)
+
+      expect(signal_report).to have_attributes(action: :deliver_workflow_signal, requested_job_ids: [], changed_jobs: [], skipped_jobs: [])
+      expect(event_report.action).to eq(:deliver_workflow_event)
+      expect(snapshot.interactions.map(&:name)).to eq(%w[manager_approved payment_received])
+      expect(snapshot.signals.map(&:name)).to eq(['manager_approved'])
+      expect(snapshot.events.map(&:name)).to eq(['payment_received'])
+    end
+
+    it 'rejects workflow interaction delivery for unknown, non-workflow, and terminal batches' do
+      definition = Karya::Workflow.define(:interactive) { step :root, handler: :root }
+
+      expect do
+        store.deliver_workflow_signal(batch_id: :missing, signal: :manager_approved, payload: {}, now: created_at + 1)
+      end.to raise_error(Karya::Workflow::UnknownBatchError, 'batch "missing" is not registered')
+
+      store.enqueue_many(
+        jobs: [
+          Karya::Job.new(
+            id: 'job-plain_root',
+            queue: :plain,
+            handler: :plain_root,
+            arguments: {},
+            priority: 0,
+            state: :submission,
+            created_at:,
+            scheduled_at: created_at,
+            updated_at: created_at
+          )
+        ],
+        batch_id: :plain_batch,
+        now: created_at + 2
+      )
+      expect do
+        store.deliver_workflow_event(batch_id: :plain_batch, event: :payment_received, payload: {}, now: created_at + 3)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "plain_batch" is not a workflow batch')
+
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:workflow_root, handler: :root) },
+        batch_id: :batch_one,
+        now: created_at + 4
+      )
+      root = reserve(5)
+      run_successfully(root, start_offset: 6, complete_offset: 7)
+
+      expect do
+        store.deliver_workflow_signal(batch_id: :batch_one, signal: :manager_approved, payload: {}, now: created_at + 8)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "batch_one" is terminal and cannot receive interactions')
+    end
+
+    it 'rejects workflow interaction payloads that are not string-keyed JSON-compatible hashes' do
+      definition = Karya::Workflow.define(:interactive) { step :root, handler: :root }
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      expect do
+        store.deliver_workflow_signal(batch_id: :batch_one, signal: :manager_approved, payload: { approved_by: 'ops' }, now: created_at + 2)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'payload keys must be Strings')
+      expect do
+        store.deliver_workflow_event(batch_id: :batch_one, event: :payment_received, payload: { 'received_at' => created_at }, now: created_at + 3)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'payload values must be JSON-compatible')
+    end
+
+    it 'supports explicit workflow queries for state and current steps' do
+      definition = Karya::Workflow.define(:interactive) do
+        step :root, handler: :root
+        step :capture_payment, handler: :capture_payment, depends_on: :root
+        step :emit_receipt, handler: :emit_receipt, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          root: workflow_job(:root),
+          capture_payment: workflow_job(:capture_payment),
+          emit_receipt: workflow_job(:emit_receipt)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      initial_state = store.query_workflow(batch_id: :batch_one, query: :state, now: created_at + 2)
+      initial_step = store.query_workflow(batch_id: :batch_one, query: 'current-step', now: created_at + 3)
+      run_successfully(reserve(4), start_offset: 5, complete_offset: 6)
+      current_steps = store.query_workflow(batch_id: :batch_one, query: 'current-steps', now: created_at + 7)
+
+      expect(initial_state).to have_attributes(query: 'state', value: :blocked)
+      expect(initial_step).to have_attributes(query: 'current-step', value: 'root')
+      expect(current_steps).to have_attributes(query: 'current-steps', value: %w[capture_payment emit_receipt])
+    end
+
+    it 'lets signals and events drive workflow readiness transitions through waiting steps' do
+      signal_definition = Karya::Workflow.define(:signal_gate) do
+        step :approve, handler: :approve, wait_for_signal: :manager_approved
+      end
+      event_definition = Karya::Workflow.define(:event_gate) do
+        step :capture_payment, handler: :capture_payment, wait_for_event: :payment_received
+      end
+
+      store.enqueue_workflow(
+        definition: signal_definition,
+        jobs_by_step_id: { approve: workflow_job(:approve) },
+        batch_id: :signal_batch,
+        now: created_at + 1
+      )
+      store.enqueue_workflow(
+        definition: event_definition,
+        jobs_by_step_id: { capture_payment: workflow_job(:capture_payment) },
+        batch_id: :event_batch,
+        now: created_at + 2
+      )
+
+      expect(reserve(3)).to be_nil
+
+      blocked_signal = store.workflow_snapshot(batch_id: :signal_batch, now: created_at + 4)
+      blocked_event = store.workflow_snapshot(batch_id: :event_batch, now: created_at + 5)
+
+      store.deliver_workflow_signal(
+        batch_id: :signal_batch,
+        signal: :manager_approved,
+        payload: { 'approved_by' => 'ops' },
+        now: created_at + 6
+      )
+      store.deliver_workflow_event(
+        batch_id: :event_batch,
+        event: :payment_received,
+        payload: { 'source' => 'stripe' },
+        now: created_at + 7
+      )
+
+      signal_ready = store.workflow_snapshot(batch_id: :signal_batch, now: created_at + 8)
+      event_ready = store.workflow_snapshot(batch_id: :event_batch, now: created_at + 9)
+
+      expect(blocked_signal.fetch_step(:approve)).to be_blocked
+      expect(blocked_event.fetch_step(:capture_payment)).to be_blocked
+      expect(signal_ready.fetch_step(:approve)).to be_ready
+      expect(event_ready.fetch_step(:capture_payment)).to be_ready
+      expect(reserve(10).job_id).to eq('job-approve')
+      expect(reserve(11).job_id).to eq('job-capture_payment')
+    end
+
+    it 'keeps workflow interactions visible across retry and rollback controls' do
+      definition = Karya::Workflow.define(:interactive) { step :root, handler: :root }
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      store.deliver_workflow_signal(
+        batch_id: :batch_one,
+        signal: :manager_approved,
+        payload: { 'approved_by' => 'ops' },
+        now: created_at + 2
+      )
+      root = reserve(3)
+      store.start_execution(reservation_token: root.token, now: created_at + 4)
+      store.fail_execution(reservation_token: root.token, now: created_at + 5, failure_classification: :error)
+
+      retry_report = store.retry_workflow_steps(batch_id: :batch_one, step_ids: [:root], now: created_at + 6)
+      retry_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 7)
+      retried_root = reserve(8)
+      store.start_execution(reservation_token: retried_root.token, now: created_at + 9)
+      store.fail_execution(reservation_token: retried_root.token, now: created_at + 10, failure_classification: :error)
+      rollback_report = store.rollback_workflow(batch_id: :batch_one, now: created_at + 11, reason: 'operator rollback')
+      rollback_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 12)
+
+      expect(retry_report.changed_jobs.map(&:id)).to eq(['job-root'])
+      expect(retry_snapshot.interactions.map(&:name)).to eq(['manager_approved'])
+      expect(rollback_report.action).to eq(:rollback_workflow)
+      expect(rollback_snapshot.interactions.map(&:name)).to eq(['manager_approved'])
     end
 
     it 'retries explicit failed and retry-pending workflow steps without bypassing dependency gates' do

@@ -31,6 +31,10 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
   end
 
+  def interaction_snapshot(kind: :signal, name: :manager_approved)
+    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload: {}, received_at: created_at)
+  end
+
   it 'ignores execution tokens that are not present' do
     store_state.execution_tokens_in_order << 'lease-1'
 
@@ -225,6 +229,17 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_registrations_by_batch_id['missing']).to be_nil
   end
 
+  it 'stores workflow interactions by batch id' do
+    signal = interaction_snapshot(kind: :signal, name: :manager_approved)
+    event = interaction_snapshot(kind: :event, name: :payment_received)
+
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: signal)
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: event)
+
+    expect(store_state.workflow_interactions_for('batch-1')).to eq([signal, event])
+    expect(store_state.workflow_interactions_for('missing')).to eq([])
+  end
+
   it 'cleans up child workflow relationships by parent batch' do
     workflow_children = store_state.workflow_children
 
@@ -252,6 +267,22 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(workflow_children.for_parent_job('job-child')).to be_nil
     expect(workflow_children.for_child_batch('child-batch-1')).to be_nil
     expect(workflow_children.expected_child_workflow_id_by_job_id).to eq({})
+  end
+
+  it 'prunes workflow interaction inboxes with workflow batch cleanup' do
+    store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
+    store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'root' => 'job-1' },
+      dependency_job_ids_by_job_id: { 'job-1' => [] },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: interaction_snapshot)
+
+    expect(store_state.prune_terminal_batches(0)).to eq(['batch-1'])
+    expect(store_state.workflow_interactions_for('batch-1')).to eq([])
   end
 
   it 'cleans up child workflow relationships by child batch' do

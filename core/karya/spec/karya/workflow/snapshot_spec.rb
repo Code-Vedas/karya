@@ -40,7 +40,21 @@ RSpec.describe Karya::Workflow::Snapshot do
     )
   end
 
-  def snapshot(jobs:, step_job_ids: nil, dependencies: {}, rollback: nil, child_workflows: [], child_workflow_ids_by_step_id: {}, parent: nil)
+  def interaction(kind: :signal, name: :manager_approved, payload: {})
+    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at: captured_at + 2)
+  end
+
+  def snapshot(
+    jobs:,
+    step_job_ids: nil,
+    dependencies: {},
+    rollback: nil,
+    child_workflows: [],
+    child_workflow_ids_by_step_id: {},
+    interactions: [],
+    interaction_requirements_by_job_id: {},
+    parent: nil
+  )
     described_class.new(
       workflow_id: ' invoice_closeout ',
       batch_id: ' batch_1 ',
@@ -50,6 +64,8 @@ RSpec.describe Karya::Workflow::Snapshot do
       jobs:,
       child_workflow_ids_by_step_id:,
       child_workflows:,
+      interactions:,
+      interaction_requirements_by_job_id:,
       parent:,
       rollback:
     )
@@ -86,10 +102,60 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect(result.state_for_step(:child)).to eq(:queued)
     expect(result.rollback_requested?).to be(false)
     expect(result.rollback).to be_nil
+    expect(result.interactions).to eq([])
+    expect(result.signals).to eq([])
+    expect(result.events).to eq([])
     expect(result).to be_frozen
     expect(result.jobs).to be_frozen
     expect(result.step_states).to be_frozen
     expect(result.state_counts).to be_frozen
+  end
+
+  it 'exposes workflow interaction snapshots and filtered readers' do
+    signal = interaction(kind: :signal, name: :manager_approved, payload: { 'approved_by' => 'ops' })
+    event = interaction(kind: :event, name: :payment_received, payload: { 'source' => 'stripe' })
+
+    result = snapshot(jobs: [job(id: 'job_root', state: :queued)], interactions: [signal, event])
+
+    expect(result.interactions).to eq([signal, event])
+    expect(result.signals).to eq([signal])
+    expect(result.events).to eq([event])
+  end
+
+  it 'blocks waiting interaction-gated steps until the matching interaction is delivered' do
+    jobs = [job(id: 'job_capture', state: :queued)]
+    blocked = snapshot(
+      jobs:,
+      step_job_ids: { capture_payment: 'job_capture' },
+      interaction_requirements_by_job_id: { 'job_capture' => { kind: :event, name: :payment_received } }
+    )
+    ready = snapshot(
+      jobs:,
+      step_job_ids: { capture_payment: 'job_capture' },
+      interaction_requirements_by_job_id: { 'job_capture' => { kind: :event, name: :payment_received } },
+      interactions: [interaction(kind: :event, name: :payment_received)]
+    )
+
+    expect(blocked.fetch_step(:capture_payment)).to be_blocked
+    expect(blocked.state).to eq(:blocked)
+    expect(ready.fetch_step(:capture_payment)).to be_ready
+    expect(ready.state).to eq(:pending)
+  end
+
+  it 'marks every step that shares one interaction requirement as ready once delivered' do
+    jobs = [job(id: 'job_capture', state: :queued), job(id: 'job_notify', state: :queued)]
+    result = snapshot(
+      jobs:,
+      step_job_ids: { capture_payment: 'job_capture', notify_customer: 'job_notify' },
+      interaction_requirements_by_job_id: {
+        'job_capture' => { kind: :event, name: :payment_received },
+        'job_notify' => { kind: :event, name: :payment_received }
+      },
+      interactions: [interaction(kind: :event, name: :payment_received)]
+    )
+
+    expect(result.fetch_step(:capture_payment)).to be_ready
+    expect(result.fetch_step(:notify_customer)).to be_ready
   end
 
   it 'exposes rollback metadata when requested' do
@@ -191,6 +257,12 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect do
       snapshot(jobs:, step_job_ids: { child: 'job_child' }, child_workflows: 'child')
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child_workflows must be an Array')
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, interactions: 'signal')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interactions must be an Array')
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, interactions: ['signal'])
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interactions entries must be Karya::Workflow::InteractionSnapshot')
     expect do
       snapshot(jobs:, step_job_ids: { child: 'job_child' }, child_workflows: ['child'])
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child_workflows entries must be Karya::Workflow::ChildWorkflowSnapshot')
@@ -366,6 +438,37 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect do
       snapshot(jobs:, step_job_ids: { root: 'job_other' })
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'step_job_ids must match jobs in order')
+  end
+
+  it 'validates interaction requirement metadata' do
+    jobs = [job(id: 'job_child', state: :queued)]
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, interaction_requirements_by_job_id: 'signal')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_requirements_by_job_id must be a Hash')
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, interaction_requirements_by_job_id: { 'job_child' => 'signal' })
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction requirement must be a Hash')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        interaction_requirements_by_job_id: { 'job_child' => { kind: :webhook, name: :payment_received } }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction requirement kind must be :signal or :event')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        interaction_requirements_by_job_id: {
+          ' job_child ' => { kind: :signal, name: :manager_approved },
+          job_child: { kind: :signal, name: :manager_approved }
+        }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate interaction requirement job "job_child"')
   end
 
   it 'derives workflow states' do

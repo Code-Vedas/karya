@@ -26,21 +26,39 @@ module Karya
   type normalized_state_name_array = Array[normalized_state_name]
   type normalized_transition_map = Hash[normalized_state_name, normalized_state_name_array]
   type child_workflow_snapshot_attribute_value = state_name | Karya::workflow_state
+  type interaction_kind = :signal | :event
+  type workflow_query = "state" | "current-step" | "current-steps"
+  type workflow_query_value = workflow_state | String? | Array[String]
+  type interaction_requirement = { kind: interaction_kind, name: String }
+  type interaction_payload_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Array[interaction_payload_value] |
+    Hash[String, interaction_payload_value]
+  type interaction_payload = Hash[String, interaction_payload_value]
+  type interaction_snapshot_attribute_value = interaction_kind | state_name | interaction_payload | Time
   type step_snapshot_attribute_value =
     state_name |
     Job |
     Array[state_name] |
     Hash[state_name, state_name?] |
+    interaction_kind |
     Workflow::ChildWorkflowSnapshot |
+    Time |
     nil
   type workflow_snapshot_attribute_value =
     state_name |
     Time |
     Hash[state_name, state_name] |
     Hash[state_name, state_name_array] |
+    Hash[state_name, interaction_requirement] |
     Array[Job] |
     Array[Workflow::ChildWorkflowSnapshot] |
+    Array[Workflow::InteractionSnapshot] |
     Workflow::ChildWorkflowSnapshot |
+    Workflow::InteractionSnapshot |
     Workflow::RollbackSnapshot |
     nil
   type handler_parameter = [Symbol, Symbol?]
@@ -202,6 +220,8 @@ module Karya
     :replay_dead_letter_jobs |
     :retry_dead_letter_jobs |
     :discard_dead_letter_jobs |
+    :deliver_workflow_signal |
+    :deliver_workflow_event |
     :enqueue_child_workflow |
     :rollback_workflow |
     :sync_child_workflows |

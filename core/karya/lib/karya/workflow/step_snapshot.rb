@@ -11,25 +11,21 @@ module Karya
     class StepSnapshot
       WAITING_STATES = %i[queued submission].freeze
 
-      attr_reader :batch_id,
-                  :child_workflow,
+      attr_reader :child_workflow,
                   :child_workflow_id,
                   :job,
-                  :job_id,
                   :prerequisite_job_ids,
-                  :prerequisite_states,
-                  :state,
-                  :step_id,
-                  :workflow_id
+                  :prerequisite_states
 
       def initialize(**attributes)
         attributes = Attributes.new(attributes)
-        @workflow_id = attributes.workflow_id
-        @batch_id = attributes.batch_id
-        @step_id = attributes.step_id
-        @job_id = attributes.job_id
+        @identity = Identity.new(
+          workflow_id: attributes.workflow_id,
+          batch_id: attributes.batch_id,
+          step_id: attributes.step_id,
+          job_id: attributes.job_id
+        )
         @job = attributes.job
-        @state = @job.state
         @prerequisite_job_ids = attributes.prerequisite_job_ids
         @prerequisite_states = PrerequisiteStates.new(
           prerequisite_job_ids: @prerequisite_job_ids,
@@ -39,15 +35,36 @@ module Karya
         @child_workflow = ChildWorkflow.new(
           child_workflow: attributes.child_workflow,
           child_workflow_id: @child_workflow_id,
-          parent_batch_id: @batch_id,
-          parent_step_id: @step_id,
-          parent_job_id: @job_id
+          parent_batch_id: batch_id,
+          parent_step_id: step_id,
+          parent_job_id: job_id
         ).to_snapshot
+        @interaction = Interaction.new(
+          kind: attributes.interaction_kind,
+          name: attributes.interaction_name,
+          received_at: attributes.interaction_received_at
+        )
         freeze
       end
 
+      def workflow_id = identity.workflow_id
+
+      def batch_id = identity.batch_id
+
+      def step_id = identity.step_id
+
+      def job_id = identity.job_id
+
+      def state = job.state
+
+      def interaction_kind = interaction.kind
+
+      def interaction_name = interaction.name
+
+      def interaction_received_at = interaction.received_at
+
       def ready?
-        waiting? && prerequisites_succeeded? && child_workflow_succeeded?
+        waiting? && prerequisites_succeeded? && child_workflow_succeeded? && interaction_satisfied?
       end
 
       def blocked?
@@ -77,7 +94,13 @@ module Karya
           prerequisite_job_ids
           prerequisite_states
         ].freeze
-        OPTIONAL_ATTRIBUTES = %i[child_workflow_id child_workflow].freeze
+        OPTIONAL_ATTRIBUTES = %i[
+          child_workflow_id
+          child_workflow
+          interaction_kind
+          interaction_name
+          interaction_received_at
+        ].freeze
         SUPPORTED_ATTRIBUTES = (REQUIRED_ATTRIBUTES + OPTIONAL_ATTRIBUTES).freeze
 
         def initialize(attributes)
@@ -122,6 +145,18 @@ module Karya
 
         def child_workflow
           attributes.fetch(:child_workflow, nil)
+        end
+
+        def interaction_kind
+          InteractionKindValue.new(attributes.fetch(:interaction_kind, nil)).to_sym
+        end
+
+        def interaction_name
+          OptionalIdentifier.new(:interaction_name, attributes.fetch(:interaction_name, nil)).to_s
+        end
+
+        def interaction_received_at
+          OptionalTimestamp.new(:interaction_received_at, attributes.fetch(:interaction_received_at, nil)).to_time
         end
 
         private
@@ -169,6 +204,19 @@ module Karya
           return if parent_job_id == child_workflow.parent_job_id
 
           raise InvalidExecutionError, 'child workflow parent job must match step job'
+        end
+      end
+
+      # Groups the normalized identity fields for one step snapshot.
+      class Identity
+        attr_reader :batch_id, :job_id, :step_id, :workflow_id
+
+        def initialize(workflow_id:, batch_id:, step_id:, job_id:)
+          @workflow_id = workflow_id
+          @batch_id = batch_id
+          @step_id = step_id
+          @job_id = job_id
+          freeze
         end
       end
 
@@ -258,9 +306,108 @@ module Karya
         end
       end
 
-      private_constant :Attributes, :ChildWorkflow, :JobEntry, :JobIdList, :PrerequisiteStates, :WAITING_STATES
+      # Groups one optional workflow interaction gate and its delivery state.
+      class Interaction
+        attr_reader :kind, :name, :received_at
+
+        def initialize(kind:, name:, received_at:)
+          @kind = kind
+          @name = name
+          @received_at = received_at
+          freeze
+        end
+      end
+
+      # Normalizes one optional interaction kind.
+      class InteractionKindValue
+        def initialize(value)
+          @value = value
+        end
+
+        def to_sym
+          return nil unless value
+
+          kind = value.to_sym
+          return kind if %i[signal event].include?(kind)
+
+          raise InvalidExecutionError, 'interaction_kind must be :signal or :event'
+        end
+
+        private
+
+        attr_reader :value
+      end
+
+      # Normalizes one optional identifier field.
+      class OptionalIdentifier
+        def initialize(field_name, value)
+          @field_name = field_name
+          @value = value
+        end
+
+        def to_s
+          return nil unless value
+
+          Workflow.send(:normalize_identifier, field_name, value)
+        end
+
+        private
+
+        attr_reader :field_name, :value
+      end
+
+      # Normalizes one optional timestamp field.
+      class OptionalTimestamp
+        def initialize(field_name, value)
+          @field_name = field_name
+          @value = value
+        end
+
+        def to_time
+          return nil unless value
+
+          Timestamp.new(field_name, value).to_time
+        end
+
+        private
+
+        attr_reader :field_name, :value
+      end
+
+      # Normalizes timestamps into immutable values.
+      class Timestamp
+        def initialize(name, value)
+          @name = name
+          @value = value
+        end
+
+        def to_time
+          return value.dup.freeze if value.is_a?(Time)
+
+          raise InvalidExecutionError, "#{name} must be a Time"
+        end
+
+        private
+
+        attr_reader :name, :value
+      end
+
+      private_constant :Attributes,
+                       :ChildWorkflow,
+                       :Identity,
+                       :Interaction,
+                       :InteractionKindValue,
+                       :JobEntry,
+                       :JobIdList,
+                       :OptionalIdentifier,
+                       :OptionalTimestamp,
+                       :PrerequisiteStates,
+                       :Timestamp,
+                       :WAITING_STATES
 
       private
+
+      attr_reader :identity, :interaction
 
       def waiting?
         WAITING_STATES.include?(state)
@@ -275,6 +422,10 @@ module Karya
         return false unless child_workflow
 
         child_workflow.child_state == :succeeded
+      end
+
+      def interaction_satisfied?
+        interaction_name ? !!interaction_received_at : true
       end
     end
   end

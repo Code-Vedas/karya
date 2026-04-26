@@ -15,6 +15,7 @@ module Karya
 
           attr_reader :executions_by_token,
                       :batches_by_id,
+                      :batch_id_by_job_id,
                       :breaker_failures_by_scope,
                       :breaker_states_by_scope,
                       :execution_tokens_in_order,
@@ -34,6 +35,7 @@ module Karya
                       :stuck_job_recoveries_by_id,
                       :workflow_children,
                       :workflow_dependency_job_ids_by_job_id,
+                      :workflow_interactions,
                       :workflow_rollback_batch_ids,
                       :workflow_registrations_by_batch_id,
                       :workflow_rollbacks_by_batch_id
@@ -43,6 +45,7 @@ module Karya
             :workflow_id,
             :step_job_ids,
             :dependency_job_ids_by_job_id,
+            :interaction_requirements_by_job_id,
             :compensation_jobs_by_step_id,
             :child_workflow_ids_by_step_id
           )
@@ -156,6 +159,28 @@ module Karya
             end
           end
 
+          # Owner-local workflow interaction inbox keyed by workflow batch id.
+          class WorkflowInteractions
+            EMPTY = [].freeze
+            private_constant :EMPTY
+
+            def initialize
+              @by_batch_id = {}
+            end
+
+            def for_batch(batch_id)
+              @by_batch_id.fetch(batch_id, EMPTY)
+            end
+
+            def register(batch_id:, interaction:)
+              @by_batch_id[batch_id] = (for_batch(batch_id) + [interaction]).freeze
+            end
+
+            def delete_by_batch(batch_id)
+              @by_batch_id.delete(batch_id) || EMPTY
+            end
+          end
+
           # Decides whether a terminal child batch must remain because its parent is still active.
           class ChildBatchRetention
             def initialize(batches_by_id:, workflow_children:, terminal_batch:)
@@ -237,6 +262,10 @@ module Karya
               workflow_indexes.fetch(:workflow_children)
             end
 
+            def workflow_interactions
+              workflow_indexes.fetch(:workflow_interactions)
+            end
+
             def workflow_dependency_job_ids_by_job_id
               workflow_indexes.fetch(:workflow_dependency_job_ids_by_job_id)
             end
@@ -263,6 +292,7 @@ module Karya
                 },
                 workflow_indexes: {
                   workflow_children:,
+                  workflow_interactions:,
                   workflow_rollback_batch_ids:,
                   workflow_registrations_by_batch_id:,
                   workflow_rollbacks_by_batch_id:
@@ -279,12 +309,14 @@ module Karya
               step_job_ids:,
               dependency_job_ids_by_job_id:,
               compensation_jobs_by_step_id:,
+              interaction_requirements_by_job_id: {},
               child_workflow_ids_by_step_id: {}
             )
               registration = WorkflowRegistration.new(
                 workflow_id,
                 step_job_ids.dup.freeze,
                 dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
+                interaction_requirements_by_job_id.transform_values(&:dup).freeze,
                 compensation_jobs_by_step_id.dup.freeze,
                 child_workflow_ids_by_step_id.dup.freeze
               ).freeze
@@ -301,8 +333,16 @@ module Karya
               )
             end
 
+            def register_workflow_interaction(batch_id:, interaction:)
+              workflow_interactions.register(batch_id:, interaction:)
+            end
+
             def workflow_dependency_job_ids_for(job_id)
               workflow_dependency_job_ids_by_job_id[job_id]
+            end
+
+            def workflow_interactions_for(batch_id)
+              workflow_interactions.for_batch(batch_id)
             end
 
             def register_workflow_rollback(batch_id:, rollback_batch_id:, reason:, requested_at:, compensation_job_ids:)
@@ -322,6 +362,7 @@ module Karya
           private_constant :ChildBatchRetention,
                            :TerminalBatchPruner,
                            :WorkflowChildren,
+                           :WorkflowInteractions,
                            :WorkflowMetadata,
                            :WorkflowRegistration,
                            :WorkflowRollback
@@ -351,11 +392,15 @@ module Karya
             @stuck_job_recoveries_by_id = {}
             @terminal_batch_ids_index = {}
             @terminal_batch_ids_in_order = []
-            @workflow_children = WorkflowChildren.new
-            @workflow_dependency_job_ids_by_job_id = {}
-            @workflow_rollback_batch_ids = {}
-            @workflow_registrations_by_batch_id = {}
-            @workflow_rollbacks_by_batch_id = {}
+            workflow_state = {
+              workflow_children: WorkflowChildren.new,
+              workflow_dependency_job_ids_by_job_id: {},
+              workflow_interactions: WorkflowInteractions.new,
+              workflow_rollback_batch_ids: {},
+              workflow_registrations_by_batch_id: {},
+              workflow_rollbacks_by_batch_id: {}
+            }
+            workflow_state.each { |name, value| instance_variable_set(:"@#{name}", value) }
           end
 
           def queue_job_ids_for(queue)
@@ -519,6 +564,7 @@ module Karya
               workflow_indexes: {
                 workflow_dependency_job_ids_by_job_id:,
                 workflow_children:,
+                workflow_interactions:,
                 workflow_rollback_batch_ids:,
                 workflow_registrations_by_batch_id:,
                 workflow_rollbacks_by_batch_id:
@@ -606,6 +652,7 @@ module Karya
             def cleanup_workflow_registration
               registration = workflow_registrations_by_batch_id.delete(batch_id)
               rollback = workflow_rollbacks_by_batch_id.delete(batch_id)
+              workflow_interactions.delete_by_batch(batch_id)
               cleanup_child_workflows(registration)
               workflow_rollback_batch_ids.delete(rollback.rollback_batch_id) if rollback
               registration
@@ -654,6 +701,10 @@ module Karya
 
             def workflow_rollback_batch_ids
               workflow_indexes.fetch(:workflow_rollback_batch_ids)
+            end
+
+            def workflow_interactions
+              workflow_indexes.fetch(:workflow_interactions)
             end
 
             def workflow_children
