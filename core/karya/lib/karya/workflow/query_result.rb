@@ -10,6 +10,7 @@ module Karya
     # Immutable result for one explicit workflow query.
     class QueryResult
       SUPPORTED_QUERIES = %w[state current-step current-steps].freeze
+      WORKFLOW_STATES = %i[pending running blocked succeeded failed cancelled].freeze
 
       attr_reader :query, :queried_at, :value
 
@@ -64,6 +65,7 @@ module Karya
 
         def normalize_state
           raise InvalidExecutionError, 'workflow query "state" must return a Symbol' unless value.is_a?(Symbol)
+          raise InvalidExecutionError, 'workflow query "state" must return a workflow state' unless WORKFLOW_STATES.include?(value)
 
           value
         end
@@ -104,7 +106,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      private_constant :Query, :SUPPORTED_QUERIES, :Timestamp, :Value
+      private_constant :Query, :SUPPORTED_QUERIES, :Timestamp, :Value, :WORKFLOW_STATES
     end
   end
 end

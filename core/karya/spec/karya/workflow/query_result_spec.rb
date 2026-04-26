@@ -33,6 +33,9 @@ RSpec.describe Karya::Workflow::QueryResult do
       described_class.new(query: 'state', value: 'running', queried_at:)
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow query "state" must return a Symbol')
     expect do
+      described_class.new(query: 'state', value: :dead_letter, queried_at:)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow query "state" must return a workflow state')
+    expect do
       described_class.new(query: 'current-steps', value: 'capture_payment', queried_at:)
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow query "current-steps" must return an Array')
   end
