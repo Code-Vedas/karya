@@ -9,6 +9,7 @@ require_relative 'primitives/identifier'
 require_relative 'workflow/batch'
 require_relative 'workflow/batch_snapshot'
 require_relative 'workflow/catalog'
+require_relative 'workflow/child_workflow_snapshot'
 require_relative 'workflow/dependency'
 require_relative 'workflow/definition'
 require_relative 'workflow/execution_binding'
@@ -75,8 +76,8 @@ module Karya
         @steps = []
       end
 
-      def step(id, handler:, arguments: {}, depends_on: nil, compensate_with: nil, compensation_arguments: {})
-        steps << Step.new(id:, handler:, arguments:, depends_on:, compensate_with:, compensation_arguments:)
+      def step(id, handler:, arguments: {}, depends_on: nil, compensate_with: nil, compensation_arguments: {}, child_workflow: nil)
+        steps << Step.new(id:, handler:, arguments:, depends_on:, compensate_with:, compensation_arguments:, child_workflow:)
         nil
       end
 

@@ -29,6 +29,7 @@ module Karya
           @stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
           @terminal_batch_ids_index: Hash[String, bool]
           @terminal_batch_ids_in_order: Array[String]
+          @workflow_children: WorkflowChildren
           @workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
           @workflow_rollback_batch_ids: Hash[String, bool]
           @workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
@@ -53,6 +54,7 @@ module Karya
           attr_reader reservation_tokens_in_order: Array[String]
           attr_reader reservations_by_token: Hash[String, Reservation]
           attr_reader stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
+          attr_reader workflow_children: WorkflowChildren
           attr_reader workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
           attr_reader workflow_rollback_batch_ids: Hash[String, bool]
           attr_reader workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
@@ -84,12 +86,15 @@ module Karya
           def reservation_token_in_use?: (String reservation_token) -> bool
           def register_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
           def prune_terminal_batches: (Integer retention_limit, ?changed_job: Job?) -> Array[String]
+          def register_workflow_dependencies: (Hash[String, Array[String]] dependency_job_ids_by_job_id) -> Hash[String, Array[String]]
+          def workflow_dependency_job_ids_for: (String job_id) -> Array[String]?
           def register_workflow: (
             batch_id: String,
             workflow_id: String,
             step_job_ids: Hash[String, String],
             dependency_job_ids_by_job_id: Hash[String, Array[String]],
-            compensation_jobs_by_step_id: Hash[String, Job]
+            compensation_jobs_by_step_id: Hash[String, Job],
+            ?child_workflow_ids_by_step_id: Hash[String, String]
           ) -> WorkflowRegistration
           def register_workflow_rollback: (
             batch_id: String,
@@ -108,18 +113,21 @@ module Karya
             @step_job_ids: Hash[String, String]
             @dependency_job_ids_by_job_id: Hash[String, Array[String]]
             @compensation_jobs_by_step_id: Hash[String, Job]
+            @child_workflow_ids_by_step_id: Hash[String, String]
 
             def initialize: (
               String workflow_id,
               Hash[String, String] step_job_ids,
               Hash[String, Array[String]] dependency_job_ids_by_job_id,
-              Hash[String, Job] compensation_jobs_by_step_id
+              Hash[String, Job] compensation_jobs_by_step_id,
+              Hash[String, String] child_workflow_ids_by_step_id
             ) -> void
 
             attr_reader workflow_id: String
             attr_reader step_job_ids: Hash[String, String]
             attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
             attr_reader compensation_jobs_by_step_id: Hash[String, Job]
+            attr_reader child_workflow_ids_by_step_id: Hash[String, String]
           end
 
           class PrunedBatchCleanup
@@ -130,6 +138,7 @@ module Karya
               workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
             }
             @workflow_indexes: {
+              workflow_children: WorkflowChildren,
               workflow_rollback_batch_ids: Hash[String, bool],
               workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration],
               workflow_rollbacks_by_batch_id: Hash[String, WorkflowRollback]
@@ -143,6 +152,7 @@ module Karya
                 workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
               },
               workflow_indexes: {
+                workflow_children: WorkflowChildren,
                 workflow_rollback_batch_ids: Hash[String, bool],
                 workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration],
                 workflow_rollbacks_by_batch_id: Hash[String, WorkflowRollback]
@@ -156,6 +166,7 @@ module Karya
                 workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
               },
               workflow_indexes: {
+                workflow_children: WorkflowChildren,
                 workflow_rollback_batch_ids: Hash[String, bool],
                 workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration],
                 workflow_rollbacks_by_batch_id: Hash[String, WorkflowRollback]
@@ -172,6 +183,7 @@ module Karya
               workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
             }
             attr_reader workflow_indexes: {
+              workflow_children: WorkflowChildren,
               workflow_rollback_batch_ids: Hash[String, bool],
               workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration],
               workflow_rollbacks_by_batch_id: Hash[String, WorkflowRollback]
@@ -182,6 +194,7 @@ module Karya
             def cleanup_stale_batch_membership: () -> Array[String]
             def batch_id_by_job_id: () -> Hash[String, String]
             def workflow_dependency_job_ids_by_job_id: () -> Hash[String, Array[String]]
+            def workflow_children: () -> WorkflowChildren
             def workflow_rollback_batch_ids: () -> Hash[String, bool]
             def workflow_registrations_by_batch_id: () -> Hash[String, WorkflowRegistration]
             def workflow_rollbacks_by_batch_id: () -> Hash[String, WorkflowRollback]
@@ -207,6 +220,58 @@ module Karya
             attr_reader reason: String
             attr_reader requested_at: Time
             attr_reader compensation_job_ids: Array[String]
+          end
+
+          class WorkflowChildren
+            @by_child_batch_id: Hash[String, WorkflowChildren::Relationship]
+            @by_parent_batch_id: Hash[String, Hash[String, WorkflowChildren::Relationship]]
+            @by_parent_job_id: Hash[String, WorkflowChildren::Relationship]
+            @expected_child_workflow_id_by_job_id: Hash[String, String]
+
+            attr_reader expected_child_workflow_id_by_job_id: Hash[String, String]
+
+            def initialize: () -> void
+            def register_expected_child: (String parent_job_id, String child_workflow_id) -> String
+            def register: (
+              parent_workflow_id: String,
+              parent_batch_id: String,
+              parent_step_id: String,
+              parent_job_id: String,
+              child_workflow_id: String,
+              child_batch_id: String
+            ) -> WorkflowChildren::Relationship
+            def for_parent_step: (String parent_batch_id, String parent_step_id) -> WorkflowChildren::Relationship?
+            def for_parent_batch: (String parent_batch_id) -> Array[WorkflowChildren::Relationship]
+            def for_parent_job: (String parent_job_id) -> WorkflowChildren::Relationship?
+            def for_child_batch: (String child_batch_id) -> WorkflowChildren::Relationship?
+            def delete_by_parent_batch: (String parent_batch_id) -> Array[WorkflowChildren::Relationship]
+            def delete_by_child_batch: (String child_batch_id) -> WorkflowChildren::Relationship?
+            def delete_expected_children: (Array[String] parent_job_ids) -> Array[String]
+
+          private
+
+            def parent_relationships: (String parent_batch_id) -> Hash[String, WorkflowChildren::Relationship]
+            def ensure_parent_relationships: (String parent_batch_id) -> Hash[String, WorkflowChildren::Relationship]
+            def delete_relationship: (
+              WorkflowChildren::Relationship relationship,
+              ?remove_parent_batch: bool
+            ) -> WorkflowChildren::Relationship
+
+            class Relationship
+              @parent_workflow_id: String
+              @parent_batch_id: String
+              @parent_step_id: String
+              @parent_job_id: String
+              @child_workflow_id: String
+              @child_batch_id: String
+
+              attr_reader parent_workflow_id: String
+              attr_reader parent_batch_id: String
+              attr_reader parent_step_id: String
+              attr_reader parent_job_id: String
+              attr_reader child_workflow_id: String
+              attr_reader child_batch_id: String
+            end
           end
 
           def trim_fair_queue_history: () -> void

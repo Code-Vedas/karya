@@ -49,6 +49,25 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #workflow_snapshot/)
   end
 
+  it 'requires enqueue_child_workflow to be implemented' do
+    expect do
+      store.enqueue_child_workflow(
+        parent_batch_id: 'parent-batch',
+        parent_step_id: 'child-step',
+        definition: instance_double(Karya::Workflow::Definition),
+        jobs_by_step_id: {},
+        batch_id: 'child-batch',
+        now: Time.utc(2026, 3, 27, 12, 0, 0)
+      )
+    end.to raise_error(NotImplementedError, /implement #enqueue_child_workflow/)
+  end
+
+  it 'requires sync_child_workflows to be implemented' do
+    expect do
+      store.sync_child_workflows(parent_batch_id: 'parent-batch', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #sync_child_workflows/)
+  end
+
   it 'requires rollback_workflow to be implemented' do
     expect do
       store.rollback_workflow(batch_id: 'batch-1', now: Time.utc(2026, 3, 27, 12, 0, 0), reason: 'operator rollback')

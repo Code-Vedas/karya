@@ -30,15 +30,14 @@ module Karya
               queued_jobs = jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               dependency_job_ids_by_job_id = binding.dependency_job_ids_by_job_id
               store_batch(batch)
-              state.workflow_dependency_job_ids_by_job_id.merge!(
-                dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }
-              )
+              state.register_workflow_dependencies(dependency_job_ids_by_job_id)
               state.register_workflow(
                 batch_id: workflow_batch_id,
                 workflow_id: definition.id,
                 step_job_ids: StepJobIds.new(definition:, jobs:).to_h,
                 dependency_job_ids_by_job_id:,
-                compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id
+                compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id,
+                child_workflow_ids_by_step_id: WorkflowChildIds.new(definition).to_h
               )
               BulkMutationReport.new(
                 action: :enqueue_many,
@@ -65,9 +64,7 @@ module Karya
               queued_jobs = rollback_jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               queued_job_ids = queued_jobs.map(&:id)
               store_batch(rollback_batch) if rollback_batch
-              state.workflow_dependency_job_ids_by_job_id.merge!(
-                rollback_plan.dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }
-              )
+              state.register_workflow_dependencies(rollback_plan.dependency_job_ids_by_job_id)
               state.register_workflow_rollback(
                 batch_id: rollback.workflow_batch_id,
                 rollback_batch_id: rollback.rollback_batch_id,
@@ -426,6 +423,9 @@ module Karya
                 step_job_ids: registration.step_job_ids,
                 dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
                 jobs:,
+                child_workflow_ids_by_step_id: registration.child_workflow_ids_by_step_id,
+                child_workflows: child_workflow_snapshots,
+                parent: parent_snapshot,
                 rollback: rollback_snapshot
               )
             end
@@ -439,6 +439,51 @@ module Karya
               return unless rollback
 
               RollbackSnapshotAttributes.new(rollback.to_h).to_snapshot
+            end
+
+            def child_workflow_snapshots
+              state.workflow_children.for_parent_batch(batch.id).map do |relationship|
+                ChildWorkflowSnapshotBuilder.new(relationship:, resolver: child_state_resolver).to_snapshot
+              end.freeze
+            end
+
+            def parent_snapshot
+              relationship = state.workflow_children.for_child_batch(batch.id)
+              return unless relationship
+
+              ChildWorkflowSnapshotBuilder.new(relationship:, resolver: child_state_resolver).to_snapshot
+            end
+
+            def child_state_resolver
+              @child_state_resolver ||= WorkflowChildState.new(state:, now:)
+            end
+          end
+
+          # Builds public child workflow relationship snapshots from store metadata.
+          class ChildWorkflowSnapshotBuilder
+            def initialize(relationship:, resolver:)
+              @relationship = relationship
+              @resolver = resolver
+            end
+
+            def to_snapshot
+              Workflow::ChildWorkflowSnapshot.new(
+                parent_workflow_id: relationship.parent_workflow_id,
+                parent_batch_id: relationship.parent_batch_id,
+                parent_step_id: relationship.parent_step_id,
+                parent_job_id: relationship.parent_job_id,
+                child_workflow_id: relationship.child_workflow_id,
+                child_batch_id: relationship.child_batch_id,
+                child_state:
+              )
+            end
+
+            private
+
+            attr_reader :relationship, :resolver
+
+            def child_state
+              resolver.resolve(relationship.child_batch_id)
             end
           end
 
@@ -518,16 +563,29 @@ module Karya
               "workflow batch #{batch_id} has active jobs and cannot be rolled back"
             end
           end
-          private_constant :RollbackSnapshotAttributes, :RollbackState, :WorkflowSnapshotBuilder
+          private_constant :ChildWorkflowSnapshotBuilder, :RollbackSnapshotAttributes, :RollbackState, :WorkflowSnapshotBuilder
 
-          def workflow_dependencies_satisfied?(job)
-            prerequisite_job_ids = state.workflow_dependency_job_ids_by_job_id[job.id]
+          def workflow_dependencies_satisfied?(job, now:)
+            prerequisite_job_ids = state.workflow_dependency_job_ids_for(job.id)
+            return false unless workflow_child_satisfied?(job, now:)
             return true unless prerequisite_job_ids
 
             prerequisite_job_ids.all? do |prerequisite_job_id|
               prerequisite_job = state.jobs_by_id[prerequisite_job_id]
               prerequisite_job && prerequisite_job.state == :succeeded
             end
+          end
+
+          def workflow_child_satisfied?(job, now:)
+            job_id = job.id
+            workflow_children = state.workflow_children
+            child_workflow_id = workflow_children.expected_child_workflow_id_by_job_id[job_id]
+            return true unless child_workflow_id
+
+            relationship = workflow_children.for_parent_job(job_id)
+            return false unless relationship
+
+            child_workflow_state(relationship.child_batch_id, now:) == :succeeded
           end
         end
       end

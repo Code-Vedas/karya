@@ -1,0 +1,31 @@
+module Karya
+  module QueueStore
+    class InMemory
+      module Internal
+        class WorkflowChildIds
+          @definition: Karya::Workflow::Definition
+
+          def initialize: (Karya::Workflow::Definition definition) -> void
+          def to_h: () -> Hash[String, String]
+
+        private
+
+          attr_reader definition: Karya::Workflow::Definition
+
+          class StepEntry
+            @workflow_step: Karya::Workflow::Step
+
+            def initialize: (Karya::Workflow::Step workflow_step) -> void
+            def store_in: (Hash[String, String] child_workflow_ids) -> String?
+
+          private
+
+            attr_reader workflow_step: Karya::Workflow::Step
+            def id: () -> String
+            def child_workflow: () -> String?
+          end
+        end
+      end
+    end
+  end
+end

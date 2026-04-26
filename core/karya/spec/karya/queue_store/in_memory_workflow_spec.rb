@@ -1033,4 +1033,240 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(reserve(3)).to be_nil
     end
   end
+
+  describe 'child workflow orchestration' do
+    def parent_definition
+      Karya::Workflow.define(:parent) do
+        step :prepare, handler: :prepare
+        step :payment_subflow, handler: :payment_subflow, depends_on: :prepare, child_workflow: :payment
+        step :receipt, handler: :receipt, depends_on: :payment_subflow
+      end
+    end
+
+    def child_definition
+      Karya::Workflow.define(:payment) do
+        step :authorize, handler: :authorize
+        step :capture, handler: :capture, depends_on: :authorize
+      end
+    end
+
+    def enqueue_parent
+      store.enqueue_workflow(
+        definition: parent_definition,
+        jobs_by_step_id: {
+          prepare: workflow_job(:prepare),
+          payment_subflow: workflow_job(:payment_subflow),
+          receipt: workflow_job(:receipt)
+        },
+        batch_id: :parent_batch,
+        now: created_at + 1
+      )
+    end
+
+    def enqueue_child
+      store.enqueue_child_workflow(
+        parent_batch_id: :parent_batch,
+        parent_step_id: :payment_subflow,
+        definition: child_definition,
+        jobs_by_step_id: {
+          authorize: workflow_job(:authorize),
+          capture: workflow_job(:capture)
+        },
+        batch_id: :payment_batch,
+        now: created_at + 5
+      )
+    end
+
+    it 'keeps child workflow batches separate and gates the parent child step until child success' do
+      enqueue_parent
+      prepare = reserve(2)
+      run_successfully(prepare, start_offset: 3, complete_offset: 4)
+
+      expect(reserve(5, handler_names: ['payment_subflow'])).to be_nil
+      report = enqueue_child
+      expect(report.action).to eq(:enqueue_child_workflow)
+      expect(store.batch_snapshot(batch_id: :parent_batch, now: created_at + 6).job_ids).to eq(
+        %w[job-prepare job-payment_subflow job-receipt]
+      )
+      expect(store.batch_snapshot(batch_id: :payment_batch, now: created_at + 6).job_ids).to eq(%w[job-authorize job-capture])
+
+      authorize = reserve(7)
+      expect(authorize.job_id).to eq('job-authorize')
+      run_successfully(authorize, start_offset: 8, complete_offset: 9)
+      capture = reserve(10)
+      expect(capture.job_id).to eq('job-capture')
+      run_successfully(capture, start_offset: 11, complete_offset: 12)
+
+      parent_snapshot = store.workflow_snapshot(batch_id: :parent_batch, now: created_at + 13)
+      expect(parent_snapshot.fetch_step(:payment_subflow)).to be_ready
+      expect(parent_snapshot.child_workflow(:payment_subflow)).to have_attributes(
+        child_batch_id: 'payment_batch',
+        child_state: :succeeded
+      )
+      expect(store.workflow_snapshot(batch_id: :payment_batch, now: created_at + 13).parent).to have_attributes(
+        parent_batch_id: 'parent_batch',
+        parent_step_id: 'payment_subflow'
+      )
+
+      parent_gate = reserve(14, handler_names: ['payment_subflow'])
+      expect(parent_gate.job_id).to eq('job-payment_subflow')
+      run_successfully(parent_gate, start_offset: 15, complete_offset: 16)
+      expect(reserve(17, handler_names: ['receipt']).job_id).to eq('job-receipt')
+    end
+
+    it 'syncs failed child workflows into failed parent child steps' do
+      enqueue_parent
+      run_successfully(reserve(2), start_offset: 3, complete_offset: 4)
+      enqueue_child
+      run_successfully(reserve(6), start_offset: 7, complete_offset: 8)
+      capture = reserve(9)
+      store.start_execution(reservation_token: capture.token, now: created_at + 10)
+      store.fail_execution(reservation_token: capture.token, now: created_at + 11, failure_classification: :error)
+
+      report = store.sync_child_workflows(parent_batch_id: :parent_batch, now: created_at + 12)
+
+      expect(report.action).to eq(:sync_child_workflows)
+      expect(report.changed_jobs).to contain_exactly(
+        have_attributes(id: 'job-payment_subflow', state: :dead_letter, dead_letter_reason: 'child workflow payment_batch failed')
+      )
+      expect(store.workflow_snapshot(batch_id: :parent_batch, now: created_at + 13)).to have_attributes(state: :failed)
+    end
+
+    it 'syncs cancelled child workflows into cancelled parent child steps' do
+      enqueue_parent
+      run_successfully(reserve(2), start_offset: 3, complete_offset: 4)
+      enqueue_child
+      store.cancel_jobs(job_ids: %w[job-authorize job-capture], now: created_at + 6)
+
+      report = store.sync_child_workflows(parent_batch_id: :parent_batch, now: created_at + 7)
+
+      expect(report.changed_jobs).to contain_exactly(have_attributes(id: 'job-payment_subflow', state: :cancelled))
+      expect(store.workflow_snapshot(batch_id: :parent_batch, now: created_at + 8).fetch_step(:payment_subflow)).to be_terminal
+    end
+
+    it 'skips sync while child workflows remain nonterminal' do
+      enqueue_parent
+      run_successfully(reserve(2), start_offset: 3, complete_offset: 4)
+      enqueue_child
+
+      report = store.sync_child_workflows(parent_batch_id: :parent_batch, now: created_at + 6)
+
+      expect(report.changed_jobs).to eq([])
+      expect(report.skipped_jobs).to contain_exactly(
+        include(job_id: 'job-payment_subflow', reason: :ineligible_state, state: :queued)
+      )
+    end
+
+    it 'exposes nested child workflow declarations on child snapshots' do
+      nested_child = Karya::Workflow.define(:payment) do
+        step :authorize, handler: :authorize
+        step :risk_review, handler: :risk_review, child_workflow: :risk_review
+      end
+      enqueue_parent
+
+      store.enqueue_child_workflow(
+        parent_batch_id: :parent_batch,
+        parent_step_id: :payment_subflow,
+        definition: nested_child,
+        jobs_by_step_id: {
+          authorize: workflow_job(:authorize),
+          risk_review: workflow_job(:risk_review)
+        },
+        batch_id: :payment_batch,
+        now: created_at + 2
+      )
+
+      expect(store.workflow_snapshot(batch_id: :payment_batch, now: created_at + 3).fetch_step(:risk_review)).to have_attributes(
+        child_workflow_id: 'risk_review',
+        child_workflow: nil
+      )
+    end
+
+    it 'rejects invalid child workflow enqueue without partial writes' do
+      enqueue_parent
+      wrong_child = Karya::Workflow.define(:shipment) { step :book, handler: :book }
+
+      expect do
+        store.enqueue_child_workflow(
+          parent_batch_id: :parent_batch,
+          parent_step_id: :payment_subflow,
+          definition: wrong_child,
+          jobs_by_step_id: { book: workflow_job(:book) },
+          batch_id: :payment_batch,
+          now: created_at + 2
+        )
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child workflow "shipment" does not match parent step "payment_subflow"')
+
+      expect do
+        store.workflow_snapshot(batch_id: :payment_batch, now: created_at + 3)
+      end.to raise_error(Karya::Workflow::UnknownBatchError)
+      expect(store.workflow_snapshot(batch_id: :parent_batch, now: created_at + 3).child_workflows).to eq([])
+    end
+
+    it 'rejects invalid child workflow boundaries without partial writes' do
+      enqueue_parent
+
+      expect do
+        store.enqueue_child_workflow(
+          parent_batch_id: :parent_batch,
+          parent_step_id: :prepare,
+          definition: child_definition,
+          jobs_by_step_id: { authorize: workflow_job(:authorize), capture: workflow_job(:capture) },
+          batch_id: :payment_batch,
+          now: created_at + 2
+        )
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow step "prepare" is not a child workflow step')
+
+      expect do
+        store.enqueue_child_workflow(
+          parent_batch_id: :parent_batch,
+          parent_step_id: :payment_subflow,
+          definition: 'payment',
+          jobs_by_step_id: { authorize: workflow_job(:authorize), capture: workflow_job(:capture) },
+          batch_id: :payment_batch,
+          now: created_at + 3
+        )
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'definition must be a Karya::Workflow::Definition')
+
+      expect do
+        store.enqueue_child_workflow(
+          parent_batch_id: :parent_batch,
+          parent_step_id: :payment_subflow,
+          definition: child_definition,
+          jobs_by_step_id: { authorize: workflow_job(:authorize), capture: workflow_job(:capture) },
+          batch_id: :parent_batch,
+          now: created_at + 4
+        )
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child workflow batch id must differ from parent batch id')
+
+      store.cancel_jobs(job_ids: ['job-payment_subflow'], now: created_at + 5)
+      expect do
+        store.enqueue_child_workflow(
+          parent_batch_id: :parent_batch,
+          parent_step_id: :payment_subflow,
+          definition: child_definition,
+          jobs_by_step_id: { authorize: workflow_job(:authorize), capture: workflow_job(:capture) },
+          batch_id: :payment_batch,
+          now: created_at + 6
+        )
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'parent child workflow step "payment_subflow" must be queued')
+      expect(store.workflow_snapshot(batch_id: :parent_batch, now: created_at + 7).child_workflows).to eq([])
+    end
+
+    it 'rejects duplicate child workflow registrations' do
+      enqueue_parent
+      enqueue_child
+
+      expect do
+        store.enqueue_child_workflow(
+          parent_batch_id: :parent_batch,
+          parent_step_id: :payment_subflow,
+          definition: child_definition,
+          jobs_by_step_id: { authorize: workflow_job(:authorize), capture: workflow_job(:capture) },
+          batch_id: :payment_batch_two,
+          now: created_at + 6
+        )
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child workflow already registered for step "payment_subflow"')
+    end
+  end
 end

@@ -38,12 +38,21 @@ RSpec.describe Karya::Workflow::Step do
     expect(step.compensation_arguments).to be_frozen
   end
 
+  it 'normalizes optional child workflow metadata' do
+    step = described_class.new(id: :capture_payment, handler: :capture_payment, child_workflow: ' payment_subflow ')
+
+    expect(step.child_workflow?).to be(true)
+    expect(step.child_workflow).to eq('payment_subflow')
+  end
+
   it 'defaults compensation metadata to no-op rollback behavior' do
     step = described_class.new(id: :capture_payment, handler: :capture_payment)
 
     expect(step.compensable?).to be(false)
     expect(step.compensate_with).to be_nil
     expect(step.compensation_arguments).to eq({})
+    expect(step.child_workflow?).to be(false)
+    expect(step.child_workflow).to be_nil
   end
 
   it 'rejects invalid compensation arguments' do

@@ -9,12 +9,8 @@ module Karya
   module Workflow
     # Immutable normalized workflow definition built from ordered steps.
     class Definition
-      attr_reader :compensable_step_ids,
-                  :dependencies,
+      attr_reader :dependencies,
                   :id,
-                  :leaf_step_ids,
-                  :root_step_ids,
-                  :step_ids,
                   :steps
 
       def initialize(id:, steps:)
@@ -24,16 +20,20 @@ module Karya
         graph = Graph.new(steps)
         @steps = graph.steps
         @steps_by_id = @steps.to_h { |workflow_step| [workflow_step.id, workflow_step] }.freeze
-        inspection = graph.inspection
-        @step_ids = inspection.step_ids
+        @inspection = graph.inspection
         @dependencies = graph.dependencies
-        @dependencies_by_step_id = inspection.dependencies_by_step_id
-        @dependents_by_step_id = inspection.dependents_by_step_id
-        @root_step_ids = inspection.root_step_ids
-        @leaf_step_ids = inspection.leaf_step_ids
-        @compensable_step_ids = inspection.compensable_step_ids
         freeze
       end
+
+      def step_ids = inspection.step_ids
+
+      def root_step_ids = inspection.root_step_ids
+
+      def leaf_step_ids = inspection.leaf_step_ids
+
+      def compensable_step_ids = inspection.compensable_step_ids
+
+      def child_step_ids = inspection.child_step_ids
 
       def step(step_id)
         normalized_step_id = Workflow.send(:normalize_identifier, :step_id, step_id)
@@ -49,17 +49,17 @@ module Karya
 
       def dependencies_for(step_id)
         workflow_step = fetch_step(step_id)
-        dependencies_by_step_id.fetch(workflow_step.id)
+        inspection.dependencies_by_step_id.fetch(workflow_step.id)
       end
 
       def dependents_for(step_id)
         workflow_step = fetch_step(step_id)
-        dependents_by_step_id.fetch(workflow_step.id)
+        inspection.dependents_by_step_id.fetch(workflow_step.id)
       end
 
       private
 
-      attr_reader :dependencies_by_step_id, :dependents_by_step_id, :steps_by_id
+      attr_reader :inspection, :steps_by_id
 
       # Owner-local graph normalizer and validator for workflow step composition.
       class Graph
@@ -175,6 +175,7 @@ module Karya
         # Builds definition inspection indexes from normalized ordered steps.
         class Inspection
           attr_reader :compensable_step_ids,
+                      :child_step_ids,
                       :dependencies_by_step_id,
                       :dependents_by_step_id,
                       :leaf_step_ids,
@@ -189,6 +190,7 @@ module Karya
             @root_step_ids = StepFilter.new(steps).root_ids
             @leaf_step_ids = StepFilter.new(steps).leaf_ids(@dependents_by_step_id)
             @compensable_step_ids = StepFilter.new(steps).compensable_ids
+            @child_step_ids = StepFilter.new(steps).child_ids
             freeze
           end
 
@@ -254,6 +256,10 @@ module Karya
             steps.filter_map { |workflow_step| StepEntry.new(workflow_step).compensable_id }.freeze
           end
 
+          def child_ids
+            steps.filter_map { |workflow_step| StepEntry.new(workflow_step).child_id }.freeze
+          end
+
           private
 
           attr_reader :steps
@@ -298,6 +304,10 @@ module Karya
 
           def compensable_id
             id if workflow_step.compensable?
+          end
+
+          def child_id
+            id if workflow_step.child_workflow?
           end
 
           private

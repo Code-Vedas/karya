@@ -90,6 +90,33 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Enqueue a child workflow batch for one declared parent child step.
+      def enqueue_child_workflow(
+        parent_batch_id:,
+        parent_step_id:,
+        definition:,
+        jobs_by_step_id:,
+        batch_id:,
+        now:,
+        compensation_jobs_by_step_id: {}
+      )
+        _parent_batch_id = parent_batch_id
+        _parent_step_id = parent_step_id
+        _definition = definition
+        _jobs_by_step_id = jobs_by_step_id
+        _batch_id = batch_id
+        _now = now
+        _compensation_jobs_by_step_id = compensation_jobs_by_step_id
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Synchronize terminal child workflow state into parent child-step jobs.
+      def sync_child_workflows(parent_batch_id:, now:)
+        _parent_batch_id = parent_batch_id
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       # Trigger explicit saga rollback for one failed workflow batch.
       def rollback_workflow(batch_id:, now:, reason:)
         _batch_id = batch_id

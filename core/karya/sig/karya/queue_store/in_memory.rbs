@@ -45,6 +45,16 @@ module Karya
         ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
       ) -> BulkMutationReport
       def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
+      def enqueue_child_workflow: (
+        parent_batch_id: Karya::state_name,
+        parent_step_id: Karya::state_name,
+        definition: Karya::Workflow::Definition,
+        jobs_by_step_id: Hash[Karya::state_name, Job],
+        batch_id: Karya::state_name,
+        now: Time,
+        ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
+      ) -> BulkMutationReport
+      def sync_child_workflows: (parent_batch_id: Karya::state_name, now: Time) -> BulkMutationReport
       def rollback_workflow: (batch_id: Karya::state_name, now: Time, reason: String) -> BulkMutationReport
       def retry_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> BulkMutationReport
       def dead_letter_workflow_steps: (
@@ -172,7 +182,8 @@ module Karya
         now: Time
       ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> BulkMutationReport
       def workflow_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids) -> Array[String]
-      def workflow_dependencies_satisfied?: (Job job) -> bool
+      def workflow_dependencies_satisfied?: (Job job, now: Time) -> bool
+      def workflow_child_satisfied?: (Job job, now: Time) -> bool
     end
   end
 end

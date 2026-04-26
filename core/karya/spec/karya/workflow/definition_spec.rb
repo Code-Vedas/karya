@@ -16,7 +16,8 @@ RSpec.describe Karya::Workflow::Definition do
       id: :emit_receipt,
       handler: :emit_receipt,
       depends_on: :capture_payment,
-      compensate_with: :void_receipt
+      compensate_with: :void_receipt,
+      child_workflow: :receipt_subflow
     )
     definition = described_class.new(id: :invoice_closeout, steps: [calculate_totals, capture_payment, emit_receipt])
 
@@ -35,6 +36,7 @@ RSpec.describe Karya::Workflow::Definition do
     expect(definition.root_step_ids).to eq(['calculate_totals'])
     expect(definition.leaf_step_ids).to eq(['emit_receipt'])
     expect(definition.compensable_step_ids).to eq(['emit_receipt'])
+    expect(definition.child_step_ids).to eq(['emit_receipt'])
     expect(definition).to be_frozen
   end
 

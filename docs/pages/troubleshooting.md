@@ -168,6 +168,21 @@ For dead-lettered work, `replay_workflow_steps` returns the step to `queued`;
 `retry_dead_letter_workflow_steps` returns it to `retry_pending` until the
 configured retry time. Dependents unblock only after the parent succeeds.
 
+### Child Workflow Step Does Not Reserve
+
+Child workflow parent steps are gate jobs. They wait for the child workflow to
+succeed before workers can reserve the parent-side step:
+
+```text
+symptom: parent child step stays queued
+first checks: workflow_snapshot.fetch_step(:payment).child_workflow_id, workflow_snapshot.fetch_step(:payment).child_workflow
+next move: if child_workflow is nil, enqueue or register the declared child workflow; otherwise inspect and recover it by child_batch_id
+```
+
+If the child workflow is failed or cancelled, run `sync_child_workflows` against
+the parent batch to propagate that terminal state to the parent gate job. Sync
+does not roll back either workflow automatically.
+
 ### Rollback Has No Batch To Inspect
 
 No-op rollback is valid when every succeeded primary step is uncompensated:

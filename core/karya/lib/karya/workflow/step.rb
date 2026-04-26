@@ -12,6 +12,7 @@ module Karya
     # Immutable one-step workflow composition unit.
     class Step
       attr_reader :arguments,
+                  :child_workflow,
                   :compensate_with,
                   :compensation_arguments,
                   :depends_on,
@@ -24,6 +25,7 @@ module Karya
         normalized_options = Options.new(options)
         @arguments = Arguments.new(normalized_options.arguments, step_id: @id, handler: @handler).normalize
         @depends_on = Dependencies.new(normalized_options.depends_on).normalize
+        @child_workflow = ChildWorkflow.new(normalized_options.child_workflow).normalize
         @compensate_with = CompensationHandler.new(normalized_options.compensate_with).normalize
         @compensation_arguments = Arguments.new(
           normalized_options.compensation_arguments,
@@ -38,9 +40,13 @@ module Karya
         !!compensate_with
       end
 
+      def child_workflow?
+        !!child_workflow
+      end
+
       # Centralizes optional constructor field defaults and key validation.
       class Options
-        ALLOWED_KEYS = %i[arguments depends_on compensate_with compensation_arguments].freeze
+        ALLOWED_KEYS = %i[arguments depends_on compensate_with compensation_arguments child_workflow].freeze
 
         def initialize(options)
           @options = options
@@ -57,6 +63,10 @@ module Karya
 
         def compensate_with
           options.fetch(:compensate_with, nil)
+        end
+
+        def child_workflow
+          options.fetch(:child_workflow, nil)
         end
 
         def compensation_arguments
@@ -84,6 +94,26 @@ module Karya
         def formatted_unexpected_keys
           unexpected_keys.map { |key| ":#{key}" }.join(', ')
         end
+      end
+
+      # Normalizes an optional child workflow id.
+      class ChildWorkflow
+        def initialize(value)
+          @value = value
+        end
+
+        def normalize
+          case value
+          when NilClass
+            nil
+          else
+            Workflow.send(:normalize_identifier, :child_workflow, value)
+          end
+        end
+
+        private
+
+        attr_reader :value
       end
 
       # Normalizes workflow step arguments into the same immutable scalar graph
@@ -155,7 +185,7 @@ module Karya
         attr_reader :value
       end
 
-      private_constant :Arguments, :CompensationHandler, :Dependencies, :Options
+      private_constant :Arguments, :ChildWorkflow, :CompensationHandler, :Dependencies, :Options
 
       private
 

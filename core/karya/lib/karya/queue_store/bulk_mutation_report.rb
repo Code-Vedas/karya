@@ -17,7 +17,9 @@ module Karya
         replay_dead_letter_jobs
         retry_dead_letter_jobs
         discard_dead_letter_jobs
+        enqueue_child_workflow
         rollback_workflow
+        sync_child_workflows
         retry_workflow_steps
         dead_letter_workflow_steps
         replay_workflow_steps
@@ -128,9 +130,9 @@ module Karya
 
       def action_error_message
         'action must be one of :enqueue_many, :retry_jobs, :cancel_jobs, :dead_letter_jobs, ' \
-          ':replay_dead_letter_jobs, :retry_dead_letter_jobs, :discard_dead_letter_jobs, :rollback_workflow, ' \
+          ':replay_dead_letter_jobs, :retry_dead_letter_jobs, :discard_dead_letter_jobs, :enqueue_child_workflow, :rollback_workflow, ' \
           ':retry_workflow_steps, :dead_letter_workflow_steps, :replay_workflow_steps, ' \
-          ':retry_dead_letter_workflow_steps, or :discard_workflow_steps'
+          ':retry_dead_letter_workflow_steps, :discard_workflow_steps, or :sync_child_workflows'
       end
 
       private_constant :ACTIONS, :JobIdList, :JobList, :SKIPPED_JOB_REASONS
