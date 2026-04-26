@@ -457,8 +457,10 @@ module Karya
 
             kind = requirement.fetch(:kind) { raise InvalidExecutionError, 'interaction requirement must include :kind' }
             name = requirement.fetch(:name) { raise InvalidExecutionError, 'interaction requirement must include :name' }
+            raise_invalid_kind unless kind.is_a?(String) || kind.is_a?(Symbol)
+
             kind = kind.to_sym
-            raise InvalidExecutionError, 'interaction requirement kind must be :signal or :event' unless %i[signal event].include?(kind)
+            raise_invalid_kind unless %i[signal event].include?(kind)
 
             {
               kind:,
@@ -469,6 +471,10 @@ module Karya
           private
 
           attr_reader :requirement
+
+          def raise_invalid_kind
+            raise InvalidExecutionError, 'interaction requirement kind must be :signal or :event'
+          end
         end
 
         private_constant :Requirement

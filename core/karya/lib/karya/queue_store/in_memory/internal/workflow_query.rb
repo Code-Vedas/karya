@@ -61,7 +61,10 @@ module Karya
                 active_step_ids = step_ids_for(&:active?)
                 return active_step_ids unless active_step_ids.empty?
 
-                step_ids_for(&:ready?)
+                ready_step_ids = step_ids_for(&:ready?)
+                return ready_step_ids unless ready_step_ids.empty?
+
+                step_ids_for(&:blocked?)
               end
 
               private

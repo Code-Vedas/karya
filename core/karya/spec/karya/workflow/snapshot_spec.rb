@@ -463,6 +463,14 @@ RSpec.describe Karya::Workflow::Snapshot do
       snapshot(
         jobs:,
         step_job_ids: { child: 'job_child' },
+        interaction_requirements_by_job_id: { 'job_child' => { kind: 123, name: :payment_received } }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction requirement kind must be :signal or :event')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
         interaction_requirements_by_job_id: {
           ' job_child ' => { kind: :signal, name: :manager_approved },
           job_child: { kind: :signal, name: :manager_approved }
