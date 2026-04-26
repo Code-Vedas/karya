@@ -341,7 +341,7 @@ module Karya
 
     class QueryResult
       @query: String
-      @value: Karya::workflow_query_input_value
+      @value: Karya::workflow_query_value
       @queried_at: Time
 
       attr_reader query: String
@@ -873,8 +873,72 @@ module Karya
 
         attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
         attr_reader interactions: Array[InteractionSnapshot]
-        def deliveries_by_interaction: () -> Hash[[Karya::interaction_kind, String], Time]
-        def matching_job_ids_by_interaction: () -> Hash[[Karya::interaction_kind, String], Array[String]]
+
+        class DeliveryIndex
+          @interactions: Array[InteractionSnapshot]
+
+          def initialize: (Array[InteractionSnapshot] interactions) -> void
+          def to_h: () -> Hash[[Karya::interaction_kind, String], Time]
+
+        private
+
+          attr_reader interactions: Array[InteractionSnapshot]
+
+          class DeliveryEntry
+            @interaction: InteractionSnapshot
+
+            def initialize: (InteractionSnapshot interaction) -> void
+            def to_pair: () -> [[Karya::interaction_kind, String], Time]
+
+          private
+
+            attr_reader interaction: InteractionSnapshot
+          end
+        end
+
+        class MatchingJobIndex
+          @interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
+          @index: Hash[[Karya::interaction_kind, String], Array[String]]
+
+          def initialize: (Hash[String, Karya::interaction_requirement] interaction_requirements_by_job_id) -> void
+          def to_h: () -> Hash[[Karya::interaction_kind, String], Array[String]]
+
+        private
+
+          attr_reader index: Hash[[Karya::interaction_kind, String], Array[String]]
+          attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
+          def register: ([Karya::interaction_kind, String] interaction_key, String job_id) -> ([String] | Array[String])
+
+          class RequirementKey
+            @requirement: Karya::interaction_requirement
+
+            def initialize: (Karya::interaction_requirement requirement) -> void
+            def to_a: () -> [Karya::interaction_kind, String]
+
+          private
+
+            attr_reader requirement: Karya::interaction_requirement
+          end
+        end
+
+        class ReceivedAtByJobId
+          @delivery_index: Hash[[Karya::interaction_kind, String], Time]
+          @matching_job_index: Hash[[Karya::interaction_kind, String], Array[String]]
+          @received_at_by_job_id: Hash[String, Time]
+
+          def initialize: (
+            delivery_index: Hash[[Karya::interaction_kind, String], Time],
+            matching_job_index: Hash[[Karya::interaction_kind, String], Array[String]]
+          ) -> void
+          def to_h: () -> Hash[String, Time]
+
+        private
+
+          attr_reader delivery_index: Hash[[Karya::interaction_kind, String], Time]
+          attr_reader matching_job_index: Hash[[Karya::interaction_kind, String], Array[String]]
+          attr_reader received_at_by_job_id: Hash[String, Time]
+          def register: ([Karya::interaction_kind, String] interaction_key, Time received_at) -> Array[String]
+        end
       end
 
       class SummaryData
