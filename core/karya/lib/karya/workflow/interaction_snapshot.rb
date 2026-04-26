@@ -32,7 +32,7 @@ module Karya
         end
 
         def kind
-          normalized_kind = fetch(:kind)
+          normalized_kind = Kind.new(fetch(:kind)).to_sym
           return normalized_kind if KINDS.include?(normalized_kind)
 
           raise InvalidExecutionError, 'kind must be :signal or :event'
@@ -64,6 +64,23 @@ module Karya
 
           raise ArgumentError, "unknown keyword: :#{unknown_keys.first}"
         end
+      end
+
+      # Normalizes one interaction kind.
+      class Kind
+        def initialize(value)
+          @value = value
+        end
+
+        def to_sym
+          raise InvalidExecutionError, 'kind must be :signal or :event' unless value.is_a?(String) || value.is_a?(Symbol)
+
+          value.to_sym
+        end
+
+        private
+
+        attr_reader :value
       end
 
       # Normalizes and deep-freezes a JSON-compatible interaction payload.
@@ -124,7 +141,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      private_constant :Attributes, :KINDS, :Payload, :Timestamp
+      private_constant :Attributes, :Kind, :KINDS, :Payload, :Timestamp
     end
   end
 end

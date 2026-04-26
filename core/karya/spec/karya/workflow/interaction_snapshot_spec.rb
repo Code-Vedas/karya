@@ -11,7 +11,7 @@ RSpec.describe Karya::Workflow::InteractionSnapshot do
   it 'normalizes, deep-freezes, and exposes interaction data' do
     mutable_string = +'ops'
     snapshot = described_class.new(
-      kind: :signal,
+      kind: 'signal',
       name: ' manager-approved ',
       payload: {
         'approved_by' => mutable_string,
@@ -42,6 +42,9 @@ RSpec.describe Karya::Workflow::InteractionSnapshot do
   it 'rejects invalid kinds and payload shapes' do
     expect do
       described_class.new(kind: :unknown, name: :signal, payload: {}, received_at:)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'kind must be :signal or :event')
+    expect do
+      described_class.new(kind: 123, name: :signal, payload: {}, received_at:)
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'kind must be :signal or :event')
     expect do
       described_class.new(kind: :signal, name: :signal, payload: {}, received_at: '2026-04-26T12:00:00Z')
