@@ -12,7 +12,6 @@ module Karya
         # Internal mutable state for the single-process queue store.
         class StoreState
           MAX_TRACKED_FAIR_QUEUE_LISTS = 128
-
           attr_reader :executions_by_token,
                       :batches_by_id,
                       :batch_id_by_job_id,
@@ -46,12 +45,31 @@ module Karya
             :step_job_ids,
             :dependency_job_ids_by_job_id,
             :interaction_requirements_by_job_id,
+            :interaction_supported_keys,
             :compensation_jobs_by_step_id,
             :child_workflow_ids_by_step_id
-          )
+          ) do
+            def self.build(
+              workflow_id:,
+              step_job_ids:,
+              dependency_job_ids_by_job_id:,
+              interaction_requirements_by_job_id:,
+              compensation_jobs_by_step_id:,
+              child_workflow_ids_by_step_id:
+            )
+              new(
+                workflow_id,
+                step_job_ids.dup.freeze,
+                dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
+                interaction_requirements_by_job_id.transform_values { |requirement| requirement.dup.freeze }.freeze,
+                interaction_requirements_by_job_id.values.to_h { |requirement| [[requirement.fetch(:kind), requirement.fetch(:name)], true] }.freeze,
+                compensation_jobs_by_step_id.dup.freeze,
+                child_workflow_ids_by_step_id.dup.freeze
+              )
+            end
+          end
           # Immutable owner-local rollback metadata for one workflow batch.
           WorkflowRollback = Struct.new(:batch_id, :rollback_batch_id, :reason, :requested_at, :compensation_job_ids)
-
           # Owner-local child workflow relationship registry.
           class WorkflowChildren
             # Immutable owner-local child workflow relationship metadata.
@@ -186,6 +204,10 @@ module Karya
               current_inbox(batch_id).append(interaction).to_a
             end
 
+            def configure(batch_id:, supported_keys:)
+              current_inbox(batch_id).configure(supported_keys:)
+            end
+
             def delete_by_batch(batch_id)
               with_inbox(batch_id, fallback: EMPTY, delete: true, &:to_a)
             end
@@ -212,13 +234,20 @@ module Karya
                 @interactions = []
                 @to_a = EMPTY
                 @received_at_by_key = {}
+                @supported_keys = {}.freeze
               end
 
               def append(interaction)
                 interactions << interaction
-                received_at_by_key[[interaction.kind, interaction.name]] = interaction.received_at
+                track([interaction.kind, interaction.name], interaction.received_at)
                 interactions.shift if interactions.length > max_size
                 @to_a = nil
+                self
+              end
+
+              def configure(supported_keys:)
+                @supported_keys = supported_keys.to_h { |key| [key, true] }.freeze
+                rebuild_received_at_index
                 self
               end
 
@@ -236,7 +265,18 @@ module Karya
 
               private
 
-              attr_reader :interactions, :max_size, :received_at_by_key
+              attr_reader :interactions, :max_size, :received_at_by_key, :supported_keys
+
+              def rebuild_received_at_index
+                received_at_by_key.clear
+                interactions.each { |interaction| track([interaction.kind, interaction.name], interaction.received_at) }
+              end
+
+              def track(key, received_at)
+                return unless supported_keys.key?(key)
+
+                received_at_by_key[key] = received_at
+              end
             end
           end
 
@@ -371,15 +411,16 @@ module Karya
               interaction_requirements_by_job_id: {},
               child_workflow_ids_by_step_id: {}
             )
-              registration = WorkflowRegistration.new(
-                workflow_id,
-                step_job_ids.dup.freeze,
-                dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
-                interaction_requirements_by_job_id.transform_values { |requirement| requirement.dup.freeze }.freeze,
-                compensation_jobs_by_step_id.dup.freeze,
-                child_workflow_ids_by_step_id.dup.freeze
+              registration = WorkflowRegistration.build(
+                workflow_id:,
+                step_job_ids:,
+                dependency_job_ids_by_job_id:,
+                interaction_requirements_by_job_id:,
+                compensation_jobs_by_step_id:,
+                child_workflow_ids_by_step_id:
               ).freeze
               workflow_registrations_by_batch_id[batch_id] = registration
+              workflow_interactions.configure(batch_id:, supported_keys: registration.interaction_supported_keys)
               child_workflow_ids_by_step_id.each do |step_id, child_workflow_id|
                 workflow_children.register_expected_child(step_job_ids.fetch(step_id), child_workflow_id)
               end

@@ -279,6 +279,13 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
 
   it 'keeps delivered interaction satisfaction across rolling retention' do
     max = described_class.send(:const_get, :WorkflowInteractions).send(:const_get, :MAX_INTERACTIONS_PER_BATCH)
+    store_state.workflow_interactions.configure(
+      batch_id: 'batch-1',
+      supported_keys: {
+        [:signal, 'manager_approved'] => true,
+        [:event, "payment_received_#{max - 1}"] => true
+      }
+    )
 
     store_state.register_workflow_interaction(
       batch_id: 'batch-1',
@@ -298,6 +305,13 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
 
   it 'tracks the latest received_at for delivered interactions independently of retained history' do
     max = described_class.send(:const_get, :WorkflowInteractions).send(:const_get, :MAX_INTERACTIONS_PER_BATCH)
+    store_state.workflow_interactions.configure(
+      batch_id: 'batch-1',
+      supported_keys: {
+        [:signal, 'manager_approved'] => true,
+        [:event, "payment_received_#{max - 1}"] => true
+      }
+    )
 
     store_state.register_workflow_interaction(
       batch_id: 'batch-1',
@@ -318,6 +332,32 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
 
     expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :signal, name: 'manager_approved')).to eq(created_at)
     expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :event, name: "payment_received_#{max - 1}")).to eq(created_at + max)
+  end
+
+  it 'bounds readiness tracking to declared workflow interaction requirements' do
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'approve' => 'job-1' },
+      dependency_job_ids_by_job_id: { 'job-1' => [] },
+      interaction_requirements_by_job_id: { 'job-1' => { kind: :signal, name: 'manager_approved' } },
+      compensation_jobs_by_step_id: {}
+    )
+
+    store_state.register_workflow_interaction(
+      batch_id: 'batch-1',
+      interaction: interaction_snapshot(kind: :signal, name: :manager_approved)
+    )
+    store_state.register_workflow_interaction(
+      batch_id: 'batch-1',
+      interaction: interaction_snapshot(kind: :event, name: :payment_received)
+    )
+
+    inbox = store_state.workflow_interactions.instance_variable_get(:@by_batch_id).fetch('batch-1')
+    received_at_by_key = inbox.instance_variable_get(:@received_at_by_key)
+
+    expect(received_at_by_key.keys).to eq([[:signal, 'manager_approved']])
+    expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :event, name: 'payment_received')).to be_nil
   end
 
   it 'cleans up child workflow relationships by parent batch' do

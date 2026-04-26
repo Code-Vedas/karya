@@ -121,14 +121,25 @@ module Karya
             @step_job_ids: Hash[String, String]
             @dependency_job_ids_by_job_id: Hash[String, Array[String]]
             @interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
+            @interaction_supported_keys: Hash[[Karya::interaction_kind, String], bool]
             @compensation_jobs_by_step_id: Hash[String, Job]
             @child_workflow_ids_by_step_id: Hash[String, String]
+
+            def self.build: (
+              workflow_id: String,
+              step_job_ids: Hash[String, String],
+              dependency_job_ids_by_job_id: Hash[String, Array[String]],
+              interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement],
+              compensation_jobs_by_step_id: Hash[String, Job],
+              child_workflow_ids_by_step_id: Hash[String, String]
+            ) -> WorkflowRegistration
 
             def initialize: (
               String workflow_id,
               Hash[String, String] step_job_ids,
               Hash[String, Array[String]] dependency_job_ids_by_job_id,
               Hash[String, Karya::interaction_requirement] interaction_requirements_by_job_id,
+              Hash[[Karya::interaction_kind, String], bool] interaction_supported_keys,
               Hash[String, Job] compensation_jobs_by_step_id,
               Hash[String, String] child_workflow_ids_by_step_id
             ) -> void
@@ -137,6 +148,7 @@ module Karya
             attr_reader step_job_ids: Hash[String, String]
             attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
             attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
+            attr_reader interaction_supported_keys: Hash[[Karya::interaction_kind, String], bool]
             attr_reader compensation_jobs_by_step_id: Hash[String, Job]
             attr_reader child_workflow_ids_by_step_id: Hash[String, String]
           end
@@ -301,6 +313,10 @@ module Karya
               batch_id: String,
               interaction: Karya::Workflow::InteractionSnapshot
             ) -> Array[Karya::Workflow::InteractionSnapshot]
+            def configure: (
+              batch_id: String,
+              supported_keys: Hash[[Karya::interaction_kind, String], bool]
+            ) -> WorkflowInteractions::Inbox
             def delete_by_batch: (String batch_id) -> Array[Karya::Workflow::InteractionSnapshot]
 
           private
@@ -311,10 +327,12 @@ module Karya
               @interactions: Array[Karya::Workflow::InteractionSnapshot]
               @received_at_by_key: Hash[[Karya::interaction_kind, String], Time]
               @max_size: Integer
+              @supported_keys: Hash[[Karya::interaction_kind, String], bool]
               @to_a: Array[Karya::Workflow::InteractionSnapshot]?
 
               def initialize: (max_size: Integer) -> void
               def append: (Karya::Workflow::InteractionSnapshot interaction) -> Inbox
+              def configure: (supported_keys: Hash[[Karya::interaction_kind, String], bool]) -> Inbox
               def to_a: () -> Array[Karya::Workflow::InteractionSnapshot]
               def includes?: (kind: Karya::interaction_kind, name: String) -> bool
               def received_at_for: (kind: Karya::interaction_kind, name: String) -> Time?
@@ -324,6 +342,7 @@ module Karya
               attr_reader interactions: Array[Karya::Workflow::InteractionSnapshot]
               attr_reader max_size: Integer
               attr_reader received_at_by_key: Hash[[Karya::interaction_kind, String], Time]
+              attr_reader supported_keys: Hash[[Karya::interaction_kind, String], bool]
             end
           end
 
