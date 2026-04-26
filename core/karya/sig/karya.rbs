@@ -27,9 +27,12 @@ module Karya
   type normalized_transition_map = Hash[normalized_state_name, normalized_state_name_array]
   type child_workflow_snapshot_attribute_value = state_name | Karya::workflow_state
   type interaction_kind = :signal | :event
+  type interaction_kind_input = state_name
   type workflow_query = "state" | "current-step" | "current-steps"
   type workflow_query_value = workflow_state | String? | Array[String]
+  type workflow_query_input_value = workflow_state | state_name? | Array[state_name]
   type interaction_requirement = { kind: interaction_kind, name: String }
+  type interaction_requirement_input = { kind: interaction_kind_input, name: state_name }
   type interaction_payload_value =
     nil |
     bool |
@@ -38,7 +41,7 @@ module Karya
     Array[interaction_payload_value] |
     Hash[String, interaction_payload_value]
   type interaction_payload = Hash[String, interaction_payload_value]
-  type interaction_snapshot_attribute_value = interaction_kind | state_name | interaction_payload | Time
+  type interaction_snapshot_attribute_value = interaction_kind_input | state_name | interaction_payload | Time
   type step_snapshot_attribute_value =
     state_name |
     Job |
@@ -53,7 +56,7 @@ module Karya
     Time |
     Hash[state_name, state_name] |
     Hash[state_name, state_name_array] |
-    Hash[state_name, interaction_requirement] |
+    Hash[state_name, interaction_requirement_input] |
     Array[Job] |
     Array[Workflow::ChildWorkflowSnapshot] |
     Array[Workflow::InteractionSnapshot] |

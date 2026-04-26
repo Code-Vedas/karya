@@ -299,7 +299,7 @@ module Karya
       attr_reader received_at: Time
 
       def initialize: (
-        kind: Karya::interaction_kind,
+        kind: Karya::interaction_kind_input,
         name: state_name,
         payload: Karya::interaction_payload,
         received_at: Time
@@ -341,7 +341,7 @@ module Karya
 
     class QueryResult
       @query: String
-      @value: Karya::workflow_query_value
+      @value: Karya::workflow_query_input_value
       @queried_at: Time
 
       attr_reader query: String
@@ -350,7 +350,7 @@ module Karya
 
       def initialize: (
         query: Karya::state_name,
-        value: Karya::workflow_query_value,
+        value: Karya::workflow_query_input_value,
         queried_at: Time
       ) -> void
 
@@ -369,15 +369,15 @@ module Karya
 
       class Value
         @query: String
-        @value: Karya::workflow_query_value
+        @value: Karya::workflow_query_input_value
 
-        def initialize: (String query, Karya::workflow_query_value value) -> void
+        def initialize: (String query, Karya::workflow_query_input_value value) -> void
         def normalize: () -> Karya::workflow_query_value
 
       private
 
         attr_reader query: String
-        attr_reader value: Karya::workflow_query_value
+        attr_reader value: Karya::workflow_query_input_value
         def normalize_state: () -> Symbol
         def normalize_current_step: () -> String?
         def normalize_current_steps: () -> Array[String]
@@ -650,7 +650,7 @@ module Karya
         ?child_workflow_ids_by_step_id: Hash[state_name, state_name],
         ?child_workflows: Array[ChildWorkflowSnapshot],
         ?interactions: Array[InteractionSnapshot],
-        ?interaction_requirements_by_job_id: Hash[state_name, Karya::interaction_requirement],
+        ?interaction_requirements_by_job_id: Hash[state_name, Karya::interaction_requirement_input],
         ?parent: ChildWorkflowSnapshot?,
         ?rollback: RollbackSnapshot?
       ) -> void
@@ -838,24 +838,24 @@ module Karya
       end
 
       class InteractionRequirements
-        @interaction_requirements_by_job_id: Hash[state_name, Karya::interaction_requirement]
+        @interaction_requirements_by_job_id: Hash[state_name, Karya::interaction_requirement_input]
 
-        def initialize: (Hash[state_name, Karya::interaction_requirement] interaction_requirements_by_job_id) -> void
+        def initialize: (Hash[state_name, Karya::interaction_requirement_input] interaction_requirements_by_job_id) -> void
         def to_h: () -> Hash[String, Karya::interaction_requirement]
 
       private
 
-        attr_reader interaction_requirements_by_job_id: Hash[state_name, Karya::interaction_requirement]
+        attr_reader interaction_requirements_by_job_id: Hash[state_name, Karya::interaction_requirement_input]
 
         class Requirement
-          @requirement: Karya::interaction_requirement
+          @requirement: Karya::interaction_requirement_input
 
-          def initialize: (Karya::interaction_requirement requirement) -> void
+          def initialize: (Karya::interaction_requirement_input requirement) -> void
           def to_h: () -> Karya::interaction_requirement
 
         private
 
-          attr_reader requirement: Karya::interaction_requirement
+          attr_reader requirement: Karya::interaction_requirement_input
         end
       end
 

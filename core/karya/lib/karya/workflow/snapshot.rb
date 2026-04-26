@@ -464,7 +464,7 @@ module Karya
 
             {
               kind:,
-              name: Workflow.send(:normalize_identifier, :interaction_name, name)
+              name: normalize_execution_identifier(name)
             }.freeze
           end
 
@@ -474,6 +474,12 @@ module Karya
 
           def raise_invalid_kind
             raise InvalidExecutionError, 'interaction requirement kind must be :signal or :event'
+          end
+
+          def normalize_execution_identifier(name)
+            Workflow.send(:normalize_identifier, :interaction_name, name)
+          rescue InvalidDefinitionError => e
+            raise InvalidExecutionError, e.message, cause: e
           end
         end
 

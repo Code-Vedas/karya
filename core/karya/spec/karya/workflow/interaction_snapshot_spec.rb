@@ -58,6 +58,9 @@ RSpec.describe Karya::Workflow::InteractionSnapshot do
     expect do
       described_class.new(kind: :signal, name: :signal, payload: { 'received_at' => Time.now }, received_at:)
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'payload values must be JSON-compatible')
+    expect do
+      described_class.new(kind: :signal, name: '   ', payload: {}, received_at:)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'name must be present')
   end
 
   it 'rejects unknown attributes' do

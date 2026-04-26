@@ -372,12 +372,18 @@ module Karya
         def to_s
           return nil unless value
 
-          Workflow.send(:normalize_identifier, field_name, value)
+          normalize_execution_identifier
         end
 
         private
 
         attr_reader :field_name, :value
+
+        def normalize_execution_identifier
+          Workflow.send(:normalize_identifier, field_name, value)
+        rescue InvalidDefinitionError => e
+          raise InvalidExecutionError, e.message, cause: e
+        end
       end
 
       # Normalizes one optional timestamp field.

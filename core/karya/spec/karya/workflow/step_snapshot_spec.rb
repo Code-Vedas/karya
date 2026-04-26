@@ -314,6 +314,10 @@ RSpec.describe Karya::Workflow::StepSnapshot do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind and interaction_name must both be present or both be nil')
 
     expect do
+      snapshot(interaction_kind: :signal, interaction_name: '   ')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_name must be present')
+
+    expect do
       snapshot(interaction_kind: nil, interaction_name: :manager_approved)
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind and interaction_name must both be present or both be nil')
 

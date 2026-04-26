@@ -289,7 +289,7 @@ module Karya
           end
 
           class WorkflowInteractions
-            @by_batch_id: Hash[String, Hash[[Karya::interaction_kind, String], Karya::Workflow::InteractionSnapshot]]
+            @by_batch_id: Hash[String, Array[Karya::Workflow::InteractionSnapshot]]
             EMPTY: Array[Karya::Workflow::InteractionSnapshot]
 
             def initialize: () -> void
