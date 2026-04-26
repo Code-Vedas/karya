@@ -7,8 +7,8 @@ permalink: /workflows/signals/
 
 # Workflow Signals
 
-Karya supports live interaction with running workflows through signals, queries,
-and external events.
+Karya supports live interaction with running workflows through signals,
+queries, external events, and operator checkpoints.
 
 ## Covered Behavior
 

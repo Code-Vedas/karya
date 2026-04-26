@@ -49,6 +49,34 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #workflow_snapshot/)
   end
 
+  it 'requires query_workflow to be implemented' do
+    expect do
+      store.query_workflow(batch_id: 'batch-1', query: 'state', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #query_workflow/)
+  end
+
+  it 'requires deliver_workflow_signal to be implemented' do
+    expect do
+      store.deliver_workflow_signal(
+        batch_id: 'batch-1',
+        signal: 'manager-approved',
+        payload: { 'approved_by' => 'ops' },
+        now: Time.utc(2026, 3, 27, 12, 0, 0)
+      )
+    end.to raise_error(NotImplementedError, /implement #deliver_workflow_signal/)
+  end
+
+  it 'requires deliver_workflow_event to be implemented' do
+    expect do
+      store.deliver_workflow_event(
+        batch_id: 'batch-1',
+        event: 'payment-received',
+        payload: { 'source' => 'stripe' },
+        now: Time.utc(2026, 3, 27, 12, 0, 0)
+      )
+    end.to raise_error(NotImplementedError, /implement #deliver_workflow_event/)
+  end
+
   it 'requires enqueue_child_workflow to be implemented' do
     expect do
       store.enqueue_child_workflow(

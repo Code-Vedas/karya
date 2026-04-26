@@ -90,6 +90,32 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Execute one explicit workflow state query.
+      def query_workflow(batch_id:, query:, now:)
+        _batch_id = batch_id
+        _query = query
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Persist one workflow signal delivery for a nonterminal workflow batch.
+      def deliver_workflow_signal(batch_id:, signal:, payload:, now:)
+        _batch_id = batch_id
+        _signal = signal
+        _payload = payload
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Persist one workflow external event delivery for a nonterminal workflow batch.
+      def deliver_workflow_event(batch_id:, event:, payload:, now:)
+        _batch_id = batch_id
+        _event = event
+        _payload = payload
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       # Enqueue a child workflow batch for one declared parent child step.
       def enqueue_child_workflow(
         parent_batch_id:,

@@ -67,6 +67,8 @@ RSpec.describe Karya::QueueStore::BulkMutationReport do
 
   it 'accepts workflow step control actions' do
     actions = %i[
+      deliver_workflow_signal
+      deliver_workflow_event
       enqueue_child_workflow
       retry_workflow_steps
       dead_letter_workflow_steps
