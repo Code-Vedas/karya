@@ -302,7 +302,23 @@ RSpec.describe Karya::Workflow::StepSnapshot do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind must be :signal or :event')
 
     expect do
+      snapshot(interaction_kind: 123, interaction_name: :manager_approved)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind must be :signal or :event')
+
+    expect do
       snapshot(interaction_kind: :signal, interaction_name: :manager_approved, interaction_received_at: '2026-04-24T12:00:00Z')
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_received_at must be a Time')
+
+    expect do
+      snapshot(interaction_kind: :signal, interaction_name: nil)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind and interaction_name must both be present or both be nil')
+
+    expect do
+      snapshot(interaction_kind: nil, interaction_name: :manager_approved)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind and interaction_name must both be present or both be nil')
+
+    expect do
+      snapshot(interaction_kind: nil, interaction_name: nil, interaction_received_at: created_at + 1)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_received_at requires interaction_kind and interaction_name')
   end
 end

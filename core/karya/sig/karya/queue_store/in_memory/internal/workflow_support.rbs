@@ -155,6 +155,12 @@ module Karya
             kind: Karya::interaction_kind
           ) -> BulkMutationReport
           def validate_workflow_interaction_delivery: (Karya::Workflow::Snapshot snapshot, String batch_id) -> nil
+          def validate_workflow_interaction_support: (
+            InMemory::Internal::StoreState::WorkflowRegistration registration,
+            Karya::interaction_kind interaction_kind,
+            String interaction_name,
+            String batch_id
+          ) -> nil
           def prepare_rollback: (String batch_id, Time now) -> Rollback
           def build_rollback_batch: (batch_id: String, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch?
           def raise_duplicate_batch: (String batch_id) -> nil

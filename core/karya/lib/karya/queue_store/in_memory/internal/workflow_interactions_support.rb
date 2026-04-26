@@ -62,6 +62,7 @@ module Karya
               jobs = fetch_batch_jobs(batch)
               snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now, state:).to_snapshot
               validate_workflow_interaction_delivery(snapshot, workflow_batch_id)
+              validate_workflow_interaction_support(registration, interaction.kind, interaction.name, workflow_batch_id)
               state.register_workflow_interaction(batch_id: workflow_batch_id, interaction:)
               BulkMutationReport.new(
                 action:,
@@ -77,6 +78,37 @@ module Karya
             return unless WORKFLOW_INTERACTION_TERMINAL_STATES.include?(snapshot.state)
 
             raise Workflow::InvalidExecutionError, "workflow batch #{batch_id.inspect} is terminal and cannot receive interactions"
+          end
+
+          def validate_workflow_interaction_support(registration, interaction_kind, interaction_name, batch_id)
+            supported = SupportedInteraction.new(
+              registration:,
+              interaction_kind:,
+              interaction_name:
+            ).supported?
+            return if supported
+
+            raise Workflow::InvalidExecutionError,
+                  "workflow batch #{batch_id.inspect} does not support #{interaction_kind} #{interaction_name.inspect}"
+          end
+
+          # Checks whether one delivered interaction is declared by the workflow.
+          class SupportedInteraction
+            def initialize(registration:, interaction_kind:, interaction_name:)
+              @registration = registration
+              @interaction_kind = interaction_kind
+              @interaction_name = interaction_name
+            end
+
+            def supported?
+              registration.interaction_requirements_by_job_id.values.any? do |requirement|
+                requirement.fetch(:kind) == interaction_kind && requirement.fetch(:name) == interaction_name
+              end
+            end
+
+            private
+
+            attr_reader :interaction_kind, :interaction_name, :registration
           end
         end
       end

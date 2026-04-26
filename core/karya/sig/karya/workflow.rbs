@@ -468,9 +468,6 @@ module Karya
         attr_reader attributes: Hash[Symbol, step_snapshot_attribute_value]
         def fetch: (Symbol name) -> step_snapshot_attribute_value
         def validate_keys: () -> void
-        def normalize_interaction_kind: (Karya::interaction_kind? value) -> Karya::interaction_kind?
-        def normalize_optional_identifier: (Symbol field_name, state_name? value) -> String?
-        def normalize_optional_timestamp: (Symbol field_name, Time? value) -> Time?
       end
 
       class ChildWorkflow
@@ -566,6 +563,48 @@ module Karya
         attr_reader received_at: Time?
 
         def initialize: (kind: Karya::interaction_kind?, name: String?, received_at: Time?) -> void
+
+      private
+
+        def validate_presence: () -> nil
+        def validate_timestamp_dependency: () -> nil
+      end
+
+      class InteractionKindValue
+        @value: step_snapshot_attribute_value
+
+        def initialize: (step_snapshot_attribute_value value) -> void
+        def to_sym: () -> Karya::interaction_kind?
+
+      private
+
+        attr_reader value: step_snapshot_attribute_value
+      end
+
+      class OptionalIdentifier
+        @field_name: Symbol
+        @value: state_name?
+
+        def initialize: (Symbol field_name, state_name? value) -> void
+        def to_s: () -> String?
+
+      private
+
+        attr_reader field_name: Symbol
+        attr_reader value: state_name?
+      end
+
+      class OptionalTimestamp
+        @field_name: Symbol
+        @value: Time?
+
+        def initialize: (Symbol field_name, Time? value) -> void
+        def to_time: () -> Time?
+
+      private
+
+        attr_reader field_name: Symbol
+        attr_reader value: Time?
       end
 
       class Timestamp

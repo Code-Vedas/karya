@@ -424,11 +424,17 @@ RSpec.describe Karya::QueueStore::InMemory do
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'batch "plain_batch" is not a workflow batch')
     end
 
-    it 'delivers workflow signals and external events into snapshot inspection' do
-      definition = Karya::Workflow.define(:interactive) { step :root, handler: :root }
+    it 'delivers supported workflow signals and external events into snapshot inspection' do
+      definition = Karya::Workflow.define(:interactive) do
+        step :approve, handler: :approve, wait_for_signal: :manager_approved
+        step :capture_payment, handler: :capture_payment, wait_for_event: :payment_received
+      end
       store.enqueue_workflow(
         definition:,
-        jobs_by_step_id: { root: workflow_job(:root) },
+        jobs_by_step_id: {
+          approve: workflow_job(:approve),
+          capture_payment: workflow_job(:capture_payment)
+        },
         batch_id: :batch_one,
         now: created_at + 1
       )
@@ -455,8 +461,10 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(snapshot.events.map(&:name)).to eq(['payment_received'])
     end
 
-    it 'rejects workflow interaction delivery for unknown, non-workflow, and terminal batches' do
-      definition = Karya::Workflow.define(:interactive) { step :root, handler: :root }
+    it 'rejects workflow interaction delivery for unknown, non-workflow, unsupported, and terminal batches' do
+      definition = Karya::Workflow.define(:interactive) do
+        step :approve, handler: :approve, wait_for_signal: :manager_approved
+      end
 
       expect do
         store.deliver_workflow_signal(batch_id: :missing, signal: :manager_approved, payload: {}, now: created_at + 1)
@@ -485,12 +493,17 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       store.enqueue_workflow(
         definition:,
-        jobs_by_step_id: { root: workflow_job(:workflow_root, handler: :root) },
+        jobs_by_step_id: { approve: workflow_job(:approve, handler: :approve) },
         batch_id: :batch_one,
         now: created_at + 4
       )
-      root = reserve(5)
-      run_successfully(root, start_offset: 6, complete_offset: 7)
+      expect do
+        store.deliver_workflow_event(batch_id: :batch_one, event: :payment_received, payload: {}, now: created_at + 5)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "batch_one" does not support event "payment_received"')
+
+      store.deliver_workflow_signal(batch_id: :batch_one, signal: :manager_approved, payload: {}, now: created_at + 6)
+      root = reserve(7)
+      run_successfully(root, start_offset: 8, complete_offset: 9)
 
       expect do
         store.deliver_workflow_signal(batch_id: :batch_one, signal: :manager_approved, payload: {}, now: created_at + 8)
@@ -498,10 +511,16 @@ RSpec.describe Karya::QueueStore::InMemory do
     end
 
     it 'rejects workflow interaction payloads that are not string-keyed JSON-compatible hashes' do
-      definition = Karya::Workflow.define(:interactive) { step :root, handler: :root }
+      definition = Karya::Workflow.define(:interactive) do
+        step :approve, handler: :approve, wait_for_signal: :manager_approved
+        step :capture_payment, handler: :capture_payment, wait_for_event: :payment_received
+      end
       store.enqueue_workflow(
         definition:,
-        jobs_by_step_id: { root: workflow_job(:root) },
+        jobs_by_step_id: {
+          approve: workflow_job(:approve),
+          capture_payment: workflow_job(:capture_payment)
+        },
         batch_id: :batch_one,
         now: created_at + 1
       )
@@ -592,10 +611,12 @@ RSpec.describe Karya::QueueStore::InMemory do
     end
 
     it 'keeps workflow interactions visible across retry and rollback controls' do
-      definition = Karya::Workflow.define(:interactive) { step :root, handler: :root }
+      definition = Karya::Workflow.define(:interactive) do
+        step :approve, handler: :approve, wait_for_signal: :manager_approved
+      end
       store.enqueue_workflow(
         definition:,
-        jobs_by_step_id: { root: workflow_job(:root) },
+        jobs_by_step_id: { approve: workflow_job(:approve) },
         batch_id: :batch_one,
         now: created_at + 1
       )
@@ -609,7 +630,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       store.start_execution(reservation_token: root.token, now: created_at + 4)
       store.fail_execution(reservation_token: root.token, now: created_at + 5, failure_classification: :error)
 
-      retry_report = store.retry_workflow_steps(batch_id: :batch_one, step_ids: [:root], now: created_at + 6)
+      retry_report = store.retry_workflow_steps(batch_id: :batch_one, step_ids: [:approve], now: created_at + 6)
       retry_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 7)
       retried_root = reserve(8)
       store.start_execution(reservation_token: retried_root.token, now: created_at + 9)
@@ -617,7 +638,7 @@ RSpec.describe Karya::QueueStore::InMemory do
       rollback_report = store.rollback_workflow(batch_id: :batch_one, now: created_at + 11, reason: 'operator rollback')
       rollback_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 12)
 
-      expect(retry_report.changed_jobs.map(&:id)).to eq(['job-root'])
+      expect(retry_report.changed_jobs.map(&:id)).to eq(['job-approve'])
       expect(retry_snapshot.interactions.map(&:name)).to eq(['manager_approved'])
       expect(rollback_report.action).to eq(:rollback_workflow)
       expect(rollback_snapshot.interactions.map(&:name)).to eq(['manager_approved'])

@@ -314,7 +314,25 @@ module Karya
           @kind = kind
           @name = name
           @received_at = received_at
+          validate_presence
+          validate_timestamp_dependency
           freeze
+        end
+
+        private
+
+        def validate_presence
+          return if [kind, name].all?(&:nil?)
+          return if [kind, name].none?(&:nil?)
+
+          raise InvalidExecutionError, 'interaction_kind and interaction_name must both be present or both be nil'
+        end
+
+        def validate_timestamp_dependency
+          return if [received_at].compact.empty?
+          return if name
+
+          raise InvalidExecutionError, 'interaction_received_at requires interaction_kind and interaction_name'
         end
       end
 
@@ -327,15 +345,21 @@ module Karya
         def to_sym
           return nil unless value
 
+          raise_invalid_kind unless value.is_a?(String) || value.is_a?(Symbol)
+
           kind = value.to_sym
           return kind if %i[signal event].include?(kind)
 
-          raise InvalidExecutionError, 'interaction_kind must be :signal or :event'
+          raise_invalid_kind
         end
 
         private
 
         attr_reader :value
+
+        def raise_invalid_kind
+          raise InvalidExecutionError, 'interaction_kind must be :signal or :event'
+        end
       end
 
       # Normalizes one optional identifier field.

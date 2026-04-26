@@ -169,15 +169,52 @@ module Karya
             end
 
             def for_batch(batch_id)
-              @by_batch_id.fetch(batch_id, EMPTY)
+              interaction_index = @by_batch_id[batch_id]
+              return EMPTY unless interaction_index
+
+              interaction_index.values.freeze
             end
 
             def register(batch_id:, interaction:)
-              @by_batch_id[batch_id] = (for_batch(batch_id) + [interaction]).freeze
+              interaction_index = current_index(batch_id)
+              interaction_index = LatestInteractionIndex.new(interaction_index, interaction).to_h
+              @by_batch_id[batch_id] = interaction_index.freeze
+              interaction_index.values.freeze
             end
 
             def delete_by_batch(batch_id)
-              @by_batch_id.delete(batch_id) || EMPTY
+              interaction_index = @by_batch_id.delete(batch_id)
+              return EMPTY unless interaction_index
+
+              interaction_index.values.freeze
+            end
+
+            private
+
+            def current_index(batch_id)
+              (@by_batch_id[batch_id] || {}).dup
+            end
+
+            # Replaces any older interaction with the same kind/name pair.
+            class LatestInteractionIndex
+              def initialize(interaction_index, interaction)
+                @interaction_index = interaction_index
+                @interaction = interaction
+              end
+
+              def to_h
+                interaction_index.delete(interaction_key)
+                interaction_index[interaction_key] = interaction
+                interaction_index
+              end
+
+              private
+
+              attr_reader :interaction, :interaction_index
+
+              def interaction_key
+                [interaction.kind, interaction.name]
+              end
             end
           end
 
@@ -316,7 +353,7 @@ module Karya
                 workflow_id,
                 step_job_ids.dup.freeze,
                 dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
-                interaction_requirements_by_job_id.transform_values(&:dup).freeze,
+                interaction_requirements_by_job_id.transform_values { |requirement| requirement.dup.freeze }.freeze,
                 compensation_jobs_by_step_id.dup.freeze,
                 child_workflow_ids_by_step_id.dup.freeze
               ).freeze

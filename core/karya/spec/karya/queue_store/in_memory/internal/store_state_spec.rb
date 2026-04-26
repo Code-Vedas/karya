@@ -202,6 +202,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     step_job_ids = { 'root' => 'job-root' }
     dependency_job_ids = []
     dependency_job_ids_by_job_id = { 'job-root' => dependency_job_ids }
+    interaction_requirements_by_job_id = { 'job-root' => { kind: :signal, name: 'manager_approved' }.freeze }
     compensation_jobs_by_step_id = { 'root' => instance_double(Karya::Job) }
 
     registration = store_state.register_workflow(
@@ -209,20 +210,25 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
       workflow_id: 'invoice_closeout',
       step_job_ids:,
       dependency_job_ids_by_job_id:,
+      interaction_requirements_by_job_id:,
       compensation_jobs_by_step_id:
     )
     step_job_ids['root'] = 'mutated'
     dependency_job_ids << 'mutated'
     dependency_job_ids_by_job_id['job-root'] = ['mutated']
+    interaction_requirements_by_job_id['job-root'] = { kind: :event, name: 'payment_received' }
     compensation_jobs_by_step_id['root'] = instance_double(Karya::Job)
 
     expect(registration.workflow_id).to eq('invoice_closeout')
     expect(registration.step_job_ids).to eq('root' => 'job-root')
     expect(registration.dependency_job_ids_by_job_id).to eq('job-root' => [])
+    expect(registration.interaction_requirements_by_job_id).to eq('job-root' => { kind: :signal, name: 'manager_approved' })
     expect(registration.compensation_jobs_by_step_id.keys).to eq(['root'])
     expect(registration.step_job_ids).to be_frozen
     expect(registration.dependency_job_ids_by_job_id).to be_frozen
     expect(registration.dependency_job_ids_by_job_id.fetch('job-root')).to be_frozen
+    expect(registration.interaction_requirements_by_job_id).to be_frozen
+    expect(registration.interaction_requirements_by_job_id.fetch('job-root')).to be_frozen
     expect(registration.compensation_jobs_by_step_id).to be_frozen
     expect(registration).to be_frozen
     expect(store_state.workflow_registrations_by_batch_id.fetch('batch-1')).to eq(registration)
@@ -232,11 +238,13 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
   it 'stores workflow interactions by batch id' do
     signal = interaction_snapshot(kind: :signal, name: :manager_approved)
     event = interaction_snapshot(kind: :event, name: :payment_received)
+    updated_signal = interaction_snapshot(kind: :signal, name: :manager_approved)
 
     store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: signal)
     store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: event)
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: updated_signal)
 
-    expect(store_state.workflow_interactions_for('batch-1')).to eq([signal, event])
+    expect(store_state.workflow_interactions_for('batch-1')).to eq([event, updated_signal])
     expect(store_state.workflow_interactions_for('missing')).to eq([])
   end
 
