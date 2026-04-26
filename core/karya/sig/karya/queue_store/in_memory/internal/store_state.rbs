@@ -311,7 +311,7 @@ module Karya
               @interactions: Array[Karya::Workflow::InteractionSnapshot]
               @received_at_by_key: Hash[[Karya::interaction_kind, String], Time]
               @max_size: Integer
-              @snapshot: Array[Karya::Workflow::InteractionSnapshot]?
+              @to_a: Array[Karya::Workflow::InteractionSnapshot]?
 
               def initialize: (max_size: Integer) -> void
               def append: (Karya::Workflow::InteractionSnapshot interaction) -> Inbox
