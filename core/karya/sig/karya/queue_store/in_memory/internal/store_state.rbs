@@ -315,7 +315,7 @@ module Karya
             ) -> Array[Karya::Workflow::InteractionSnapshot]
             def configure: (
               batch_id: String,
-              supported_keys: Hash[[Karya::interaction_kind, String], bool]
+              supported_keys: Hash[[Karya::interaction_kind, String], bool] | Array[[Karya::interaction_kind, String]]
             ) -> WorkflowInteractions::Inbox
             def delete_by_batch: (String batch_id) -> Array[Karya::Workflow::InteractionSnapshot]
 
@@ -332,7 +332,7 @@ module Karya
 
               def initialize: (max_size: Integer) -> void
               def append: (Karya::Workflow::InteractionSnapshot interaction) -> Inbox
-              def configure: (supported_keys: Hash[[Karya::interaction_kind, String], bool]) -> Inbox
+              def configure: (supported_keys: Hash[[Karya::interaction_kind, String], bool] | Array[[Karya::interaction_kind, String]]) -> Inbox
               def to_a: () -> Array[Karya::Workflow::InteractionSnapshot]
               def includes?: (kind: Karya::interaction_kind, name: String) -> bool
               def received_at_for: (kind: Karya::interaction_kind, name: String) -> Time?
