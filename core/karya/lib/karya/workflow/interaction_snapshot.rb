@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'json'
+
 # Copyright Codevedas Inc. 2025-present
 #
 # This source code is licensed under the MIT license found in the
@@ -9,6 +11,7 @@ module Karya
   module Workflow
     # Immutable inspection view of one workflow interaction delivery.
     class InteractionSnapshot
+      MAX_PAYLOAD_BYTES = 16 * 1024
       KINDS = %i[signal event].freeze
 
       attr_reader :kind, :name, :payload, :received_at
@@ -98,12 +101,19 @@ module Karya
         def to_h
           raise InvalidExecutionError, 'payload must be a Hash' unless payload.is_a?(Hash)
 
-          normalize_hash(payload)
+          normalized = normalize_hash(payload)
+          validate_size(normalized)
         end
 
         private
 
         attr_reader :payload
+
+        def validate_size(normalized)
+          return normalized if JSON.generate(normalized).bytesize <= MAX_PAYLOAD_BYTES
+
+          raise InvalidExecutionError, "payload exceeds #{MAX_PAYLOAD_BYTES} bytes"
+        end
 
         def normalize_hash(hash)
           hash.each_with_object({}) do |(key, value), normalized|
@@ -147,7 +157,7 @@ module Karya
         attr_reader :name, :value
       end
 
-      private_constant :Attributes, :Kind, :KINDS, :Payload, :Timestamp
+      private_constant :Attributes, :Kind, :KINDS, :MAX_PAYLOAD_BYTES, :Payload, :Timestamp
     end
   end
 end

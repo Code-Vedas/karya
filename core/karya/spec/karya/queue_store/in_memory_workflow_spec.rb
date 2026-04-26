@@ -496,6 +496,33 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(snapshot.signals.map(&:received_at)).to eq([created_at + 2, created_at + 3])
     end
 
+    it 'retains only the latest bounded interaction deliveries per workflow batch' do
+      definition = Karya::Workflow.define(:interactive) do
+        step :approve, handler: :approve, wait_for_signal: :manager_approved
+      end
+      max = 100
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { approve: workflow_job(:approve) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      (max + 1).times do |index|
+        store.deliver_workflow_signal(
+          batch_id: :batch_one,
+          signal: :manager_approved,
+          payload: { 'attempt' => index },
+          now: created_at + 2 + index
+        )
+      end
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + max + 3)
+
+      expect(snapshot.signals.length).to eq(max)
+      expect(snapshot.signals.map { |interaction| interaction.payload.fetch('attempt') }).to eq((1..max).to_a)
+    end
+
     it 'rejects workflow interaction delivery for unknown, non-workflow, unsupported, and terminal batches' do
       definition = Karya::Workflow.define(:interactive) do
         step :approve, handler: :approve, wait_for_signal: :manager_approved
@@ -566,6 +593,14 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect do
         store.deliver_workflow_event(batch_id: :batch_one, event: :payment_received, payload: { 'received_at' => created_at }, now: created_at + 3)
       end.to raise_error(Karya::Workflow::InvalidExecutionError, 'payload values must be JSON-compatible')
+      expect do
+        store.deliver_workflow_signal(
+          batch_id: :batch_one,
+          signal: :manager_approved,
+          payload: { 'message' => 'x' * (16 * 1024) },
+          now: created_at + 4
+        )
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'payload exceeds 16384 bytes')
     end
 
     it 'supports explicit workflow queries for state and current steps' do

@@ -162,36 +162,60 @@ module Karya
           # Owner-local workflow interaction inbox keyed by workflow batch id.
           class WorkflowInteractions
             EMPTY = [].freeze
-            private_constant :EMPTY
+            MAX_INTERACTIONS_PER_BATCH = 100
+            private_constant :EMPTY, :MAX_INTERACTIONS_PER_BATCH
 
             def initialize
               @by_batch_id = {}
+              @max_interactions_per_batch = MAX_INTERACTIONS_PER_BATCH
             end
 
             def for_batch(batch_id)
-              interactions = @by_batch_id[batch_id]
-              return EMPTY unless interactions
+              inbox = @by_batch_id[batch_id]
+              return EMPTY unless inbox
 
-              interactions.dup.freeze
+              inbox.to_a
             end
 
             def register(batch_id:, interaction:)
-              updated_interactions = current_interactions(batch_id) + [interaction]
-              @by_batch_id[batch_id] = updated_interactions.freeze
-              updated_interactions.dup.freeze
+              current_inbox(batch_id).append(interaction).to_a
             end
 
             def delete_by_batch(batch_id)
-              interactions = @by_batch_id.delete(batch_id)
-              return EMPTY unless interactions
+              inbox = @by_batch_id.delete(batch_id)
+              return EMPTY unless inbox
 
-              interactions.dup.freeze
+              inbox.to_a
             end
 
             private
 
-            def current_interactions(batch_id)
-              (@by_batch_id[batch_id] || []).dup
+            attr_reader :max_interactions_per_batch
+
+            def current_inbox(batch_id)
+              @by_batch_id[batch_id] ||= Inbox.new(max_size: max_interactions_per_batch)
+            end
+
+            # Owner-local bounded interaction buffer for one workflow batch.
+            class Inbox
+              def initialize(max_size:)
+                @max_size = max_size
+                @interactions = []
+              end
+
+              def append(interaction)
+                interactions << interaction
+                interactions.shift if interactions.length > max_size
+                self
+              end
+
+              def to_a
+                interactions.dup.freeze
+              end
+
+              private
+
+              attr_reader :interactions, :max_size
             end
           end
 

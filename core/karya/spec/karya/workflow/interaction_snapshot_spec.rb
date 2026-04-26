@@ -59,6 +59,9 @@ RSpec.describe Karya::Workflow::InteractionSnapshot do
       described_class.new(kind: :signal, name: :signal, payload: { 'received_at' => Time.now }, received_at:)
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'payload values must be JSON-compatible')
     expect do
+      described_class.new(kind: :signal, name: :signal, payload: { 'message' => 'x' * (16 * 1024) }, received_at:)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'payload exceeds 16384 bytes')
+    expect do
       described_class.new(kind: :signal, name: '   ', payload: {}, received_at:)
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'name must be present')
   end

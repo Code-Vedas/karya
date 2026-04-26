@@ -31,8 +31,8 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
   end
 
-  def interaction_snapshot(kind: :signal, name: :manager_approved)
-    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload: {}, received_at: created_at)
+  def interaction_snapshot(kind: :signal, name: :manager_approved, payload: {})
+    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at: created_at)
   end
 
   it 'ignores execution tokens that are not present' do
@@ -246,6 +246,24 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
 
     expect(store_state.workflow_interactions_for('batch-1')).to eq([signal, event, updated_signal])
     expect(store_state.workflow_interactions_for('missing')).to eq([])
+  end
+
+  it 'retains only the latest bounded workflow interactions per batch' do
+    max = described_class.send(:const_get, :WorkflowInteractions).send(:const_get, :MAX_INTERACTIONS_PER_BATCH)
+
+    (max + 1).times do |index|
+      store_state.register_workflow_interaction(
+        batch_id: 'batch-1',
+        interaction: interaction_snapshot(
+          kind: :signal,
+          name: :manager_approved,
+          payload: { 'attempt' => index }
+        )
+      )
+    end
+
+    expect(store_state.workflow_interactions_for('batch-1').length).to eq(max)
+    expect(store_state.workflow_interactions_for('batch-1').map { |interaction| interaction.payload.fetch('attempt') }).to eq((1..max).to_a)
   end
 
   it 'cleans up child workflow relationships by parent batch' do
