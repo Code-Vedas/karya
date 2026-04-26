@@ -430,6 +430,7 @@ module Karya
                 child_workflow_ids_by_step_id: registration.child_workflow_ids_by_step_id,
                 child_workflows: child_workflow_snapshots,
                 interaction_requirements_by_job_id: registration.interaction_requirements_by_job_id,
+                interaction_received_at_by_job_id: interaction_received_at_by_job_id,
                 interactions: interaction_snapshots,
                 parent: parent_snapshot,
                 rollback: rollback_snapshot
@@ -462,6 +463,17 @@ module Karya
 
             def interaction_snapshots
               state.workflow_interactions_for(batch.id)
+            end
+
+            def interaction_received_at_by_job_id
+              registration.interaction_requirements_by_job_id.each_with_object({}) do |(job_id, requirement), received_at_by_job_id|
+                received_at = state.workflow_interaction_received_at(
+                  batch_id: batch.id,
+                  kind: requirement.fetch(:kind),
+                  name: requirement.fetch(:name)
+                )
+                received_at_by_job_id[job_id] = received_at if received_at
+              end.freeze
             end
 
             def child_state_resolver

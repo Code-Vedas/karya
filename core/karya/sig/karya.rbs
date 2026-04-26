@@ -47,7 +47,7 @@ module Karya
     Job |
     Array[state_name] |
     Hash[state_name, state_name?] |
-    interaction_kind |
+    interaction_kind_input |
     Workflow::ChildWorkflowSnapshot |
     Time |
     nil
@@ -57,6 +57,7 @@ module Karya
     Hash[state_name, state_name] |
     Hash[state_name, state_name_array] |
     Hash[state_name, interaction_requirement_input] |
+    Hash[state_name, Time] |
     Array[Job] |
     Array[Workflow::ChildWorkflowSnapshot] |
     Array[Workflow::InteractionSnapshot] |

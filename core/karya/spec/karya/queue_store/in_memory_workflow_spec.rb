@@ -523,6 +523,46 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(snapshot.signals.map { |interaction| interaction.payload.fetch('attempt') }).to eq((1..max).to_a)
     end
 
+    it 'keeps waiting-step interaction satisfaction after old deliveries roll out of inspection history' do
+      max = 100
+      definition = Karya::Workflow.define(:interactive) do
+        step :approve, handler: :approve, wait_for_signal: :manager_approved
+        max.times do |index|
+          step :"noise_#{index}", handler: :"noise_#{index}", wait_for_signal: :"noise_#{index}"
+        end
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { approve: workflow_job(:approve) }.merge(
+          max.times.to_h do |index|
+            step_id = :"noise_#{index}"
+            [step_id, workflow_job(step_id, handler: step_id)]
+          end
+        ),
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      store.deliver_workflow_signal(
+        batch_id: :batch_one,
+        signal: :manager_approved,
+        payload: { 'approved_by' => 'ops' },
+        now: created_at + 2
+      )
+
+      max.times do |index|
+        store.deliver_workflow_signal(
+          batch_id: :batch_one,
+          signal: :"noise_#{index}",
+          payload: { 'attempt' => index },
+          now: created_at + 3 + index
+        )
+      end
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + max + 4)
+
+      expect(snapshot.fetch_step(:approve)).to be_ready
+    end
+
     it 'rejects workflow interaction delivery for unknown, non-workflow, unsupported, and terminal batches' do
       definition = Karya::Workflow.define(:interactive) do
         step :approve, handler: :approve, wait_for_signal: :manager_approved

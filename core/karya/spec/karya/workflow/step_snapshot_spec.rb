@@ -81,6 +81,7 @@ RSpec.describe Karya::Workflow::StepSnapshot do
 
   it 'blocks waiting steps until their required interaction arrives' do
     blocked = snapshot(interaction_kind: :signal, interaction_name: :manager_approved)
+    normalized_from_string = snapshot(interaction_kind: 'signal', interaction_name: :manager_approved)
     ready = snapshot(
       interaction_kind: :event,
       interaction_name: :payment_received,
@@ -88,6 +89,7 @@ RSpec.describe Karya::Workflow::StepSnapshot do
     )
 
     expect(blocked).to be_blocked
+    expect(normalized_from_string.interaction_kind).to eq(:signal)
     expect(ready).to be_ready
     expect(ready).to have_attributes(
       interaction_kind: :event,

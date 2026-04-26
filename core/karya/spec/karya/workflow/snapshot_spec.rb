@@ -53,6 +53,7 @@ RSpec.describe Karya::Workflow::Snapshot do
     child_workflow_ids_by_step_id: {},
     interactions: [],
     interaction_requirements_by_job_id: {},
+    interaction_received_at_by_job_id: {},
     parent: nil
   )
     described_class.new(
@@ -66,6 +67,7 @@ RSpec.describe Karya::Workflow::Snapshot do
       child_workflows:,
       interactions:,
       interaction_requirements_by_job_id:,
+      interaction_received_at_by_job_id:,
       parent:,
       rollback:
     )
@@ -140,6 +142,20 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect(blocked.state).to eq(:blocked)
     expect(ready.fetch_step(:capture_payment)).to be_ready
     expect(ready.state).to eq(:pending)
+  end
+
+  it 'accepts explicit interaction delivery timestamps for step readiness separate from inspection history' do
+    jobs = [job(id: 'job_capture', state: :queued)]
+    result = snapshot(
+      jobs:,
+      step_job_ids: { capture_payment: 'job_capture' },
+      interaction_requirements_by_job_id: { 'job_capture' => { kind: :event, name: :payment_received } },
+      interaction_received_at_by_job_id: { 'job_capture' => captured_at + 3 },
+      interactions: []
+    )
+
+    expect(result.fetch_step(:capture_payment)).to be_ready
+    expect(result.interactions).to eq([])
   end
 
   it 'marks every step that shares one interaction requirement as ready once delivered' do
@@ -263,6 +279,19 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect do
       snapshot(jobs:, step_job_ids: { child: 'job_child' }, interactions: ['signal'])
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interactions entries must be Karya::Workflow::InteractionSnapshot')
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, interaction_received_at_by_job_id: 'signal')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_received_at_by_job_id must be a Hash')
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        interaction_received_at_by_job_id: {
+          ' job_child ' => captured_at + 1,
+          job_child: captured_at + 2
+        }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate interaction delivery job "job_child"')
     expect do
       snapshot(jobs:, step_job_ids: { child: 'job_child' }, child_workflows: ['child'])
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child_workflows entries must be Karya::Workflow::ChildWorkflowSnapshot')

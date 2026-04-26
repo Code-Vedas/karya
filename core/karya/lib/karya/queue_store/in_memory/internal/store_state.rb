@@ -178,6 +178,10 @@ module Karya
               with_inbox(batch_id, fallback: false) { |inbox| inbox.includes?(kind:, name:) }
             end
 
+            def received_at_for(batch_id:, kind:, name:)
+              with_inbox(batch_id, fallback: nil) { |inbox| inbox.received_at_for(kind:, name:) }
+            end
+
             def register(batch_id:, interaction:)
               current_inbox(batch_id).append(interaction).to_a
             end
@@ -207,13 +211,13 @@ module Karya
                 @max_size = max_size
                 @interactions = []
                 @to_a = EMPTY
-                @interaction_counts = {}
+                @received_at_by_key = {}
               end
 
               def append(interaction)
                 interactions << interaction
-                register(interaction)
-                unregister(interactions.shift) if interactions.length > max_size
+                received_at_by_key[[interaction.kind, interaction.name]] = interaction.received_at
+                interactions.shift if interactions.length > max_size
                 @to_a = nil
                 self
               end
@@ -223,27 +227,16 @@ module Karya
               end
 
               def includes?(kind:, name:)
-                interaction_counts.fetch([kind, name], 0).positive?
+                received_at_by_key.key?([kind, name])
+              end
+
+              def received_at_for(kind:, name:)
+                received_at_by_key[[kind, name]]
               end
 
               private
 
-              attr_reader :interaction_counts, :interactions, :max_size
-
-              def register(interaction)
-                key = [interaction.kind, interaction.name]
-                interaction_counts[key] = interaction_counts.fetch(key, 0) + 1
-              end
-
-              def unregister(interaction)
-                key = [interaction.kind, interaction.name]
-                count = interaction_counts.fetch(key) - 1
-                if count.zero?
-                  interaction_counts.delete(key)
-                else
-                  interaction_counts[key] = count
-                end
-              end
+              attr_reader :interactions, :max_size, :received_at_by_key
             end
           end
 
@@ -413,6 +406,10 @@ module Karya
 
             def workflow_interaction_delivered?(batch_id:, kind:, name:)
               workflow_interactions.includes?(batch_id:, kind:, name:)
+            end
+
+            def workflow_interaction_received_at(batch_id:, kind:, name:)
+              workflow_interactions.received_at_for(batch_id:, kind:, name:)
             end
 
             def register_workflow_rollback(batch_id:, rollback_batch_id:, reason:, requested_at:, compensation_job_ids:)

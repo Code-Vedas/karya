@@ -94,6 +94,7 @@ module Karya
           def workflow_dependency_job_ids_for: (String job_id) -> Array[String]?
           def workflow_interactions_for: (String batch_id) -> Array[Karya::Workflow::InteractionSnapshot]
           def workflow_interaction_delivered?: (batch_id: String, kind: Karya::interaction_kind, name: String) -> bool
+          def workflow_interaction_received_at: (batch_id: String, kind: Karya::interaction_kind, name: String) -> Time?
           def register_workflow: (
             batch_id: String,
             workflow_id: String,
@@ -308,7 +309,7 @@ module Karya
 
             class Inbox
               @interactions: Array[Karya::Workflow::InteractionSnapshot]
-              @interaction_counts: Hash[[Karya::interaction_kind, String], Integer]
+              @received_at_by_key: Hash[[Karya::interaction_kind, String], Time]
               @max_size: Integer
               @snapshot: Array[Karya::Workflow::InteractionSnapshot]?
 
@@ -316,14 +317,13 @@ module Karya
               def append: (Karya::Workflow::InteractionSnapshot interaction) -> Inbox
               def to_a: () -> Array[Karya::Workflow::InteractionSnapshot]
               def includes?: (kind: Karya::interaction_kind, name: String) -> bool
+              def received_at_for: (kind: Karya::interaction_kind, name: String) -> Time?
 
             private
 
-              attr_reader interaction_counts: Hash[[Karya::interaction_kind, String], Integer]
               attr_reader interactions: Array[Karya::Workflow::InteractionSnapshot]
               attr_reader max_size: Integer
-              def register: (Karya::Workflow::InteractionSnapshot interaction) -> Integer
-              def unregister: (Karya::Workflow::InteractionSnapshot interaction) -> (Integer | Hash[[Karya::interaction_kind, String], Integer] | nil)
+              attr_reader received_at_by_key: Hash[[Karya::interaction_kind, String], Time]
             end
           end
 

@@ -25,6 +25,7 @@ module Karya
         child_workflows
         interactions
         interaction_requirements_by_job_id
+        interaction_received_at_by_job_id
         parent
         rollback
       ].freeze
@@ -39,12 +40,16 @@ module Karya
         grouped_interactions = interactions.group_by(&:kind)
         @signals = grouped_interactions.fetch(:signal, []).freeze
         @events = grouped_interactions.fetch(:event, []).freeze
+        interaction_state = InteractionState.new(
+          interaction_requirements_by_job_id: attributes.interaction_requirements_by_job_id,
+          interaction_received_at_by_job_id: attributes.interaction_received_at_by_job_id,
+          interactions:
+        )
         @step_inspection = StepInspection.new(
           identity:,
           membership:,
           child_relationships:,
-          interaction_requirements_by_job_id: attributes.interaction_requirements_by_job_id,
-          interactions:
+          interaction_state:
         )
         @parent = attributes.parent
         @rollback = attributes.rollback
@@ -187,6 +192,10 @@ module Karya
           InteractionRequirements.new(attributes.fetch(:interaction_requirements_by_job_id, {})).to_h
         end
 
+        def interaction_received_at_by_job_id
+          InteractionReceivedAtByJobId.new(attributes.fetch(:interaction_received_at_by_job_id, {})).to_h
+        end
+
         def parent
           value = attributes.fetch(:parent, nil)
           raise InvalidExecutionError, 'parent must be Karya::Workflow::ChildWorkflowSnapshot' if value && !value.is_a?(ChildWorkflowSnapshot)
@@ -301,15 +310,12 @@ module Karya
 
       # Builds ordered per-step runtime inspection values.
       class StepInspection
-        def initialize(identity:, membership:, child_relationships:, interaction_requirements_by_job_id:, interactions:)
+        def initialize(identity:, membership:, child_relationships:, interaction_state:)
           @identity = identity
           @membership = membership
           @child_relationships = child_relationships
-          @interaction_requirements_by_job_id = interaction_requirements_by_job_id
-          @interaction_received_at_by_job_id = InteractionDeliveries.new(
-            interaction_requirements_by_job_id:,
-            interactions:
-          ).to_h
+          @interaction_requirements_by_job_id = interaction_state.interaction_requirements_by_job_id
+          @interaction_received_at_by_job_id = interaction_state.received_at_by_job_id
           @steps = build_steps
           @steps_by_id = @steps.to_h { |step_snapshot| [step_snapshot.step_id, step_snapshot] }.freeze
           freeze
@@ -361,6 +367,31 @@ module Karya
             [job_id, prerequisite_job&.state]
           end
         end
+      end
+
+      # Groups interaction requirements, history, and readiness timestamps.
+      class InteractionState
+        attr_reader :interaction_requirements_by_job_id
+
+        def initialize(interaction_requirements_by_job_id:, interaction_received_at_by_job_id:, interactions:)
+          @interaction_requirements_by_job_id = interaction_requirements_by_job_id
+          @interaction_received_at_by_job_id = interaction_received_at_by_job_id
+          @interactions = interactions
+          freeze
+        end
+
+        def received_at_by_job_id
+          return interaction_received_at_by_job_id unless interaction_received_at_by_job_id.empty?
+
+          InteractionDeliveries.new(
+            interaction_requirements_by_job_id:,
+            interactions:
+          ).to_h
+        end
+
+        private
+
+        attr_reader :interaction_received_at_by_job_id, :interactions
       end
 
       # Normalizes child workflow declarations by parent step id.
@@ -484,6 +515,28 @@ module Karya
         end
 
         private_constant :Requirement
+      end
+
+      # Normalizes delivered interaction timestamps keyed by concrete job id.
+      class InteractionReceivedAtByJobId
+        def initialize(interaction_received_at_by_job_id)
+          @interaction_received_at_by_job_id = interaction_received_at_by_job_id
+        end
+
+        def to_h
+          raise InvalidExecutionError, 'interaction_received_at_by_job_id must be a Hash' unless interaction_received_at_by_job_id.is_a?(Hash)
+
+          interaction_received_at_by_job_id.each_with_object({}) do |(job_id, received_at), normalized|
+            normalized_job_id = Workflow.send(:normalize_execution_identifier, :job_id, job_id)
+            raise InvalidExecutionError, "duplicate interaction delivery job #{normalized_job_id.inspect}" if normalized.key?(normalized_job_id)
+
+            normalized[normalized_job_id] = Timestamp.new(:interaction_received_at, received_at).to_time
+          end.freeze
+        end
+
+        private
+
+        attr_reader :interaction_received_at_by_job_id
       end
 
       # Resolves interaction delivery timestamps for gated workflow jobs.

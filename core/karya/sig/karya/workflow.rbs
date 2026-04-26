@@ -430,7 +430,7 @@ module Karya
         prerequisite_states: Hash[state_name, state_name?],
         ?child_workflow_id: state_name?,
         ?child_workflow: ChildWorkflowSnapshot?,
-        ?interaction_kind: Karya::interaction_kind?,
+        ?interaction_kind: Karya::interaction_kind_input?,
         ?interaction_name: state_name?,
         ?interaction_received_at: Time?
       ) -> void
@@ -651,6 +651,7 @@ module Karya
         ?child_workflows: Array[ChildWorkflowSnapshot],
         ?interactions: Array[InteractionSnapshot],
         ?interaction_requirements_by_job_id: Hash[state_name, Karya::interaction_requirement_input],
+        ?interaction_received_at_by_job_id: Hash[state_name, Time],
         ?parent: ChildWorkflowSnapshot?,
         ?rollback: RollbackSnapshot?
       ) -> void
@@ -700,6 +701,7 @@ module Karya
         def child_relationships: () -> ChildRelationships
         def interactions: () -> Array[InteractionSnapshot]
         def interaction_requirements_by_job_id: () -> Hash[String, Karya::interaction_requirement]
+        def interaction_received_at_by_job_id: () -> Hash[String, Time]
         def parent: () -> ChildWorkflowSnapshot?
         def rollback: () -> RollbackSnapshot?
 
@@ -794,8 +796,7 @@ module Karya
           identity: Identity,
           membership: Membership,
           child_relationships: ChildRelationships,
-          interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement],
-          interactions: Array[InteractionSnapshot]
+          interaction_state: InteractionState
         ) -> void
 
         attr_reader steps: Array[StepSnapshot]
@@ -813,6 +814,26 @@ module Karya
         attr_reader steps_by_id: Hash[String, StepSnapshot]
         def build_steps: () -> Array[StepSnapshot]
         def prerequisite_states_for: (Array[String] prerequisite_job_ids) -> Hash[String, state_name?]
+      end
+
+      class InteractionState
+        @interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
+        @interaction_received_at_by_job_id: Hash[String, Time]
+        @interactions: Array[InteractionSnapshot]
+
+        attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
+
+        def initialize: (
+          interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement],
+          interaction_received_at_by_job_id: Hash[String, Time],
+          interactions: Array[InteractionSnapshot]
+        ) -> void
+        def received_at_by_job_id: () -> Hash[String, Time]
+
+      private
+
+        attr_reader interaction_received_at_by_job_id: Hash[String, Time]
+        attr_reader interactions: Array[InteractionSnapshot]
       end
 
       class ChildWorkflowIds
@@ -857,6 +878,17 @@ module Karya
 
           attr_reader requirement: Karya::interaction_requirement_input
         end
+      end
+
+      class InteractionReceivedAtByJobId
+        @interaction_received_at_by_job_id: Hash[state_name, Time]
+
+        def initialize: (Hash[state_name, Time] interaction_received_at_by_job_id) -> void
+        def to_h: () -> Hash[String, Time]
+
+      private
+
+        attr_reader interaction_received_at_by_job_id: Hash[state_name, Time]
       end
 
       class InteractionDeliveries

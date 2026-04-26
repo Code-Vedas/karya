@@ -277,7 +277,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_interactions_for('batch-1').map { |interaction| interaction.payload.fetch('attempt') }).to eq((1..max).to_a)
   end
 
-  it 'indexes delivered interactions by kind and name across rolling retention' do
+  it 'keeps delivered interaction satisfaction across rolling retention' do
     max = described_class.send(:const_get, :WorkflowInteractions).send(:const_get, :MAX_INTERACTIONS_PER_BATCH)
 
     store_state.register_workflow_interaction(
@@ -292,8 +292,32 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
       )
     end
 
-    expect(store_state.workflow_interaction_delivered?(batch_id: 'batch-1', kind: :signal, name: 'manager_approved')).to be(false)
+    expect(store_state.workflow_interaction_delivered?(batch_id: 'batch-1', kind: :signal, name: 'manager_approved')).to be(true)
     expect(store_state.workflow_interaction_delivered?(batch_id: 'batch-1', kind: :event, name: "payment_received_#{max - 1}")).to be(true)
+  end
+
+  it 'tracks the latest received_at for delivered interactions independently of retained history' do
+    max = described_class.send(:const_get, :WorkflowInteractions).send(:const_get, :MAX_INTERACTIONS_PER_BATCH)
+
+    store_state.register_workflow_interaction(
+      batch_id: 'batch-1',
+      interaction: interaction_snapshot(kind: :signal, name: :manager_approved)
+    )
+
+    max.times do |index|
+      store_state.register_workflow_interaction(
+        batch_id: 'batch-1',
+        interaction: Karya::Workflow::InteractionSnapshot.new(
+          kind: :event,
+          name: "payment_received_#{index}",
+          payload: {},
+          received_at: created_at + index + 1
+        )
+      )
+    end
+
+    expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :signal, name: 'manager_approved')).to eq(created_at)
+    expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :event, name: "payment_received_#{max - 1}")).to eq(created_at + max)
   end
 
   it 'cleans up child workflow relationships by parent batch' do

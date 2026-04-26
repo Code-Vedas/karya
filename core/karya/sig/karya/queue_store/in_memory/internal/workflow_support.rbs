@@ -202,6 +202,7 @@ module Karya
             def rollback_snapshot: () -> Karya::Workflow::RollbackSnapshot?
             def child_workflow_snapshots: () -> Array[Karya::Workflow::ChildWorkflowSnapshot]
             def interaction_snapshots: () -> Array[Karya::Workflow::InteractionSnapshot]
+            def interaction_received_at_by_job_id: () -> Hash[String, Time]
             def parent_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot?
             def child_state_resolver: () -> InMemory::Internal::WorkflowChildState
           end
