@@ -380,9 +380,7 @@ module Karya
         attr_reader :field_name, :value
 
         def normalize_execution_identifier
-          Workflow.send(:normalize_identifier, field_name, value)
-        rescue InvalidDefinitionError => e
-          raise InvalidExecutionError, e.message, cause: e
+          Workflow.send(:normalize_execution_identifier, field_name, value)
         end
       end
 

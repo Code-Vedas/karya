@@ -42,7 +42,7 @@ module Karya
         end
 
         def name
-          normalize_execution_identifier(:name, fetch(:name))
+          Workflow.send(:normalize_execution_identifier, :name, fetch(:name))
         end
 
         def payload
@@ -66,12 +66,6 @@ module Karya
           return if unknown_keys.empty?
 
           raise ArgumentError, "unknown keyword: :#{unknown_keys.first}"
-        end
-
-        def normalize_execution_identifier(field_name, value)
-          Workflow.send(:normalize_identifier, field_name, value)
-        rescue InvalidDefinitionError => e
-          raise InvalidExecutionError, e.message, cause: e
         end
       end
 
