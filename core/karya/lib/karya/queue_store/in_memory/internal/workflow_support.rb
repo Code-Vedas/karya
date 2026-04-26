@@ -11,6 +11,8 @@ module Karya
       module Internal
         # Owner-local workflow enqueue and prerequisite readiness support.
         module WorkflowSupport
+          WORKFLOW_INTERACTION_TERMINAL_STATES = %i[succeeded failed cancelled].freeze
+
           def enqueue_workflow(definition:, jobs_by_step_id:, batch_id:, now:, compensation_jobs_by_step_id: {})
             normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
 
@@ -29,13 +31,15 @@ module Karya
               expire_reservations_locked(normalized_now)
               queued_jobs = jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               dependency_job_ids_by_job_id = binding.dependency_job_ids_by_job_id
+              step_job_ids = StepJobIds.new(definition:, jobs:).to_h
               store_batch(batch)
               state.register_workflow_dependencies(dependency_job_ids_by_job_id)
               state.register_workflow(
                 batch_id: workflow_batch_id,
                 workflow_id: definition.id,
-                step_job_ids: StepJobIds.new(definition:, jobs:).to_h,
+                step_job_ids:,
                 dependency_job_ids_by_job_id:,
+                interaction_requirements_by_job_id: InteractionRequirements.new(definition:, step_job_ids:).to_h,
                 compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id,
                 child_workflow_ids_by_step_id: WorkflowChildIds.new(definition).to_h
               )
@@ -425,6 +429,8 @@ module Karya
                 jobs:,
                 child_workflow_ids_by_step_id: registration.child_workflow_ids_by_step_id,
                 child_workflows: child_workflow_snapshots,
+                interaction_requirements_by_job_id: registration.interaction_requirements_by_job_id,
+                interactions: interaction_snapshots,
                 parent: parent_snapshot,
                 rollback: rollback_snapshot
               )
@@ -452,6 +458,10 @@ module Karya
               return unless relationship
 
               ChildWorkflowSnapshotBuilder.new(relationship:, resolver: child_state_resolver).to_snapshot
+            end
+
+            def interaction_snapshots
+              state.workflow_interactions_for(batch.id)
             end
 
             def child_state_resolver
@@ -563,11 +573,15 @@ module Karya
               "workflow batch #{batch_id} has active jobs and cannot be rolled back"
             end
           end
-          private_constant :ChildWorkflowSnapshotBuilder, :RollbackSnapshotAttributes, :RollbackState, :WorkflowSnapshotBuilder
+          private_constant :ChildWorkflowSnapshotBuilder,
+                           :RollbackSnapshotAttributes,
+                           :RollbackState,
+                           :WorkflowSnapshotBuilder
 
           def workflow_dependencies_satisfied?(job, now:)
             prerequisite_job_ids = state.workflow_dependency_job_ids_for(job.id)
             return false unless workflow_child_satisfied?(job, now:)
+            return false unless workflow_interaction_satisfied?(job)
             return true unless prerequisite_job_ids
 
             prerequisite_job_ids.all? do |prerequisite_job_id|
@@ -586,6 +600,22 @@ module Karya
             return false unless relationship
 
             child_workflow_state(relationship.child_batch_id, now:) == :succeeded
+          end
+
+          def workflow_interaction_satisfied?(job)
+            job_id = job.id
+            batch_id = state.batch_id_by_job_id[job_id]
+            return true unless batch_id
+
+            registration = state.workflow_registrations_by_batch_id[batch_id]
+            return true unless registration
+
+            requirement = registration.interaction_requirements_by_job_id[job_id]
+            return true unless requirement
+
+            state.workflow_interactions_for(batch_id).any? do |interaction|
+              interaction.kind == requirement.fetch(:kind) && interaction.name == requirement.fetch(:name)
+            end
           end
         end
       end

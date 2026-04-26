@@ -18,7 +18,13 @@ RSpec.describe Karya::Workflow::StepSnapshot do
     Karya::Job.new(id:, queue: :billing, handler: :sync_billing, state:, created_at:)
   end
 
-  def snapshot(state: :queued, prerequisite_states: { 'job-root' => :succeeded })
+  def snapshot(
+    state: :queued,
+    prerequisite_states: { 'job-root' => :succeeded },
+    interaction_kind: nil,
+    interaction_name: nil,
+    interaction_received_at: nil
+  )
     described_class.new(
       workflow_id: ' invoice_closeout ',
       batch_id: ' batch_1 ',
@@ -26,7 +32,10 @@ RSpec.describe Karya::Workflow::StepSnapshot do
       job_id: ' job-child ',
       job: job(state:),
       prerequisite_job_ids: [' job-root '],
-      prerequisite_states:
+      prerequisite_states:,
+      interaction_kind:,
+      interaction_name:,
+      interaction_received_at:
     )
   end
 
@@ -68,6 +77,23 @@ RSpec.describe Karya::Workflow::StepSnapshot do
     expect(snapshot(prerequisite_states: {})).to be_blocked
     expect(snapshot(state: :running)).to be_active
     expect(snapshot(state: :succeeded)).to be_terminal
+  end
+
+  it 'blocks waiting steps until their required interaction arrives' do
+    blocked = snapshot(interaction_kind: :signal, interaction_name: :manager_approved)
+    ready = snapshot(
+      interaction_kind: :event,
+      interaction_name: :payment_received,
+      interaction_received_at: created_at + 1
+    )
+
+    expect(blocked).to be_blocked
+    expect(ready).to be_ready
+    expect(ready).to have_attributes(
+      interaction_kind: :event,
+      interaction_name: 'payment_received',
+      interaction_received_at: created_at + 1
+    )
   end
 
   it 'blocks child workflow steps until the child workflow succeeds' do
@@ -268,5 +294,35 @@ RSpec.describe Karya::Workflow::StepSnapshot do
 
     expect(result.prerequisite_states).to eq('job-root' => :succeeded)
     expect(missing.prerequisite_states).to eq('job-root' => nil)
+  end
+
+  it 'validates interaction metadata' do
+    expect do
+      snapshot(interaction_kind: :webhook, interaction_name: :manager_approved)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind must be :signal or :event')
+
+    expect do
+      snapshot(interaction_kind: 123, interaction_name: :manager_approved)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind must be :signal or :event')
+
+    expect do
+      snapshot(interaction_kind: :signal, interaction_name: :manager_approved, interaction_received_at: '2026-04-24T12:00:00Z')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_received_at must be a Time')
+
+    expect do
+      snapshot(interaction_kind: :signal, interaction_name: nil)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind and interaction_name must both be present or both be nil')
+
+    expect do
+      snapshot(interaction_kind: :signal, interaction_name: '   ')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_name must be present')
+
+    expect do
+      snapshot(interaction_kind: nil, interaction_name: :manager_approved)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_kind and interaction_name must both be present or both be nil')
+
+    expect do
+      snapshot(interaction_kind: nil, interaction_name: nil, interaction_received_at: created_at + 1)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_received_at requires interaction_kind and interaction_name')
   end
 end

@@ -31,6 +31,10 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
   end
 
+  def interaction_snapshot(kind: :signal, name: :manager_approved, payload: {})
+    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at: created_at)
+  end
+
   it 'ignores execution tokens that are not present' do
     store_state.execution_tokens_in_order << 'lease-1'
 
@@ -198,6 +202,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     step_job_ids = { 'root' => 'job-root' }
     dependency_job_ids = []
     dependency_job_ids_by_job_id = { 'job-root' => dependency_job_ids }
+    interaction_requirements_by_job_id = { 'job-root' => { kind: :signal, name: 'manager_approved' }.freeze }
     compensation_jobs_by_step_id = { 'root' => instance_double(Karya::Job) }
 
     registration = store_state.register_workflow(
@@ -205,24 +210,60 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
       workflow_id: 'invoice_closeout',
       step_job_ids:,
       dependency_job_ids_by_job_id:,
+      interaction_requirements_by_job_id:,
       compensation_jobs_by_step_id:
     )
     step_job_ids['root'] = 'mutated'
     dependency_job_ids << 'mutated'
     dependency_job_ids_by_job_id['job-root'] = ['mutated']
+    interaction_requirements_by_job_id['job-root'] = { kind: :event, name: 'payment_received' }
     compensation_jobs_by_step_id['root'] = instance_double(Karya::Job)
 
     expect(registration.workflow_id).to eq('invoice_closeout')
     expect(registration.step_job_ids).to eq('root' => 'job-root')
     expect(registration.dependency_job_ids_by_job_id).to eq('job-root' => [])
+    expect(registration.interaction_requirements_by_job_id).to eq('job-root' => { kind: :signal, name: 'manager_approved' })
     expect(registration.compensation_jobs_by_step_id.keys).to eq(['root'])
     expect(registration.step_job_ids).to be_frozen
     expect(registration.dependency_job_ids_by_job_id).to be_frozen
     expect(registration.dependency_job_ids_by_job_id.fetch('job-root')).to be_frozen
+    expect(registration.interaction_requirements_by_job_id).to be_frozen
+    expect(registration.interaction_requirements_by_job_id.fetch('job-root')).to be_frozen
     expect(registration.compensation_jobs_by_step_id).to be_frozen
     expect(registration).to be_frozen
     expect(store_state.workflow_registrations_by_batch_id.fetch('batch-1')).to eq(registration)
     expect(store_state.workflow_registrations_by_batch_id['missing']).to be_nil
+  end
+
+  it 'stores workflow interactions by batch id' do
+    signal = interaction_snapshot(kind: :signal, name: :manager_approved)
+    event = interaction_snapshot(kind: :event, name: :payment_received)
+    updated_signal = interaction_snapshot(kind: :signal, name: :manager_approved)
+
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: signal)
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: event)
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: updated_signal)
+
+    expect(store_state.workflow_interactions_for('batch-1')).to eq([signal, event, updated_signal])
+    expect(store_state.workflow_interactions_for('missing')).to eq([])
+  end
+
+  it 'retains only the latest bounded workflow interactions per batch' do
+    max = described_class.send(:const_get, :WorkflowInteractions).send(:const_get, :MAX_INTERACTIONS_PER_BATCH)
+
+    (max + 1).times do |index|
+      store_state.register_workflow_interaction(
+        batch_id: 'batch-1',
+        interaction: interaction_snapshot(
+          kind: :signal,
+          name: :manager_approved,
+          payload: { 'attempt' => index }
+        )
+      )
+    end
+
+    expect(store_state.workflow_interactions_for('batch-1').length).to eq(max)
+    expect(store_state.workflow_interactions_for('batch-1').map { |interaction| interaction.payload.fetch('attempt') }).to eq((1..max).to_a)
   end
 
   it 'cleans up child workflow relationships by parent batch' do
@@ -252,6 +293,22 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(workflow_children.for_parent_job('job-child')).to be_nil
     expect(workflow_children.for_child_batch('child-batch-1')).to be_nil
     expect(workflow_children.expected_child_workflow_id_by_job_id).to eq({})
+  end
+
+  it 'prunes workflow interaction inboxes with workflow batch cleanup' do
+    store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
+    store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'root' => 'job-1' },
+      dependency_job_ids_by_job_id: { 'job-1' => [] },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: interaction_snapshot)
+
+    expect(store_state.prune_terminal_batches(0)).to eq(['batch-1'])
+    expect(store_state.workflow_interactions_for('batch-1')).to eq([])
   end
 
   it 'cleans up child workflow relationships by child batch' do

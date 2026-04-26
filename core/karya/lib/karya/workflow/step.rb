@@ -17,7 +17,9 @@ module Karya
                   :compensation_arguments,
                   :depends_on,
                   :handler,
-                  :id
+                  :id,
+                  :wait_for_event,
+                  :wait_for_signal
 
       def initialize(id:, handler:, **options)
         @id = Workflow.send(:normalize_identifier, :step_id, id)
@@ -32,7 +34,10 @@ module Karya
           step_id: @id,
           handler: compensation_handler_label
         ).normalize
+        @wait_for_signal = InteractionName.new(:wait_for_signal, normalized_options.wait_for_signal).normalize
+        @wait_for_event = InteractionName.new(:wait_for_event, normalized_options.wait_for_event).normalize
         validate_compensation_configuration
+        validate_interaction_configuration
         freeze
       end
 
@@ -46,7 +51,15 @@ module Karya
 
       # Centralizes optional constructor field defaults and key validation.
       class Options
-        ALLOWED_KEYS = %i[arguments depends_on compensate_with compensation_arguments child_workflow].freeze
+        ALLOWED_KEYS = %i[
+          arguments
+          depends_on
+          compensate_with
+          compensation_arguments
+          child_workflow
+          wait_for_signal
+          wait_for_event
+        ].freeze
 
         def initialize(options)
           @options = options
@@ -71,6 +84,14 @@ module Karya
 
         def compensation_arguments
           options.fetch(:compensation_arguments, {})
+        end
+
+        def wait_for_signal
+          options.fetch(:wait_for_signal, nil)
+        end
+
+        def wait_for_event
+          options.fetch(:wait_for_event, nil)
         end
 
         private
@@ -185,7 +206,28 @@ module Karya
         attr_reader :value
       end
 
-      private_constant :Arguments, :ChildWorkflow, :CompensationHandler, :Dependencies, :Options
+      # Normalizes one optional interaction gate name.
+      class InteractionName
+        def initialize(field_name, value)
+          @field_name = field_name
+          @value = value
+        end
+
+        def normalize
+          case value
+          when NilClass
+            nil
+          else
+            Workflow.send(:normalize_identifier, field_name, value)
+          end
+        end
+
+        private
+
+        attr_reader :field_name, :value
+      end
+
+      private_constant :Arguments, :ChildWorkflow, :CompensationHandler, :Dependencies, :InteractionName, :Options
 
       private
 
@@ -193,6 +235,12 @@ module Karya
         return if compensate_with || compensation_arguments.empty?
 
         raise InvalidDefinitionError, "workflow step #{id.inspect} cannot define compensation_arguments without compensate_with"
+      end
+
+      def validate_interaction_configuration
+        return unless wait_for_signal && wait_for_event
+
+        raise InvalidDefinitionError, "workflow step #{id.inspect} cannot wait for both signal and event"
       end
 
       def compensation_handler_label

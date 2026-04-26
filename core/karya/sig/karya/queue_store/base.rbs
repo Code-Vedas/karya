@@ -22,6 +22,25 @@ module Karya
       ) -> BulkMutationReport
 
       def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
+      def query_workflow: (
+        batch_id: Karya::state_name,
+        query: Karya::state_name,
+        now: Time
+      ) -> Karya::Workflow::QueryResult
+
+      def deliver_workflow_signal: (
+        batch_id: Karya::state_name,
+        signal: Karya::state_name,
+        payload: Karya::interaction_payload,
+        now: Time
+      ) -> BulkMutationReport
+
+      def deliver_workflow_event: (
+        batch_id: Karya::state_name,
+        event: Karya::state_name,
+        payload: Karya::interaction_payload,
+        now: Time
+      ) -> BulkMutationReport
 
       def enqueue_child_workflow: (
         parent_batch_id: Karya::state_name,

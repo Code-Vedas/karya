@@ -45,6 +45,24 @@ RSpec.describe Karya::Workflow::Step do
     expect(step.child_workflow).to eq('payment_subflow')
   end
 
+  it 'normalizes optional signal and event gates' do
+    signal_step = described_class.new(
+      id: :capture_payment,
+      handler: :capture_payment,
+      wait_for_signal: ' manager-approved '
+    )
+    event_step = described_class.new(
+      id: :capture_payment,
+      handler: :capture_payment,
+      wait_for_event: ' payment-received '
+    )
+
+    expect(signal_step.wait_for_signal).to eq('manager-approved')
+    expect(signal_step.wait_for_event).to be_nil
+    expect(event_step.wait_for_event).to eq('payment-received')
+    expect(event_step.wait_for_signal).to be_nil
+  end
+
   it 'defaults compensation metadata to no-op rollback behavior' do
     step = described_class.new(id: :capture_payment, handler: :capture_payment)
 
@@ -87,6 +105,20 @@ RSpec.describe Karya::Workflow::Step do
     expect do
       described_class.new(id: :capture_payment, handler: :capture_payment, unknown: true, extra: true)
     end.to raise_error(ArgumentError, 'unknown keywords: :unknown, :extra')
+  end
+
+  it 'rejects steps that wait for both signal and event' do
+    expect do
+      described_class.new(
+        id: :capture_payment,
+        handler: :capture_payment,
+        wait_for_signal: :manager_approved,
+        wait_for_event: :payment_received
+      )
+    end.to raise_error(
+      Karya::Workflow::InvalidDefinitionError,
+      'workflow step "capture_payment" cannot wait for both signal and event'
+    )
   end
 
   it 'rejects duplicate dependency ids after normalization' do

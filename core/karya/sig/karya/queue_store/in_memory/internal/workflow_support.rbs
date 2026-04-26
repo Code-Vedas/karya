@@ -11,6 +11,23 @@ module Karya
             ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
           ) -> BulkMutationReport
           def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
+          def query_workflow: (
+            batch_id: Karya::state_name,
+            query: Karya::state_name,
+            now: Time
+          ) -> Karya::Workflow::QueryResult
+          def deliver_workflow_signal: (
+            batch_id: Karya::state_name,
+            signal: Karya::state_name,
+            payload: Karya::interaction_payload,
+            now: Time
+          ) -> BulkMutationReport
+          def deliver_workflow_event: (
+            batch_id: Karya::state_name,
+            event: Karya::state_name,
+            payload: Karya::interaction_payload,
+            now: Time
+          ) -> BulkMutationReport
           def rollback_workflow: (batch_id: Karya::state_name, now: Time, reason: String) -> BulkMutationReport
           def retry_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> BulkMutationReport
           def dead_letter_workflow_steps: (
@@ -129,6 +146,21 @@ module Karya
 
           def fetch_workflow_registration: (String batch_id) -> InMemory::Internal::StoreState::WorkflowRegistration
           def normalize_rollback_reason: (String reason) -> String
+          def deliver_workflow_interaction: (
+            action: Karya::bulk_mutation_action,
+            batch_id: Karya::state_name,
+            name: Karya::state_name,
+            payload: Karya::interaction_payload,
+            now: Time,
+            kind: Karya::interaction_kind
+          ) -> BulkMutationReport
+          def validate_workflow_interaction_delivery: (Karya::Workflow::Snapshot snapshot, String batch_id) -> nil
+          def validate_workflow_interaction_support: (
+            InMemory::Internal::StoreState::WorkflowRegistration registration,
+            Karya::interaction_kind interaction_kind,
+            String interaction_name,
+            String batch_id
+          ) -> nil
           def prepare_rollback: (String batch_id, Time now) -> Rollback
           def build_rollback_batch: (batch_id: String, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch?
           def raise_duplicate_batch: (String batch_id) -> nil
@@ -140,6 +172,7 @@ module Karya
             now: Time
           ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> BulkMutationReport
           def workflow_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids) -> Array[String]
+          def workflow_interaction_satisfied?: (Job job) -> bool
 
         private
 
@@ -168,6 +201,7 @@ module Karya
             attr_reader state: InMemory::Internal::StoreState
             def rollback_snapshot: () -> Karya::Workflow::RollbackSnapshot?
             def child_workflow_snapshots: () -> Array[Karya::Workflow::ChildWorkflowSnapshot]
+            def interaction_snapshots: () -> Array[Karya::Workflow::InteractionSnapshot]
             def parent_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot?
             def child_state_resolver: () -> InMemory::Internal::WorkflowChildState
           end
@@ -222,6 +256,41 @@ module Karya
             def runnable_waiting_job?: (Job job) -> bool
             def dependencies_satisfied?: (Job job) -> bool
             def validation_error_message: () -> String
+          end
+
+          class InteractionRequirements
+            @definition: Karya::Workflow::Definition
+            @step_job_ids: Hash[String, String]
+
+            def initialize: (definition: Karya::Workflow::Definition, step_job_ids: Hash[String, String]) -> void
+            def to_h: () -> Hash[String, Karya::interaction_requirement]
+
+          private
+
+            attr_reader definition: Karya::Workflow::Definition
+            attr_reader step_job_ids: Hash[String, String]
+          end
+
+          class WorkflowQuery
+            @snapshot: Karya::Workflow::Snapshot
+            @query: Karya::state_name
+            @queried_at: Time
+
+            def initialize: (
+              snapshot: Karya::Workflow::Snapshot,
+              query: Karya::state_name,
+              queried_at: Time
+            ) -> void
+            def to_result: () -> Karya::Workflow::QueryResult
+
+          private
+
+            attr_reader snapshot: Karya::Workflow::Snapshot
+            attr_reader query: Karya::state_name
+            attr_reader queried_at: Time
+            def value: () -> Karya::workflow_query_value
+            def normalized_query: () -> Karya::workflow_query
+            def current_step_ids: () -> Array[String]
           end
 
           def workflow_dependencies_satisfied?: (Job job, now: Time) -> bool
