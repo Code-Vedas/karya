@@ -244,7 +244,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: event)
     store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: updated_signal)
 
-    expect(store_state.workflow_interactions_for('batch-1')).to eq([event, updated_signal])
+    expect(store_state.workflow_interactions_for('batch-1')).to eq([signal, event, updated_signal])
     expect(store_state.workflow_interactions_for('missing')).to eq([])
   end
 

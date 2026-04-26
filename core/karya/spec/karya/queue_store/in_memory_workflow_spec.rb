@@ -461,6 +461,41 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(snapshot.events.map(&:name)).to eq(['payment_received'])
     end
 
+    it 'preserves repeated deliveries of the same interaction in snapshot inspection' do
+      definition = Karya::Workflow.define(:interactive) do
+        step :approve, handler: :approve, wait_for_signal: :manager_approved
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { approve: workflow_job(:approve) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      store.deliver_workflow_signal(
+        batch_id: :batch_one,
+        signal: :manager_approved,
+        payload: { 'approved_by' => 'ops-1' },
+        now: created_at + 2
+      )
+      store.deliver_workflow_signal(
+        batch_id: :batch_one,
+        signal: :manager_approved,
+        payload: { 'approved_by' => 'ops-2' },
+        now: created_at + 3
+      )
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 4)
+
+      expect(snapshot.interactions.map(&:payload)).to eq(
+        [
+          { 'approved_by' => 'ops-1' },
+          { 'approved_by' => 'ops-2' }
+        ]
+      )
+      expect(snapshot.signals.map(&:received_at)).to eq([created_at + 2, created_at + 3])
+    end
+
     it 'rejects workflow interaction delivery for unknown, non-workflow, unsupported, and terminal batches' do
       definition = Karya::Workflow.define(:interactive) do
         step :approve, handler: :approve, wait_for_signal: :manager_approved

@@ -169,52 +169,29 @@ module Karya
             end
 
             def for_batch(batch_id)
-              interaction_index = @by_batch_id[batch_id]
-              return EMPTY unless interaction_index
+              interactions = @by_batch_id[batch_id]
+              return EMPTY unless interactions
 
-              interaction_index.values.freeze
+              interactions.dup.freeze
             end
 
             def register(batch_id:, interaction:)
-              interaction_index = current_index(batch_id)
-              interaction_index = LatestInteractionIndex.new(interaction_index, interaction).to_h
-              @by_batch_id[batch_id] = interaction_index.freeze
-              interaction_index.values.freeze
+              updated_interactions = current_interactions(batch_id) + [interaction]
+              @by_batch_id[batch_id] = updated_interactions.freeze
+              updated_interactions.dup.freeze
             end
 
             def delete_by_batch(batch_id)
-              interaction_index = @by_batch_id.delete(batch_id)
-              return EMPTY unless interaction_index
+              interactions = @by_batch_id.delete(batch_id)
+              return EMPTY unless interactions
 
-              interaction_index.values.freeze
+              interactions.dup.freeze
             end
 
             private
 
-            def current_index(batch_id)
-              (@by_batch_id[batch_id] || {}).dup
-            end
-
-            # Replaces any older interaction with the same kind/name pair.
-            class LatestInteractionIndex
-              def initialize(interaction_index, interaction)
-                @interaction_index = interaction_index
-                @interaction = interaction
-              end
-
-              def to_h
-                interaction_index.delete(interaction_key)
-                interaction_index[interaction_key] = interaction
-                interaction_index
-              end
-
-              private
-
-              attr_reader :interaction, :interaction_index
-
-              def interaction_key
-                [interaction.kind, interaction.name]
-              end
+            def current_interactions(batch_id)
+              (@by_batch_id[batch_id] || []).dup
             end
           end
 
