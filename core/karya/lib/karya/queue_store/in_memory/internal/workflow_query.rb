@@ -64,7 +64,9 @@ module Karya
                 ready_step_ids = step_ids_for(&:ready?)
                 return ready_step_ids unless ready_step_ids.empty?
 
-                step_ids_for(&:blocked?)
+                steps.select do |step|
+                  step.blocked? && step.prerequisite_states.values.all?(:succeeded)
+                end.map(&:step_id).freeze
               end
 
               private

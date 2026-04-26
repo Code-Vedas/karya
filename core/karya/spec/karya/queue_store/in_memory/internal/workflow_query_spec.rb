@@ -17,8 +17,15 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport::Workflow
     instance_double(Karya::Workflow::Snapshot, steps:, state: :running)
   end
 
-  def step(step_id, active: false, ready: false, blocked: false)
-    instance_double(Karya::Workflow::StepSnapshot, step_id:, active?: active, ready?: ready, blocked?: blocked)
+  def step(step_id, active: false, ready: false, blocked: false, prerequisite_states: {})
+    instance_double(
+      Karya::Workflow::StepSnapshot,
+      step_id:,
+      active?: active,
+      ready?: ready,
+      blocked?: blocked,
+      prerequisite_states:
+    )
   end
 
   it 'prefers active steps over ready queued work' do
@@ -39,6 +46,21 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport::Workflow
     ).to_result
 
     expect(result).to have_attributes(query: 'current-step', value: 'approve')
+  end
+
+  it 'excludes dependency-blocked descendants from current blocked steps' do
+    result = described_class.new(
+      snapshot: snapshot(
+        [
+          step('approve', blocked: true),
+          step('capture_payment', blocked: true, prerequisite_states: { 'job-approve' => :queued })
+        ]
+      ),
+      query: 'current-steps',
+      queried_at:
+    ).to_result
+
+    expect(result).to have_attributes(query: 'current-steps', value: ['approve'])
   end
 
   it 'rejects unsupported queries' do
