@@ -141,6 +141,8 @@ module Karya
           ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> BulkMutationReport
           def workflow_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids) -> Array[String]
 
+        private
+
           class WorkflowSnapshotBuilder
             @batch: Karya::Workflow::Batch
             @registration: InMemory::Internal::StoreState::WorkflowRegistration
@@ -221,8 +223,6 @@ module Karya
             def dependencies_satisfied?: (Job job) -> bool
             def validation_error_message: () -> String
           end
-
-        private
 
           def workflow_dependencies_satisfied?: (Job job, now: Time) -> bool
           def workflow_child_satisfied?: (Job job, now: Time) -> bool
