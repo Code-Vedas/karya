@@ -171,10 +171,11 @@ module Karya
             end
 
             def for_batch(batch_id)
-              inbox = @by_batch_id[batch_id]
-              return EMPTY unless inbox
+              with_inbox(batch_id, fallback: EMPTY, &:to_a)
+            end
 
-              inbox.to_a
+            def includes?(batch_id:, kind:, name:)
+              with_inbox(batch_id, fallback: false) { |inbox| inbox.includes?(kind:, name:) }
             end
 
             def register(batch_id:, interaction:)
@@ -182,10 +183,7 @@ module Karya
             end
 
             def delete_by_batch(batch_id)
-              inbox = @by_batch_id.delete(batch_id)
-              return EMPTY unless inbox
-
-              inbox.to_a
+              with_inbox(batch_id, fallback: EMPTY, delete: true, &:to_a)
             end
 
             private
@@ -196,26 +194,56 @@ module Karya
               @by_batch_id[batch_id] ||= Inbox.new(max_size: max_interactions_per_batch)
             end
 
+            def with_inbox(batch_id, fallback:, delete: false)
+              inbox = delete ? @by_batch_id.delete(batch_id) : @by_batch_id[batch_id]
+              return fallback unless inbox
+
+              yield inbox
+            end
+
             # Owner-local bounded interaction buffer for one workflow batch.
             class Inbox
               def initialize(max_size:)
                 @max_size = max_size
                 @interactions = []
+                @to_a = EMPTY
+                @interaction_counts = {}
               end
 
               def append(interaction)
                 interactions << interaction
-                interactions.shift if interactions.length > max_size
+                register(interaction)
+                unregister(interactions.shift) if interactions.length > max_size
+                @to_a = nil
                 self
               end
 
               def to_a
-                interactions.dup.freeze
+                @to_a ||= interactions.dup.freeze
+              end
+
+              def includes?(kind:, name:)
+                interaction_counts.fetch([kind, name], 0).positive?
               end
 
               private
 
-              attr_reader :interactions, :max_size
+              attr_reader :interaction_counts, :interactions, :max_size
+
+              def register(interaction)
+                key = [interaction.kind, interaction.name]
+                interaction_counts[key] = interaction_counts.fetch(key, 0) + 1
+              end
+
+              def unregister(interaction)
+                key = [interaction.kind, interaction.name]
+                count = interaction_counts.fetch(key) - 1
+                if count.zero?
+                  interaction_counts.delete(key)
+                else
+                  interaction_counts[key] = count
+                end
+              end
             end
           end
 
@@ -381,6 +409,10 @@ module Karya
 
             def workflow_interactions_for(batch_id)
               workflow_interactions.for_batch(batch_id)
+            end
+
+            def workflow_interaction_delivered?(batch_id:, kind:, name:)
+              workflow_interactions.includes?(batch_id:, kind:, name:)
             end
 
             def register_workflow_rollback(batch_id:, rollback_batch_id:, reason:, requested_at:, compensation_job_ids:)

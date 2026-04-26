@@ -110,9 +110,12 @@ module Karya
         attr_reader :payload
 
         def validate_size(normalized)
-          return normalized if JSON.generate(normalized).bytesize <= MAX_PAYLOAD_BYTES
+          payload_bytesize = JSON.generate(normalized).bytesize
+          return normalized if payload_bytesize <= MAX_PAYLOAD_BYTES
 
           raise InvalidExecutionError, "payload exceeds #{MAX_PAYLOAD_BYTES} bytes"
+        rescue JSON::GeneratorError => e
+          raise InvalidExecutionError, 'payload must be JSON-encodable', cause: e
         end
 
         def normalize_hash(hash)

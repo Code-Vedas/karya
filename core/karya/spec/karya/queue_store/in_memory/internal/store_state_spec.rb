@@ -248,6 +248,17 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_interactions_for('missing')).to eq([])
   end
 
+  it 'reuses the same frozen interaction snapshot array until the inbox changes' do
+    signal = interaction_snapshot(kind: :signal, name: :manager_approved)
+
+    store_state.register_workflow_interaction(batch_id: 'batch-1', interaction: signal)
+
+    interactions = store_state.workflow_interactions_for('batch-1')
+
+    expect(store_state.workflow_interactions_for('batch-1')).to equal(interactions)
+    expect(interactions).to be_frozen
+  end
+
   it 'retains only the latest bounded workflow interactions per batch' do
     max = described_class.send(:const_get, :WorkflowInteractions).send(:const_get, :MAX_INTERACTIONS_PER_BATCH)
 
@@ -264,6 +275,25 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
 
     expect(store_state.workflow_interactions_for('batch-1').length).to eq(max)
     expect(store_state.workflow_interactions_for('batch-1').map { |interaction| interaction.payload.fetch('attempt') }).to eq((1..max).to_a)
+  end
+
+  it 'indexes delivered interactions by kind and name across rolling retention' do
+    max = described_class.send(:const_get, :WorkflowInteractions).send(:const_get, :MAX_INTERACTIONS_PER_BATCH)
+
+    store_state.register_workflow_interaction(
+      batch_id: 'batch-1',
+      interaction: interaction_snapshot(kind: :signal, name: :manager_approved)
+    )
+
+    max.times do |index|
+      store_state.register_workflow_interaction(
+        batch_id: 'batch-1',
+        interaction: interaction_snapshot(kind: :event, name: "payment_received_#{index}")
+      )
+    end
+
+    expect(store_state.workflow_interaction_delivered?(batch_id: 'batch-1', kind: :signal, name: 'manager_approved')).to be(false)
+    expect(store_state.workflow_interaction_delivered?(batch_id: 'batch-1', kind: :event, name: "payment_received_#{max - 1}")).to be(true)
   end
 
   it 'cleans up child workflow relationships by parent batch' do

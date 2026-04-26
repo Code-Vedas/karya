@@ -93,6 +93,7 @@ module Karya
           def register_workflow_interaction: (batch_id: String, interaction: Karya::Workflow::InteractionSnapshot) -> Array[Karya::Workflow::InteractionSnapshot]
           def workflow_dependency_job_ids_for: (String job_id) -> Array[String]?
           def workflow_interactions_for: (String batch_id) -> Array[Karya::Workflow::InteractionSnapshot]
+          def workflow_interaction_delivered?: (batch_id: String, kind: Karya::interaction_kind, name: String) -> bool
           def register_workflow: (
             batch_id: String,
             workflow_id: String,
@@ -289,16 +290,41 @@ module Karya
           end
 
           class WorkflowInteractions
-            @by_batch_id: Hash[String, Array[Karya::Workflow::InteractionSnapshot]]
+            @by_batch_id: Hash[String, WorkflowInteractions::Inbox]
             EMPTY: Array[Karya::Workflow::InteractionSnapshot]
 
             def initialize: () -> void
             def for_batch: (String batch_id) -> Array[Karya::Workflow::InteractionSnapshot]
+            def includes?: (batch_id: String, kind: Karya::interaction_kind, name: String) -> bool
             def register: (
               batch_id: String,
               interaction: Karya::Workflow::InteractionSnapshot
             ) -> Array[Karya::Workflow::InteractionSnapshot]
             def delete_by_batch: (String batch_id) -> Array[Karya::Workflow::InteractionSnapshot]
+
+          private
+
+            def current_inbox: (String batch_id) -> WorkflowInteractions::Inbox
+
+            class Inbox
+              @interactions: Array[Karya::Workflow::InteractionSnapshot]
+              @interaction_counts: Hash[[Karya::interaction_kind, String], Integer]
+              @max_size: Integer
+              @snapshot: Array[Karya::Workflow::InteractionSnapshot]?
+
+              def initialize: (max_size: Integer) -> void
+              def append: (Karya::Workflow::InteractionSnapshot interaction) -> Inbox
+              def to_a: () -> Array[Karya::Workflow::InteractionSnapshot]
+              def includes?: (kind: Karya::interaction_kind, name: String) -> bool
+
+            private
+
+              attr_reader interaction_counts: Hash[[Karya::interaction_kind, String], Integer]
+              attr_reader interactions: Array[Karya::Workflow::InteractionSnapshot]
+              attr_reader max_size: Integer
+              def register: (Karya::Workflow::InteractionSnapshot interaction) -> Integer
+              def unregister: (Karya::Workflow::InteractionSnapshot interaction) -> (Integer | Hash[[Karya::interaction_kind, String], Integer] | nil)
+            end
           end
 
           def trim_fair_queue_history: () -> void

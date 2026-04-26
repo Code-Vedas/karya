@@ -613,9 +613,11 @@ module Karya
             requirement = registration.interaction_requirements_by_job_id[job_id]
             return true unless requirement
 
-            state.workflow_interactions_for(batch_id).any? do |interaction|
-              interaction.kind == requirement.fetch(:kind) && interaction.name == requirement.fetch(:name)
-            end
+            state.workflow_interaction_delivered?(
+              batch_id:,
+              kind: requirement.fetch(:kind),
+              name: requirement.fetch(:name)
+            )
           end
         end
       end
