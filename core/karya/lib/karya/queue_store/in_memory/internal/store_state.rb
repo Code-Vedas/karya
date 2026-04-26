@@ -246,7 +246,14 @@ module Karya
               end
 
               def configure(supported_keys:)
-                @supported_keys = supported_keys.to_h { |key| [key, true] }.freeze
+                normalized_supported_keys =
+                  if supported_keys.is_a?(Hash)
+                    supported_keys.keys.to_h { |key| [key, true] }
+                  else
+                    supported_keys.to_h { |key| [key, true] }
+                  end
+
+                @supported_keys = normalized_supported_keys.freeze
                 rebuild_received_at_index
                 self
               end

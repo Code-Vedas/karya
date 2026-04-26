@@ -360,6 +360,21 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :event, name: 'payment_received')).to be_nil
   end
 
+  it 'accepts supported interaction keys as an enumerable during inbox configuration' do
+    store_state.workflow_interactions.configure(
+      batch_id: 'batch-1',
+      supported_keys: [[:signal, 'manager_approved']]
+    )
+
+    store_state.register_workflow_interaction(
+      batch_id: 'batch-1',
+      interaction: interaction_snapshot(kind: :signal, name: :manager_approved)
+    )
+
+    expect(store_state.workflow_interaction_delivered?(batch_id: 'batch-1', kind: :signal, name: 'manager_approved')).to be(true)
+    expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :signal, name: 'manager_approved')).to eq(created_at)
+  end
+
   it 'cleans up child workflow relationships by parent batch' do
     workflow_children = store_state.workflow_children
 

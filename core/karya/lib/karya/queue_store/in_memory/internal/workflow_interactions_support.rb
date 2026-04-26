@@ -101,9 +101,7 @@ module Karya
             end
 
             def supported?
-              registration.interaction_requirements_by_job_id.values.any? do |requirement|
-                requirement.fetch(:kind) == interaction_kind && requirement.fetch(:name) == interaction_name
-              end
+              registration.interaction_supported_keys.key?([interaction_kind, interaction_name])
             end
 
             private
