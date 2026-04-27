@@ -784,6 +784,29 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(reserve(12).job_id).to eq('job-approve')
     end
 
+    it 'rejects pause and resume for terminal workflow batches' do
+      definition = Karya::Workflow.define(:terminal_pause_gate) do
+        step :root, handler: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { root: workflow_job(:root) },
+        batch_id: :terminal_batch,
+        now: created_at + 1
+      )
+
+      root = reserve(2)
+      run_successfully(root, start_offset: 3, complete_offset: 4)
+
+      expect(store.workflow_snapshot(batch_id: :terminal_batch, now: created_at + 5).state).to eq(:succeeded)
+      expect do
+        store.pause_workflow(batch_id: :terminal_batch, now: created_at + 6)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "terminal_batch" is terminal and cannot be controlled')
+      expect do
+        store.resume_workflow(batch_id: :terminal_batch, now: created_at + 7)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow batch "terminal_batch" is terminal and cannot be controlled')
+    end
+
     it 'rejects reached approval checkpoints by cancelling the gated step and validates control targets' do
       definition = Karya::Workflow.define(:approval_rejection) do
         step :approve, handler: :approve, wait_for_approval: :manager_approved

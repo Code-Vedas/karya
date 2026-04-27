@@ -40,8 +40,8 @@ RSpec.describe Karya::Workflow::Snapshot do
     )
   end
 
-  def interaction(kind: :signal, name: :manager_approved, payload: {})
-    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at: captured_at + 2)
+  def interaction(kind: :signal, name: :manager_approved, payload: {}, received_at: captured_at + 2)
+    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at:)
   end
 
   def snapshot(jobs:, **options)
@@ -160,6 +160,32 @@ RSpec.describe Karya::Workflow::Snapshot do
       approval_received_at: captured_at + 3
     )
     expect(approved.state).to eq(:pending)
+  end
+
+  it 'keeps signal-delivered approvals visible when other checkpoints were explicitly approved' do
+    jobs = [
+      job(id: 'job_manager', state: :queued),
+      job(id: 'job_finance', state: :queued)
+    ]
+    result = snapshot(
+      jobs:,
+      step_job_ids: {
+        manager: 'job_manager',
+        finance: 'job_finance'
+      },
+      approval_requirements_by_job_id: {
+        'job_manager' => { name: :manager_approved },
+        'job_finance' => { name: :finance_approved }
+      },
+      approval_decisions_by_job_id: {
+        'job_manager' => { state: :approved, decided_at: captured_at + 1 }
+      },
+      interactions: [interaction(kind: :signal, name: :finance_approved, received_at: captured_at + 2)]
+    )
+
+    expect(result.fetch_step(:manager)).to be_ready
+    expect(result.fetch_step(:finance)).to be_ready
+    expect(result.fetch_step(:finance).approval_received_at).to eq(captured_at + 2)
   end
 
   it 'reports drained paused workflows as paused without changing the frontier step set' do

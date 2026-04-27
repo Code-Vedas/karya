@@ -454,12 +454,13 @@ module Karya
 
             received_at[job_id] = decision.fetch(:decided_at)
           end.freeze
-          return explicit unless explicit.empty?
-
-          ApprovalDeliveries.new(
+          delivered = ApprovalDeliveries.new(
             approval_requirements_by_job_id:,
             interactions:
           ).to_h
+          return delivered if explicit.empty?
+
+          delivered.merge(explicit).freeze
         end
 
         private

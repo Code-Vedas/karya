@@ -17,9 +17,7 @@ module Karya
 
             @mutex.synchronize do
               recover_in_flight_locked(normalized_now)
-              batch = fetch_batch(normalized_batch_id)
-              workflow_batch_id = batch.id
-              fetch_workflow_registration(workflow_batch_id)
+              workflow_batch_id = fetch_workflow_control_batch_id(normalized_batch_id, normalized_now)
               state.mark_workflow_pause_requested(batch_id: workflow_batch_id, now: normalized_now)
               BulkMutationReport.new(
                 action: :pause_workflow,
@@ -37,9 +35,7 @@ module Karya
 
             @mutex.synchronize do
               recover_in_flight_locked(normalized_now)
-              batch = fetch_batch(normalized_batch_id)
-              workflow_batch_id = batch.id
-              fetch_workflow_registration(workflow_batch_id)
+              workflow_batch_id = fetch_workflow_control_batch_id(normalized_batch_id, normalized_now)
               state.clear_workflow_pause_requested(workflow_batch_id)
               BulkMutationReport.new(
                 action: :resume_workflow,
@@ -85,6 +81,26 @@ module Karya
 
           def normalize_approval_rejection_reason(reason)
             normalize_rollback_reason(reason)
+          end
+
+          def fetch_workflow_control_batch_id(normalized_batch_id, now)
+            batch = fetch_batch(normalized_batch_id)
+            workflow_batch_id = batch.id
+            registration = fetch_workflow_registration(workflow_batch_id)
+            snapshot = build_workflow_snapshot(
+              batch:,
+              registration:,
+              jobs: fetch_batch_jobs(batch),
+              now:
+            )
+            validate_workflow_control_target(snapshot, workflow_batch_id)
+            workflow_batch_id
+          end
+
+          def validate_workflow_control_target(snapshot, batch_id)
+            return unless WorkflowSupport::WORKFLOW_INTERACTION_TERMINAL_STATES.include?(snapshot.state)
+
+            raise Workflow::InvalidExecutionError, "workflow batch #{batch_id.inspect} is terminal and cannot be controlled"
           end
 
           def workflow_approval_control_job_ids(batch_id, step_ids, now:)
