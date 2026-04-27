@@ -188,6 +188,22 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect(result.fetch_step(:finance).approval_received_at).to eq(captured_at + 2)
   end
 
+  it 'keeps rejected approval checkpoints blocked even after a matching signal is delivered' do
+    jobs = [job(id: 'job_approve', state: :queued)]
+    result = snapshot(
+      jobs:,
+      step_job_ids: { approve: 'job_approve' },
+      approval_requirements_by_job_id: { 'job_approve' => { name: :manager_approved } },
+      approval_decisions_by_job_id: { 'job_approve' => { state: :rejected, decided_at: captured_at + 1, reason: 'manual reject' } },
+      interactions: [interaction(kind: :signal, name: :manager_approved, received_at: captured_at + 2)]
+    )
+
+    expect(result.fetch_step(:approve)).to be_approval_rejected
+    expect(result.fetch_step(:approve)).to be_awaiting_approval
+    expect(result.fetch_step(:approve)).not_to be_ready
+    expect(result.fetch_step(:approve).approval_received_at).to be_nil
+  end
+
   it 'reports drained paused workflows as paused without changing the frontier step set' do
     jobs = [job(id: 'job_approve', state: :queued)]
     paused = snapshot(

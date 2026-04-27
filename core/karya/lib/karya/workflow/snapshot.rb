@@ -450,14 +450,20 @@ module Karya
 
         def approval_received_at_by_job_id
           explicit = approval_decisions_by_job_id.each_with_object({}) do |(job_id, decision), received_at|
-            next unless decision.fetch(:state) == :approved
+            state = decision.fetch(:state)
+            next unless state == :approved
 
             received_at[job_id] = decision.fetch(:decided_at)
           end.freeze
           delivered = ApprovalDeliveries.new(
             approval_requirements_by_job_id:,
             interactions:
-          ).to_h
+          ).to_h.each_with_object({}) do |(job_id, received_at), filtered|
+            decision = approval_decisions_by_job_id[job_id]
+            next if decision&.fetch(:state) == :rejected
+
+            filtered[job_id] = received_at
+          end.freeze
           return delivered if explicit.empty?
 
           delivered.merge(explicit).freeze

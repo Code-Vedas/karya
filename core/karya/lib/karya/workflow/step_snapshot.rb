@@ -717,7 +717,10 @@ module Karya
       end
 
       def approval_satisfied?
-        approval_name ? !!approval_received_at : true
+        return true unless approval_name
+        return false if approval_rejected?
+
+        !!approval_received_at
       end
     end
   end
