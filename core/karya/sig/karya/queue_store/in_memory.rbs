@@ -62,6 +62,19 @@ module Karya
         payload: Karya::interaction_payload,
         now: Time
       ) -> BulkMutationReport
+      def pause_workflow: (batch_id: Karya::state_name, now: Time) -> BulkMutationReport
+      def resume_workflow: (batch_id: Karya::state_name, now: Time) -> BulkMutationReport
+      def approve_workflow_checkpoints: (
+        batch_id: Karya::state_name,
+        step_ids: Array[Karya::state_name],
+        now: Time
+      ) -> BulkMutationReport
+      def reject_workflow_checkpoints: (
+        batch_id: Karya::state_name,
+        step_ids: Array[Karya::state_name],
+        now: Time,
+        reason: String
+      ) -> BulkMutationReport
       def enqueue_child_workflow: (
         parent_batch_id: Karya::state_name,
         parent_step_id: Karya::state_name,

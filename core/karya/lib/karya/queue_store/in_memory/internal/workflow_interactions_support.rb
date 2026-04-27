@@ -53,6 +53,8 @@ module Karya
             normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
             interaction = Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at: normalized_now)
+            interaction_kind = interaction.kind
+            interaction_name = interaction.name
 
             @mutex.synchronize do
               recover_in_flight_locked(normalized_now)
@@ -62,8 +64,9 @@ module Karya
               jobs = fetch_batch_jobs(batch)
               snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now, state:).to_snapshot
               validate_workflow_interaction_delivery(snapshot, workflow_batch_id)
-              validate_workflow_interaction_support(registration, interaction.kind, interaction.name, workflow_batch_id)
+              validate_workflow_interaction_support(registration, interaction_kind, interaction_name, workflow_batch_id)
               state.register_workflow_interaction(batch_id: workflow_batch_id, interaction:)
+              auto_approve_matching_checkpoints(registration, signal_name: interaction_name, decided_at: normalized_now) if interaction_kind == :signal
               BulkMutationReport.new(
                 action:,
                 performed_at: normalized_now,
@@ -90,6 +93,14 @@ module Karya
 
             raise Workflow::InvalidExecutionError,
                   "workflow batch #{batch_id.inspect} does not support #{interaction_kind} #{interaction_name.inspect}"
+          end
+
+          def auto_approve_matching_checkpoints(registration, signal_name:, decided_at:)
+            registration.approval_requirements_by_job_id.each do |job_id, requirement|
+              next unless requirement.fetch(:name) == signal_name
+
+              state.register_workflow_approval_approved(job_id:, decided_at:)
+            end
           end
 
           # Checks whether one delivered interaction is declared by the workflow.

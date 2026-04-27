@@ -17,6 +17,7 @@ require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
 require_relative 'queue_control_result'
 require_relative 'recovery_report'
+require_relative 'in_memory_initializer_options'
 require_relative 'in_memory/internal'
 require_relative '../job'
 require_relative '../primitives/callable'
@@ -30,11 +31,10 @@ require_relative '../workflow'
 module Karya
   module QueueStore
     # Single-process reference implementation for queue submission and reservation behavior.
-    #
     # InMemory is intentionally ephemeral and suitable for development, tests,
     # examples, and as the executable reference for `QueueStore::Base` semantics.
-    # It is not a durable backend: jobs, queue indexes, reservations,
-    # active executions, retry state, and expired-token tombstones live only in
+    # It is not a durable backend: jobs, queue indexes, reservations, active
+    # executions, retry state, and expired-token tombstones live only in
     # process memory and are lost on restart. Production deployments that need
     # durable enqueue acknowledgment or restart/takeover recovery must use a
     # shared persistent backend implementing the Base durability contract.
@@ -58,91 +58,12 @@ module Karya
       include Internal::ReserveSelectionSupport
       include Internal::RetrySupport
       include Internal::UniquenessSupport
+      include Internal::WorkflowCheckpointSupport
       include Internal::WorkflowSupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = 1024
       DEFAULT_MAX_BATCH_SIZE = 1000
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
-
-      # Normalizes constructor keyword options without growing the initializer
-      # parameter list as queue-store capabilities expand.
-      class InitializerOptions
-        # Reads constructor keyword options with explicit defaults.
-        class KeywordReader
-          def initialize(options)
-            @options = options
-          end
-
-          def keys = options.keys
-          def token_generator = fetch(:token_generator, -> { SecureRandom.uuid })
-          def expired_tombstone_limit = fetch(:expired_tombstone_limit, DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
-
-          def completed_batch_retention_limit
-            fetch(:completed_batch_retention_limit, DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT)
-          end
-
-          def max_batch_size = fetch(:max_batch_size, DEFAULT_MAX_BATCH_SIZE)
-          def policy_set = fetch(:policy_set, Backpressure::PolicySet.new)
-          def circuit_breaker_policy_set = fetch(:circuit_breaker_policy_set, CircuitBreaker::PolicySet.new)
-          def fairness_policy = fetch(:fairness_policy, Fairness::Policy.new)
-
-          private
-
-          attr_reader :options
-
-          def fetch(name, default)
-            options.fetch(name, default)
-          end
-        end
-
-        # Validates unknown keyword options.
-        class UnknownKeywords
-          def initialize(keys)
-            @keys = keys
-          end
-
-          def validate
-            raise ArgumentError, "unknown keywords: #{unexpected_keys.join(', ')}" unless unexpected_keys.empty?
-          end
-
-          private
-
-          attr_reader :keys
-
-          def unexpected_keys
-            keys - VALID_KEYS
-          end
-        end
-
-        VALID_KEYS = %i[
-          token_generator
-          expired_tombstone_limit
-          completed_batch_retention_limit
-          max_batch_size
-          policy_set
-          circuit_breaker_policy_set
-          fairness_policy
-        ].freeze
-
-        def initialize(options)
-          @reader = KeywordReader.new(options)
-          UnknownKeywords.new(reader.keys).validate
-        end
-
-        def token_generator = reader.token_generator
-        def expired_tombstone_limit = reader.expired_tombstone_limit
-        def completed_batch_retention_limit = reader.completed_batch_retention_limit
-        def max_batch_size = reader.max_batch_size
-        def policy_set = reader.policy_set
-        def circuit_breaker_policy_set = reader.circuit_breaker_policy_set
-        def fairness_policy = reader.fairness_policy
-
-        private
-
-        attr_reader :reader
-
-        private_constant :KeywordReader, :UnknownKeywords
-      end
 
       def initialize(**options)
         initializer_options = InitializerOptions.new(options)

@@ -404,6 +404,7 @@ module Karya
       @prerequisite_states: Hash[String, state_name?]
       @child_workflow_id: String?
       @child_workflow: ChildWorkflowSnapshot?
+      @approval: Approval
       @interaction: Interaction
 
       attr_reader workflow_id: String
@@ -415,6 +416,11 @@ module Karya
       attr_reader prerequisite_states: Hash[String, state_name?]
       attr_reader child_workflow_id: String?
       attr_reader child_workflow: ChildWorkflowSnapshot?
+      def approval_name: () -> String?
+      def approval_state: () -> Karya::approval_state?
+      def approval_decided_at: () -> Time?
+      def approval_received_at: () -> Time?
+      def approval_rejection_reason: () -> String?
       def state: () -> state_name
       def interaction_kind: () -> Karya::interaction_kind?
       def interaction_name: () -> String?
@@ -430,6 +436,11 @@ module Karya
         prerequisite_states: Hash[state_name, state_name?],
         ?child_workflow_id: state_name?,
         ?child_workflow: ChildWorkflowSnapshot?,
+        ?approval_name: state_name?,
+        ?approval_state: Karya::approval_state_input?,
+        ?approval_decided_at: Time?,
+        ?approval_received_at: Time?,
+        ?approval_rejection_reason: String?,
         ?interaction_kind: Karya::interaction_kind_input?,
         ?interaction_name: state_name?,
         ?interaction_received_at: Time?
@@ -439,6 +450,9 @@ module Karya
       def active?: () -> bool
       def terminal?: () -> bool
       def child_workflow?: () -> bool
+      def approval_step?: () -> bool
+      def awaiting_approval?: () -> bool
+      def approval_rejected?: () -> bool
 
     private
 
@@ -459,6 +473,11 @@ module Karya
         def prerequisite_states: () -> Hash[state_name, state_name?]
         def child_workflow_id: () -> String?
         def child_workflow: () -> ChildWorkflowSnapshot?
+        def approval_name: () -> String?
+        def approval_state: () -> Karya::approval_state?
+        def approval_decided_at: () -> Time?
+        def approval_received_at: () -> Time?
+        def approval_rejection_reason: () -> String?
         def interaction_kind: () -> Karya::interaction_kind?
         def interaction_name: () -> String?
         def interaction_received_at: () -> Time?
@@ -570,6 +589,44 @@ module Karya
         def validate_timestamp_dependency: () -> nil
       end
 
+      class Approval
+        @name: String?
+        @state: Karya::approval_state?
+        @decided_at: Time?
+        @received_at: Time?
+        @rejection_reason: String?
+
+        attr_reader name: String?
+        attr_reader state: Karya::approval_state?
+        attr_reader decided_at: Time?
+        attr_reader received_at: Time?
+        attr_reader rejection_reason: String?
+
+        def initialize: (
+          name: String?,
+          state: Karya::approval_state?,
+          decided_at: Time?,
+          received_at: Time?,
+          rejection_reason: String?
+        ) -> void
+
+      private
+
+        def validate_presence: () -> nil
+        def validate_state_details: () -> nil
+      end
+
+      class ApprovalStateValue
+        @value: step_snapshot_attribute_value
+
+        def initialize: (step_snapshot_attribute_value value) -> void
+        def to_sym: () -> Karya::approval_state?
+
+      private
+
+        attr_reader value: step_snapshot_attribute_value
+      end
+
       class InteractionKindValue
         @value: step_snapshot_attribute_value
 
@@ -592,6 +649,19 @@ module Karya
 
         attr_reader field_name: Symbol
         attr_reader value: state_name?
+      end
+
+      class OptionalString
+        @field_name: Symbol
+        @value: String?
+
+        def initialize: (Symbol field_name, String? value) -> void
+        def to_s: () -> String?
+
+      private
+
+        attr_reader field_name: Symbol
+        attr_reader value: String?
       end
 
       class OptionalTimestamp
@@ -625,6 +695,7 @@ module Karya
       def waiting?: () -> bool
       def prerequisites_succeeded?: () -> bool
       def child_workflow_succeeded?: () -> bool
+      def approval_satisfied?: () -> bool
       def interaction_satisfied?: () -> bool
     end
 
@@ -636,6 +707,7 @@ module Karya
       @signals: Array[InteractionSnapshot]
       @events: Array[InteractionSnapshot]
       @step_inspection: StepInspection
+      @pause_requested_at: Time?
       @parent: ChildWorkflowSnapshot?
       @rollback: RollbackSnapshot?
       @summary_data: SummaryData
@@ -647,11 +719,14 @@ module Karya
         step_job_ids: Hash[state_name, state_name],
         dependency_job_ids_by_job_id: Hash[state_name, Array[state_name]],
         jobs: Array[Job],
+        ?approval_requirements_by_job_id: Hash[state_name, Karya::approval_requirement_input],
+        ?approval_decisions_by_job_id: Hash[state_name, Karya::approval_decision_input],
         ?child_workflow_ids_by_step_id: Hash[state_name, state_name],
         ?child_workflows: Array[ChildWorkflowSnapshot],
         ?interactions: Array[InteractionSnapshot],
         ?interaction_requirements_by_job_id: Hash[state_name, Karya::interaction_requirement_input],
         ?interaction_received_at_by_job_id: Hash[state_name, Time],
+        ?pause_requested_at: Time?,
         ?parent: ChildWorkflowSnapshot?,
         ?rollback: RollbackSnapshot?
       ) -> void
@@ -675,6 +750,7 @@ module Karya
       def interactions: () -> Array[InteractionSnapshot]
       def signals: () -> Array[InteractionSnapshot]
       def events: () -> Array[InteractionSnapshot]
+      def pause_requested_at: () -> Time?
       def parent: () -> ChildWorkflowSnapshot?
       def rollback: () -> RollbackSnapshot?
       def state_counts: () -> Hash[state_name, Integer]
@@ -700,8 +776,11 @@ module Karya
         def membership: () -> Membership
         def child_relationships: () -> ChildRelationships
         def interactions: () -> Array[InteractionSnapshot]
+        def approval_requirements_by_job_id: () -> Hash[String, Karya::approval_requirement]
+        def approval_decisions_by_job_id: () -> Hash[String, Karya::approval_decision]
         def interaction_requirements_by_job_id: () -> Hash[String, Karya::interaction_requirement]
         def interaction_received_at_by_job_id: () -> Hash[String, Time]
+        def pause_requested_at: () -> Time?
         def parent: () -> ChildWorkflowSnapshot?
         def rollback: () -> RollbackSnapshot?
 
@@ -787,6 +866,9 @@ module Karya
         @identity: Identity
         @membership: Membership
         @child_relationships: ChildRelationships
+        @approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
+        @approval_decisions_by_job_id: Hash[String, Karya::approval_decision]
+        @approval_received_at_by_job_id: Hash[String, Time]
         @interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
         @interaction_received_at_by_job_id: Hash[String, Time]
         @steps: Array[StepSnapshot]
@@ -807,6 +889,9 @@ module Karya
       private
 
         attr_reader identity: Identity
+        attr_reader approval_decisions_by_job_id: Hash[String, Karya::approval_decision]
+        attr_reader approval_received_at_by_job_id: Hash[String, Time]
+        attr_reader approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
         attr_reader interaction_received_at_by_job_id: Hash[String, Time]
         attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
         attr_reader membership: Membership
@@ -817,18 +902,25 @@ module Karya
       end
 
       class InteractionState
+        @approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
+        @approval_decisions_by_job_id: Hash[String, Karya::approval_decision]
         @interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
         @interaction_received_at_by_job_id: Hash[String, Time]
         @interactions: Array[InteractionSnapshot]
 
+        attr_reader approval_decisions_by_job_id: Hash[String, Karya::approval_decision]
+        attr_reader approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
         attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
 
         def initialize: (
+          approval_requirements_by_job_id: Hash[String, Karya::approval_requirement],
+          approval_decisions_by_job_id: Hash[String, Karya::approval_decision],
           interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement],
           interaction_received_at_by_job_id: Hash[String, Time],
           interactions: Array[InteractionSnapshot]
         ) -> void
         def received_at_by_job_id: () -> Hash[String, Time]
+        def approval_received_at_by_job_id: () -> Hash[String, Time]
 
       private
 
@@ -1109,6 +1201,7 @@ module Karya
       @child_workflow: String?
       @compensate_with: String?
       @compensation_arguments: Hash[String, job_argument]
+      @wait_for_approval: String?
       @wait_for_signal: String?
       @wait_for_event: String?
 
@@ -1119,6 +1212,7 @@ module Karya
       attr_reader child_workflow: String?
       attr_reader compensate_with: String?
       attr_reader compensation_arguments: Hash[String, job_argument]
+      attr_reader wait_for_approval: String?
       attr_reader wait_for_signal: String?
       attr_reader wait_for_event: String?
 
@@ -1130,6 +1224,7 @@ module Karya
         ?compensate_with: state_name?,
         ?compensation_arguments: Hash[state_name, job_argument],
         ?child_workflow: state_name?,
+        ?wait_for_approval: state_name?,
         ?wait_for_signal: state_name?,
         ?wait_for_event: state_name?
       ) -> void
@@ -1169,6 +1264,7 @@ module Karya
         def compensate_with: () -> state_name?
         def child_workflow: () -> state_name?
         def compensation_arguments: () -> Hash[state_name, job_argument]
+        def wait_for_approval: () -> state_name?
         def wait_for_signal: () -> state_name?
         def wait_for_event: () -> state_name?
 
@@ -1435,6 +1531,7 @@ module Karya
         ?compensate_with: state_name?,
         ?compensation_arguments: Hash[state_name, job_argument],
         ?child_workflow: state_name?,
+        ?wait_for_approval: state_name?,
         ?wait_for_signal: state_name?,
         ?wait_for_event: state_name?
       ) -> nil

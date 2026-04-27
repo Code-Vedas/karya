@@ -360,6 +360,27 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :event, name: 'payment_received')).to be_nil
   end
 
+  it 'returns unchanged for repeated pause registration and missing pause cleanup' do
+    expect(store_state.mark_workflow_pause_requested(batch_id: 'batch-1', now: created_at)).to eq(:changed)
+    expect(store_state.mark_workflow_pause_requested(batch_id: 'batch-1', now: created_at + 1)).to eq(:unchanged)
+    expect(store_state.clear_workflow_pause_requested('missing-batch')).to eq(:unchanged)
+  end
+
+  it 'skips auto-tracking unsupported delivered interaction keys' do
+    store_state.workflow_interactions.configure(
+      batch_id: 'batch-1',
+      supported_keys: [[:signal, 'manager_approved']]
+    )
+
+    store_state.register_workflow_interaction(
+      batch_id: 'batch-1',
+      interaction: interaction_snapshot(kind: :event, name: :payment_received)
+    )
+
+    expect(store_state.workflow_interaction_delivered?(batch_id: 'batch-1', kind: :event, name: 'payment_received')).to be(false)
+    expect(store_state.workflow_interaction_received_at(batch_id: 'batch-1', kind: :event, name: 'payment_received')).to be_nil
+  end
+
   it 'accepts supported interaction keys as an enumerable during inbox configuration' do
     store_state.workflow_interactions.configure(
       batch_id: 'batch-1',

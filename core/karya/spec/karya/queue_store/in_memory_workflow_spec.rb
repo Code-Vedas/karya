@@ -670,6 +670,159 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(current_steps).to have_attributes(query: 'current-steps', value: %w[capture_payment emit_receipt])
     end
 
+    it 'supports approval checkpoints through explicit controls and signal delivery' do
+      approval_definition = Karya::Workflow.define(:approval_gate) do
+        step :approve, handler: :approve, wait_for_approval: :manager_approved
+      end
+      signal_definition = Karya::Workflow.define(:signal_approval_gate) do
+        step :approve, handler: :approve, wait_for_approval: :manager_approved
+      end
+
+      store.enqueue_workflow(
+        definition: approval_definition,
+        jobs_by_step_id: { approve: workflow_job(:approve) },
+        batch_id: :approval_batch,
+        now: created_at + 1
+      )
+      store.enqueue_workflow(
+        definition: signal_definition,
+        jobs_by_step_id: { approve: workflow_job(:approve_signal, handler: :approve) },
+        batch_id: :signal_batch,
+        now: created_at + 2
+      )
+
+      expect(store.query_workflow(batch_id: :approval_batch, query: :state, now: created_at + 3).value).to eq(:awaiting_approval)
+      expect(store.query_workflow(batch_id: :approval_batch, query: 'current-step', now: created_at + 4).value).to eq('approve')
+
+      approve_report = store.approve_workflow_checkpoints(batch_id: :approval_batch, step_ids: [:approve], now: created_at + 5)
+      signal_report = store.deliver_workflow_signal(
+        batch_id: :signal_batch,
+        signal: :manager_approved,
+        payload: { 'approved_by' => 'ops' },
+        now: created_at + 6
+      )
+
+      approval_snapshot = store.workflow_snapshot(batch_id: :approval_batch, now: created_at + 7)
+      signal_snapshot = store.workflow_snapshot(batch_id: :signal_batch, now: created_at + 8)
+
+      expect(approve_report.action).to eq(:approve_workflow_checkpoints)
+      expect(signal_report.action).to eq(:deliver_workflow_signal)
+      expect(approval_snapshot.fetch_step(:approve)).to be_ready
+      expect(approval_snapshot.fetch_step(:approve).approval_state).to eq(:approved)
+      expect(signal_snapshot.fetch_step(:approve)).to be_ready
+      expect(signal_snapshot.fetch_step(:approve).approval_state).to eq(:approved)
+      expect(signal_snapshot.signals.map(&:name)).to eq(['manager_approved'])
+      expect(reserve(9).job_id).to eq('job-approve')
+      expect(reserve(10).job_id).to eq('job-approve_signal')
+    end
+
+    it 'does not auto-approve unmatched approval checkpoints when signals are delivered' do
+      definition = Karya::Workflow.define(:mixed_approval_gate) do
+        step :manager, handler: :approve, wait_for_approval: :manager_approved
+        step :finance, handler: :approve, wait_for_approval: :finance_approved
+      end
+
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          manager: workflow_job(:approve_manager, handler: :approve),
+          finance: workflow_job(:approve_finance, handler: :approve)
+        },
+        batch_id: :mixed_signal_batch,
+        now: created_at + 1
+      )
+
+      store.deliver_workflow_signal(
+        batch_id: :mixed_signal_batch,
+        signal: :manager_approved,
+        payload: { 'approved_by' => 'ops' },
+        now: created_at + 2
+      )
+
+      snapshot = store.workflow_snapshot(batch_id: :mixed_signal_batch, now: created_at + 3)
+
+      expect(snapshot.fetch_step(:manager).approval_state).to eq(:approved)
+      expect(snapshot.fetch_step(:manager)).to be_ready
+      expect(snapshot.fetch_step(:finance).approval_state).to be_nil
+      expect(snapshot.fetch_step(:finance)).to be_awaiting_approval
+    end
+
+    it 'cooperatively pauses and resumes workflow reservation without interrupting active work' do
+      definition = Karya::Workflow.define(:pause_gate) do
+        step :root, handler: :root
+        step :approve, handler: :approve, wait_for_approval: :manager_approved, depends_on: :root
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          root: workflow_job(:root),
+          approve: workflow_job(:approve)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      root = reserve(2)
+      pause_report = store.pause_workflow(batch_id: :batch_one, now: created_at + 3)
+      store.start_execution(reservation_token: root.token, now: created_at + 4)
+      expect(store.query_workflow(batch_id: :batch_one, query: :state, now: created_at + 5).value).to eq(:running)
+      store.complete_execution(reservation_token: root.token, now: created_at + 6)
+
+      paused_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 7)
+      store.approve_workflow_checkpoints(batch_id: :batch_one, step_ids: [:approve], now: created_at + 8)
+      approved_paused_snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 9)
+
+      expect(pause_report.action).to eq(:pause_workflow)
+      expect(paused_snapshot.state).to eq(:paused)
+      expect(paused_snapshot.fetch_step(:approve)).to be_awaiting_approval
+      expect(approved_paused_snapshot.fetch_step(:approve)).to be_ready
+      expect(reserve(10)).to be_nil
+
+      resume_report = store.resume_workflow(batch_id: :batch_one, now: created_at + 11)
+
+      expect(resume_report.action).to eq(:resume_workflow)
+      expect(reserve(12).job_id).to eq('job-approve')
+    end
+
+    it 'rejects reached approval checkpoints by cancelling the gated step and validates control targets' do
+      definition = Karya::Workflow.define(:approval_rejection) do
+        step :approve, handler: :approve, wait_for_approval: :manager_approved
+        step :capture_payment, handler: :capture_payment, depends_on: :approve
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: {
+          approve: workflow_job(:approve),
+          capture_payment: workflow_job(:capture_payment)
+        },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      reject_report = store.reject_workflow_checkpoints(
+        batch_id: :batch_one,
+        step_ids: [:approve],
+        now: created_at + 2,
+        reason: 'manual reject'
+      )
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 3)
+
+      expect(reject_report.action).to eq(:reject_workflow_checkpoints)
+      expect(reject_report.changed_jobs.map(&:id)).to eq(['job-approve'])
+      expect(snapshot.fetch_step(:approve)).to be_approval_rejected
+      expect(snapshot.fetch_step(:approve).state).to eq(:cancelled)
+      expect(snapshot.fetch_step(:approve).approval_rejection_reason).to eq('manual reject')
+      expect(snapshot.fetch_step(:capture_payment)).to be_blocked
+      expect(reserve(4)).to be_nil
+
+      expect do
+        store.approve_workflow_checkpoints(batch_id: :batch_one, step_ids: [:capture_payment], now: created_at + 5)
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow step "capture_payment" is not an approval checkpoint')
+      expect do
+        store.reject_workflow_checkpoints(batch_id: :batch_one, step_ids: [:approve], now: created_at + 6, reason: 'again')
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'workflow step "approve" is not awaiting approval')
+    end
+
     it 'lets signals and events drive workflow readiness transitions through waiting steps' do
       signal_definition = Karya::Workflow.define(:signal_gate) do
         step :approve, handler: :approve, wait_for_signal: :manager_approved

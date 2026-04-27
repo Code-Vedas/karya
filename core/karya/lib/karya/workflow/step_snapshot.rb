@@ -19,12 +19,7 @@ module Karya
 
       def initialize(**attributes)
         attributes = Attributes.new(attributes)
-        @identity = Identity.new(
-          workflow_id: attributes.workflow_id,
-          batch_id: attributes.batch_id,
-          step_id: attributes.step_id,
-          job_id: attributes.job_id
-        )
+        @identity = Identity.new(**attributes.identity_attributes)
         @job = attributes.job
         @prerequisite_job_ids = attributes.prerequisite_job_ids
         @prerequisite_states = PrerequisiteStates.new(
@@ -33,17 +28,15 @@ module Karya
         ).to_h
         @child_workflow_id = attributes.child_workflow_id
         @child_workflow = ChildWorkflow.new(
-          child_workflow: attributes.child_workflow,
-          child_workflow_id: @child_workflow_id,
-          parent_batch_id: batch_id,
-          parent_step_id: step_id,
-          parent_job_id: job_id
+          **attributes.child_workflow_attributes(
+            child_workflow_id: @child_workflow_id,
+            parent_batch_id: batch_id,
+            parent_step_id: step_id,
+            parent_job_id: job_id
+          )
         ).to_snapshot
-        @interaction = Interaction.new(
-          kind: attributes.interaction_kind,
-          name: attributes.interaction_name,
-          received_at: attributes.interaction_received_at
-        )
+        @interaction = Interaction.new(**attributes.interaction_attributes)
+        @approval = Approval.new(**attributes.approval_attributes)
         freeze
       end
 
@@ -63,8 +56,18 @@ module Karya
 
       def interaction_received_at = interaction.received_at
 
+      def approval_name = approval.name
+
+      def approval_state = approval.state
+
+      def approval_decided_at = approval.decided_at
+
+      def approval_received_at = approval.received_at
+
+      def approval_rejection_reason = approval.rejection_reason
+
       def ready?
-        waiting? && prerequisites_succeeded? && child_workflow_succeeded? && interaction_satisfied?
+        waiting? && prerequisites_succeeded? && child_workflow_succeeded? && interaction_satisfied? && approval_satisfied?
       end
 
       def blocked?
@@ -83,6 +86,18 @@ module Karya
         !!child_workflow_id
       end
 
+      def approval_step?
+        !!approval_name
+      end
+
+      def awaiting_approval?
+        approval_step? && waiting? && prerequisites_succeeded? && child_workflow_succeeded? && !approval_satisfied?
+      end
+
+      def approval_rejected?
+        approval_state == :rejected
+      end
+
       # Validates and exposes step snapshot construction attributes.
       class Attributes
         REQUIRED_ATTRIBUTES = %i[
@@ -97,6 +112,11 @@ module Karya
         OPTIONAL_ATTRIBUTES = %i[
           child_workflow_id
           child_workflow
+          approval_name
+          approval_state
+          approval_decided_at
+          approval_received_at
+          approval_rejection_reason
           interaction_kind
           interaction_name
           interaction_received_at
@@ -110,6 +130,15 @@ module Karya
 
         def workflow_id
           Workflow.send(:normalize_identifier, :workflow_id, fetch(:workflow_id))
+        end
+
+        def identity_attributes
+          {
+            workflow_id:,
+            batch_id:,
+            step_id:,
+            job_id:
+          }
         end
 
         def batch_id
@@ -157,6 +186,54 @@ module Karya
 
         def interaction_received_at
           OptionalTimestamp.new(:interaction_received_at, attributes.fetch(:interaction_received_at, nil)).to_time
+        end
+
+        def approval_name
+          OptionalIdentifier.new(:approval_name, attributes.fetch(:approval_name, nil)).to_s
+        end
+
+        def approval_state
+          ApprovalStateValue.new(attributes.fetch(:approval_state, nil)).to_sym
+        end
+
+        def approval_decided_at
+          OptionalTimestamp.new(:approval_decided_at, attributes.fetch(:approval_decided_at, nil)).to_time
+        end
+
+        def approval_received_at
+          OptionalTimestamp.new(:approval_received_at, attributes.fetch(:approval_received_at, nil)).to_time
+        end
+
+        def approval_rejection_reason
+          OptionalString.new(:approval_rejection_reason, attributes.fetch(:approval_rejection_reason, nil)).to_s
+        end
+
+        def child_workflow_attributes(child_workflow_id:, parent_batch_id:, parent_step_id:, parent_job_id:)
+          {
+            child_workflow:,
+            child_workflow_id:,
+            parent_batch_id:,
+            parent_step_id:,
+            parent_job_id:
+          }
+        end
+
+        def interaction_attributes
+          {
+            kind: interaction_kind,
+            name: interaction_name,
+            received_at: interaction_received_at
+          }
+        end
+
+        def approval_attributes
+          {
+            name: approval_name,
+            state: approval_state,
+            decided_at: approval_decided_at,
+            received_at: approval_received_at,
+            rejection_reason: approval_rejection_reason
+          }
         end
 
         private
@@ -336,6 +413,164 @@ module Karya
         end
       end
 
+      # Groups one optional approval checkpoint and its decision state.
+      class Approval
+        attr_reader :decided_at, :name, :received_at, :rejection_reason, :state
+
+        def initialize(name:, state:, decided_at:, received_at:, rejection_reason:)
+          @name = name
+          @state = state
+          @decided_at = decided_at
+          @received_at = received_at
+          @rejection_reason = rejection_reason
+          validate_presence
+          validate_state_details
+          freeze
+        end
+
+        private
+
+        def validate_presence
+          return if [name, state, decided_at, received_at, rejection_reason].compact.empty?
+          return if name
+
+          raise InvalidExecutionError, 'approval metadata requires approval_name'
+        end
+
+        def validate_state_details
+          return unless name
+
+          ValidationState.new(
+            state:,
+            decided_at:,
+            received_at:,
+            rejection_reason:,
+            rejection_reason_error_message:
+          ).validate
+        end
+
+        def rejection_reason_error_message
+          'approval_rejection_reason requires approval_state :rejected'
+        end
+
+        # Validates approval metadata for one normalized approval state.
+        class ValidationState
+          def initialize(state:, decided_at:, received_at:, rejection_reason:, rejection_reason_error_message:)
+            @state = state
+            @decided_at = decided_at
+            @received_at = received_at
+            @rejection_reason = rejection_reason
+            @rejection_reason_error_message = rejection_reason_error_message
+          end
+
+          def validate
+            validator.validate
+          end
+
+          private
+
+          attr_reader :decided_at, :received_at, :rejection_reason, :rejection_reason_error_message, :state
+
+          def validator
+            case state
+            when :approved
+              Approved.new(decided_at:, received_at:, rejection_reason:, rejection_reason_error_message:)
+            when :rejected
+              Rejected.new(decided_at:, received_at:, rejection_reason:)
+            else
+              Undecided.new(decided_at:, rejection_reason:, rejection_reason_error_message:)
+            end
+          end
+
+          # Validates approval metadata for an approved checkpoint.
+          class Approved
+            def initialize(decided_at:, received_at:, rejection_reason:, rejection_reason_error_message:)
+              @decided_at = decided_at
+              @received_at = received_at
+              @rejection_reason = rejection_reason
+              @rejection_reason_error_message = rejection_reason_error_message
+            end
+
+            def validate
+              raise InvalidExecutionError, 'approval_state :approved requires approval_decided_at' unless decided_at
+              raise InvalidExecutionError, rejection_reason_error_message if rejection_reason
+              raise InvalidExecutionError, 'approval_state :approved requires approval_received_at' unless received_at
+            end
+
+            private
+
+            attr_reader :decided_at, :received_at, :rejection_reason, :rejection_reason_error_message
+          end
+
+          # Validates approval metadata for a rejected checkpoint.
+          class Rejected
+            def initialize(decided_at:, received_at:, rejection_reason:)
+              @decided_at = decided_at
+              @received_at = received_at
+              @rejection_reason = rejection_reason
+            end
+
+            def validate
+              raise InvalidExecutionError, 'approval_state :rejected requires approval_decided_at' unless decided_at
+              raise InvalidExecutionError, 'approval_state :rejected must not include approval_received_at' if received_at
+              raise InvalidExecutionError, 'approval_state :rejected requires approval_rejection_reason' unless rejection_reason
+            end
+
+            private
+
+            attr_reader :decided_at, :received_at, :rejection_reason
+          end
+
+          # Validates approval metadata for an undecided checkpoint.
+          class Undecided
+            def initialize(decided_at:, rejection_reason:, rejection_reason_error_message:)
+              @decided_at = decided_at
+              @rejection_reason = rejection_reason
+              @rejection_reason_error_message = rejection_reason_error_message
+            end
+
+            def validate
+              raise InvalidExecutionError, 'approval_decided_at requires approval_state' if decided_at
+              raise InvalidExecutionError, rejection_reason_error_message if rejection_reason
+            end
+
+            private
+
+            attr_reader :decided_at, :rejection_reason, :rejection_reason_error_message
+          end
+
+          private_constant :Approved, :Rejected, :Undecided
+        end
+
+        private_constant :ValidationState
+      end
+
+      # Normalizes one optional approval state.
+      class ApprovalStateValue
+        def initialize(value)
+          @value = value
+        end
+
+        def to_sym
+          return nil unless value
+
+          raise_invalid_state unless value.is_a?(String) || value.is_a?(Symbol)
+
+          state = value.to_sym
+          return state if %i[approved rejected].include?(state)
+
+          raise_invalid_state
+        end
+
+        private
+
+        attr_reader :value
+
+        def raise_invalid_state
+          raise InvalidExecutionError, 'approval_state must be :approved or :rejected'
+        end
+      end
+
       # Normalizes one optional interaction kind.
       class InteractionKindValue
         def initialize(value)
@@ -384,6 +619,28 @@ module Karya
         end
       end
 
+      # Normalizes one optional plain String field.
+      class OptionalString
+        def initialize(field_name, value)
+          @field_name = field_name
+          @value = value
+        end
+
+        def to_s
+          return nil unless value
+          raise InvalidExecutionError, "#{field_name} must be a String" unless value.is_a?(String)
+
+          normalized = value.strip
+          raise InvalidExecutionError, "#{field_name} must be present" if normalized.empty?
+
+          normalized.freeze
+        end
+
+        private
+
+        attr_reader :field_name, :value
+      end
+
       # Normalizes one optional timestamp field.
       class OptionalTimestamp
         def initialize(field_name, value)
@@ -420,7 +677,9 @@ module Karya
         attr_reader :name, :value
       end
 
-      private_constant :Attributes,
+      private_constant :Approval,
+                       :ApprovalStateValue,
+                       :Attributes,
                        :ChildWorkflow,
                        :Identity,
                        :Interaction,
@@ -428,6 +687,7 @@ module Karya
                        :JobEntry,
                        :JobIdList,
                        :OptionalIdentifier,
+                       :OptionalString,
                        :OptionalTimestamp,
                        :PrerequisiteStates,
                        :Timestamp,
@@ -435,7 +695,7 @@ module Karya
 
       private
 
-      attr_reader :identity, :interaction
+      attr_reader :approval, :identity, :interaction
 
       def waiting?
         WAITING_STATES.include?(state)
@@ -454,6 +714,10 @@ module Karya
 
       def interaction_satisfied?
         interaction_name ? !!interaction_received_at : true
+      end
+
+      def approval_satisfied?
+        approval_name ? !!approval_received_at : true
       end
     end
   end

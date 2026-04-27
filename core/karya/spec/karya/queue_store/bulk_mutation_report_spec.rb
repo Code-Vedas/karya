@@ -69,6 +69,10 @@ RSpec.describe Karya::QueueStore::BulkMutationReport do
     actions = %i[
       deliver_workflow_signal
       deliver_workflow_event
+      pause_workflow
+      resume_workflow
+      approve_workflow_checkpoints
+      reject_workflow_checkpoints
       enqueue_child_workflow
       retry_workflow_steps
       dead_letter_workflow_steps

@@ -35,39 +35,12 @@ module Karya
                       :workflow_children,
                       :workflow_dependency_job_ids_by_job_id,
                       :workflow_interactions,
+                      :workflow_pause_requests_by_batch_id,
+                      :workflow_approval_decisions_by_job_id,
                       :workflow_rollback_batch_ids,
                       :workflow_registrations_by_batch_id,
                       :workflow_rollbacks_by_batch_id
 
-          # Immutable owner-local workflow registration metadata for one batch.
-          WorkflowRegistration = Struct.new(
-            :workflow_id,
-            :step_job_ids,
-            :dependency_job_ids_by_job_id,
-            :interaction_requirements_by_job_id,
-            :interaction_supported_keys,
-            :compensation_jobs_by_step_id,
-            :child_workflow_ids_by_step_id
-          ) do
-            def self.build(
-              workflow_id:,
-              step_job_ids:,
-              dependency_job_ids_by_job_id:,
-              interaction_requirements_by_job_id:,
-              compensation_jobs_by_step_id:,
-              child_workflow_ids_by_step_id:
-            )
-              new(
-                workflow_id,
-                step_job_ids.dup.freeze,
-                dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
-                interaction_requirements_by_job_id.transform_values { |requirement| requirement.dup.freeze }.freeze,
-                interaction_requirements_by_job_id.values.to_h { |requirement| [[requirement.fetch(:kind), requirement.fetch(:name)], true] }.freeze,
-                compensation_jobs_by_step_id.dup.freeze,
-                child_workflow_ids_by_step_id.dup.freeze
-              )
-            end
-          end
           # Immutable owner-local rollback metadata for one workflow batch.
           WorkflowRollback = Struct.new(:batch_id, :rollback_batch_id, :reason, :requested_at, :compensation_job_ids)
           # Owner-local child workflow relationship registry.
@@ -177,116 +150,6 @@ module Karya
             end
           end
 
-          # Owner-local workflow interaction inbox keyed by workflow batch id.
-          class WorkflowInteractions
-            EMPTY = [].freeze
-            MAX_INTERACTIONS_PER_BATCH = 100
-            private_constant :EMPTY, :MAX_INTERACTIONS_PER_BATCH
-
-            def initialize
-              @by_batch_id = {}
-              @max_interactions_per_batch = MAX_INTERACTIONS_PER_BATCH
-            end
-
-            def for_batch(batch_id)
-              with_inbox(batch_id, fallback: EMPTY, &:to_a)
-            end
-
-            def includes?(batch_id:, kind:, name:)
-              with_inbox(batch_id, fallback: false) { |inbox| inbox.includes?(kind:, name:) }
-            end
-
-            def received_at_for(batch_id:, kind:, name:)
-              with_inbox(batch_id, fallback: nil) { |inbox| inbox.received_at_for(kind:, name:) }
-            end
-
-            def register(batch_id:, interaction:)
-              current_inbox(batch_id).append(interaction).to_a
-            end
-
-            def configure(batch_id:, supported_keys:)
-              current_inbox(batch_id).configure(supported_keys:)
-            end
-
-            def delete_by_batch(batch_id)
-              with_inbox(batch_id, fallback: EMPTY, delete: true, &:to_a)
-            end
-
-            private
-
-            attr_reader :max_interactions_per_batch
-
-            def current_inbox(batch_id)
-              @by_batch_id[batch_id] ||= Inbox.new(max_size: max_interactions_per_batch)
-            end
-
-            def with_inbox(batch_id, fallback:, delete: false)
-              inbox = delete ? @by_batch_id.delete(batch_id) : @by_batch_id[batch_id]
-              return fallback unless inbox
-
-              yield inbox
-            end
-
-            # Owner-local bounded interaction buffer for one workflow batch.
-            class Inbox
-              def initialize(max_size:)
-                @max_size = max_size
-                @interactions = []
-                @to_a = EMPTY
-                @received_at_by_key = {}
-                @supported_keys = {}.freeze
-              end
-
-              def append(interaction)
-                interactions << interaction
-                track([interaction.kind, interaction.name], interaction.received_at)
-                interactions.shift if interactions.length > max_size
-                @to_a = nil
-                self
-              end
-
-              def configure(supported_keys:)
-                normalized_supported_keys =
-                  if supported_keys.is_a?(Hash)
-                    supported_keys.keys.to_h { |key| [key, true] }
-                  else
-                    supported_keys.to_h { |key| [key, true] }
-                  end
-
-                @supported_keys = normalized_supported_keys.freeze
-                rebuild_received_at_index
-                self
-              end
-
-              def to_a
-                @to_a ||= interactions.dup.freeze
-              end
-
-              def includes?(kind:, name:)
-                received_at_by_key.key?([kind, name])
-              end
-
-              def received_at_for(kind:, name:)
-                received_at_by_key[[kind, name]]
-              end
-
-              private
-
-              attr_reader :interactions, :max_size, :received_at_by_key, :supported_keys
-
-              def rebuild_received_at_index
-                received_at_by_key.clear
-                interactions.each { |interaction| track([interaction.kind, interaction.name], interaction.received_at) }
-              end
-
-              def track(key, received_at)
-                return unless supported_keys.key?(key)
-
-                received_at_by_key[key] = received_at
-              end
-            end
-          end
-
           # Decides whether a terminal child batch must remain because its parent is still active.
           class ChildBatchRetention
             def initialize(batches_by_id:, workflow_children:, terminal_batch:)
@@ -372,6 +235,14 @@ module Karya
               workflow_indexes.fetch(:workflow_interactions)
             end
 
+            def workflow_pause_requests_by_batch_id
+              workflow_indexes.fetch(:workflow_pause_requests_by_batch_id)
+            end
+
+            def workflow_approval_decisions_by_job_id
+              workflow_indexes.fetch(:workflow_approval_decisions_by_job_id)
+            end
+
             def workflow_dependency_job_ids_by_job_id
               workflow_indexes.fetch(:workflow_dependency_job_ids_by_job_id)
             end
@@ -397,8 +268,10 @@ module Karya
                   workflow_dependency_job_ids_by_job_id:
                 },
                 workflow_indexes: {
+                  workflow_approval_decisions_by_job_id:,
                   workflow_children:,
                   workflow_interactions:,
+                  workflow_pause_requests_by_batch_id:,
                   workflow_rollback_batch_ids:,
                   workflow_registrations_by_batch_id:,
                   workflow_rollbacks_by_batch_id:
@@ -415,6 +288,7 @@ module Karya
               step_job_ids:,
               dependency_job_ids_by_job_id:,
               compensation_jobs_by_step_id:,
+              approval_requirements_by_job_id: {},
               interaction_requirements_by_job_id: {},
               child_workflow_ids_by_step_id: {}
             )
@@ -422,6 +296,7 @@ module Karya
                 workflow_id:,
                 step_job_ids:,
                 dependency_job_ids_by_job_id:,
+                approval_requirements_by_job_id:,
                 interaction_requirements_by_job_id:,
                 compensation_jobs_by_step_id:,
                 child_workflow_ids_by_step_id:
@@ -444,8 +319,47 @@ module Karya
               workflow_interactions.register(batch_id:, interaction:)
             end
 
+            def workflow_pause_requested_at(batch_id)
+              workflow_pause_requests_by_batch_id[batch_id]
+            end
+
+            def mark_workflow_pause_requested(batch_id:, now:)
+              return :unchanged if workflow_pause_requests_by_batch_id.key?(batch_id)
+
+              workflow_pause_requests_by_batch_id[batch_id] = now
+              :changed
+            end
+
+            def clear_workflow_pause_requested(batch_id)
+              workflow_pause_requests_by_batch_id.delete(batch_id) ? :changed : :unchanged
+            end
+
             def workflow_dependency_job_ids_for(job_id)
               workflow_dependency_job_ids_by_job_id[job_id]
+            end
+
+            def workflow_approval_requirements_for(batch_id)
+              registration = workflow_registrations_by_batch_id[batch_id]
+              registration&.approval_requirements_by_job_id || {}
+            end
+
+            def workflow_approval_requirement_for(job_id)
+              batch_id = batch_id_by_job_id[job_id]
+              return unless batch_id
+
+              workflow_approval_requirements_for(batch_id)[job_id]
+            end
+
+            def workflow_approval_decision_for(job_id)
+              workflow_approval_decisions_by_job_id[job_id]
+            end
+
+            def register_workflow_approval_approved(job_id:, decided_at:)
+              workflow_approval_decisions_by_job_id[job_id] ||= WorkflowApprovalDecision.approved(job_id:, decided_at:)
+            end
+
+            def register_workflow_approval_rejected(job_id:, decided_at:, reason:)
+              workflow_approval_decisions_by_job_id[job_id] = WorkflowApprovalDecision.rejected(job_id:, decided_at:, reason:)
             end
 
             def workflow_interactions_for(batch_id)
@@ -477,9 +391,7 @@ module Karya
           private_constant :ChildBatchRetention,
                            :TerminalBatchPruner,
                            :WorkflowChildren,
-                           :WorkflowInteractions,
                            :WorkflowMetadata,
-                           :WorkflowRegistration,
                            :WorkflowRollback
 
           def initialize(expired_tombstone_limit:)
@@ -508,9 +420,11 @@ module Karya
             @terminal_batch_ids_index = {}
             @terminal_batch_ids_in_order = []
             workflow_state = {
+              workflow_approval_decisions_by_job_id: {},
               workflow_children: WorkflowChildren.new,
               workflow_dependency_job_ids_by_job_id: {},
               workflow_interactions: WorkflowInteractions.new,
+              workflow_pause_requests_by_batch_id: {},
               workflow_rollback_batch_ids: {},
               workflow_registrations_by_batch_id: {},
               workflow_rollbacks_by_batch_id: {}
@@ -677,9 +591,11 @@ module Karya
                 batch_id_by_job_id: @batch_id_by_job_id
               },
               workflow_indexes: {
+                workflow_approval_decisions_by_job_id:,
                 workflow_dependency_job_ids_by_job_id:,
                 workflow_children:,
                 workflow_interactions:,
+                workflow_pause_requests_by_batch_id:,
                 workflow_rollback_batch_ids:,
                 workflow_registrations_by_batch_id:,
                 workflow_rollbacks_by_batch_id:
@@ -768,9 +684,19 @@ module Karya
               registration = workflow_registrations_by_batch_id.delete(batch_id)
               rollback = workflow_rollbacks_by_batch_id.delete(batch_id)
               workflow_interactions.delete_by_batch(batch_id)
+              workflow_pause_requests_by_batch_id.delete(batch_id)
+              cleanup_approval_decisions(registration)
               cleanup_child_workflows(registration)
               workflow_rollback_batch_ids.delete(rollback.rollback_batch_id) if rollback
               registration
+            end
+
+            def cleanup_approval_decisions(registration)
+              return unless registration
+
+              registration.step_job_ids.each_value do |job_id|
+                workflow_approval_decisions_by_job_id.delete(job_id)
+              end
             end
 
             def cleanup_child_workflows(registration)
@@ -818,8 +744,16 @@ module Karya
               workflow_indexes.fetch(:workflow_rollback_batch_ids)
             end
 
+            def workflow_approval_decisions_by_job_id
+              workflow_indexes.fetch(:workflow_approval_decisions_by_job_id)
+            end
+
             def workflow_interactions
               workflow_indexes.fetch(:workflow_interactions)
+            end
+
+            def workflow_pause_requests_by_batch_id
+              workflow_indexes.fetch(:workflow_pause_requests_by_batch_id)
             end
 
             def workflow_children
