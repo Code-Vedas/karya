@@ -685,6 +685,20 @@ RSpec.describe Karya::Workflow::Snapshot do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate approval decision job "job_child"')
   end
 
+  it 'rejects approved approval decisions that include a rejection reason' do
+    jobs = [job(id: 'job_child', state: :queued)]
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_decisions_by_job_id: {
+          'job_child' => { state: :approved, decided_at: captured_at, reason: 'manual reject' }
+        }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval decision :approved must not include :reason')
+  end
+
   it 'derives workflow states' do
     expect(snapshot(jobs: [job(id: 'job_root', state: :queued)]).state).to eq(:pending)
     expect(snapshot(jobs: [job(id: 'job_root', state: :reserved)]).state).to eq(:running)

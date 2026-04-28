@@ -676,6 +676,8 @@ module Karya
 
         # Normalizes one stored approval checkpoint decision.
         class Decision
+          UNSET_REASON = Object.new.freeze
+
           def initialize(decision)
             @decision = decision
           end
@@ -689,8 +691,12 @@ module Karya
             decided_at = Timestamp.new(:approval_decided_at, decision.fetch(:decided_at) do
               raise InvalidExecutionError, 'approval decision must include :decided_at'
             end).to_time
-            result = { state:, decided_at: }.freeze
-            return result if state == :approved
+            if state == :approved
+              reason = decision.fetch(:reason, UNSET_REASON)
+              raise InvalidExecutionError, 'approval decision :approved must not include :reason' unless [UNSET_REASON, nil].include?(reason)
+
+              return { state:, decided_at: }.freeze
+            end
 
             reason = decision.fetch(:reason) { raise InvalidExecutionError, 'approval decision :rejected must include :reason' }
             { state:, decided_at:, reason: normalize_reason(reason) }.freeze
