@@ -39,7 +39,7 @@ module Karya
         @identity = attributes.identity
         @membership = attributes.membership
         @child_relationships = attributes.child_relationships
-        @interactions = attributes.interactions
+        @interaction_views = InteractionViews.new(attributes.interactions)
         interaction_state = InteractionState.new(
           interaction_requirements_by_job_id: attributes.interaction_requirements_by_job_id,
           approval_requirements_by_job_id: attributes.approval_requirements_by_job_id,
@@ -124,15 +124,22 @@ module Karya
         child_relationships.fetch_child_workflow(step_id)
       end
 
-      attr_reader :interactions, :parent, :pause_requested_at, :rollback
+      attr_reader :child_relationships,
+                  :identity,
+                  :interaction_views,
+                  :membership,
+                  :parent,
+                  :pause_requested_at,
+                  :rollback,
+                  :step_inspection,
+                  :summary_data
+      private :child_relationships, :identity, :interaction_views, :membership, :step_inspection, :summary_data
 
-      def signals
-        interactions.select { |interaction| interaction.kind == :signal }.freeze
-      end
+      def interactions = interaction_views.interactions
 
-      def events
-        interactions.select { |interaction| interaction.kind == :event }.freeze
-      end
+      def signals = interaction_views.signals
+
+      def events = interaction_views.events
 
       def state_counts
         summary_data.state_counts
@@ -152,6 +159,19 @@ module Karya
 
       def state
         summary_data.state
+      end
+
+      # Caches immutable interaction views for one snapshot.
+      class InteractionViews
+        attr_reader :events, :interactions, :signals
+
+        def initialize(interactions)
+          @interactions = interactions
+          grouped_interactions = interactions.group_by(&:kind)
+          @signals = grouped_interactions.fetch(:signal, []).freeze
+          @events = grouped_interactions.fetch(:event, []).freeze
+          freeze
+        end
       end
 
       # Validates and exposes snapshot construction attributes.
@@ -558,10 +578,6 @@ module Karya
         attr_reader :interaction_requirements_by_job_id
 
         # Normalizes one interaction requirement entry.
-        # Normalizes one approval requirement entry.
-        # Normalizes one approval requirement entry.
-        # Normalizes one approval requirement entry.
-        # Normalizes one approval requirement entry.
         class Requirement
           def initialize(requirement)
             @requirement = requirement
@@ -1124,6 +1140,7 @@ module Karya
                        :InteractionReceivedAtByJobId,
                        :InteractionRequirements,
                        :InteractionState,
+                       :InteractionViews,
                        :JobState,
                        :JobList,
                        :Membership,
@@ -1137,10 +1154,6 @@ module Karya
                        :SummaryData,
                        :Timestamp,
                        :WAITING_STATES
-
-      private
-
-      attr_reader :child_relationships, :identity, :membership, :step_inspection, :summary_data
     end
   end
 end

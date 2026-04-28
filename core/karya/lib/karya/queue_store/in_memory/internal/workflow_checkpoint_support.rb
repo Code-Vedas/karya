@@ -143,7 +143,7 @@ module Karya
 
           def workflow_paused?(job)
             batch_id = state.batch_id_by_job_id[job.id]
-            batch_id && state.workflow_pause_requested_at(batch_id)
+            !!(batch_id && state.workflow_pause_requested_at(batch_id))
           end
         end
       end
