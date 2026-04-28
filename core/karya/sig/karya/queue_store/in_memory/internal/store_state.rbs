@@ -180,6 +180,7 @@ module Karya
             def self.rejected: (job_id: String, decided_at: Time, reason: String) -> WorkflowApprovalDecision
 
             def initialize: (String job_id, Karya::approval_state state, Time decided_at, String? reason) -> void
+            def to_snapshot_decision: () -> Karya::approval_decision
             attr_reader job_id: String
             attr_reader state: Karya::approval_state
             attr_reader decided_at: Time

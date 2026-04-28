@@ -93,7 +93,7 @@ module Karya
             def approval_decisions_by_job_id
               registration.approval_requirements_by_job_id.each_with_object({}) do |(job_id, _requirement), decisions|
                 decision = store_state.workflow_approval_decision_for(job_id)
-                decisions[job_id] = decision.to_h if decision
+                decisions[job_id] = decision.to_snapshot_decision if decision
               end.freeze
             end
 

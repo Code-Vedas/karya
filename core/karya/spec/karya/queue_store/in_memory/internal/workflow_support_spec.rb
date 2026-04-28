@@ -24,6 +24,11 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
   end
 
+  it 'keeps workflow snapshot construction private' do
+    expect(store).not_to respond_to(:build_workflow_snapshot)
+    expect(store.respond_to?(:build_workflow_snapshot, true)).to be(true)
+  end
+
   it 'treats non-workflow jobs and root workflow jobs as ready' do
     plain_job = job(id: 'job-1', state: :queued)
     root_job = job(id: 'job-2', state: :queued)

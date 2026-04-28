@@ -235,6 +235,18 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_registrations_by_batch_id['missing']).to be_nil
   end
 
+  it 'exports workflow approval decisions with the public snapshot shape' do
+    decision_class = described_class.const_get(:WorkflowApprovalDecision, false)
+    approved_at = created_at + 1
+    rejected_at = created_at + 2
+
+    approved = decision_class.approved(job_id: 'job-approved', decided_at: approved_at)
+    rejected = decision_class.rejected(job_id: 'job-rejected', decided_at: rejected_at, reason: 'manual reject')
+
+    expect(approved.to_snapshot_decision).to eq(state: :approved, decided_at: approved_at)
+    expect(rejected.to_snapshot_decision).to eq(state: :rejected, decided_at: rejected_at, reason: 'manual reject')
+  end
+
   it 'stores workflow interactions by batch id' do
     signal = interaction_snapshot(kind: :signal, name: :manager_approved)
     event = interaction_snapshot(kind: :event, name: :payment_received)

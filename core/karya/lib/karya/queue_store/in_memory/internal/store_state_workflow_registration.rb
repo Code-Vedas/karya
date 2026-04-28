@@ -59,6 +59,12 @@ module Karya
             def self.rejected(job_id:, decided_at:, reason:)
               new(job_id, :rejected, decided_at, reason).freeze
             end
+
+            def to_snapshot_decision
+              return { state:, decided_at: }.freeze unless reason
+
+              { state:, decided_at:, reason: }.freeze
+            end
           end
 
           # Duplicates and freezes workflow registration requirement hashes.
