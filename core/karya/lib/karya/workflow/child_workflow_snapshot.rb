@@ -9,7 +9,7 @@ module Karya
   module Workflow
     # Immutable inspection view of one parent-child workflow relationship.
     class ChildWorkflowSnapshot
-      WORKFLOW_STATES = %i[pending running blocked succeeded failed cancelled].freeze
+      WORKFLOW_STATES = %i[pending running paused awaiting_approval blocked succeeded failed cancelled].freeze
 
       attr_reader :child_batch_id,
                   :child_state,

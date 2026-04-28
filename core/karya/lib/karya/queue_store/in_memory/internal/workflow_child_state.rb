@@ -48,8 +48,14 @@ module Karya
                 step_job_ids: registration.step_job_ids,
                 dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
                 jobs:,
+                approval_requirements_by_job_id: registration.approval_requirements_by_job_id,
+                approval_decisions_by_job_id: approval_decisions_by_job_id,
                 child_workflow_ids_by_step_id: registration.child_workflow_ids_by_step_id,
-                child_workflows:
+                child_workflows:,
+                interactions: interaction_snapshots,
+                interaction_requirements_by_job_id: registration.interaction_requirements_by_job_id,
+                interaction_received_at_by_job_id: interaction_received_at_by_job_id,
+                pause_requested_at: store_state.workflow_pause_requested_at(batch_id)
               ).state
             end
 
@@ -67,6 +73,28 @@ module Karya
 
             def jobs
               @jobs ||= batch.job_ids.map { |job_id| store_state.jobs_by_id.fetch(job_id) }
+            end
+
+            def interaction_snapshots
+              store_state.workflow_interactions_for(batch_id)
+            end
+
+            def interaction_received_at_by_job_id
+              registration.interaction_requirements_by_job_id.each_with_object({}) do |(job_id, requirement), received_at_by_job_id|
+                received_at = store_state.workflow_interaction_received_at(
+                  batch_id:,
+                  kind: requirement.fetch(:kind),
+                  name: requirement.fetch(:name)
+                )
+                received_at_by_job_id[job_id] = received_at if received_at
+              end.freeze
+            end
+
+            def approval_decisions_by_job_id
+              registration.approval_requirements_by_job_id.each_with_object({}) do |(job_id, _requirement), decisions|
+                decision = store_state.workflow_approval_decision_for(job_id)
+                decisions[job_id] = decision.to_h if decision
+              end.freeze
             end
 
             def child_workflows

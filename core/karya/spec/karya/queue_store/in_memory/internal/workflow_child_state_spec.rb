@@ -75,6 +75,83 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowChildState' do
     expect(workflow_child_state.resolve('payment-batch')).to eq(:running)
   end
 
+  it 'derives paused and awaiting_approval child workflow states from workflow metadata' do
+    store_state.jobs_by_id['job-parent'] = job('job-parent', state: :queued)
+    store_state.jobs_by_id['job-child'] = job('job-child', state: :queued)
+    store_state.jobs_by_id['job-approved'] = job('job-approved', state: :queued)
+    store_state.jobs_by_id['job-interaction'] = job('job-interaction', state: :queued)
+    store_state.register_batch(batch('paused-batch', ['job-parent']))
+    store_state.register_batch(batch('approval-batch', ['job-child']))
+    store_state.register_batch(batch('approved-batch', ['job-approved']))
+    store_state.register_batch(batch('blocked-batch', ['job-interaction']))
+    store_state.register_workflow(
+      batch_id: 'paused-batch',
+      workflow_id: 'paused_workflow',
+      step_job_ids: { 'root' => 'job-parent' },
+      dependency_job_ids_by_job_id: { 'job-parent' => [] },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.register_workflow(
+      batch_id: 'approval-batch',
+      workflow_id: 'approval_workflow',
+      step_job_ids: { 'approve' => 'job-child' },
+      dependency_job_ids_by_job_id: { 'job-child' => [] },
+      approval_requirements_by_job_id: { 'job-child' => { name: 'manager_approved' } },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.register_workflow(
+      batch_id: 'approved-batch',
+      workflow_id: 'approved_workflow',
+      step_job_ids: { 'approve' => 'job-approved' },
+      dependency_job_ids_by_job_id: { 'job-approved' => [] },
+      approval_requirements_by_job_id: { 'job-approved' => { name: 'manager_approved' } },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.register_workflow(
+      batch_id: 'blocked-batch',
+      workflow_id: 'blocked_workflow',
+      step_job_ids: { 'wait' => 'job-interaction' },
+      dependency_job_ids_by_job_id: { 'job-interaction' => [] },
+      interaction_requirements_by_job_id: {
+        'job-interaction' => { kind: :signal, name: 'manager_approved' }
+      },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.mark_workflow_pause_requested(batch_id: 'paused-batch', now: captured_at)
+    store_state.register_workflow_approval_approved(job_id: 'job-approved', decided_at: captured_at + 1)
+
+    expect(workflow_child_state.resolve('paused-batch')).to eq(:paused)
+    expect(workflow_child_state.resolve('approval-batch')).to eq(:awaiting_approval)
+    expect(workflow_child_state.resolve('approved-batch')).to eq(:pending)
+    expect(workflow_child_state.resolve('blocked-batch')).to eq(:blocked)
+  end
+
+  it 'derives child state from delivered interaction requirements' do
+    store_state.jobs_by_id['job-approve'] = job('job-approve', state: :queued)
+    store_state.register_batch(batch('interactive-batch', ['job-approve']))
+    store_state.register_workflow(
+      batch_id: 'interactive-batch',
+      workflow_id: 'interactive_workflow',
+      step_job_ids: { 'approve' => 'job-approve' },
+      dependency_job_ids_by_job_id: { 'job-approve' => [] },
+      interaction_requirements_by_job_id: {
+        'job-approve' => { kind: :signal, name: 'manager_approved' }
+      },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.register_workflow_interaction(
+      batch_id: 'interactive-batch',
+      interaction: Karya::Workflow::InteractionSnapshot.new(
+        kind: :signal,
+        name: 'manager_approved',
+        payload: {},
+        received_at: captured_at + 1
+      )
+    )
+
+    expect(workflow_child_state.resolve('interactive-batch')).to eq(:pending)
+  end
+
   it 'raises a workflow execution error for child workflow cycles' do
     store_state.jobs_by_id['job-a'] = job('job-a', state: :queued)
     store_state.jobs_by_id['job-b'] = job('job-b', state: :queued)

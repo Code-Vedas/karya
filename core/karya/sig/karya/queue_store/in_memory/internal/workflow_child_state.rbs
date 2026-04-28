@@ -49,6 +49,9 @@ module Karya
             def batch: () -> Karya::Workflow::Batch
             def registration: () -> InMemory::Internal::StoreState::WorkflowRegistration
             def jobs: () -> Array[Job]
+            def interaction_snapshots: () -> Array[Karya::Workflow::InteractionSnapshot]
+            def interaction_received_at_by_job_id: () -> Hash[String, Time]
+            def approval_decisions_by_job_id: () -> Hash[String, Karya::approval_decision]
             def child_workflows: () -> Array[Karya::Workflow::ChildWorkflowSnapshot]
 
             class RelationshipSnapshot

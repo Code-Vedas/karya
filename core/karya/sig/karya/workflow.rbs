@@ -703,9 +703,7 @@ module Karya
       @identity: Identity
       @membership: Membership
       @child_relationships: ChildRelationships
-      @interactions: Array[InteractionSnapshot]
-      @signals: Array[InteractionSnapshot]
-      @events: Array[InteractionSnapshot]
+      @interaction_views: InteractionViews
       @step_inspection: StepInspection
       @pause_requested_at: Time?
       @parent: ChildWorkflowSnapshot?
@@ -764,8 +762,21 @@ module Karya
       attr_reader identity: Identity
       attr_reader membership: Membership
       attr_reader child_relationships: ChildRelationships
+      attr_reader interaction_views: InteractionViews
       attr_reader step_inspection: StepInspection
       attr_reader summary_data: SummaryData
+
+      class InteractionViews
+        @interactions: Array[InteractionSnapshot]
+        @signals: Array[InteractionSnapshot]
+        @events: Array[InteractionSnapshot]
+
+        attr_reader interactions: Array[InteractionSnapshot]
+        attr_reader signals: Array[InteractionSnapshot]
+        attr_reader events: Array[InteractionSnapshot]
+
+        def initialize: (Array[InteractionSnapshot] interactions) -> void
+      end
 
       class Attributes
         @attributes: Hash[Symbol, workflow_snapshot_attribute_value]
