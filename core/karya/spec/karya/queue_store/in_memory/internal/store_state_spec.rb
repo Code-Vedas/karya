@@ -474,6 +474,30 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_history_for('batch-1')).to eq([])
   end
 
+  it 'retains only the latest bounded workflow history entries per batch' do
+    max = described_class.send(:const_get, :WorkflowHistory).send(:const_get, :MAX_ENTRIES_PER_BATCH)
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'root' => 'job-1' },
+      dependency_job_ids_by_job_id: { 'job-1' => [] },
+      compensation_jobs_by_step_id: {}
+    )
+
+    (max + 1).times do |index|
+      store_state.register_workflow_history_entry(
+        batch_id: 'batch-1',
+        kind: 'workflow',
+        action: :"event_#{index}",
+        occurred_at: created_at + index,
+        details: { 'attempt' => index }
+      )
+    end
+
+    expect(store_state.workflow_history_for('batch-1').length).to eq(max)
+    expect(store_state.workflow_history_for('batch-1').map { |entry| entry.details.fetch('attempt') }).to eq((1..max).to_a)
+  end
+
   it 'skips workflow job transitions for jobs outside the registered step map' do
     store_state.register_workflow(
       batch_id: 'batch-1',

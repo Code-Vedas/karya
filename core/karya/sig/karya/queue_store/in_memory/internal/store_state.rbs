@@ -98,7 +98,7 @@ module Karya
           def register_workflow_dependencies: (Hash[String, Array[String]] dependency_job_ids_by_job_id) -> Hash[String, Array[String]]
           def register_workflow_history_entry: (
             batch_id: String,
-            kind: Karya::workflow_history_kind,
+            kind: Karya::workflow_history_kind_input,
             action: Karya::state_name,
             occurred_at: Time,
             ?step_id: String?,
@@ -427,7 +427,8 @@ module Karya
         private
 
           class WorkflowHistory
-            @by_batch_id: Hash[String, Array[Karya::Workflow::HistoryEntry]]
+            @by_batch_id: Hash[String, BatchHistory]
+            @max_entries_per_batch: Integer
 
             def initialize: () -> void
             def for_batch: (String batch_id) -> Array[Karya::Workflow::HistoryEntry]
@@ -437,6 +438,23 @@ module Karya
           private
 
             EMPTY: Array[Karya::Workflow::HistoryEntry]
+            MAX_ENTRIES_PER_BATCH: Integer
+            attr_reader max_entries_per_batch: Integer
+
+            class BatchHistory
+              @entries: Array[Karya::Workflow::HistoryEntry]
+              @max_size: Integer
+              @to_a: Array[Karya::Workflow::HistoryEntry]?
+
+              def initialize: (max_size: Integer) -> void
+              def append: (Karya::Workflow::HistoryEntry entry) -> BatchHistory
+              def to_a: () -> Array[Karya::Workflow::HistoryEntry]
+
+            private
+
+              attr_reader entries: Array[Karya::Workflow::HistoryEntry]
+              attr_reader max_size: Integer
+            end
           end
         end
       end
