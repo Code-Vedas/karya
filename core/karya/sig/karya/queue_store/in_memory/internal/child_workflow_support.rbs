@@ -40,12 +40,22 @@ module Karya
 
           class ParentChildWorkflow
             @parent_workflow_id: String
+            @parent_workflow_family: String
+            @parent_workflow_version: String
             @parent_batch_id: String
             @parent_job_id: String
 
             attr_reader parent_workflow_id: String
+            attr_reader parent_workflow_family: String
+            attr_reader parent_workflow_version: String
             attr_reader parent_batch_id: String
             attr_reader parent_job_id: String
+
+            def self.from_registration: (
+              InMemory::Internal::StoreState::WorkflowRegistration parent_registration,
+              String parent_batch_id,
+              String parent_step_id
+            ) -> ParentChildWorkflow
           end
 
           class ChildStepJobIds

@@ -20,7 +20,12 @@ module Karya
     class InvalidExecutionError < Error
     end
 
-    def self.define: (state_name id) ?{ -> void } -> Definition
+    def self.define: (
+      state_name id,
+      ?workflow_family: state_name?,
+      ?workflow_version: state_name?,
+      ?default_version: bool
+    ) ?{ -> void } -> Definition
     def self.catalog: (definitions: Array[Definition]) -> Catalog
 
     class Batch
@@ -237,28 +242,32 @@ module Karya
     end
 
     class ChildWorkflowSnapshot
-      @parent_workflow_id: String
-      @parent_batch_id: String
-      @parent_step_id: String
-      @parent_job_id: String
-      @child_workflow_id: String
-      @child_batch_id: String
+      @parent: ParentIdentity
+      @child: ChildIdentity
       @child_state: Karya::workflow_state
 
       attr_reader parent_workflow_id: String
+      attr_reader parent_workflow_family: String
+      attr_reader parent_workflow_version: String
       attr_reader parent_batch_id: String
       attr_reader parent_step_id: String
       attr_reader parent_job_id: String
       attr_reader child_workflow_id: String
+      attr_reader child_workflow_family: String
+      attr_reader child_workflow_version: String
       attr_reader child_batch_id: String
       attr_reader child_state: Karya::workflow_state
 
       def initialize: (
         parent_workflow_id: state_name,
+        ?parent_workflow_family: state_name,
+        ?parent_workflow_version: state_name,
         parent_batch_id: state_name,
         parent_step_id: state_name,
         parent_job_id: state_name,
         child_workflow_id: state_name,
+        ?child_workflow_family: state_name,
+        ?child_workflow_version: state_name,
         child_batch_id: state_name,
         child_state: Karya::workflow_state
       ) -> void
@@ -267,23 +276,75 @@ module Karya
 
       class Attributes
         REQUIRED_ATTRIBUTES: Array[Symbol]
+        OPTIONAL_ATTRIBUTES: Array[Symbol]
+        SUPPORTED_ATTRIBUTES: Array[Symbol]
 
         @attributes: Hash[Symbol, child_workflow_snapshot_attribute_value]
 
         def initialize: (Hash[Symbol, child_workflow_snapshot_attribute_value] attributes) -> void
         def parent_workflow_id: () -> String
+        def parent_workflow_family: () -> String
+        def parent_workflow_version: () -> String
         def parent_batch_id: () -> String
         def parent_step_id: () -> String
         def parent_job_id: () -> String
         def child_workflow_id: () -> String
+        def child_workflow_family: () -> String
+        def child_workflow_version: () -> String
         def child_batch_id: () -> String
         def child_state: () -> Karya::workflow_state
+        def parent_identity: () -> ParentIdentity
+        def child_identity: () -> ChildIdentity
 
       private
 
         attr_reader attributes: Hash[Symbol, child_workflow_snapshot_attribute_value]
         def fetch: (Symbol name) -> child_workflow_snapshot_attribute_value
         def validate_keys: () -> void
+      end
+
+      class ParentIdentity
+        @workflow_id: String
+        @workflow_family: String
+        @workflow_version: String
+        @batch_id: String
+        @step_id: String
+        @job_id: String
+
+        attr_reader workflow_id: String
+        attr_reader workflow_family: String
+        attr_reader workflow_version: String
+        attr_reader batch_id: String
+        attr_reader step_id: String
+        attr_reader job_id: String
+
+        def initialize: ({
+          workflow_id: String,
+          workflow_family: String,
+          workflow_version: String,
+          batch_id: String,
+          step_id: String,
+          job_id: String
+        } attributes) -> void
+      end
+
+      class ChildIdentity
+        @workflow_id: String
+        @workflow_family: String
+        @workflow_version: String
+        @batch_id: String
+
+        attr_reader workflow_id: String
+        attr_reader workflow_family: String
+        attr_reader workflow_version: String
+        attr_reader batch_id: String
+
+        def initialize: ({
+          workflow_id: String,
+          workflow_family: String,
+          workflow_version: String,
+          batch_id: String
+        } attributes) -> void
       end
     end
 
@@ -712,6 +773,8 @@ module Karya
 
       def initialize: (
         workflow_id: state_name,
+        ?workflow_family: state_name,
+        ?workflow_version: state_name,
         batch_id: state_name,
         captured_at: Time,
         step_job_ids: Hash[state_name, state_name],
@@ -730,6 +793,8 @@ module Karya
       ) -> void
 
       def workflow_id: () -> String
+      def workflow_family: () -> String
+      def workflow_version: () -> String
       def batch_id: () -> String
       def captured_at: () -> Time
       def job_ids: () -> Array[String]
@@ -836,14 +901,24 @@ module Karya
 
       class Identity
         @workflow_id: String
+        @workflow_family: String
+        @workflow_version: String
         @batch_id: String
         @captured_at: Time
 
         attr_reader workflow_id: String
+        attr_reader workflow_family: String
+        attr_reader workflow_version: String
         attr_reader batch_id: String
         attr_reader captured_at: Time
 
-        def initialize: (workflow_id: String, batch_id: String, captured_at: Time) -> void
+        def initialize: (
+          workflow_id: String,
+          workflow_family: String,
+          workflow_version: String,
+          batch_id: String,
+          captured_at: Time
+        ) -> void
       end
 
       class Membership
@@ -1342,16 +1417,28 @@ module Karya
 
     class Definition
       @id: String
+      @workflow_family: String
+      @workflow_version: String
+      @default_version: bool
       @steps: Array[Step]
       @steps_by_id: Hash[String, Step]
       @inspection: Graph::Inspection
       @dependencies: Array[Dependency]
 
       attr_reader id: String
+      attr_reader workflow_family: String
+      attr_reader workflow_version: String
       attr_reader steps: Array[Step]
       attr_reader dependencies: Array[Dependency]
 
-      def initialize: (id: state_name, steps: Array[Step]) -> void
+      def initialize: (
+        id: state_name,
+        ?workflow_family: state_name?,
+        ?workflow_version: state_name?,
+        ?default_version: bool,
+        steps: Array[Step]
+      ) -> void
+      def default_version?: () -> bool
       def step_ids: () -> Array[String]
       def root_step_ids: () -> Array[String]
       def leaf_step_ids: () -> Array[String]
@@ -1366,6 +1453,7 @@ module Karya
 
       attr_reader inspection: Graph::Inspection
       attr_reader steps_by_id: Hash[String, Step]
+      def normalize_default_version: (bool value) -> bool
 
       class Graph
         @steps: Array[Step]
@@ -1505,11 +1593,21 @@ module Karya
 
     class Catalog
       @definitions: Hash[String, Definition]
+      @definitions_by_family: Hash[String, Hash[String, Definition]]
+      @default_definitions_by_family: Hash[String, Definition]
 
       attr_reader definitions: Hash[String, Definition]
+      attr_reader definitions_by_family: Hash[String, Hash[String, Definition]]
 
       def initialize: (definitions: Array[Definition]) -> void
       def fetch: (state_name workflow_id) -> Definition
+      def fetch_version: (workflow_family: state_name, workflow_version: state_name) -> Definition
+      def resolve: (workflow_family: state_name) -> Definition
+
+    private
+
+      def build_definitions_by_family: () -> Hash[String, Hash[String, Definition]]
+      def build_default_definitions_by_family: () -> Hash[String, Definition]
     end
 
   private
@@ -1531,9 +1629,17 @@ module Karya
 
     class Builder
       @id: state_name
+      @workflow_family: state_name?
+      @workflow_version: state_name?
+      @default_version: bool
       @steps: Array[Step]
 
-      def initialize: (state_name id) -> void
+      def initialize: (
+        state_name id,
+        workflow_family: state_name?,
+        workflow_version: state_name?,
+        default_version: bool
+      ) -> void
       def step: (
         state_name id,
         handler: state_name,
@@ -1550,8 +1656,11 @@ module Karya
 
     private
 
+      attr_reader default_version: bool
       attr_reader id: state_name
       attr_reader steps: Array[Step]
+      attr_reader workflow_family: state_name?
+      attr_reader workflow_version: state_name?
     end
 
     class ExecutionBinding

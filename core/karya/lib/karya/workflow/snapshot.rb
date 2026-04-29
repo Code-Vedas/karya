@@ -28,6 +28,8 @@ module Karya
         interactions
         interaction_requirements_by_job_id
         interaction_received_at_by_job_id
+        workflow_family
+        workflow_version
         pause_requested_at
         parent
         rollback
@@ -62,6 +64,14 @@ module Karya
 
       def workflow_id
         identity.workflow_id
+      end
+
+      def workflow_family
+        identity.workflow_family
+      end
+
+      def workflow_version
+        identity.workflow_version
       end
 
       def batch_id
@@ -188,6 +198,8 @@ module Karya
         def identity
           Identity.new(
             workflow_id: Workflow.send(:normalize_identifier, :workflow_id, fetch(:workflow_id)),
+            workflow_family: normalize_workflow_family,
+            workflow_version: normalize_workflow_version,
             batch_id: Workflow.send(:normalize_batch_identifier, :batch_id, fetch(:batch_id)),
             captured_at: Timestamp.new(:captured_at, fetch(:captured_at)).to_time
           )
@@ -253,6 +265,16 @@ module Karya
 
         attr_reader :attributes
 
+        def normalize_workflow_family
+          value = attributes.fetch(:workflow_family, fetch(:workflow_id))
+          Workflow.send(:normalize_identifier, :workflow_family, value)
+        end
+
+        def normalize_workflow_version
+          value = attributes.fetch(:workflow_version, 'v1')
+          Workflow.send(:normalize_identifier, :workflow_version, value)
+        end
+
         def validate_keys
           unknown_keys = attributes.keys - SUPPORTED_ATTRIBUTES
           return if unknown_keys.empty?
@@ -312,10 +334,12 @@ module Karya
 
       # Groups normalized snapshot identity fields.
       class Identity
-        attr_reader :batch_id, :captured_at, :workflow_id
+        attr_reader :batch_id, :captured_at, :workflow_family, :workflow_id, :workflow_version
 
-        def initialize(workflow_id:, batch_id:, captured_at:)
+        def initialize(workflow_id:, workflow_family:, workflow_version:, batch_id:, captured_at:)
           @workflow_id = workflow_id
+          @workflow_family = workflow_family
+          @workflow_version = workflow_version
           @batch_id = batch_id
           @captured_at = captured_at
           freeze

@@ -36,8 +36,8 @@ module Karya
 
     module_function
 
-    def define(id, &block)
-      builder = Builder.new(id)
+    def define(id, workflow_family: nil, workflow_version: nil, default_version: true, &block)
+      builder = Builder.new(id, workflow_family:, workflow_version:, default_version:)
       builder.instance_eval(&block) if block
       builder.to_definition
     end
@@ -73,8 +73,11 @@ module Karya
 
     # Owner-local DSL builder for workflow definition.
     class Builder
-      def initialize(id)
+      def initialize(id, workflow_family:, workflow_version:, default_version:)
         @id = id
+        @workflow_family = workflow_family
+        @workflow_version = workflow_version
+        @default_version = default_version
         @steps = []
       end
 
@@ -106,12 +109,12 @@ module Karya
       end
 
       def to_definition
-        Definition.new(id:, steps:)
+        Definition.new(id:, steps:, workflow_family:, workflow_version:, default_version:)
       end
 
       private
 
-      attr_reader :id, :steps
+      attr_reader :default_version, :id, :steps, :workflow_family, :workflow_version
     end
 
     private_constant :Builder, :ExecutionBinding

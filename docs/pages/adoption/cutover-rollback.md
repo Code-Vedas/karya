@@ -32,6 +32,10 @@ rollback_status: ready
 Production adoption is a governed transition, not just a package installation
 step.
 
+For durable workflows, cutover uses a coexistence window: new submissions can
+target a newer workflow version while existing persisted batches continue on
+the version selected at submission time.
+
 ## Related Concepts
 
 - [Rollout](/governance/rollout/): cutover planning depends on rollout

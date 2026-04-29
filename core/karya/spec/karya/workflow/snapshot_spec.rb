@@ -72,6 +72,8 @@ RSpec.describe Karya::Workflow::Snapshot do
 
     expect(result).to have_attributes(
       workflow_id: 'invoice_closeout',
+      workflow_family: 'invoice_closeout',
+      workflow_version: 'v1',
       batch_id: 'batch_1',
       captured_at:,
       job_ids: %w[job_root job_child],
@@ -103,6 +105,25 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect(result.jobs).to be_frozen
     expect(result.step_states).to be_frozen
     expect(result.state_counts).to be_frozen
+  end
+
+  it 'exposes explicit workflow family and version on snapshots' do
+    result = described_class.new(
+      workflow_id: :invoice_closeout_v2,
+      workflow_family: :invoice_closeout,
+      workflow_version: :v2,
+      batch_id: :batch_one,
+      captured_at:,
+      step_job_ids: { root: 'job_root' },
+      dependency_job_ids_by_job_id: {},
+      jobs: [job(id: 'job_root', state: :queued)]
+    )
+
+    expect(result).to have_attributes(
+      workflow_id: 'invoice_closeout_v2',
+      workflow_family: 'invoice_closeout',
+      workflow_version: 'v2'
+    )
   end
 
   it 'exposes workflow interaction snapshots and filtered readers' do

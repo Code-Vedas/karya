@@ -81,7 +81,23 @@ module Karya
           end
 
           # Groups the parent-side child workflow step identity.
-          ParentChildWorkflow = Struct.new(:parent_workflow_id, :parent_batch_id, :parent_job_id)
+          ParentChildWorkflow = Struct.new(
+            :parent_workflow_id,
+            :parent_workflow_family,
+            :parent_workflow_version,
+            :parent_batch_id,
+            :parent_job_id
+          ) do
+            def self.from_registration(parent_registration, parent_batch_id, parent_step_id)
+              new(
+                parent_registration.workflow_id,
+                parent_registration.workflow_family,
+                parent_registration.workflow_version,
+                parent_batch_id,
+                parent_registration.step_job_ids.fetch(parent_step_id)
+              ).freeze
+            end
+          end
 
           # Builds step-to-job metadata in definition order for child enqueues.
           class ChildStepJobIds
@@ -131,27 +147,41 @@ module Karya
             def register
               batch_id = binding.batch_id
               workflow_id = definition.id
+              register_workflow_metadata(batch_id:, workflow_id:)
+              register_child_relationship(batch_id:, workflow_id:)
+            end
+
+            private
+
+            attr_reader :binding, :definition, :parent, :parent_step_id, :state
+
+            def register_workflow_metadata(batch_id:, workflow_id:)
               state.register_workflow(
                 batch_id:,
                 workflow_id:,
                 step_job_ids: ChildStepJobIds.new(definition:, jobs: binding.jobs).to_h,
                 dependency_job_ids_by_job_id: binding.dependency_job_ids_by_job_id,
                 compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id,
-                child_workflow_ids_by_step_id: WorkflowChildIds.new(definition).to_h
+                child_workflow_ids_by_step_id: WorkflowChildIds.new(definition).to_h,
+                workflow_family: definition.workflow_family,
+                workflow_version: definition.workflow_version
               )
+            end
+
+            def register_child_relationship(batch_id:, workflow_id:)
               state.workflow_children.register(
                 parent_workflow_id: parent.parent_workflow_id,
+                parent_workflow_family: parent.parent_workflow_family,
+                parent_workflow_version: parent.parent_workflow_version,
                 parent_batch_id: parent.parent_batch_id,
                 parent_step_id:,
                 parent_job_id: parent.parent_job_id,
                 child_workflow_id: workflow_id,
-                child_batch_id: batch_id
+                child_batch_id: batch_id,
+                child_workflow_family: definition.workflow_family,
+                child_workflow_version: definition.workflow_version
               )
             end
-
-            private
-
-            attr_reader :binding, :definition, :parent, :parent_step_id, :state
           end
 
           # Builds the public child workflow enqueue report.
@@ -212,11 +242,11 @@ module Karya
           end
 
           def validate_child_workflow_parent_job(parent_registration, parent_step_id, parent_batch_id)
-            parent_job_id = parent_registration.step_job_ids.fetch(parent_step_id)
-            parent_job = state.jobs_by_id.fetch(parent_job_id)
+            parent_identity = ParentChildWorkflow.from_registration(parent_registration, parent_batch_id, parent_step_id)
+            parent_job = state.jobs_by_id.fetch(parent_identity.parent_job_id)
             raise Workflow::InvalidExecutionError, "parent child workflow step #{parent_step_id.inspect} must be queued" unless parent_job.state == :queued
 
-            ParentChildWorkflow.new(parent_registration.workflow_id, parent_batch_id, parent_job_id).freeze
+            parent_identity
           end
 
           def validate_child_batch_identity(parent_batch_id:, child_batch_id:)

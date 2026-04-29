@@ -43,6 +43,8 @@ module Karya
             def state
               Workflow::Snapshot.new(
                 workflow_id: registration.workflow_id,
+                workflow_family: registration.workflow_family,
+                workflow_version: registration.workflow_version,
                 batch_id:,
                 captured_at: now,
                 step_job_ids: registration.step_job_ids,
@@ -116,10 +118,14 @@ module Karya
               def to_snapshot
                 Workflow::ChildWorkflowSnapshot.new(
                   parent_workflow_id: relationship.parent_workflow_id,
+                  parent_workflow_family: relationship.parent_workflow_family,
+                  parent_workflow_version: relationship.parent_workflow_version,
                   parent_batch_id: relationship.parent_batch_id,
                   parent_step_id: relationship.parent_step_id,
                   parent_job_id: relationship.parent_job_id,
                   child_workflow_id: relationship.child_workflow_id,
+                  child_workflow_family: relationship.child_workflow_family,
+                  child_workflow_version: relationship.child_workflow_version,
                   child_batch_id: child_batch_id,
                   child_state: child_state
                 )

@@ -235,4 +235,50 @@ RSpec.describe Karya::QueueStore::InMemory do
     expect(reserve(20, handler_names: ['retrying']).job_id).to eq('job-retrying')
     expect(store.complete_execution(reservation_token: running.token, now: created_at + 21).id).to eq('job-running')
   end
+
+  it 'binds existing workflow runs to their resolved version while newer versions coexist' do
+    v1 = Karya::Workflow.define(
+      :invoice_closeout_v1,
+      workflow_family: :invoice_closeout,
+      workflow_version: :v1
+    ) do
+      step :capture, handler: :capture
+    end
+    v2 = Karya::Workflow.define(
+      :invoice_closeout_v2,
+      workflow_family: :invoice_closeout,
+      workflow_version: :v2,
+      default_version: false
+    ) do
+      step :capture, handler: :capture
+    end
+    catalog = Karya::Workflow.catalog(definitions: [v1, v2])
+
+    store.enqueue_workflow(
+      definition: catalog.resolve(workflow_family: :invoice_closeout),
+      jobs_by_step_id: { capture: workflow_job(:capture, handler: :capture) },
+      batch_id: :batch_v1,
+      now: created_at + 1
+    )
+    store.enqueue_workflow(
+      definition: catalog.fetch_version(workflow_family: :invoice_closeout, workflow_version: :v2),
+      jobs_by_step_id: { capture: workflow_job(:capture_two, handler: :capture) },
+      batch_id: :batch_v2,
+      now: created_at + 2
+    )
+
+    v1_snapshot = store.workflow_snapshot(batch_id: :batch_v1, now: created_at + 3)
+    v2_snapshot = store.workflow_snapshot(batch_id: :batch_v2, now: created_at + 4)
+
+    expect(v1_snapshot).to have_attributes(
+      workflow_id: 'invoice_closeout_v1',
+      workflow_family: 'invoice_closeout',
+      workflow_version: 'v1'
+    )
+    expect(v2_snapshot).to have_attributes(
+      workflow_id: 'invoice_closeout_v2',
+      workflow_family: 'invoice_closeout',
+      workflow_version: 'v2'
+    )
+  end
 end
