@@ -453,6 +453,42 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_interactions_for('batch-1')).to eq([])
   end
 
+  it 'prunes workflow history journals with workflow batch cleanup' do
+    store_state.jobs_by_id['job-1'] = succeeded_job('job-1')
+    store_state.register_batch(batch('batch-1', ['job-1']))
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'root' => 'job-1' },
+      dependency_job_ids_by_job_id: { 'job-1' => [] },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.register_workflow_history_entry(
+      batch_id: 'batch-1',
+      kind: :workflow,
+      action: :workflow_registered,
+      occurred_at: created_at
+    )
+
+    expect(store_state.prune_terminal_batches(0)).to eq(['batch-1'])
+    expect(store_state.workflow_history_for('batch-1')).to eq([])
+  end
+
+  it 'skips workflow job transitions for jobs outside the registered step map' do
+    store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'root' => 'job-1' },
+      dependency_job_ids_by_job_id: { 'job-1' => [] },
+      compensation_jobs_by_step_id: {}
+    )
+    store_state.batch_id_by_job_id['job-untracked'] = 'batch-1'
+
+    expect do
+      store_state.register_workflow_job_transition(job: succeeded_job('job-untracked'), from_state: :running)
+    end.not_to(change { store_state.workflow_history_for('batch-1') })
+  end
+
   it 'cleans up child workflow relationships by child batch' do
     workflow_children = store_state.workflow_children
 

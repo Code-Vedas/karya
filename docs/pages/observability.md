@@ -44,7 +44,8 @@ Observability data supports:
 Good observability in Karya means:
 
 - a queue slowdown can be seen in metrics and confirmed in the operator surface
-- a workflow failure can be traced through runtime history and external tracing
+- a workflow failure can be traced through workflow history, external tracing,
+  and structured logs
 - operator actions such as replay, pause, or rollback remain visible in logs and
   audit-oriented timelines
 - health and readiness surfaces make host-level automation trustworthy
@@ -77,7 +78,7 @@ same story.
 
 ```text
 signal: workflow marked failed
-follow-up: inspect timeline, traces, and structured logs
+follow-up: inspect workflow history, traces, and structured logs
 operator view: review replay or compensation options
 goal: understand failure cause before taking recovery action
 ```

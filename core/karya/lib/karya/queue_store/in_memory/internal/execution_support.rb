@@ -11,6 +11,28 @@ module Karya
       module Internal
         # Execution finalization and active lease helpers.
         module ExecutionSupport
+          # Builds the transient failed snapshot that precedes retry/dead-letter transitions.
+          class IntermediateWorkflowFailure
+            def initialize(job:, now:, failure_classification:)
+              @job = job
+              @now = now
+              @failure_classification = failure_classification
+            end
+
+            def to_job
+              job.transition_to(
+                :failed,
+                updated_at: now,
+                next_retry_at: nil,
+                failure_classification:
+              )
+            end
+
+            private
+
+            attr_reader :failure_classification, :job, :now
+          end
+
           private
 
           def finalize_execution(reservation_token:, now:, next_state:, retry_policy: nil, failure_classification: nil)
@@ -48,9 +70,16 @@ module Karya
                 retry_policy: normalized_retry_policy,
                 failure_classification: normalized_failure_classification
               )
+              transition_source_state = record_intermediate_workflow_failure(
+                running_job:,
+                finalized_job:,
+                now: normalized_now,
+                failure_classification: normalized_failure_classification
+              )
               persist_finalized_execution(
                 finalized_job:,
-                normalized_token:
+                normalized_token:,
+                from_state: transition_source_state
               )
               if next_state == :succeeded
                 record_execution_success(running_job, normalized_now)
@@ -61,9 +90,21 @@ module Karya
             end
           end
 
-          def persist_finalized_execution(finalized_job:, normalized_token:)
-            store_job(job: finalized_job)
+          def persist_finalized_execution(finalized_job:, normalized_token:, from_state:)
+            store_job(job: finalized_job, from_state:)
             state.delete_execution_token(normalized_token)
+          end
+
+          def record_intermediate_workflow_failure(running_job:, finalized_job:, now:, failure_classification:)
+            return unless failure_classification && finalized_job.state != :failed
+
+            from_state = running_job.state
+            failed_job = IntermediateWorkflowFailure.new(job: running_job, now:, failure_classification:).to_job
+            state.register_workflow_job_transition(
+              job: failed_job,
+              from_state:
+            )
+            :failed
           end
 
           def finalized_execution_job(running_job:, next_state:, now:, retry_policy:, failure_classification:)
@@ -136,6 +177,8 @@ module Karya
               reservation if reservation.expired?(now) && (!worker_id || reservation.worker_id == worker_id)
             end
           end
+
+          private_constant :IntermediateWorkflowFailure
         end
       end
     end

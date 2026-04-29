@@ -79,7 +79,7 @@ module Karya
 
           private
 
-          def store_job: (job: Job) -> Job
+          def store_job: (job: Job, ?from_state: Karya::state_name?) -> Job
           def build_uniqueness_decision: (Job job, Time now) -> Karya::uniqueness_decision
           def duplicate_job_id: (Job job) -> Job?
           def duplicate_idempotency_job: (Job job, ?exclude_job_id: String?) -> Job?

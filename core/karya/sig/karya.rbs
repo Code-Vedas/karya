@@ -28,6 +28,8 @@ module Karya
   type child_workflow_snapshot_attribute_value = state_name | Karya::workflow_state
   type interaction_kind = :signal | :event
   type interaction_kind_input = state_name
+  type workflow_history_kind = :workflow | :step | :interaction | :control | :rollback | :child_workflow
+  type workflow_history_kind_input = state_name
   type workflow_query = "state" | "current-step" | "current-steps"
   type workflow_query_value = workflow_state | String? | Array[String]
   type workflow_query_input_value = workflow_state | state_name? | Array[state_name]
@@ -50,6 +52,16 @@ module Karya
     Hash[String, interaction_payload_value]
   type interaction_payload = Hash[String, interaction_payload_value]
   type interaction_snapshot_attribute_value = interaction_kind_input | state_name | interaction_payload | Time
+  type history_entry_attribute_value =
+    workflow_history_kind_input |
+    state_name |
+    Time |
+    interaction_payload |
+    nil
+  type history_snapshot_attribute_value =
+    state_name |
+    Time |
+    Array[Workflow::HistoryEntry]
   type step_snapshot_attribute_value =
     state_name |
     Job |

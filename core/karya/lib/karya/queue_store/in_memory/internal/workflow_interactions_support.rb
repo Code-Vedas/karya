@@ -54,7 +54,9 @@ module Karya
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
             interaction = Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at: normalized_now)
             interaction_kind = interaction.kind
+            signal_interaction = interaction_kind == :signal
             interaction_name = interaction.name
+            interaction_action = signal_interaction ? :signal_delivered : :event_delivered
 
             @mutex.synchronize do
               recover_in_flight_locked(normalized_now)
@@ -66,7 +68,17 @@ module Karya
               validate_workflow_interaction_delivery(snapshot, workflow_batch_id)
               validate_workflow_interaction_support(registration, interaction_kind, interaction_name, workflow_batch_id)
               state.register_workflow_interaction(batch_id: workflow_batch_id, interaction:)
-              auto_approve_matching_checkpoints(registration, signal_name: interaction_name, decided_at: normalized_now) if interaction_kind == :signal
+              state.register_workflow_history_entry(
+                batch_id: workflow_batch_id,
+                kind: :interaction,
+                action: interaction_action,
+                occurred_at: normalized_now,
+                details: {
+                  'name' => interaction_name,
+                  'payload' => interaction.payload
+                }
+              )
+              auto_approve_matching_checkpoints(registration, signal_name: interaction_name, decided_at: normalized_now) if signal_interaction
               BulkMutationReport.new(
                 action:,
                 performed_at: normalized_now,

@@ -35,6 +35,10 @@ reason: protected-resource
 Retention, export, and protection outcomes should be explicit before anyone
 tries to act on protected data.
 
+Workflow-history retention applies to the execution journal for a workflow
+batch, including step transitions, delivered workflow interactions, replay and
+rollback controls, and child-workflow boundaries.
+
 ## Related Concepts
 
 - [Policies](/governance/policies/): access controls and data-lifecycle rules intersect

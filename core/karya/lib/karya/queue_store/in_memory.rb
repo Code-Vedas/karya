@@ -41,7 +41,6 @@ module Karya
     class InMemory
       # Owner-local implementation helpers for the executable reference store.
       module Internal; end
-
       include Base
       include Internal::BatchSupport
       include Internal::BackpressureSupport
@@ -59,6 +58,7 @@ module Karya
       include Internal::RetrySupport
       include Internal::UniquenessSupport
       include Internal::WorkflowCheckpointSupport
+      include Internal::WorkflowHistorySupport
       include Internal::WorkflowSupport
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = 1024

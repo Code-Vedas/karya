@@ -52,7 +52,7 @@ module Karya
                 job_ids: relationships.map(&:parent_job_id),
                 now:
               ).to_report do |job_id, changed_jobs, skipped_jobs|
-                sync_child_workflow_job(job_id:, now:, changed_jobs:, skipped_jobs:)
+                sync_child_workflow_job(parent_batch_id:, job_id:, now:, changed_jobs:, skipped_jobs:)
               end
             end
           end
@@ -124,13 +124,28 @@ module Karya
 
           def enqueue_child_workflow_binding(parent:, parent_step_id:, binding:, definition:, now:)
             jobs = binding.jobs
-            batch = build_enqueue_batch(batch_id: binding.batch_id, jobs:, now:)
+            child_batch_id = binding.batch_id
+            batch = build_enqueue_batch(batch_id: child_batch_id, jobs:, now:)
             validate_bulk_enqueue_uniqueness(jobs, now)
             expire_reservations_locked(now)
             queued_jobs = jobs.map { |job| enqueue_validated_job(job, now) }
             store_batch(batch)
             state.register_workflow_dependencies(binding.dependency_job_ids_by_job_id)
             ChildWorkflowMetadata.new(state:, parent:, parent_step_id:, binding:, definition:).register
+            state.register_workflow_history_entry(
+              batch_id: parent.parent_batch_id,
+              kind: :child_workflow,
+              action: :child_workflow_enqueued,
+              occurred_at: now,
+              job_id: parent.parent_job_id,
+              child_batch_id: child_batch_id,
+              details: {
+                'parent_step_id' => parent_step_id,
+                'child_workflow_id' => definition.id,
+                'child_workflow_family' => definition.workflow_family,
+                'child_workflow_version' => definition.workflow_version
+              }
+            )
             ChildWorkflowReport.new(binding:, queued_jobs:, now:).to_report
           end
 
@@ -263,18 +278,34 @@ module Karya
             state.workflow_children.for_parent_batch(parent_batch_id)
           end
 
-          def sync_child_workflow_job(job_id:, now:, changed_jobs:, skipped_jobs:)
+          def sync_child_workflow_job(parent_batch_id:, job_id:, now:, changed_jobs:, skipped_jobs:)
             relationship = state.workflow_children.for_parent_job(job_id)
             child_batch_id = relationship.child_batch_id
-            case child_workflow_state(child_batch_id, now:)
-            when :failed
-              dead_letter_requested_job(job_id, now, "child workflow #{child_batch_id} failed", changed_jobs, skipped_jobs)
-            when :cancelled
-              cancel_requested_job(job_id, now, changed_jobs, skipped_jobs)
-            else
-              parent_job = state.jobs_by_id.fetch(job_id)
-              skipped_jobs << Karya::Internal::BulkMutation::SkippedJob.new(job_id:, reason: :ineligible_state, state: parent_job.state).to_h
-            end
+            changed_before = changed_jobs.length
+            action, details = case child_workflow_state(child_batch_id, now:)
+                              when :failed
+                                dead_letter_requested_job(job_id, now, "child workflow #{child_batch_id} failed", changed_jobs, skipped_jobs)
+                                [:child_workflow_sync_failed, { 'child_state' => 'failed' }]
+                              when :cancelled
+                                cancel_requested_job(job_id, now, changed_jobs, skipped_jobs)
+                                [:child_workflow_sync_cancelled, { 'child_state' => 'cancelled' }]
+                              else
+                                parent_job = state.jobs_by_id.fetch(job_id)
+                                skipped_jobs << Karya::Internal::BulkMutation::SkippedJob.new(job_id:, reason: :ineligible_state, state: parent_job.state).to_h
+                                return
+                              end
+            changed_job = changed_jobs[changed_before]
+            return unless changed_job
+
+            state.register_workflow_history_entry(
+              batch_id: parent_batch_id,
+              kind: :child_workflow,
+              action:,
+              occurred_at: now,
+              job_id:,
+              child_batch_id:,
+              details:
+            )
           end
 
           def child_workflow_state(child_batch_id, now:)
