@@ -11,10 +11,15 @@ module Karya
     class Definition
       attr_reader :dependencies,
                   :id,
-                  :steps
+                  :steps,
+                  :workflow_family,
+                  :workflow_version
 
-      def initialize(id:, steps:)
+      def initialize(id:, steps:, workflow_family: nil, workflow_version: nil, default_version: true)
         @id = Workflow.send(:normalize_identifier, :workflow_id, id)
+        @workflow_family = Workflow.send(:normalize_identifier, :workflow_family, workflow_family || @id)
+        @workflow_version = Workflow.send(:normalize_identifier, :workflow_version, workflow_version || 'v1')
+        @default_version = normalize_default_version(default_version)
         raise InvalidDefinitionError, 'steps must be an Array of Karya::Workflow::Step' unless steps.is_a?(Array)
 
         graph = Graph.new(steps)
@@ -23,6 +28,10 @@ module Karya
         @inspection = graph.inspection
         @dependencies = graph.dependencies
         freeze
+      end
+
+      def default_version?
+        @default_version
       end
 
       def step_ids = inspection.step_ids
@@ -60,6 +69,17 @@ module Karya
       private
 
       attr_reader :inspection, :steps_by_id
+
+      def normalize_default_version(value)
+        return value if case value
+                        when true, false
+                          true
+                        else
+                          false
+                        end
+
+        raise InvalidDefinitionError, 'default_version must be true or false'
+      end
 
       # Owner-local graph normalizer and validator for workflow step composition.
       class Graph

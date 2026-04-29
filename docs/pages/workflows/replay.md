@@ -49,6 +49,10 @@ explicitly; Karya does not infer targets from workflow state, create a new
 workflow run, append batch membership, or reconstruct a workflow from a
 timeline.
 
+Replay stays bound to the workflow version already associated with the batch.
+Registering a newer version affects future submissions, not the meaning of the
+batch being recovered.
+
 ### Step Retry
 
 Use retry when a failed or retry-pending primary step job should return to

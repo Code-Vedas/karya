@@ -8,7 +8,12 @@
 RSpec.describe Karya::Workflow do
   describe '.define' do
     it 'builds a normalized workflow definition from the Ruby DSL' do
-      definition = described_class.define(:invoice_closeout) do
+      definition = described_class.define(
+        :invoice_closeout,
+        workflow_family: :billing_closeout,
+        workflow_version: :v2,
+        default_version: false
+      ) do
         step :calculate_totals, handler: :calculate_totals
         step :capture_payment, handler: 'capture_payment', depends_on: :calculate_totals
         step :emit_receipt,
@@ -19,6 +24,9 @@ RSpec.describe Karya::Workflow do
 
       expect(definition).to be_a(Karya::Workflow::Definition)
       expect(definition.id).to eq('invoice_closeout')
+      expect(definition.workflow_family).to eq('billing_closeout')
+      expect(definition.workflow_version).to eq('v2')
+      expect(definition.default_version?).to be(false)
       expect(definition.steps.map(&:id)).to eq(%w[calculate_totals capture_payment emit_receipt])
       expect(definition.dependencies.map { |dependency| [dependency.step_id, dependency.depends_on_step_id] }).to eq(
         [
@@ -45,6 +53,7 @@ RSpec.describe Karya::Workflow do
       catalog = described_class.catalog(definitions: [definition])
 
       expect(catalog.fetch(:invoice_closeout)).to eq(definition)
+      expect(catalog.resolve(workflow_family: :invoice_closeout)).to eq(definition)
     end
   end
 

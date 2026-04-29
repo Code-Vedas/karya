@@ -77,6 +77,7 @@ module Karya
     Workflow::InteractionSnapshot |
     Workflow::RollbackSnapshot |
     nil
+  type default_version_flag = bool
   type handler_parameter = [Symbol, Symbol?]
   type handler_parameters = Array[handler_parameter]
   type handler_dispatch_mode = :none | :positional_hash | :keywords

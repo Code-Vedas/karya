@@ -21,14 +21,41 @@ RSpec.describe Karya::Workflow::ChildWorkflowSnapshot do
   it 'normalizes ids and freezes the snapshot' do
     expect(snapshot).to have_attributes(
       parent_workflow_id: 'parent',
+      parent_workflow_family: 'parent',
+      parent_workflow_version: 'v1',
       parent_batch_id: 'parent-batch',
       parent_step_id: 'child-step',
       parent_job_id: 'parent-job',
       child_workflow_id: 'child',
+      child_workflow_family: 'child',
+      child_workflow_version: 'v1',
       child_batch_id: 'child-batch',
       child_state: :running
     )
     expect(snapshot).to be_frozen
+  end
+
+  it 'accepts explicit parent and child version identity' do
+    versioned = described_class.new(
+      parent_workflow_id: :invoice_closeout_v1,
+      parent_workflow_family: :invoice_closeout,
+      parent_workflow_version: :v1,
+      parent_batch_id: :parent_batch,
+      parent_step_id: :child_step,
+      parent_job_id: :parent_job,
+      child_workflow_id: :payment_v2,
+      child_workflow_family: :payment,
+      child_workflow_version: :v2,
+      child_batch_id: :child_batch,
+      child_state: :running
+    )
+
+    expect(versioned).to have_attributes(
+      parent_workflow_family: 'invoice_closeout',
+      parent_workflow_version: 'v1',
+      child_workflow_family: 'payment',
+      child_workflow_version: 'v2'
+    )
   end
 
   it 'rejects invalid workflow states' do

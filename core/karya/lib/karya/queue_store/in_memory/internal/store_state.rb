@@ -48,10 +48,14 @@ module Karya
             # Immutable owner-local child workflow relationship metadata.
             Relationship = Struct.new(
               :parent_workflow_id,
+              :parent_workflow_family,
+              :parent_workflow_version,
               :parent_batch_id,
               :parent_step_id,
               :parent_job_id,
               :child_workflow_id,
+              :child_workflow_family,
+              :child_workflow_version,
               :child_batch_id
             )
             private_constant :Relationship
@@ -69,13 +73,28 @@ module Karya
               expected_child_workflow_id_by_job_id[parent_job_id] = child_workflow_id
             end
 
-            def register(parent_workflow_id:, parent_batch_id:, parent_step_id:, parent_job_id:, child_workflow_id:, child_batch_id:)
+            def register(
+              parent_workflow_id:,
+              parent_batch_id:,
+              parent_step_id:,
+              parent_job_id:,
+              child_workflow_id:,
+              child_batch_id:,
+              parent_workflow_family: parent_workflow_id,
+              parent_workflow_version: 'v1',
+              child_workflow_family: child_workflow_id,
+              child_workflow_version: 'v1'
+            )
               relationship = Relationship.new(
                 parent_workflow_id,
+                parent_workflow_family,
+                parent_workflow_version,
                 parent_batch_id,
                 parent_step_id,
                 parent_job_id,
                 child_workflow_id,
+                child_workflow_family,
+                child_workflow_version,
                 child_batch_id
               ).freeze
               ensure_parent_relationships(parent_batch_id)[parent_step_id] = relationship
@@ -290,10 +309,14 @@ module Karya
               compensation_jobs_by_step_id:,
               approval_requirements_by_job_id: {},
               interaction_requirements_by_job_id: {},
-              child_workflow_ids_by_step_id: {}
+              child_workflow_ids_by_step_id: {},
+              workflow_family: workflow_id,
+              workflow_version: 'v1'
             )
               registration = WorkflowRegistration.build(
                 workflow_id:,
+                workflow_family:,
+                workflow_version:,
                 step_job_ids:,
                 dependency_job_ids_by_job_id:,
                 approval_requirements_by_job_id:,

@@ -23,6 +23,9 @@ RSpec.describe Karya::Workflow::Definition do
 
     expect(definition.steps).to eq([calculate_totals, capture_payment, emit_receipt])
     expect(definition.steps).to be_frozen
+    expect(definition.workflow_family).to eq('invoice_closeout')
+    expect(definition.workflow_version).to eq('v1')
+    expect(definition).to be_default_version
     expect(definition.step_ids).to eq(%w[calculate_totals capture_payment emit_receipt])
     expect(definition.step_ids).to be_frozen
     expect(definition.dependencies).to contain_exactly(
@@ -38,6 +41,29 @@ RSpec.describe Karya::Workflow::Definition do
     expect(definition.compensable_step_ids).to eq(['emit_receipt'])
     expect(definition.child_step_ids).to eq(['emit_receipt'])
     expect(definition).to be_frozen
+  end
+
+  it 'accepts explicit family, version, and default metadata' do
+    definition = described_class.new(
+      id: :invoice_closeout_v2,
+      workflow_family: :invoice_closeout,
+      workflow_version: :v2,
+      default_version: false,
+      steps: [calculate_totals]
+    )
+
+    expect(definition).to have_attributes(
+      id: 'invoice_closeout_v2',
+      workflow_family: 'invoice_closeout',
+      workflow_version: 'v2',
+      default_version?: false
+    )
+  end
+
+  it 'rejects non-boolean default_version values' do
+    expect do
+      described_class.new(id: :invoice_closeout, default_version: :yes, steps: [calculate_totals])
+    end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'default_version must be true or false')
   end
 
   it 'raises definition errors when fetching unknown step inspection' do

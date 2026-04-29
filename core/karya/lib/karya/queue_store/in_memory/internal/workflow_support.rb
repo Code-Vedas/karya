@@ -26,23 +26,15 @@ module Karya
               )
               jobs = binding.jobs
               workflow_batch_id = binding.batch_id
-              batch = build_enqueue_batch(batch_id: workflow_batch_id, jobs:, now: normalized_now)
-              validate_bulk_enqueue_uniqueness(jobs, normalized_now)
+              store_batch(validate_workflow_enqueue_jobs(workflow_batch_id:, jobs:, now: normalized_now))
               expire_reservations_locked(normalized_now)
               queued_jobs = jobs.map { |job| enqueue_validated_job(job, normalized_now) }
-              dependency_job_ids_by_job_id = binding.dependency_job_ids_by_job_id
               step_job_ids = StepJobIds.new(definition:, jobs:).to_h
-              store_batch(batch)
-              state.register_workflow_dependencies(dependency_job_ids_by_job_id)
-              state.register_workflow(
-                batch_id: workflow_batch_id,
-                workflow_id: definition.id,
-                step_job_ids:,
-                dependency_job_ids_by_job_id:,
-                approval_requirements_by_job_id: ApprovalRequirements.new(definition:, step_job_ids:).to_h,
-                interaction_requirements_by_job_id: InteractionRequirements.new(definition:, step_job_ids:).to_h,
-                compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id,
-                child_workflow_ids_by_step_id: WorkflowChildIds.new(definition).to_h
+              register_workflow_enqueue(
+                definition:,
+                binding:,
+                workflow_batch_id:,
+                step_job_ids:
               )
               BulkMutationReport.new(
                 action: :enqueue_many,
@@ -179,6 +171,53 @@ module Karya
           end
 
           private
+
+          def validate_workflow_enqueue_jobs(workflow_batch_id:, jobs:, now:)
+            validate_bulk_enqueue_uniqueness(jobs, now)
+            build_enqueue_batch(batch_id: workflow_batch_id, jobs:, now:)
+          end
+
+          def register_workflow_enqueue(definition:, binding:, workflow_batch_id:, step_job_ids:)
+            dependency_job_ids_by_job_id = binding.dependency_job_ids_by_job_id
+            state.register_workflow_dependencies(dependency_job_ids_by_job_id)
+            state.register_workflow(**WorkflowRegistrationPayload.new(
+              definition:,
+              binding:,
+              workflow_batch_id:,
+              step_job_ids:,
+              dependency_job_ids_by_job_id:
+            ).to_h)
+          end
+
+          # Builds the stored registration payload for one workflow enqueue.
+          class WorkflowRegistrationPayload
+            def initialize(definition:, binding:, workflow_batch_id:, step_job_ids:, dependency_job_ids_by_job_id:)
+              @definition = definition
+              @binding = binding
+              @workflow_batch_id = workflow_batch_id
+              @step_job_ids = step_job_ids
+              @dependency_job_ids_by_job_id = dependency_job_ids_by_job_id
+            end
+
+            def to_h
+              {
+                batch_id: workflow_batch_id,
+                workflow_id: definition.id,
+                workflow_family: definition.workflow_family,
+                workflow_version: definition.workflow_version,
+                step_job_ids:,
+                dependency_job_ids_by_job_id:,
+                approval_requirements_by_job_id: ApprovalRequirements.new(definition:, step_job_ids:).to_h,
+                interaction_requirements_by_job_id: InteractionRequirements.new(definition:, step_job_ids:).to_h,
+                compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id,
+                child_workflow_ids_by_step_id: WorkflowChildIds.new(definition).to_h
+              }
+            end
+
+            private
+
+            attr_reader :binding, :definition, :dependency_job_ids_by_job_id, :step_job_ids, :workflow_batch_id
+          end
 
           def normalize_dead_letter_reason(reason)
             Karya::Internal::DeadLetterReason.normalize(reason, error_class: Workflow::InvalidExecutionError)
@@ -424,6 +463,8 @@ module Karya
               workflow_batch_id = batch.id
               Workflow::Snapshot.new(
                 workflow_id: registration.workflow_id,
+                workflow_family: registration.workflow_family,
+                workflow_version: registration.workflow_version,
                 batch_id: workflow_batch_id,
                 captured_at: now,
                 step_job_ids: registration.step_job_ids,
@@ -503,10 +544,14 @@ module Karya
             def to_snapshot
               Workflow::ChildWorkflowSnapshot.new(
                 parent_workflow_id: relationship.parent_workflow_id,
+                parent_workflow_family: relationship.parent_workflow_family,
+                parent_workflow_version: relationship.parent_workflow_version,
                 parent_batch_id: relationship.parent_batch_id,
                 parent_step_id: relationship.parent_step_id,
                 parent_job_id: relationship.parent_job_id,
                 child_workflow_id: relationship.child_workflow_id,
+                child_workflow_family: relationship.child_workflow_family,
+                child_workflow_version: relationship.child_workflow_version,
                 child_batch_id: relationship.child_batch_id,
                 child_state:
               )

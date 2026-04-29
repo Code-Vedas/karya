@@ -32,6 +32,10 @@ rollback_path: available
 
 Rollout behavior stays intentional and operator-visible rather than ad hoc.
 
+For workflow families, rollout controls distinguish between the default version
+for new submissions and older versions that remain active for persisted
+workflow batches during a compatibility window.
+
 ## Related Concepts
 
 - [Policies](/governance/policies/): approvals and release controls must agree

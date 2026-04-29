@@ -14,6 +14,8 @@ module Karya
           # Immutable owner-local workflow registration metadata for one batch.
           WorkflowRegistration = Struct.new(
             :workflow_id,
+            :workflow_family,
+            :workflow_version,
             :step_job_ids,
             :dependency_job_ids_by_job_id,
             :approval_requirements_by_job_id,
@@ -29,7 +31,9 @@ module Karya
               approval_requirements_by_job_id:,
               interaction_requirements_by_job_id:,
               compensation_jobs_by_step_id:,
-              child_workflow_ids_by_step_id:
+              child_workflow_ids_by_step_id:,
+              workflow_family: workflow_id,
+              workflow_version: 'v1'
             )
               approvals = WorkflowRegistrationRequirements.new(approval_requirements_by_job_id).to_h
               interactions = WorkflowRegistrationRequirements.new(interaction_requirements_by_job_id).to_h
@@ -37,6 +41,8 @@ module Karya
 
               new(
                 workflow_id,
+                workflow_family,
+                workflow_version,
                 step_job_ids.dup.freeze,
                 dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
                 approvals,

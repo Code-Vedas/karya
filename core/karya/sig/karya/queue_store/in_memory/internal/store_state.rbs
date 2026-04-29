@@ -110,6 +110,8 @@ module Karya
           def register_workflow: (
             batch_id: String,
             workflow_id: String,
+            ?workflow_family: String,
+            ?workflow_version: String,
             step_job_ids: Hash[String, String],
             dependency_job_ids_by_job_id: Hash[String, Array[String]],
             compensation_jobs_by_step_id: Hash[String, Job],
@@ -131,6 +133,8 @@ module Karya
 
           class WorkflowRegistration
             @workflow_id: String
+            @workflow_family: String
+            @workflow_version: String
             @step_job_ids: Hash[String, String]
             @dependency_job_ids_by_job_id: Hash[String, Array[String]]
             @approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
@@ -141,6 +145,8 @@ module Karya
 
             def self.build: (
               workflow_id: String,
+              ?workflow_family: String,
+              ?workflow_version: String,
               step_job_ids: Hash[String, String],
               dependency_job_ids_by_job_id: Hash[String, Array[String]],
               approval_requirements_by_job_id: Hash[String, Karya::approval_requirement],
@@ -151,6 +157,8 @@ module Karya
 
             def initialize: (
               String workflow_id,
+              String workflow_family,
+              String workflow_version,
               Hash[String, String] step_job_ids,
               Hash[String, Array[String]] dependency_job_ids_by_job_id,
               Hash[String, Karya::approval_requirement] approval_requirements_by_job_id,
@@ -161,6 +169,8 @@ module Karya
             ) -> void
 
             attr_reader workflow_id: String
+            attr_reader workflow_family: String
+            attr_reader workflow_version: String
             attr_reader step_job_ids: Hash[String, String]
             attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
             attr_reader approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
@@ -296,10 +306,14 @@ module Karya
             def register_expected_child: (String parent_job_id, String child_workflow_id) -> String
             def register: (
               parent_workflow_id: String,
+              ?parent_workflow_family: String,
+              ?parent_workflow_version: String,
               parent_batch_id: String,
               parent_step_id: String,
               parent_job_id: String,
               child_workflow_id: String,
+              ?child_workflow_family: String,
+              ?child_workflow_version: String,
               child_batch_id: String
             ) -> WorkflowChildren::Relationship
             def for_parent_step: (String parent_batch_id, String parent_step_id) -> WorkflowChildren::Relationship?
@@ -321,17 +335,25 @@ module Karya
 
             class Relationship
               @parent_workflow_id: String
+              @parent_workflow_family: String
+              @parent_workflow_version: String
               @parent_batch_id: String
               @parent_step_id: String
               @parent_job_id: String
               @child_workflow_id: String
+              @child_workflow_family: String
+              @child_workflow_version: String
               @child_batch_id: String
 
               attr_reader parent_workflow_id: String
+              attr_reader parent_workflow_family: String
+              attr_reader parent_workflow_version: String
               attr_reader parent_batch_id: String
               attr_reader parent_step_id: String
               attr_reader parent_job_id: String
               attr_reader child_workflow_id: String
+              attr_reader child_workflow_family: String
+              attr_reader child_workflow_version: String
               attr_reader child_batch_id: String
             end
           end
