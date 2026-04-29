@@ -436,6 +436,9 @@ module Karya
 
     private
 
+      attr_reader identity: Identity
+      attr_reader linkage: Linkage
+
       class Attributes
         REQUIRED_ATTRIBUTES: Array[Symbol]
         OPTIONAL_ATTRIBUTES: Array[Symbol]
