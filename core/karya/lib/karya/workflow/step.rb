@@ -18,6 +18,7 @@ module Karya
                   :depends_on,
                   :handler,
                   :id,
+                  :wait_for_approval,
                   :wait_for_event,
                   :wait_for_signal
 
@@ -25,17 +26,12 @@ module Karya
         @id = Workflow.send(:normalize_identifier, :step_id, id)
         @handler = Workflow.send(:normalize_identifier, :handler, handler)
         normalized_options = Options.new(options)
-        @arguments = Arguments.new(normalized_options.arguments, step_id: @id, handler: @handler).normalize
+        @arguments = normalize_arguments(normalized_options.arguments)
         @depends_on = Dependencies.new(normalized_options.depends_on).normalize
         @child_workflow = ChildWorkflow.new(normalized_options.child_workflow).normalize
         @compensate_with = CompensationHandler.new(normalized_options.compensate_with).normalize
-        @compensation_arguments = Arguments.new(
-          normalized_options.compensation_arguments,
-          step_id: @id,
-          handler: compensation_handler_label
-        ).normalize
-        @wait_for_signal = InteractionName.new(:wait_for_signal, normalized_options.wait_for_signal).normalize
-        @wait_for_event = InteractionName.new(:wait_for_event, normalized_options.wait_for_event).normalize
+        @compensation_arguments = normalize_compensation_arguments(normalized_options.compensation_arguments)
+        assign_interaction_gates(normalized_options)
         validate_compensation_configuration
         validate_interaction_configuration
         freeze
@@ -57,6 +53,7 @@ module Karya
           compensate_with
           compensation_arguments
           child_workflow
+          wait_for_approval
           wait_for_signal
           wait_for_event
         ].freeze
@@ -92,6 +89,10 @@ module Karya
 
         def wait_for_event
           options.fetch(:wait_for_event, nil)
+        end
+
+        def wait_for_approval
+          options.fetch(:wait_for_approval, nil)
         end
 
         private
@@ -231,6 +232,20 @@ module Karya
 
       private
 
+      def normalize_arguments(arguments)
+        Arguments.new(arguments, step_id: @id, handler: @handler).normalize
+      end
+
+      def normalize_compensation_arguments(arguments)
+        Arguments.new(arguments, step_id: @id, handler: compensation_handler_label).normalize
+      end
+
+      def assign_interaction_gates(options)
+        @wait_for_approval = InteractionName.new(:wait_for_approval, options.wait_for_approval).normalize
+        @wait_for_signal = InteractionName.new(:wait_for_signal, options.wait_for_signal).normalize
+        @wait_for_event = InteractionName.new(:wait_for_event, options.wait_for_event).normalize
+      end
+
       def validate_compensation_configuration
         return if compensate_with || compensation_arguments.empty?
 
@@ -238,9 +253,10 @@ module Karya
       end
 
       def validate_interaction_configuration
-        return unless wait_for_signal && wait_for_event
+        interaction_gates = [wait_for_approval, wait_for_signal, wait_for_event].compact
+        return unless interaction_gates.length > 1
 
-        raise InvalidDefinitionError, "workflow step #{id.inspect} cannot wait for both signal and event"
+        raise InvalidDefinitionError, "workflow step #{id.inspect} cannot wait for more than one interaction gate"
       end
 
       def compensation_handler_label

@@ -21,6 +21,11 @@ RSpec.describe Karya::Workflow::StepSnapshot do
   def snapshot(
     state: :queued,
     prerequisite_states: { 'job-root' => :succeeded },
+    approval_name: nil,
+    approval_state: nil,
+    approval_decided_at: nil,
+    approval_received_at: nil,
+    approval_rejection_reason: nil,
     interaction_kind: nil,
     interaction_name: nil,
     interaction_received_at: nil
@@ -33,6 +38,11 @@ RSpec.describe Karya::Workflow::StepSnapshot do
       job: job(state:),
       prerequisite_job_ids: [' job-root '],
       prerequisite_states:,
+      approval_name:,
+      approval_state:,
+      approval_decided_at:,
+      approval_received_at:,
+      approval_rejection_reason:,
       interaction_kind:,
       interaction_name:,
       interaction_received_at:
@@ -96,6 +106,34 @@ RSpec.describe Karya::Workflow::StepSnapshot do
       interaction_name: 'payment_received',
       interaction_received_at: created_at + 1
     )
+  end
+
+  it 'blocks approval-gated steps until approved and exposes rejection state' do
+    awaiting = snapshot(approval_name: :manager_approved)
+    approved = snapshot(
+      approval_name: :manager_approved,
+      approval_state: :approved,
+      approval_decided_at: created_at + 1,
+      approval_received_at: created_at + 1
+    )
+    rejected = snapshot(
+      approval_name: :manager_approved,
+      approval_state: :rejected,
+      approval_decided_at: created_at + 2,
+      approval_rejection_reason: 'manual reject'
+    )
+
+    expect(awaiting).to be_awaiting_approval
+    expect(awaiting).to be_blocked
+    expect(approved).to be_ready
+    expect(approved).to have_attributes(
+      approval_name: 'manager_approved',
+      approval_state: :approved,
+      approval_decided_at: created_at + 1,
+      approval_received_at: created_at + 1
+    )
+    expect(rejected).to be_approval_rejected
+    expect(rejected).to be_blocked
   end
 
   it 'blocks child workflow steps until the child workflow succeeds' do
@@ -326,5 +364,71 @@ RSpec.describe Karya::Workflow::StepSnapshot do
     expect do
       snapshot(interaction_kind: nil, interaction_name: nil, interaction_received_at: created_at + 1)
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'interaction_received_at requires interaction_kind and interaction_name')
+  end
+
+  it 'validates approval metadata' do
+    expect do
+      snapshot(approval_state: :approved)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval metadata requires approval_name')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_state: :approved, approval_received_at: created_at + 1)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_state :approved requires approval_decided_at')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_state: :rejected, approval_decided_at: created_at + 1)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_state :rejected requires approval_rejection_reason')
+
+    expect do
+      snapshot(
+        approval_name: :manager_approved,
+        approval_state: :rejected,
+        approval_decided_at: created_at + 1,
+        approval_rejection_reason: 'manual reject',
+        approval_received_at: created_at + 2
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_state :rejected must not include approval_received_at')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_state: :approved, approval_decided_at: created_at + 1)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_state :approved requires approval_received_at')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_state: :rejected, approval_rejection_reason: 'manual reject')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_state :rejected requires approval_decided_at')
+
+    expect do
+      snapshot(
+        approval_name: :manager_approved,
+        approval_state: :approved,
+        approval_decided_at: created_at + 1,
+        approval_received_at: created_at + 1,
+        approval_rejection_reason: 'manual reject'
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_rejection_reason requires approval_state :rejected')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_decided_at: created_at + 1)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_decided_at requires approval_state')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_rejection_reason: 'manual reject')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_rejection_reason requires approval_state :rejected')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_state: :later)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_state must be :approved or :rejected')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_state: 123)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_state must be :approved or :rejected')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_state: :rejected, approval_decided_at: created_at + 1, approval_rejection_reason: 123)
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_rejection_reason must be a String')
+
+    expect do
+      snapshot(approval_name: :manager_approved, approval_state: :rejected, approval_decided_at: created_at + 1, approval_rejection_reason: '   ')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_rejection_reason must be present')
   end
 end

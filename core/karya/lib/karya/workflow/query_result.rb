@@ -10,7 +10,7 @@ module Karya
     # Immutable result for one explicit workflow query.
     class QueryResult
       SUPPORTED_QUERIES = %w[state current-step current-steps].freeze
-      WORKFLOW_STATES = %i[pending running blocked succeeded failed cancelled].freeze
+      WORKFLOW_STATES = %i[pending running paused awaiting_approval blocked succeeded failed cancelled].freeze
 
       attr_reader :query, :queried_at, :value
 

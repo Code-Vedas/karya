@@ -40,36 +40,28 @@ RSpec.describe Karya::Workflow::Snapshot do
     )
   end
 
-  def interaction(kind: :signal, name: :manager_approved, payload: {})
-    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at: captured_at + 2)
+  def interaction(kind: :signal, name: :manager_approved, payload: {}, received_at: captured_at + 2)
+    Karya::Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at:)
   end
 
-  def snapshot(
-    jobs:,
-    step_job_ids: nil,
-    dependencies: {},
-    rollback: nil,
-    child_workflows: [],
-    child_workflow_ids_by_step_id: {},
-    interactions: [],
-    interaction_requirements_by_job_id: {},
-    interaction_received_at_by_job_id: {},
-    parent: nil
-  )
+  def snapshot(jobs:, **options)
     described_class.new(
       workflow_id: ' invoice_closeout ',
       batch_id: ' batch_1 ',
       captured_at:,
-      step_job_ids: step_job_ids || jobs.to_h { |workflow_job| [workflow_job.id.delete_prefix('job_'), workflow_job.id] },
-      dependency_job_ids_by_job_id: dependencies,
+      step_job_ids: options.fetch(:step_job_ids, jobs.to_h { |workflow_job| [workflow_job.id.delete_prefix('job_'), workflow_job.id] }),
+      dependency_job_ids_by_job_id: options.fetch(:dependencies, {}),
       jobs:,
-      child_workflow_ids_by_step_id:,
-      child_workflows:,
-      interactions:,
-      interaction_requirements_by_job_id:,
-      interaction_received_at_by_job_id:,
-      parent:,
-      rollback:
+      child_workflow_ids_by_step_id: options.fetch(:child_workflow_ids_by_step_id, {}),
+      approval_requirements_by_job_id: options.fetch(:approval_requirements_by_job_id, {}),
+      approval_decisions_by_job_id: options.fetch(:approval_decisions_by_job_id, {}),
+      child_workflows: options.fetch(:child_workflows, []),
+      interactions: options.fetch(:interactions, []),
+      interaction_requirements_by_job_id: options.fetch(:interaction_requirements_by_job_id, {}),
+      interaction_received_at_by_job_id: options.fetch(:interaction_received_at_by_job_id, {}),
+      parent: options.fetch(:parent, nil),
+      pause_requested_at: options.fetch(:pause_requested_at, nil),
+      rollback: options.fetch(:rollback, nil)
     )
   end
 
@@ -142,6 +134,88 @@ RSpec.describe Karya::Workflow::Snapshot do
     expect(blocked.state).to eq(:blocked)
     expect(ready.fetch_step(:capture_payment)).to be_ready
     expect(ready.state).to eq(:pending)
+  end
+
+  it 'reports approval-frontier workflows as awaiting_approval and exposes checkpoint state' do
+    jobs = [job(id: 'job_approve', state: :queued)]
+    awaiting = snapshot(
+      jobs:,
+      step_job_ids: { approve: 'job_approve' },
+      approval_requirements_by_job_id: { 'job_approve' => { name: :manager_approved } }
+    )
+    approved = snapshot(
+      jobs:,
+      step_job_ids: { approve: 'job_approve' },
+      approval_requirements_by_job_id: { 'job_approve' => { name: :manager_approved } },
+      approval_decisions_by_job_id: { 'job_approve' => { state: :approved, decided_at: captured_at + 3 } }
+    )
+
+    expect(awaiting.fetch_step(:approve)).to be_awaiting_approval
+    expect(awaiting.state).to eq(:awaiting_approval)
+    expect(approved.fetch_step(:approve)).to be_ready
+    expect(approved.fetch_step(:approve)).to have_attributes(
+      approval_name: 'manager_approved',
+      approval_state: :approved,
+      approval_decided_at: captured_at + 3,
+      approval_received_at: captured_at + 3
+    )
+    expect(approved.state).to eq(:pending)
+  end
+
+  it 'keeps signal-delivered approvals visible when other checkpoints were explicitly approved' do
+    jobs = [
+      job(id: 'job_manager', state: :queued),
+      job(id: 'job_finance', state: :queued)
+    ]
+    result = snapshot(
+      jobs:,
+      step_job_ids: {
+        manager: 'job_manager',
+        finance: 'job_finance'
+      },
+      approval_requirements_by_job_id: {
+        'job_manager' => { name: :manager_approved },
+        'job_finance' => { name: :finance_approved }
+      },
+      approval_decisions_by_job_id: {
+        'job_manager' => { state: :approved, decided_at: captured_at + 1 }
+      },
+      interactions: [interaction(kind: :signal, name: :finance_approved, received_at: captured_at + 2)]
+    )
+
+    expect(result.fetch_step(:manager)).to be_ready
+    expect(result.fetch_step(:finance)).to be_ready
+    expect(result.fetch_step(:finance).approval_received_at).to eq(captured_at + 2)
+  end
+
+  it 'keeps rejected approval checkpoints blocked even after a matching signal is delivered' do
+    jobs = [job(id: 'job_approve', state: :queued)]
+    result = snapshot(
+      jobs:,
+      step_job_ids: { approve: 'job_approve' },
+      approval_requirements_by_job_id: { 'job_approve' => { name: :manager_approved } },
+      approval_decisions_by_job_id: { 'job_approve' => { state: :rejected, decided_at: captured_at + 1, reason: 'manual reject' } },
+      interactions: [interaction(kind: :signal, name: :manager_approved, received_at: captured_at + 2)]
+    )
+
+    expect(result.fetch_step(:approve)).to be_approval_rejected
+    expect(result.fetch_step(:approve)).to be_awaiting_approval
+    expect(result.fetch_step(:approve)).not_to be_ready
+    expect(result.fetch_step(:approve).approval_received_at).to be_nil
+  end
+
+  it 'reports drained paused workflows as paused without changing the frontier step set' do
+    jobs = [job(id: 'job_approve', state: :queued)]
+    paused = snapshot(
+      jobs:,
+      step_job_ids: { approve: 'job_approve' },
+      approval_requirements_by_job_id: { 'job_approve' => { name: :manager_approved } },
+      pause_requested_at: captured_at + 4
+    )
+
+    expect(paused.pause_requested_at).to eq(captured_at + 4)
+    expect(paused.fetch_step(:approve)).to be_awaiting_approval
+    expect(paused.state).to eq(:paused)
   end
 
   it 'accepts explicit interaction delivery timestamps for step readiness separate from inspection history' do
@@ -514,6 +588,115 @@ RSpec.describe Karya::Workflow::Snapshot do
         }
       )
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate interaction requirement job "job_child"')
+  end
+
+  it 'validates approval requirement metadata' do
+    jobs = [job(id: 'job_child', state: :queued)]
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, approval_requirements_by_job_id: 'approval')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_requirements_by_job_id must be a Hash')
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, approval_requirements_by_job_id: { 'job_child' => 'approval' })
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval requirement must be a Hash')
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, approval_requirements_by_job_id: { 'job_child' => {} })
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval requirement must include :name')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_requirements_by_job_id: { ' job_child ' => { name: :manager_approved }, job_child: { name: :manager_approved } }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate approval requirement job "job_child"')
+  end
+
+  it 'validates approval decision metadata' do
+    jobs = [job(id: 'job_child', state: :queued)]
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, approval_decisions_by_job_id: { 'job_child' => [] })
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval decision must be a Hash')
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, approval_decisions_by_job_id: 'approved')
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_decisions_by_job_id must be a Hash')
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, approval_decisions_by_job_id: { 'job_child' => { decided_at: captured_at } })
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval decision must include :state')
+
+    expect do
+      snapshot(jobs:, step_job_ids: { child: 'job_child' }, approval_decisions_by_job_id: { 'job_child' => { state: :approved } })
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval decision must include :decided_at')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_decisions_by_job_id: { 'job_child' => { state: :later, decided_at: captured_at } }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval decision state must be :approved or :rejected')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_decisions_by_job_id: { 'job_child' => { state: 123, decided_at: captured_at } }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval decision state must be :approved or :rejected')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_decisions_by_job_id: { 'job_child' => { state: :rejected, decided_at: captured_at } }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval decision :rejected must include :reason')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_decisions_by_job_id: { 'job_child' => { state: :rejected, decided_at: captured_at, reason: '   ' } }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_rejection_reason must be present')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_decisions_by_job_id: { 'job_child' => { state: :rejected, decided_at: captured_at, reason: 123 } }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval_rejection_reason must be a String')
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_decisions_by_job_id: {
+          ' job_child ' => { state: :approved, decided_at: captured_at },
+          job_child: { state: :approved, decided_at: captured_at }
+        }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'duplicate approval decision job "job_child"')
+  end
+
+  it 'rejects approved approval decisions that include a rejection reason' do
+    jobs = [job(id: 'job_child', state: :queued)]
+
+    expect do
+      snapshot(
+        jobs:,
+        step_job_ids: { child: 'job_child' },
+        approval_decisions_by_job_id: {
+          'job_child' => { state: :approved, decided_at: captured_at, reason: 'manual reject' }
+        }
+      )
+    end.to raise_error(Karya::Workflow::InvalidExecutionError, 'approval decision :approved must not include :reason')
   end
 
   it 'derives workflow states' do

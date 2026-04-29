@@ -45,7 +45,12 @@ RSpec.describe Karya::Workflow::Step do
     expect(step.child_workflow).to eq('payment_subflow')
   end
 
-  it 'normalizes optional signal and event gates' do
+  it 'normalizes optional approval, signal, and event gates' do
+    approval_step = described_class.new(
+      id: :capture_payment,
+      handler: :capture_payment,
+      wait_for_approval: ' manager-approved '
+    )
     signal_step = described_class.new(
       id: :capture_payment,
       handler: :capture_payment,
@@ -57,6 +62,8 @@ RSpec.describe Karya::Workflow::Step do
       wait_for_event: ' payment-received '
     )
 
+    expect(approval_step.wait_for_approval).to eq('manager-approved')
+    expect(approval_step.wait_for_signal).to be_nil
     expect(signal_step.wait_for_signal).to eq('manager-approved')
     expect(signal_step.wait_for_event).to be_nil
     expect(event_step.wait_for_event).to eq('payment-received')
@@ -107,17 +114,18 @@ RSpec.describe Karya::Workflow::Step do
     end.to raise_error(ArgumentError, 'unknown keywords: :unknown, :extra')
   end
 
-  it 'rejects steps that wait for both signal and event' do
+  it 'rejects steps that wait for more than one interaction gate' do
     expect do
       described_class.new(
         id: :capture_payment,
         handler: :capture_payment,
+        wait_for_approval: :manager_approved,
         wait_for_signal: :manager_approved,
         wait_for_event: :payment_received
       )
     end.to raise_error(
       Karya::Workflow::InvalidDefinitionError,
-      'workflow step "capture_payment" cannot wait for both signal and event'
+      'workflow step "capture_payment" cannot wait for more than one interaction gate'
     )
   end
 

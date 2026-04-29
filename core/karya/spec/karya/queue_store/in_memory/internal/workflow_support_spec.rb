@@ -24,6 +24,11 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
     workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
   end
 
+  it 'keeps workflow snapshot construction private' do
+    expect(store).not_to respond_to(:build_workflow_snapshot)
+    expect(store.respond_to?(:build_workflow_snapshot, true)).to be(true)
+  end
+
   it 'treats non-workflow jobs and root workflow jobs as ready' do
     plain_job = job(id: 'job-1', state: :queued)
     root_job = job(id: 'job-2', state: :queued)
@@ -53,6 +58,67 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowSupport' do
   it 'treats missing prerequisite jobs as blocked' do
     dependent = job(id: 'job-2', state: :queued)
     store.send(:state).workflow_dependency_job_ids_by_job_id['job-2'] = ['missing']
+
+    expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(false)
+  end
+
+  it 'blocks workflow reservation while paused even when prerequisites are otherwise satisfied' do
+    dependent = job(id: 'job-2', state: :queued)
+    state = store.send(:state)
+    state.batch_id_by_job_id['job-2'] = 'batch-1'
+    state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'approve' => 'job-2' },
+      dependency_job_ids_by_job_id: { 'job-2' => [] },
+      compensation_jobs_by_step_id: {}
+    )
+    state.mark_workflow_pause_requested(batch_id: 'batch-1', now: created_at)
+
+    expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(false)
+  end
+
+  it 'treats approval checkpoints as unsatisfied until approved or signal-delivered' do
+    dependent = job(id: 'job-2', state: :queued)
+    state = store.send(:state)
+    state.batch_id_by_job_id['job-2'] = 'batch-1'
+    state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'approve' => 'job-2' },
+      dependency_job_ids_by_job_id: { 'job-2' => [] },
+      approval_requirements_by_job_id: { 'job-2' => { name: 'manager_approved' } },
+      compensation_jobs_by_step_id: {}
+    )
+
+    expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(false)
+
+    state.register_workflow_approval_approved(job_id: 'job-2', decided_at: created_at + 1)
+    expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(true)
+  end
+
+  it 'treats rejected approval checkpoints as unsatisfied even after a matching signal is delivered' do
+    dependent = job(id: 'job-2', state: :queued)
+    state = store.send(:state)
+    state.batch_id_by_job_id['job-2'] = 'batch-1'
+    state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'approve' => 'job-2' },
+      dependency_job_ids_by_job_id: { 'job-2' => [] },
+      approval_requirements_by_job_id: { 'job-2' => { name: 'manager_approved' } },
+      compensation_jobs_by_step_id: {}
+    )
+    state.register_workflow_approval_rejected(job_id: 'job-2', decided_at: created_at + 1, reason: 'manual reject')
+    state.register_workflow_interaction(
+      batch_id: 'batch-1',
+      interaction: Karya::Workflow::InteractionSnapshot.new(
+        kind: :signal,
+        name: :manager_approved,
+        payload: {},
+        received_at: created_at + 2
+      )
+    )
 
     expect(store.send(:workflow_dependencies_satisfied?, dependent, now: created_at)).to be(false)
   end

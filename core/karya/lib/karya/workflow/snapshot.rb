@@ -21,11 +21,14 @@ module Karya
         jobs
       ].freeze
       OPTIONAL_ATTRIBUTES = %i[
+        approval_decisions_by_job_id
+        approval_requirements_by_job_id
         child_workflow_ids_by_step_id
         child_workflows
         interactions
         interaction_requirements_by_job_id
         interaction_received_at_by_job_id
+        pause_requested_at
         parent
         rollback
       ].freeze
@@ -36,12 +39,11 @@ module Karya
         @identity = attributes.identity
         @membership = attributes.membership
         @child_relationships = attributes.child_relationships
-        @interactions = attributes.interactions
-        grouped_interactions = interactions.group_by(&:kind)
-        @signals = grouped_interactions.fetch(:signal, []).freeze
-        @events = grouped_interactions.fetch(:event, []).freeze
+        @interaction_views = InteractionViews.new(attributes.interactions)
         interaction_state = InteractionState.new(
           interaction_requirements_by_job_id: attributes.interaction_requirements_by_job_id,
+          approval_requirements_by_job_id: attributes.approval_requirements_by_job_id,
+          approval_decisions_by_job_id: attributes.approval_decisions_by_job_id,
           interaction_received_at_by_job_id: attributes.interaction_received_at_by_job_id,
           interactions:
         )
@@ -51,9 +53,10 @@ module Karya
           child_relationships:,
           interaction_state:
         )
+        @pause_requested_at = attributes.pause_requested_at
         @parent = attributes.parent
         @rollback = attributes.rollback
-        @summary_data = SummaryData.new(membership, step_inspection)
+        @summary_data = SummaryData.new(membership, step_inspection, pause_requested_at: @pause_requested_at)
         freeze
       end
 
@@ -121,7 +124,22 @@ module Karya
         child_relationships.fetch_child_workflow(step_id)
       end
 
-      attr_reader :events, :interactions, :parent, :rollback, :signals
+      attr_reader :child_relationships,
+                  :identity,
+                  :interaction_views,
+                  :membership,
+                  :parent,
+                  :pause_requested_at,
+                  :rollback,
+                  :step_inspection,
+                  :summary_data
+      private :child_relationships, :identity, :interaction_views, :membership, :step_inspection, :summary_data
+
+      def interactions = interaction_views.interactions
+
+      def signals = interaction_views.signals
+
+      def events = interaction_views.events
 
       def state_counts
         summary_data.state_counts
@@ -141,6 +159,19 @@ module Karya
 
       def state
         summary_data.state
+      end
+
+      # Caches immutable interaction views for one snapshot.
+      class InteractionViews
+        attr_reader :events, :interactions, :signals
+
+        def initialize(interactions)
+          @interactions = interactions
+          grouped_interactions = interactions.group_by(&:kind)
+          @signals = grouped_interactions.fetch(:signal, []).freeze
+          @events = grouped_interactions.fetch(:event, []).freeze
+          freeze
+        end
       end
 
       # Validates and exposes snapshot construction attributes.
@@ -188,12 +219,27 @@ module Karya
           InteractionList.new(attributes.fetch(:interactions, [])).to_a
         end
 
+        def approval_requirements_by_job_id
+          ApprovalRequirements.new(attributes.fetch(:approval_requirements_by_job_id, {})).to_h
+        end
+
+        def approval_decisions_by_job_id
+          ApprovalDecisionsByJobId.new(attributes.fetch(:approval_decisions_by_job_id, {})).to_h
+        end
+
         def interaction_requirements_by_job_id
           InteractionRequirements.new(attributes.fetch(:interaction_requirements_by_job_id, {})).to_h
         end
 
         def interaction_received_at_by_job_id
           InteractionReceivedAtByJobId.new(attributes.fetch(:interaction_received_at_by_job_id, {})).to_h
+        end
+
+        def pause_requested_at
+          value = attributes.fetch(:pause_requested_at, nil)
+          return nil unless value
+
+          Timestamp.new(:pause_requested_at, value).to_time
         end
 
         def parent
@@ -314,6 +360,9 @@ module Karya
           @identity = identity
           @membership = membership
           @child_relationships = child_relationships
+          @approval_requirements_by_job_id = interaction_state.approval_requirements_by_job_id
+          @approval_decisions_by_job_id = interaction_state.approval_decisions_by_job_id
+          @approval_received_at_by_job_id = interaction_state.approval_received_at_by_job_id
           @interaction_requirements_by_job_id = interaction_state.interaction_requirements_by_job_id
           @interaction_received_at_by_job_id = interaction_state.received_at_by_job_id
           @steps = build_steps
@@ -337,28 +386,12 @@ module Karya
 
         private
 
-        attr_reader :child_relationships, :identity, :interaction_received_at_by_job_id,
+        attr_reader :approval_decisions_by_job_id, :approval_received_at_by_job_id,
+                    :approval_requirements_by_job_id, :child_relationships, :identity, :interaction_received_at_by_job_id,
                     :interaction_requirements_by_job_id, :membership, :steps_by_id
 
         def build_steps
-          membership.step_job_ids.map do |step_id, job_id|
-            prerequisite_job_ids = membership.dependency_job_ids_by_job_id.fetch(job_id, [])
-            interaction_requirement = interaction_requirements_by_job_id[job_id]
-            StepSnapshot.new(
-              workflow_id: identity.workflow_id,
-              batch_id: identity.batch_id,
-              step_id:,
-              job_id:,
-              job: membership.jobs_by_id.fetch(job_id),
-              prerequisite_job_ids:,
-              prerequisite_states: prerequisite_states_for(prerequisite_job_ids),
-              child_workflow_id: child_relationships.child_workflow_id(step_id),
-              child_workflow: child_relationships.child_workflow(step_id),
-              interaction_kind: interaction_requirement&.fetch(:kind, nil),
-              interaction_name: interaction_requirement&.fetch(:name, nil),
-              interaction_received_at: interaction_received_at_by_job_id[job_id]
-            )
-          end.freeze
+          membership.step_job_ids.map { |step_id, job_id| build_step(step_id, job_id) }.freeze
         end
 
         def prerequisite_states_for(prerequisite_job_ids)
@@ -367,14 +400,60 @@ module Karya
             [job_id, prerequisite_job&.state]
           end
         end
+
+        def build_step(step_id, job_id)
+          prerequisite_job_ids = membership.dependency_job_ids_by_job_id.fetch(job_id, [])
+          StepSnapshot.new(
+            workflow_id: identity.workflow_id,
+            batch_id: identity.batch_id,
+            step_id:,
+            job_id:,
+            job: membership.jobs_by_id.fetch(job_id),
+            prerequisite_job_ids:,
+            prerequisite_states: prerequisite_states_for(prerequisite_job_ids),
+            child_workflow_id: child_relationships.child_workflow_id(step_id),
+            child_workflow: child_relationships.child_workflow(step_id),
+            **approval_attributes_for(job_id),
+            **interaction_attributes_for(job_id),
+            interaction_received_at: interaction_received_at_by_job_id[job_id]
+          )
+        end
+
+        def approval_attributes_for(job_id)
+          approval_requirement = approval_requirements_by_job_id[job_id]
+          approval_decision = approval_decisions_by_job_id[job_id]
+          {
+            approval_name: approval_requirement&.fetch(:name, nil),
+            approval_state: approval_decision&.fetch(:state, nil),
+            approval_decided_at: approval_decision&.fetch(:decided_at, nil),
+            approval_received_at: approval_received_at_by_job_id[job_id],
+            approval_rejection_reason: approval_decision&.fetch(:reason, nil)
+          }
+        end
+
+        def interaction_attributes_for(job_id)
+          interaction_requirement = interaction_requirements_by_job_id[job_id]
+          {
+            interaction_kind: interaction_requirement&.fetch(:kind, nil),
+            interaction_name: interaction_requirement&.fetch(:name, nil)
+          }
+        end
       end
 
       # Groups interaction requirements, history, and readiness timestamps.
       class InteractionState
-        attr_reader :interaction_requirements_by_job_id
+        attr_reader :approval_decisions_by_job_id, :approval_requirements_by_job_id, :interaction_requirements_by_job_id
 
-        def initialize(interaction_requirements_by_job_id:, interaction_received_at_by_job_id:, interactions:)
+        def initialize(
+          interaction_requirements_by_job_id:,
+          approval_requirements_by_job_id:,
+          approval_decisions_by_job_id:,
+          interaction_received_at_by_job_id:,
+          interactions:
+        )
           @interaction_requirements_by_job_id = interaction_requirements_by_job_id
+          @approval_requirements_by_job_id = approval_requirements_by_job_id
+          @approval_decisions_by_job_id = approval_decisions_by_job_id
           @interaction_received_at_by_job_id = interaction_received_at_by_job_id
           @interactions = interactions
           freeze
@@ -387,6 +466,27 @@ module Karya
             interaction_requirements_by_job_id:,
             interactions:
           ).to_h
+        end
+
+        def approval_received_at_by_job_id
+          explicit = approval_decisions_by_job_id.each_with_object({}) do |(job_id, decision), received_at|
+            state = decision.fetch(:state)
+            next unless state == :approved
+
+            received_at[job_id] = decision.fetch(:decided_at)
+          end.freeze
+          delivered = ApprovalDeliveries.new(
+            approval_requirements_by_job_id:,
+            interactions:
+          ).to_h.each_with_object({}) do |(job_id, received_at), filtered|
+            decision = approval_decisions_by_job_id[job_id]
+            next if decision&.fetch(:state) == :rejected
+
+            filtered[job_id] = received_at
+          end.freeze
+          return delivered if explicit.empty?
+
+          delivered.merge(explicit).freeze
         end
 
         private
@@ -509,6 +609,140 @@ module Karya
         end
 
         private_constant :Requirement
+      end
+
+      # Normalizes approval checkpoint requirements keyed by concrete job id.
+      class ApprovalRequirements
+        def initialize(approval_requirements_by_job_id)
+          @approval_requirements_by_job_id = approval_requirements_by_job_id
+        end
+
+        def to_h
+          raise InvalidExecutionError, 'approval_requirements_by_job_id must be a Hash' unless approval_requirements_by_job_id.is_a?(Hash)
+
+          approval_requirements_by_job_id.each_with_object({}) do |(job_id, requirement), normalized|
+            normalized_job_id = Workflow.send(:normalize_execution_identifier, :job_id, job_id)
+            raise InvalidExecutionError, "duplicate approval requirement job #{normalized_job_id.inspect}" if normalized.key?(normalized_job_id)
+
+            normalized[normalized_job_id] = Requirement.new(requirement).to_h
+          end.freeze
+        end
+
+        private
+
+        attr_reader :approval_requirements_by_job_id
+
+        # Normalizes one approval requirement entry.
+        class Requirement
+          def initialize(requirement)
+            @requirement = requirement
+          end
+
+          def to_h
+            raise InvalidExecutionError, 'approval requirement must be a Hash' unless requirement.is_a?(Hash)
+
+            name = requirement.fetch(:name) { raise InvalidExecutionError, 'approval requirement must include :name' }
+            { name: Workflow.send(:normalize_execution_identifier, :approval_name, name) }.freeze
+          end
+
+          private
+
+          attr_reader :requirement
+        end
+
+        private_constant :Requirement
+      end
+
+      # Normalizes stored approval decisions keyed by concrete job id.
+      class ApprovalDecisionsByJobId
+        def initialize(approval_decisions_by_job_id)
+          @approval_decisions_by_job_id = approval_decisions_by_job_id
+        end
+
+        def to_h
+          raise InvalidExecutionError, 'approval_decisions_by_job_id must be a Hash' unless approval_decisions_by_job_id.is_a?(Hash)
+
+          approval_decisions_by_job_id.each_with_object({}) do |(job_id, decision), normalized|
+            normalized_job_id = Workflow.send(:normalize_execution_identifier, :job_id, job_id)
+            raise InvalidExecutionError, "duplicate approval decision job #{normalized_job_id.inspect}" if normalized.key?(normalized_job_id)
+
+            normalized[normalized_job_id] = Decision.new(decision).to_h
+          end.freeze
+        end
+
+        private
+
+        attr_reader :approval_decisions_by_job_id
+
+        # Normalizes one stored approval checkpoint decision.
+        class Decision
+          UNSET_REASON = Object.new.freeze
+
+          def initialize(decision)
+            @decision = decision
+          end
+
+          def to_h
+            raise InvalidExecutionError, 'approval decision must be a Hash' unless decision.is_a?(Hash)
+
+            state = StateValue.new(
+              decision.fetch(:state) { raise InvalidExecutionError, 'approval decision must include :state' }
+            ).to_sym
+            decided_at = Timestamp.new(:approval_decided_at, decision.fetch(:decided_at) do
+              raise InvalidExecutionError, 'approval decision must include :decided_at'
+            end).to_time
+            if state == :approved
+              reason = decision.fetch(:reason, UNSET_REASON)
+              raise InvalidExecutionError, 'approval decision :approved must not include :reason' unless [UNSET_REASON, nil].include?(reason)
+
+              return { state:, decided_at: }.freeze
+            end
+
+            reason = decision.fetch(:reason) { raise InvalidExecutionError, 'approval decision :rejected must include :reason' }
+            { state:, decided_at:, reason: normalize_reason(reason) }.freeze
+          end
+
+          private
+
+          attr_reader :decision
+
+          def normalize_reason(reason)
+            raise InvalidExecutionError, 'approval_rejection_reason must be a String' unless reason.is_a?(String)
+
+            normalized = reason.strip
+            raise InvalidExecutionError, 'approval_rejection_reason must be present' if normalized.empty?
+
+            normalized.freeze
+          end
+
+          # Normalizes one stored approval decision state enum.
+          class StateValue
+            ERROR_MESSAGE = 'approval decision state must be :approved or :rejected'
+
+            def initialize(value)
+              @value = value
+            end
+
+            def to_sym
+              normalized =
+                case value
+                when String, Symbol
+                  value.to_sym
+                end
+              return normalized if %i[approved rejected].include?(normalized)
+
+              raise InvalidExecutionError, ERROR_MESSAGE
+            end
+
+            private
+
+            attr_reader :value
+          end
+
+          private_constant :StateValue
+        end
+
+        private_constant :Decision
       end
 
       # Normalizes delivered interaction timestamps keyed by concrete job id.
@@ -650,18 +884,40 @@ module Karya
         end
       end
 
+      # Resolves approval satisfaction timestamps from compatible signal deliveries.
+      class ApprovalDeliveries
+        def initialize(approval_requirements_by_job_id:, interactions:)
+          @approval_requirements_by_job_id = approval_requirements_by_job_id
+          @interactions = interactions
+        end
+
+        def to_h
+          interaction_requirements_by_job_id = approval_requirements_by_job_id.transform_values do |requirement|
+            { kind: :signal, name: requirement.fetch(:name) }.freeze
+          end.freeze
+          InteractionDeliveries.new(
+            interaction_requirements_by_job_id:,
+            interactions:
+          ).to_h
+        end
+
+        private
+
+        attr_reader :approval_requirements_by_job_id, :interactions
+      end
+
       # Groups snapshot state summary fields.
       class SummaryData
         attr_reader :completed_count, :failed_count, :state, :state_counts, :total_count
 
-        def initialize(membership, step_inspection)
+        def initialize(membership, step_inspection, pause_requested_at:)
           jobs = membership.jobs
           summary = Summary.new(jobs)
           @state_counts = summary.state_counts
           @total_count = jobs.length
           @completed_count = summary.completed_count
           @failed_count = summary.failed_count
-          @state = State.new(jobs:, steps: step_inspection.steps).to_sym
+          @state = State.new(jobs:, steps: step_inspection.steps, pause_requested_at:).to_sym
           freeze
         end
       end
@@ -810,9 +1066,10 @@ module Karya
 
       # Derives workflow state from current job states and prerequisites.
       class State
-        def initialize(jobs:, steps:)
+        def initialize(jobs:, steps:, pause_requested_at:)
           @jobs = jobs
           @steps = steps
+          @pause_requested_at = pause_requested_at
         end
 
         def to_sym
@@ -821,6 +1078,8 @@ module Karya
           return :cancelled if only_state?(:cancelled)
           return :failed if terminal_mixed?
           return :running if running?
+          return :paused if paused?
+          return :awaiting_approval if awaiting_approval?
           return :blocked if blocked?
           return :running if progressed?
 
@@ -829,7 +1088,7 @@ module Karya
 
         private
 
-        attr_reader :jobs, :steps
+        attr_reader :jobs, :pause_requested_at, :steps
 
         def failed?
           jobs.any? { |job| FAILED_STATES.include?(job.state) }
@@ -854,9 +1113,26 @@ module Karya
         def blocked?
           steps.any?(&:blocked?)
         end
+
+        def paused?
+          !!pause_requested_at
+        end
+
+        def awaiting_approval?
+          frontier_blocked_steps.any? && frontier_blocked_steps.all?(&:awaiting_approval?)
+        end
+
+        def frontier_blocked_steps
+          @frontier_blocked_steps ||= steps.select do |step|
+            step.blocked? && step.prerequisite_states.values.all?(:succeeded)
+          end.freeze
+        end
       end
 
-      private_constant :Attributes,
+      private_constant :ApprovalDecisionsByJobId,
+                       :ApprovalDeliveries,
+                       :ApprovalRequirements,
+                       :Attributes,
                        :ChildRelationships,
                        :ChildWorkflowIds,
                        :ChildWorkflowList,
@@ -870,6 +1146,7 @@ module Karya
                        :InteractionReceivedAtByJobId,
                        :InteractionRequirements,
                        :InteractionState,
+                       :InteractionViews,
                        :JobState,
                        :JobList,
                        :Membership,
@@ -883,10 +1160,6 @@ module Karya
                        :SummaryData,
                        :Timestamp,
                        :WAITING_STATES
-
-      private
-
-      attr_reader :child_relationships, :identity, :membership, :step_inspection, :summary_data
     end
   end
 end

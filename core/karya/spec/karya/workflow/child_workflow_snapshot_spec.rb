@@ -45,6 +45,30 @@ RSpec.describe Karya::Workflow::ChildWorkflowSnapshot do
     end.to raise_error(Karya::Workflow::InvalidExecutionError, 'child_state must be a workflow state')
   end
 
+  it 'accepts paused and awaiting_approval child workflow states' do
+    paused = described_class.new(
+      parent_workflow_id: :parent,
+      parent_batch_id: :parent_batch,
+      parent_step_id: :child_step,
+      parent_job_id: :parent_job,
+      child_workflow_id: :child,
+      child_batch_id: :child_batch,
+      child_state: :paused
+    )
+    awaiting_approval = described_class.new(
+      parent_workflow_id: :parent,
+      parent_batch_id: :parent_batch,
+      parent_step_id: :child_step,
+      parent_job_id: :parent_job,
+      child_workflow_id: :child,
+      child_batch_id: :child_batch,
+      child_state: :awaiting_approval
+    )
+
+    expect(paused.child_state).to eq(:paused)
+    expect(awaiting_approval.child_state).to eq(:awaiting_approval)
+  end
+
   it 'rejects unknown attributes' do
     expect do
       described_class.new(

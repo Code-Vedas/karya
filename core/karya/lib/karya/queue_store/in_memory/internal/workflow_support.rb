@@ -39,6 +39,7 @@ module Karya
                 workflow_id: definition.id,
                 step_job_ids:,
                 dependency_job_ids_by_job_id:,
+                approval_requirements_by_job_id: ApprovalRequirements.new(definition:, step_job_ids:).to_h,
                 interaction_requirements_by_job_id: InteractionRequirements.new(definition:, step_job_ids:).to_h,
                 compensation_jobs_by_step_id: binding.compensation_jobs_by_step_id,
                 child_workflow_ids_by_step_id: WorkflowChildIds.new(definition).to_h
@@ -96,7 +97,7 @@ module Karya
               workflow_batch_id = batch.id
               registration = fetch_workflow_registration(workflow_batch_id)
               jobs = fetch_batch_jobs(batch)
-              WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now, state:).to_snapshot
+              build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now)
             end
           end
 
@@ -363,7 +364,7 @@ module Karya
             registration = fetch_workflow_registration(workflow_batch_id)
             raise_duplicate_rollback(workflow_batch_id)
             jobs = fetch_batch_jobs(batch)
-            snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now:, state:).to_snapshot
+            snapshot = build_workflow_snapshot(batch:, registration:, jobs:, now:)
             RollbackState.new(snapshot, registration.dependency_job_ids_by_job_id).validate
             plan = RollbackPlan.new(registration:, jobs:).to_plan
             rollback_batch_id = RollbackBatchId.new(workflow_batch_id).to_s
@@ -420,18 +421,22 @@ module Karya
             end
 
             def to_snapshot
+              workflow_batch_id = batch.id
               Workflow::Snapshot.new(
                 workflow_id: registration.workflow_id,
-                batch_id: batch.id,
+                batch_id: workflow_batch_id,
                 captured_at: now,
                 step_job_ids: registration.step_job_ids,
                 dependency_job_ids_by_job_id: registration.dependency_job_ids_by_job_id,
                 jobs:,
+                approval_requirements_by_job_id: registration.approval_requirements_by_job_id,
+                approval_decisions_by_job_id: approval_decisions_by_job_id,
                 child_workflow_ids_by_step_id: registration.child_workflow_ids_by_step_id,
                 child_workflows: child_workflow_snapshots,
                 interaction_requirements_by_job_id: registration.interaction_requirements_by_job_id,
                 interaction_received_at_by_job_id: interaction_received_at_by_job_id,
                 interactions: interaction_snapshots,
+                pause_requested_at: state.workflow_pause_requested_at(workflow_batch_id),
                 parent: parent_snapshot,
                 rollback: rollback_snapshot
               )
@@ -473,6 +478,13 @@ module Karya
                   name: requirement.fetch(:name)
                 )
                 received_at_by_job_id[job_id] = received_at if received_at
+              end.freeze
+            end
+
+            def approval_decisions_by_job_id
+              registration.approval_requirements_by_job_id.each_with_object({}) do |(job_id, _requirement), decisions|
+                decision = state.workflow_approval_decision_for(job_id)
+                decisions[job_id] = decision.to_snapshot_decision if decision
               end.freeze
             end
 
@@ -592,8 +604,10 @@ module Karya
 
           def workflow_dependencies_satisfied?(job, now:)
             prerequisite_job_ids = state.workflow_dependency_job_ids_for(job.id)
+            return false if workflow_paused?(job)
             return false unless workflow_child_satisfied?(job, now:)
             return false unless workflow_interaction_satisfied?(job)
+            return false unless workflow_approval_satisfied?(job)
             return true unless prerequisite_job_ids
 
             prerequisite_job_ids.all? do |prerequisite_job_id|
@@ -630,6 +644,10 @@ module Karya
               kind: requirement.fetch(:kind),
               name: requirement.fetch(:name)
             )
+          end
+
+          def build_workflow_snapshot(batch:, registration:, jobs:, now:)
+            WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now:, state:).to_snapshot
           end
         end
       end

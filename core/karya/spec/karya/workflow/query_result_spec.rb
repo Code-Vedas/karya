@@ -9,11 +9,11 @@ RSpec.describe Karya::Workflow::QueryResult do
   let(:queried_at) { Time.utc(2026, 4, 26, 12, 0, 0) }
 
   it 'normalizes supported workflow queries' do
-    state = described_class.new(query: ' state ', value: :running, queried_at:)
+    state = described_class.new(query: ' state ', value: :paused, queried_at:)
     current_step = described_class.new(query: :'current-step', value: ' capture_payment ', queried_at:)
     current_steps = described_class.new(query: 'current-steps', value: %i[capture_payment emit_receipt], queried_at:)
 
-    expect(state).to have_attributes(query: 'state', value: :running, queried_at:)
+    expect(state).to have_attributes(query: 'state', value: :paused, queried_at:)
     expect(current_step).to have_attributes(query: 'current-step', value: 'capture_payment', queried_at:)
     expect(current_steps).to have_attributes(query: 'current-steps', value: %w[capture_payment emit_receipt], queried_at:)
     expect(current_steps.value).to be_frozen

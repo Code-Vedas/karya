@@ -86,6 +86,7 @@ module Karya
         compensate_with: nil,
         compensation_arguments: {},
         child_workflow: nil,
+        wait_for_approval: nil,
         wait_for_signal: nil,
         wait_for_event: nil
       )
@@ -97,6 +98,7 @@ module Karya
           compensate_with:,
           compensation_arguments:,
           child_workflow:,
+          wait_for_approval:,
           wait_for_signal:,
           wait_for_event:
         )

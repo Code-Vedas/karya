@@ -116,6 +116,37 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Cooperatively pause one workflow batch without interrupting active work.
+      def pause_workflow(batch_id:, now:)
+        _batch_id = batch_id
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Resume one previously paused workflow batch.
+      def resume_workflow(batch_id:, now:)
+        _batch_id = batch_id
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Approve explicit workflow approval checkpoints addressed by step id.
+      def approve_workflow_checkpoints(batch_id:, step_ids:, now:)
+        _batch_id = batch_id
+        _step_ids = step_ids
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
+      # Reject explicit workflow approval checkpoints addressed by step id.
+      def reject_workflow_checkpoints(batch_id:, step_ids:, now:, reason:)
+        _batch_id = batch_id
+        _step_ids = step_ids
+        _now = now
+        _reason = reason
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       # Enqueue a child workflow batch for one declared parent child step.
       def enqueue_child_workflow(
         parent_batch_id:,

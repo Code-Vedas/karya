@@ -32,6 +32,8 @@ module Karya
           @workflow_children: WorkflowChildren
           @workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
           @workflow_interactions: WorkflowInteractions
+          @workflow_pause_requests_by_batch_id: Hash[String, Time]
+          @workflow_approval_decisions_by_job_id: Hash[String, WorkflowApprovalDecision]
           @workflow_rollback_batch_ids: Hash[String, bool]
           @workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
           @workflow_rollbacks_by_batch_id: Hash[String, WorkflowRollback]
@@ -59,6 +61,8 @@ module Karya
           attr_reader workflow_children: WorkflowChildren
           attr_reader workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
           attr_reader workflow_interactions: WorkflowInteractions
+          attr_reader workflow_pause_requests_by_batch_id: Hash[String, Time]
+          attr_reader workflow_approval_decisions_by_job_id: Hash[String, WorkflowApprovalDecision]
           attr_reader workflow_rollback_batch_ids: Hash[String, bool]
           attr_reader workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration]
           attr_reader workflow_rollbacks_by_batch_id: Hash[String, WorkflowRollback]
@@ -92,6 +96,14 @@ module Karya
           def register_workflow_dependencies: (Hash[String, Array[String]] dependency_job_ids_by_job_id) -> Hash[String, Array[String]]
           def register_workflow_interaction: (batch_id: String, interaction: Karya::Workflow::InteractionSnapshot) -> Array[Karya::Workflow::InteractionSnapshot]
           def workflow_dependency_job_ids_for: (String job_id) -> Array[String]?
+          def workflow_pause_requested_at: (String batch_id) -> Time?
+          def mark_workflow_pause_requested: (batch_id: String, now: Time) -> (:changed | :unchanged)
+          def clear_workflow_pause_requested: (String batch_id) -> (:changed | :unchanged)
+          def workflow_approval_requirements_for: (String batch_id) -> Hash[String, Karya::approval_requirement]
+          def workflow_approval_requirement_for: (String job_id) -> Karya::approval_requirement?
+          def workflow_approval_decision_for: (String job_id) -> WorkflowApprovalDecision?
+          def register_workflow_approval_approved: (job_id: String, decided_at: Time) -> WorkflowApprovalDecision
+          def register_workflow_approval_rejected: (job_id: String, decided_at: Time, reason: String) -> WorkflowApprovalDecision
           def workflow_interactions_for: (String batch_id) -> Array[Karya::Workflow::InteractionSnapshot]
           def workflow_interaction_delivered?: (batch_id: String, kind: Karya::interaction_kind, name: String) -> bool
           def workflow_interaction_received_at: (batch_id: String, kind: Karya::interaction_kind, name: String) -> Time?
@@ -101,6 +113,7 @@ module Karya
             step_job_ids: Hash[String, String],
             dependency_job_ids_by_job_id: Hash[String, Array[String]],
             compensation_jobs_by_step_id: Hash[String, Job],
+            ?approval_requirements_by_job_id: Hash[String, Karya::approval_requirement],
             ?interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement],
             ?child_workflow_ids_by_step_id: Hash[String, String]
           ) -> WorkflowRegistration
@@ -120,6 +133,7 @@ module Karya
             @workflow_id: String
             @step_job_ids: Hash[String, String]
             @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            @approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
             @interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
             @interaction_supported_keys: Hash[[Karya::interaction_kind, String], bool]
             @compensation_jobs_by_step_id: Hash[String, Job]
@@ -129,6 +143,7 @@ module Karya
               workflow_id: String,
               step_job_ids: Hash[String, String],
               dependency_job_ids_by_job_id: Hash[String, Array[String]],
+              approval_requirements_by_job_id: Hash[String, Karya::approval_requirement],
               interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement],
               compensation_jobs_by_step_id: Hash[String, Job],
               child_workflow_ids_by_step_id: Hash[String, String]
@@ -138,6 +153,7 @@ module Karya
               String workflow_id,
               Hash[String, String] step_job_ids,
               Hash[String, Array[String]] dependency_job_ids_by_job_id,
+              Hash[String, Karya::approval_requirement] approval_requirements_by_job_id,
               Hash[String, Karya::interaction_requirement] interaction_requirements_by_job_id,
               Hash[[Karya::interaction_kind, String], bool] interaction_supported_keys,
               Hash[String, Job] compensation_jobs_by_step_id,
@@ -147,10 +163,28 @@ module Karya
             attr_reader workflow_id: String
             attr_reader step_job_ids: Hash[String, String]
             attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            attr_reader approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
             attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
             attr_reader interaction_supported_keys: Hash[[Karya::interaction_kind, String], bool]
             attr_reader compensation_jobs_by_step_id: Hash[String, Job]
             attr_reader child_workflow_ids_by_step_id: Hash[String, String]
+          end
+
+          class WorkflowApprovalDecision
+            @job_id: String
+            @state: Karya::approval_state
+            @decided_at: Time
+            @reason: String?
+
+            def self.approved: (job_id: String, decided_at: Time) -> WorkflowApprovalDecision
+            def self.rejected: (job_id: String, decided_at: Time, reason: String) -> WorkflowApprovalDecision
+
+            def initialize: (String job_id, Karya::approval_state state, Time decided_at, String? reason) -> void
+            def to_snapshot_decision: () -> Karya::approval_decision
+            attr_reader job_id: String
+            attr_reader state: Karya::approval_state
+            attr_reader decided_at: Time
+            attr_reader reason: String?
           end
 
           class PrunedBatchCleanup

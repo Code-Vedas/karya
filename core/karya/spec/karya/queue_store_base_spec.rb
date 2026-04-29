@@ -77,6 +77,35 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #deliver_workflow_event/)
   end
 
+  it 'requires pause_workflow to be implemented' do
+    expect do
+      store.pause_workflow(batch_id: 'batch-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #pause_workflow/)
+  end
+
+  it 'requires resume_workflow to be implemented' do
+    expect do
+      store.resume_workflow(batch_id: 'batch-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #resume_workflow/)
+  end
+
+  it 'requires approve_workflow_checkpoints to be implemented' do
+    expect do
+      store.approve_workflow_checkpoints(batch_id: 'batch-1', step_ids: ['approve'], now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #approve_workflow_checkpoints/)
+  end
+
+  it 'requires reject_workflow_checkpoints to be implemented' do
+    expect do
+      store.reject_workflow_checkpoints(
+        batch_id: 'batch-1',
+        step_ids: ['approve'],
+        now: Time.utc(2026, 3, 27, 12, 0, 0),
+        reason: 'manual reject'
+      )
+    end.to raise_error(NotImplementedError, /implement #reject_workflow_checkpoints/)
+  end
+
   it 'requires enqueue_child_workflow to be implemented' do
     expect do
       store.enqueue_child_workflow(
