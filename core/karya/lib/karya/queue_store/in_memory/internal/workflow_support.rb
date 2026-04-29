@@ -196,6 +196,7 @@ module Karya
               dependency_job_ids_by_job_id:
             ).to_h)
             record_workflow_registration_history(batch_id: workflow_batch_id, registration:, occurred_at:)
+            registration
           end
 
           def normalize_dead_letter_reason(reason)

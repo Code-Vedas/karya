@@ -421,18 +421,23 @@ module Karya
             end
           end
 
+          def trim_fair_queue_history: () -> void
+          def prune_expired_reservation_tokens: () -> bool?
+
+        private
+
           class WorkflowHistory
             @by_batch_id: Hash[String, Array[Karya::Workflow::HistoryEntry]]
-            EMPTY: Array[Karya::Workflow::HistoryEntry]
 
             def initialize: () -> void
             def for_batch: (String batch_id) -> Array[Karya::Workflow::HistoryEntry]
             def append: (batch_id: String, entry: Karya::Workflow::HistoryEntry) -> Karya::Workflow::HistoryEntry
             def delete_by_batch: (String batch_id) -> Array[Karya::Workflow::HistoryEntry]
-          end
 
-          def trim_fair_queue_history: () -> void
-          def prune_expired_reservation_tokens: () -> bool?
+          private
+
+            EMPTY: Array[Karya::Workflow::HistoryEntry]
+          end
         end
       end
     end

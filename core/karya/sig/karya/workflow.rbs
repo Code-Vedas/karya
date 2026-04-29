@@ -404,13 +404,8 @@ module Karya
       @kind: Karya::workflow_history_kind
       @action: String
       @occurred_at: Time
-      @workflow_id: String
-      @workflow_family: String
-      @workflow_version: String
-      @batch_id: String
-      @step_id: String?
-      @job_id: String?
-      @child_batch_id: String?
+      @identity: Identity
+      @linkage: Linkage
       @details: Karya::interaction_payload
 
       attr_reader kind: Karya::workflow_history_kind
@@ -460,12 +455,49 @@ module Karya
         def job_id: () -> String?
         def child_batch_id: () -> String?
         def details: () -> Karya::interaction_payload
+        def identity: () -> Identity
+        def linkage: () -> Linkage
 
       private
 
         attr_reader attributes: Hash[Symbol, Karya::history_entry_attribute_value]
         def fetch: (Symbol name) -> Karya::history_entry_attribute_value
         def validate_keys: () -> void
+      end
+
+      class Identity
+        @workflow_id: String
+        @workflow_family: String
+        @workflow_version: String
+        @batch_id: String
+
+        attr_reader workflow_id: String
+        attr_reader workflow_family: String
+        attr_reader workflow_version: String
+        attr_reader batch_id: String
+
+        def initialize: (
+          workflow_id: String,
+          workflow_family: String,
+          workflow_version: String,
+          batch_id: String
+        ) -> void
+      end
+
+      class Linkage
+        @step_id: String?
+        @job_id: String?
+        @child_batch_id: String?
+
+        attr_reader step_id: String?
+        attr_reader job_id: String?
+        attr_reader child_batch_id: String?
+
+        def initialize: (
+          step_id: String?,
+          job_id: String?,
+          child_batch_id: String?
+        ) -> void
       end
 
       class Payload
