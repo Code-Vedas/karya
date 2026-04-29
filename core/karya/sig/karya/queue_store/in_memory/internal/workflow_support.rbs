@@ -146,6 +146,13 @@ module Karya
 
         private
 
+          def validate_workflow_enqueue_jobs: (workflow_batch_id: String, jobs: Array[Job], now: Time) -> Karya::Workflow::Batch
+          def register_workflow_enqueue: (
+            definition: Karya::Workflow::Definition,
+            binding: Karya::Workflow::ExecutionBinding,
+            workflow_batch_id: String,
+            step_job_ids: Hash[String, String]
+          ) -> InMemory::Internal::StoreState::WorkflowRegistration
           def fetch_workflow_registration: (String batch_id) -> InMemory::Internal::StoreState::WorkflowRegistration
           def normalize_rollback_reason: (String reason) -> String
           def deliver_workflow_interaction: (
@@ -212,6 +219,42 @@ module Karya
             def interaction_received_at_by_job_id: () -> Hash[String, Time]
             def parent_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot?
             def child_state_resolver: () -> InMemory::Internal::WorkflowChildState
+          end
+
+          class WorkflowRegistrationPayload
+            @definition: Karya::Workflow::Definition
+            @binding: Karya::Workflow::ExecutionBinding
+            @workflow_batch_id: String
+            @step_job_ids: Hash[String, String]
+            @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+
+            def initialize: (
+              definition: Karya::Workflow::Definition,
+              binding: Karya::Workflow::ExecutionBinding,
+              workflow_batch_id: String,
+              step_job_ids: Hash[String, String],
+              dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            ) -> void
+            def to_h: () -> {
+              batch_id: String,
+              workflow_id: String,
+              workflow_family: String,
+              workflow_version: String,
+              step_job_ids: Hash[String, String],
+              dependency_job_ids_by_job_id: Hash[String, Array[String]],
+              approval_requirements_by_job_id: Hash[String, Karya::approval_requirement],
+              interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement],
+              compensation_jobs_by_step_id: Hash[String, Job],
+              child_workflow_ids_by_step_id: Hash[String, String]
+            }
+
+          private
+
+            attr_reader definition: Karya::Workflow::Definition
+            attr_reader binding: Karya::Workflow::ExecutionBinding
+            attr_reader workflow_batch_id: String
+            attr_reader step_job_ids: Hash[String, String]
+            attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
           end
 
           class ChildWorkflowSnapshotBuilder

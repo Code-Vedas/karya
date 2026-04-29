@@ -645,6 +645,7 @@ module Karya
           private_constant :ChildWorkflowSnapshotBuilder,
                            :RollbackSnapshotAttributes,
                            :RollbackState,
+                           :WorkflowRegistrationPayload,
                            :WorkflowSnapshotBuilder
 
           def workflow_dependencies_satisfied?(job, now:)

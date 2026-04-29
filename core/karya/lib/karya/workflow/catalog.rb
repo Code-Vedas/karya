@@ -52,9 +52,12 @@ module Karya
 
       def resolve(workflow_family:)
         normalized_family = Workflow.send(:normalize_identifier, :workflow_family, workflow_family)
+        family_inspect = normalized_family.inspect
+        raise InvalidDefinitionError, "workflow family #{family_inspect} is not registered" unless definitions_by_family.key?(normalized_family)
+
         @default_definitions_by_family.fetch(normalized_family)
       rescue KeyError => e
-        raise InvalidDefinitionError, "workflow family #{normalized_family.inspect} has no default version", cause: e
+        raise InvalidDefinitionError, "workflow family #{family_inspect} has no default version", cause: e
       end
 
       private

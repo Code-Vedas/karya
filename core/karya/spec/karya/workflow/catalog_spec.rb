@@ -111,6 +111,12 @@ RSpec.describe Karya::Workflow::Catalog do
       catalog.resolve(workflow_family: :invoice_closeout)
     end.to raise_error(Karya::Workflow::InvalidDefinitionError, 'workflow family "invoice_closeout" has no default version')
     expect do
+      catalog.resolve(workflow_family: :missing_family)
+    end.to raise_error(
+      Karya::Workflow::InvalidDefinitionError,
+      'workflow family "missing_family" is not registered'
+    )
+    expect do
       catalog.fetch_version(workflow_family: :invoice_closeout, workflow_version: :v2)
     end.to raise_error(
       Karya::Workflow::InvalidDefinitionError,

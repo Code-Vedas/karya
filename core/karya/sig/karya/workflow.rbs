@@ -242,16 +242,8 @@ module Karya
     end
 
     class ChildWorkflowSnapshot
-      @parent_workflow_id: String
-      @parent_workflow_family: String
-      @parent_workflow_version: String
-      @parent_batch_id: String
-      @parent_step_id: String
-      @parent_job_id: String
-      @child_workflow_id: String
-      @child_workflow_family: String
-      @child_workflow_version: String
-      @child_batch_id: String
+      @parent: ParentIdentity
+      @child: ChildIdentity
       @child_state: Karya::workflow_state
 
       attr_reader parent_workflow_id: String
@@ -284,6 +276,8 @@ module Karya
 
       class Attributes
         REQUIRED_ATTRIBUTES: Array[Symbol]
+        OPTIONAL_ATTRIBUTES: Array[Symbol]
+        SUPPORTED_ATTRIBUTES: Array[Symbol]
 
         @attributes: Hash[Symbol, child_workflow_snapshot_attribute_value]
 
@@ -299,12 +293,58 @@ module Karya
         def child_workflow_version: () -> String
         def child_batch_id: () -> String
         def child_state: () -> Karya::workflow_state
+        def parent_identity: () -> ParentIdentity
+        def child_identity: () -> ChildIdentity
 
       private
 
         attr_reader attributes: Hash[Symbol, child_workflow_snapshot_attribute_value]
         def fetch: (Symbol name) -> child_workflow_snapshot_attribute_value
         def validate_keys: () -> void
+      end
+
+      class ParentIdentity
+        @workflow_id: String
+        @workflow_family: String
+        @workflow_version: String
+        @batch_id: String
+        @step_id: String
+        @job_id: String
+
+        attr_reader workflow_id: String
+        attr_reader workflow_family: String
+        attr_reader workflow_version: String
+        attr_reader batch_id: String
+        attr_reader step_id: String
+        attr_reader job_id: String
+
+        def initialize: ({
+          workflow_id: String,
+          workflow_family: String,
+          workflow_version: String,
+          batch_id: String,
+          step_id: String,
+          job_id: String
+        } attributes) -> void
+      end
+
+      class ChildIdentity
+        @workflow_id: String
+        @workflow_family: String
+        @workflow_version: String
+        @batch_id: String
+
+        attr_reader workflow_id: String
+        attr_reader workflow_family: String
+        attr_reader workflow_version: String
+        attr_reader batch_id: String
+
+        def initialize: ({
+          workflow_id: String,
+          workflow_family: String,
+          workflow_version: String,
+          batch_id: String
+        } attributes) -> void
       end
     end
 
@@ -1555,6 +1595,7 @@ module Karya
     class Catalog
       @definitions: Hash[String, Definition]
       @definitions_by_family: Hash[String, Hash[String, Definition]]
+      @default_definitions_by_family: Hash[String, Definition]
 
       attr_reader definitions: Hash[String, Definition]
       attr_reader definitions_by_family: Hash[String, Hash[String, Definition]]
