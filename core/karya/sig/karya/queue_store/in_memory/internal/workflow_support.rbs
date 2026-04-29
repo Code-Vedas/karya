@@ -279,6 +279,19 @@ module Karya
             attr_reader step_job_ids: Hash[String, String]
           end
 
+          class ApprovalRequirements
+            @definition: Karya::Workflow::Definition
+            @step_job_ids: Hash[String, String]
+
+            def initialize: (definition: Karya::Workflow::Definition, step_job_ids: Hash[String, String]) -> void
+            def to_h: () -> Hash[String, Karya::approval_requirement]
+
+          private
+
+            attr_reader definition: Karya::Workflow::Definition
+            attr_reader step_job_ids: Hash[String, String]
+          end
+
           class WorkflowQuery
             @snapshot: Karya::Workflow::Snapshot
             @query: Karya::state_name
