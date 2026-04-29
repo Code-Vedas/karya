@@ -260,14 +260,14 @@ module Karya
 
       def initialize: (
         parent_workflow_id: state_name,
-        ?parent_workflow_family: state_name?,
-        ?parent_workflow_version: state_name?,
+        ?parent_workflow_family: state_name,
+        ?parent_workflow_version: state_name,
         parent_batch_id: state_name,
         parent_step_id: state_name,
         parent_job_id: state_name,
         child_workflow_id: state_name,
-        ?child_workflow_family: state_name?,
-        ?child_workflow_version: state_name?,
+        ?child_workflow_family: state_name,
+        ?child_workflow_version: state_name,
         child_batch_id: state_name,
         child_state: Karya::workflow_state
       ) -> void
@@ -773,8 +773,8 @@ module Karya
 
       def initialize: (
         workflow_id: state_name,
-        ?workflow_family: state_name?,
-        ?workflow_version: state_name?,
+        ?workflow_family: state_name,
+        ?workflow_version: state_name,
         batch_id: state_name,
         captured_at: Time,
         step_job_ids: Hash[state_name, state_name],
@@ -1453,7 +1453,6 @@ module Karya
 
       attr_reader inspection: Graph::Inspection
       attr_reader steps_by_id: Hash[String, Step]
-      def normalize_definition_identifier: (Symbol field_name, state_name value) -> String
       def normalize_default_version: (bool value) -> bool
 
       class Graph
