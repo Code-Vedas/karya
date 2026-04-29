@@ -78,7 +78,14 @@ module Karya
                   'payload' => interaction.payload
                 }
               )
-              auto_approve_matching_checkpoints(registration, signal_name: interaction_name, decided_at: normalized_now) if signal_interaction
+              if signal_interaction
+                auto_approve_matching_checkpoints(
+                  workflow_batch_id:,
+                  registration:,
+                  signal_name: interaction_name,
+                  decided_at: normalized_now
+                )
+              end
               BulkMutationReport.new(
                 action:,
                 performed_at: normalized_now,
@@ -107,11 +114,23 @@ module Karya
                   "workflow batch #{batch_id.inspect} does not support #{interaction_kind} #{interaction_name.inspect}"
           end
 
-          def auto_approve_matching_checkpoints(registration, signal_name:, decided_at:)
+          def auto_approve_matching_checkpoints(workflow_batch_id:, registration:, signal_name:, decided_at:)
             registration.approval_requirements_by_job_id.each do |job_id, requirement|
               next unless requirement.fetch(:name) == signal_name
 
               state.register_workflow_approval_approved(job_id:, decided_at:)
+              state.register_workflow_history_entry(
+                batch_id: workflow_batch_id,
+                kind: :control,
+                action: :approval_approved,
+                occurred_at: decided_at,
+                step_id: registration.step_job_ids.key(job_id),
+                job_id:,
+                details: {
+                  'auto_approved_via' => 'signal',
+                  'signal_name' => signal_name
+                }
+              )
             end
           end
 

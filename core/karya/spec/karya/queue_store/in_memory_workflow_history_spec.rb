@@ -91,6 +91,37 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(signal_entry.details).to eq('name' => 'manager_approved', 'payload' => { 'source' => 'ops' })
     end
 
+    it 'records approval history when a delivered signal auto-approves a checkpoint' do
+      definition = Karya::Workflow.define(:approval_via_signal) do
+        step :review, handler: :review, wait_for_approval: :manager_approved
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { review: workflow_job(:review, handler: :review) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+
+      store.deliver_workflow_signal(
+        batch_id: :batch_one,
+        signal: :manager_approved,
+        payload: { 'source' => 'ops' },
+        now: created_at + 2
+      )
+
+      history = workflow_history(:batch_one, 3)
+      approval_entry = history.entries.find { |entry| entry.action == 'approval_approved' }
+
+      expect(approval_entry).not_to be_nil
+      expect(approval_entry.kind).to eq(:control)
+      expect(approval_entry.step_id).to eq('review')
+      expect(approval_entry.job_id).to eq('job-review')
+      expect(approval_entry.details).to eq(
+        'auto_approved_via' => 'signal',
+        'signal_name' => 'manager_approved'
+      )
+    end
+
     it 'records workflow-step recovery controls and rollback boundaries' do
       definition = Karya::Workflow.define(:recoverable) do
         step :root, handler: :root, compensate_with: :undo_root
