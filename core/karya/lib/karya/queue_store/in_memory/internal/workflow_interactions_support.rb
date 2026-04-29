@@ -20,7 +20,7 @@ module Karya
               batch = fetch_batch(normalized_batch_id)
               registration = fetch_workflow_registration(batch.id)
               jobs = fetch_batch_jobs(batch)
-              snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now, state:).to_snapshot
+              snapshot = build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now)
               WorkflowQuery.new(snapshot:, query:, queried_at: normalized_now).to_result
             end
           end
@@ -62,7 +62,7 @@ module Karya
               workflow_batch_id = batch.id
               registration = fetch_workflow_registration(workflow_batch_id)
               jobs = fetch_batch_jobs(batch)
-              snapshot = WorkflowSnapshotBuilder.new(batch:, registration:, jobs:, now: normalized_now, state:).to_snapshot
+              snapshot = build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now)
               validate_workflow_interaction_delivery(snapshot, workflow_batch_id)
               validate_workflow_interaction_support(registration, interaction_kind, interaction_name, workflow_batch_id)
               state.register_workflow_interaction(batch_id: workflow_batch_id, interaction:)
