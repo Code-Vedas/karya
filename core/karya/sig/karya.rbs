@@ -20,6 +20,10 @@ module Karya
     def call: (String event, context_payload payload) -> (callable_result | OutboundEvents::Delivery)
   end
 
+  interface _Forker
+    def call: [A] () { () -> A } -> Integer
+  end
+
   type lifecycle = _Lifecycle
   type callable_argument = nil | bool | Numeric | String | Symbol | Time | context_payload | signal_handler | Array[String]
   type callable_result = nil | bool | Numeric | String | Symbol | Time | signal_restorer | context_payload | Array[String]
@@ -401,12 +405,13 @@ module Karya
     }
   type webhook_headers = Hash[String, String]
   type webhook_header_input_value = nil | bool | Numeric | String | Symbol
-  type webhook_headers_input = Hash[String, webhook_header_input_value]
+  type webhook_headers_input = Hash[Symbol | String, webhook_header_input_value]
   type outbound_event_attributes = Hash[String, String | outbound_event_payload]
   type json_generate_option_value = nil | bool | Integer | String
   type json_generate_state_input = nil | ::JSON::State | Hash[Symbol | String, json_generate_option_value]
   type handler_mapping = ::Hash[String, Worker::_Handler]
-  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | outbound_event_dispatcher | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
+  type forker = Method | Proc | _Forker
+  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | outbound_event_dispatcher | forker | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
   type symbol_options = ::Hash[Symbol, option_value]
   type mixed_options = ::Hash[Symbol | String, option_value]
   type job_arguments = ::Hash[String, job_argument]

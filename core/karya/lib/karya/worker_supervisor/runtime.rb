@@ -29,6 +29,10 @@ module Karya
         Primitives::Callable.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
       end
 
+      def self.normalize_forker(name, value)
+        Primitives::Callable.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
+      end
+
       def self.normalize_optional_callable(name, value)
         Primitives::OptionalCallable.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
       end
@@ -56,7 +60,7 @@ module Karya
           false
         end
         runtime_class = self.class
-        @forker = runtime_class.normalize_callable(
+        @forker = runtime_class.normalize_forker(
           :forker,
           runtime_class.resolve_option(attributes, :forker, default: method(:default_forker))
         )

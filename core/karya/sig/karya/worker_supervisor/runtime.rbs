@@ -7,7 +7,7 @@ module Karya
   class WorkerSupervisor
     # Supervisor runtime hooks for process management and signal handling.
     class Runtime
-      @forker: Karya::callable_value
+      @forker: Karya::forker
 
       @instrumenter: instrumenter?
       @outbound_event_dispatcher: outbound_event_dispatcher?
@@ -39,6 +39,8 @@ module Karya
       def self.default_killer: () -> ^(String, Integer) -> Integer
 
       def self.normalize_callable: (Symbol name, Karya::callable_value value) -> Karya::callable_value
+
+      def self.normalize_forker: (Symbol name, Karya::forker value) -> Karya::forker
 
       def self.normalize_optional_callable: (Symbol name, Karya::callable_value? value) -> Karya::callable_value?
 
