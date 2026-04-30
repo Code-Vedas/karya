@@ -158,7 +158,7 @@ module Karya
       def self.supported?: (Karya::state_name event_name) -> bool
       def self.build_event: (
         event_name: Karya::state_name,
-        payload: Karya::context_payload,
+        payload: Karya::outbound_event_input_payload,
         occurred_at: Time,
         event_id: String
       ) -> Event
@@ -169,10 +169,10 @@ module Karya
     private
 
       class Payload
-        @payload: Karya::context_payload
+        @payload: Karya::outbound_event_input_payload
         @schema_definition: Karya::outbound_event_schema_definition
 
-        def initialize: (payload: Karya::context_payload, schema_definition: Karya::outbound_event_schema_definition) -> void
+        def initialize: (payload: Karya::outbound_event_input_payload, schema_definition: Karya::outbound_event_schema_definition) -> void
         def to_h: () -> Karya::outbound_event_payload
       end
     end
@@ -189,7 +189,7 @@ module Karya
         ?clock: Karya::callable_value,
         ?event_id_generator: Karya::callable_value
       ) -> void
-      def call: (Karya::state_name event_name, Karya::context_payload payload) -> Delivery?
+      def call: (Karya::state_name event_name, Karya::outbound_event_input_payload payload) -> Delivery?
     end
   end
 end
