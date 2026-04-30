@@ -189,6 +189,14 @@ RSpec.describe Karya::OutboundEvents do
       expect do
         described_class.new(event:, body: :bad)
       end.to raise_error(Karya::InvalidOutboundEventError, 'body must be a String')
+
+      expect do
+        described_class.new(event:, signature: false)
+      end.to raise_error(Karya::InvalidOutboundEventError, 'signature must be Karya::OutboundEvents::WebhookSignature')
+
+      expect do
+        described_class.new(event:, body: false)
+      end.to raise_error(Karya::InvalidOutboundEventError, 'body must be a String')
     end
 
     it 'serializes the normalized event instance instead of the raw initializer argument' do
@@ -229,6 +237,24 @@ RSpec.describe Karya::OutboundEvents do
       delivery = delivery_class.with_normalized_event(normalized_event).allocate
       delivery.send(:initialize, event: raw_event)
       expect(delivery.body).to eq(normalized_event.to_json)
+    end
+
+    it 'duplicates and freezes a provided mutable body string' do
+      body = +'{"job_id":"job-1"}'
+
+      delivery = described_class.new(event:, body:)
+
+      expect(delivery.body).to eq(body)
+      expect(delivery.body).to be_frozen
+      expect(delivery.body).not_to be(body)
+    end
+
+    it 'reuses a provided frozen body string without duplicating it' do
+      body = +'{"job_id":"job-1"}'
+      body.freeze
+      delivery = described_class.new(event:, body:)
+
+      expect(delivery.body).to be(body)
     end
   end
 
@@ -392,6 +418,13 @@ RSpec.describe Karya::OutboundEvents do
           signer: Object.new
         )
       end.to raise_error(Karya::InvalidOutboundEventError, 'signer must be Karya::OutboundEvents::WebhookSigner')
+
+      expect do
+        described_class.new(
+          delivery_handler: ->(_delivery) {},
+          signer: false
+        )
+      end.to raise_error(Karya::InvalidOutboundEventError, 'signer must be Karya::OutboundEvents::WebhookSigner')
     end
 
     it 'can be loaded directly through karya/outbound_events without worker runtime requires' do
@@ -411,6 +444,7 @@ RSpec.describe Karya::OutboundEvents do
       error_class = Karya::InvalidOutboundEventError
 
       expect(Karya::OutboundEvents::OptionalString.new(:subject, nil, error_class:).normalize).to be_nil
+      expect(Karya::OutboundEvents::OptionalString.new(:subject, false, error_class:).normalize).to eq('false')
       expect(Karya::OutboundEvents::OptionalString.new(:subject, 'job-1', error_class:).normalize).to eq('job-1')
       expect do
         Karya::OutboundEvents::PresentString.new(:subject, '   ', error_class:).normalize

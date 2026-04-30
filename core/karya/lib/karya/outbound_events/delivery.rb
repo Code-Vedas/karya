@@ -30,22 +30,43 @@ module Karya
       end
 
       def normalize_signature(value)
-        return nil unless [value].compact.any?
+        return nil if [nil].include?(value)
         return value if value.is_a?(WebhookSignature)
 
         raise InvalidOutboundEventError, 'signature must be Karya::OutboundEvents::WebhookSignature'
       end
 
       def normalize_body(value)
-        return @event.to_json.freeze unless [value].compact.any?
-        return value.dup.freeze if value.is_a?(String)
-
-        raise InvalidOutboundEventError, 'body must be a String'
+        Body.new(value, event: @event).normalize
       end
 
       def build_headers
         { 'Content-Type' => CONTENT_TYPE }.merge(signature&.headers || {})
       end
+
+      # Normalizes one optional serialized body value for an outbound delivery.
+      class Body
+        def initialize(value, event:)
+          @value = value
+          @event = event
+        end
+
+        def normalize
+          return event.to_json.freeze if [nil].include?(value)
+
+          string_value = value if value.is_a?(String)
+          return string_value if string_value&.frozen?
+          return string_value.dup.freeze if string_value
+
+          raise InvalidOutboundEventError, 'body must be a String'
+        end
+
+        private
+
+        attr_reader :event, :value
+      end
+
+      private_constant :Body
     end
   end
 end

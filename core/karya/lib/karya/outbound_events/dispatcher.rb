@@ -45,7 +45,7 @@ module Karya
       attr_reader :clock, :delivery_handler, :event_id_generator, :signer
 
       def normalize_signer(value)
-        return nil unless [value].compact.any?
+        return nil if [nil].include?(value)
         return value if value.is_a?(WebhookSigner)
 
         raise InvalidOutboundEventError, 'signer must be Karya::OutboundEvents::WebhookSigner'

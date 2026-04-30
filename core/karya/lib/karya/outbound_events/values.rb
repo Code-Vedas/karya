@@ -37,9 +37,9 @@ module Karya
       end
 
       def normalize
-        return nil unless [value].compact.any?
-
-        PresentString.new(name, value, error_class:).normalize
+        { nil => nil }.fetch(value) do
+          PresentString.new(name, value, error_class:).normalize
+        end
       end
 
       private
