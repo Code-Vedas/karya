@@ -174,6 +174,46 @@ RSpec.describe Karya::OutboundEvents do
         described_class.new(event:, signature: 'bad')
       end.to raise_error(Karya::InvalidOutboundEventError, 'signature must be Karya::OutboundEvents::WebhookSignature')
     end
+
+    it 'serializes the normalized event instance instead of the raw initializer argument' do
+      raw_event = Class.new do
+        def is_a?(klass)
+          klass == Karya::OutboundEvents::Event || super
+        end
+
+        def to_json(*)
+          '{"raw":true}'
+        end
+      end.new
+
+      normalized_event = Karya::OutboundEvents::Event.new(
+        id: 'event-1',
+        source: 'karya://workers/worker-1',
+        schema:,
+        time: occurred_at,
+        data: { 'job_id' => 'job-1' }
+      )
+
+      delivery = described_class.allocate
+      delivery.send(:initialize, event: normalized_event)
+      expect(delivery.body).to eq(normalized_event.to_json)
+
+      delivery_class = Class.new(described_class) do
+        def self.with_normalized_event(normalized_event)
+          Class.new(self) do
+            define_method(:normalize_event) do |_value|
+              normalized_event
+            end
+          end
+        end
+
+        private :normalize_event
+      end
+
+      delivery = delivery_class.with_normalized_event(normalized_event).allocate
+      delivery.send(:initialize, event: raw_event)
+      expect(delivery.body).to eq(normalized_event.to_json)
+    end
   end
 
   describe Karya::OutboundEvents::WebhookSigner do
@@ -303,6 +343,17 @@ RSpec.describe Karya::OutboundEvents do
           signer: Object.new
         )
       end.to raise_error(Karya::InvalidOutboundEventError, 'signer must be Karya::OutboundEvents::WebhookSigner')
+    end
+
+    it 'can be loaded directly through karya/outbound_events without worker runtime requires' do
+      command = <<~RUBY
+        require_relative '../../lib/karya/base'
+        require_relative '../../lib/karya/outbound_events'
+        dispatcher = Karya::OutboundEvents::Dispatcher.new(delivery_handler: ->(_delivery) {})
+        abort('dispatcher missing') unless dispatcher.is_a?(Karya::OutboundEvents::Dispatcher)
+      RUBY
+
+      expect(system('ruby', '-e', command, chdir: __dir__)).to be(true)
     end
   end
 

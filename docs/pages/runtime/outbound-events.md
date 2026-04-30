@@ -69,9 +69,11 @@ The signing convention uses:
 - `Karya-Webhook-Timestamp`: epoch seconds used in the signature base string
 - `Karya-Webhook-Signature`: versioned digest metadata such as `v1=<digest>`
 
-The signature input is the timestamp plus the canonical body bytes. Consumers
-verify the signature with the shared secret, reject tampered payloads, and
-enforce a bounded timestamp window to reduce replay exposure.
+The signature input is the exact base string `"#{timestamp}.#{body}"`: the
+timestamp header value, then a literal `.` delimiter, then the canonical body
+bytes. Consumers verify that exact byte sequence with the shared secret, reject
+tampered payloads, and enforce a bounded timestamp window to reduce replay
+exposure.
 
 ## Related Concepts
 

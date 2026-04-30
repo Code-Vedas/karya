@@ -15,7 +15,7 @@ module Karya
 
       def initialize(event:, signature: nil)
         @event = normalize_event(event)
-        @body = event.to_json.freeze
+        @body = @event.to_json.freeze
         @signature = normalize_signature(signature)
         @headers = build_headers.freeze
         freeze

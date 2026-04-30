@@ -34,10 +34,10 @@ module Karya
 
     class Timestamp
       @name: Symbol | String
-      @value: Karya::outbound_event_string_input
+      @value: Time
       @error_class: Karya::error_class
 
-      def initialize: ((Symbol | String) name, Karya::outbound_event_string_input value, error_class: Karya::error_class) -> void
+      def initialize: ((Symbol | String) name, Time value, error_class: Karya::error_class) -> void
       def normalize: () -> Time
     end
 
