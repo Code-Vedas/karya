@@ -83,6 +83,13 @@ RSpec.describe Karya::OutboundEvents do
         )
       end.to raise_error(Karya::InvalidOutboundEventError, 'payload must be a Hash')
     end
+
+    it 'deep-freezes schema definitions and required key lists' do
+      schema_definition = described_class::SCHEMAS.fetch('worker.job.started')
+
+      expect(schema_definition).to be_frozen
+      expect(schema_definition.fetch(:required_keys)).to be_frozen
+    end
   end
 
   describe Karya::OutboundEvents::Event do

@@ -63,7 +63,11 @@ module Karya
           required_keys: %w[pids signal worker_id],
           source_prefix: 'karya://worker-supervisors/'
         }
-      }.freeze
+      }.transform_values do |schema_definition|
+        schema_definition.transform_values do |value|
+          value.is_a?(Array) ? value.freeze : value
+        end.freeze
+      end.freeze
 
       def self.supported?(event_name)
         SCHEMAS.key?(normalize_event_name(event_name))
