@@ -379,13 +379,20 @@ module Karya
     Array[outbound_event_payload_value] |
     Hash[String, outbound_event_payload_value]
   type outbound_event_payload = Hash[String, outbound_event_payload_value]
-  type outbound_event_schema_definition = {
-    event_type: String,
-    schema_version: String,
-    required_keys: Array[String],
-    source_prefix: String,
-    ?subject_key: String
-  }
+  type outbound_event_schema_definition =
+    {
+      event_type: String,
+      schema_version: String,
+      required_keys: Array[String],
+      source_prefix: String
+    } |
+    {
+      event_type: String,
+      schema_version: String,
+      required_keys: Array[String],
+      source_prefix: String,
+      subject_key: String
+    }
   type webhook_headers = Hash[String, String]
   type outbound_event_attributes = Hash[String, String | outbound_event_payload]
   type handler_mapping = ::Hash[String, Worker::_Handler]
