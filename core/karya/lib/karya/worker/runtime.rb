@@ -96,7 +96,7 @@ module Karya
 
       def initialize_outbound_event_dispatcher(attributes)
         outbound_event_dispatcher = attributes.fetch(:outbound_event_dispatcher, UNSET)
-        @outbound_event_dispatcher = Primitives::OptionalCallable.new(
+        @outbound_event_dispatcher = Primitives::OptionalOutboundEventDispatcher.new(
           :outbound_event_dispatcher,
           outbound_event_dispatcher.equal?(UNSET) ? Karya.outbound_event_dispatcher : outbound_event_dispatcher,
           error_class: InvalidWorkerConfigurationError

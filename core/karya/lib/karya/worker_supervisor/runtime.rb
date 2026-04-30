@@ -33,6 +33,14 @@ module Karya
         Primitives::OptionalCallable.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
       end
 
+      def self.normalize_optional_outbound_event_dispatcher(name, value)
+        Primitives::OptionalOutboundEventDispatcher.new(
+          name,
+          value,
+          error_class: InvalidWorkerSupervisorConfigurationError
+        ).normalize
+      end
+
       def self.resolve_option(attributes, key, default:)
         value = attributes.fetch(key, UNSET)
         value.equal?(UNSET) ? default : value
@@ -63,7 +71,7 @@ module Karya
         @logger = validate_logger(
           runtime_class.resolve_option(attributes, :logger, default: Karya.logger)
         )
-        @outbound_event_dispatcher = runtime_class.normalize_optional_callable(
+        @outbound_event_dispatcher = runtime_class.normalize_optional_outbound_event_dispatcher(
           :outbound_event_dispatcher,
           runtime_class.resolve_option(attributes, :outbound_event_dispatcher, default: Karya.outbound_event_dispatcher)
         )

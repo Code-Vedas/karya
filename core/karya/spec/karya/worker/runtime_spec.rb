@@ -53,6 +53,12 @@ RSpec.describe 'Karya::Worker::Runtime' do
     expect(deliveries.first.event.type).to eq('io.karya.worker.job.started')
   end
 
+  it 'rejects invalid outbound event dispatchers during initialization' do
+    expect do
+      runtime_class.new(logger: logger, outbound_event_dispatcher: Object.new)
+    end.to raise_error(Karya::InvalidWorkerConfigurationError, /outbound_event_dispatcher must respond to #call/)
+  end
+
   it 'still dispatches outbound events when the instrumenter raises' do
     deliveries = []
     dispatcher = Karya::OutboundEvents::Dispatcher.new(

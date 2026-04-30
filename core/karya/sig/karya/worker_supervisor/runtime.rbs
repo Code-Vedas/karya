@@ -42,6 +42,11 @@ module Karya
 
       def self.normalize_optional_callable: (Symbol name, Karya::callable_value? value) -> Karya::callable_value?
 
+      def self.normalize_optional_outbound_event_dispatcher: (
+        Symbol name,
+        Karya::outbound_event_dispatcher? value
+      ) -> Karya::outbound_event_dispatcher?
+
       def initialize: (**symbol_options attributes) -> void
 
       def fork_child: [A] () { () -> A } -> Integer
