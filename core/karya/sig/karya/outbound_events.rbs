@@ -3,6 +3,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+module JSON
+  class State
+  end
+end
+
 module Karya
   class InvalidOutboundEventError < Error
   end
@@ -96,7 +101,7 @@ module Karya
       def data_schema: () -> String
       def data_content_type: () -> String
       def to_h: () -> Karya::outbound_event_attributes
-      def to_json: () -> String
+      def to_json: (?::JSON::State state) -> String
     end
 
     class WebhookSignature

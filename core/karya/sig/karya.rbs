@@ -387,7 +387,7 @@ module Karya
     ?subject_key: String
   }
   type webhook_headers = Hash[String, String]
-  type outbound_event_attributes = Hash[String, String | outbound_event_payload | nil]
+  type outbound_event_attributes = Hash[String, String | outbound_event_payload]
   type handler_mapping = ::Hash[String, Worker::_Handler]
   type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
   type symbol_options = ::Hash[Symbol, option_value]
@@ -396,7 +396,7 @@ module Karya
   type error_class = singleton(StandardError)
   type logger = Internal::_Logger
   type instrumenter = ^(String, context_payload) -> nil
-  type outbound_event_dispatcher = ^(String, context_payload) -> callable_result
+  type outbound_event_dispatcher = ^(String, context_payload) -> (callable_result | OutboundEvents::Delivery)
   type signal_handler = ^() -> nil
   type signal_restorer = ^() -> nil
   type cli_defaults = Hash[Symbol, Integer]

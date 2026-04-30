@@ -126,6 +126,20 @@ RSpec.describe Karya::OutboundEvents do
         )
       end.to raise_error(ArgumentError, 'unknown keyword: :unexpected')
     end
+
+    it 'accepts JSON state arguments when serializing to JSON' do
+      event = described_class.new(
+        id: 'event-1',
+        source: 'karya://workers/worker-1',
+        schema:,
+        time: occurred_at,
+        data: { 'job_id' => 'job-1' }
+      )
+
+      json_state = JSON::State.new(indent: '  ')
+
+      expect(JSON.parse(event.to_json(json_state))).to eq(event.to_h)
+    end
   end
 
   describe Karya::OutboundEvents::Delivery do
