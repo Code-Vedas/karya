@@ -17,6 +17,7 @@ module Karya
             :workflow_family,
             :workflow_version,
             :step_job_ids,
+            :step_id_by_job_id,
             :dependency_job_ids_by_job_id,
             :approval_requirements_by_job_id,
             :interaction_requirements_by_job_id,
@@ -38,12 +39,14 @@ module Karya
               approvals = WorkflowRegistrationRequirements.new(approval_requirements_by_job_id).to_h
               interactions = WorkflowRegistrationRequirements.new(interaction_requirements_by_job_id).to_h
               approval_supported_keys = ApprovalSupportedKeys.new(approvals).to_h
+              normalized_step_job_ids = step_job_ids.dup.freeze
 
               new(
                 workflow_id,
                 workflow_family,
                 workflow_version,
-                step_job_ids.dup.freeze,
+                normalized_step_job_ids,
+                normalized_step_job_ids.invert.freeze,
                 dependency_job_ids_by_job_id.transform_values { |dependency_job_ids| dependency_job_ids.dup.freeze }.freeze,
                 approvals,
                 interactions,

@@ -75,7 +75,7 @@ module Karya
                   kind: :control,
                   action: :approval_approved,
                   occurred_at: normalized_now,
-                  step_id: registration.step_job_ids.key(job_id),
+                  step_id: registration.step_id_by_job_id[job_id],
                   job_id:
                 )
               end
@@ -100,7 +100,7 @@ module Karya
                   kind: :control,
                   action: :approval_rejected,
                   occurred_at: normalized_now,
-                  step_id: registration.step_job_ids.key(job_id),
+                  step_id: registration.step_id_by_job_id[job_id],
                   job_id:,
                   details: { 'reason' => normalized_reason }
                 )

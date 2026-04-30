@@ -106,6 +106,20 @@ module Karya
             ?child_batch_id: String?,
             ?details: Karya::interaction_payload
           ) -> Karya::Workflow::HistoryEntry
+          def build_workflow_history_entry: (
+            batch_id: String,
+            kind: Karya::workflow_history_kind_input,
+            action: Karya::state_name,
+            occurred_at: Time,
+            ?step_id: String?,
+            ?job_id: String?,
+            ?child_batch_id: String?,
+            ?details: Karya::interaction_payload
+          ) -> Karya::Workflow::HistoryEntry
+          def append_workflow_history_entry: (
+            batch_id: String,
+            entry: Karya::Workflow::HistoryEntry
+          ) -> Karya::Workflow::HistoryEntry
           def register_workflow_job_transition: (job: Job, from_state: Karya::state_name) -> Karya::Workflow::HistoryEntry?
           def register_workflow_interaction: (batch_id: String, interaction: Karya::Workflow::InteractionSnapshot) -> Array[Karya::Workflow::InteractionSnapshot]
           def workflow_dependency_job_ids_for: (String job_id) -> Array[String]?
@@ -150,6 +164,7 @@ module Karya
             @workflow_family: String
             @workflow_version: String
             @step_job_ids: Hash[String, String]
+            @step_id_by_job_id: Hash[String, String]
             @dependency_job_ids_by_job_id: Hash[String, Array[String]]
             @approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
             @interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
@@ -174,6 +189,7 @@ module Karya
               String workflow_family,
               String workflow_version,
               Hash[String, String] step_job_ids,
+              Hash[String, String] step_id_by_job_id,
               Hash[String, Array[String]] dependency_job_ids_by_job_id,
               Hash[String, Karya::approval_requirement] approval_requirements_by_job_id,
               Hash[String, Karya::interaction_requirement] interaction_requirements_by_job_id,
@@ -186,6 +202,7 @@ module Karya
             attr_reader workflow_family: String
             attr_reader workflow_version: String
             attr_reader step_job_ids: Hash[String, String]
+            attr_reader step_id_by_job_id: Hash[String, String]
             attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
             attr_reader approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
             attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]

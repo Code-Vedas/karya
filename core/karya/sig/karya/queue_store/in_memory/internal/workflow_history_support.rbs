@@ -3,6 +3,8 @@ module Karya
     class InMemory
       module Internal
         module WorkflowHistorySupport
+          MAX_COMPENSATION_JOB_ID_PREVIEW: Integer
+
           def workflow_history: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::HistorySnapshot
 
         private
@@ -47,6 +49,17 @@ module Karya
             attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
             attr_reader now: Time
             attr_reader state: InMemory::Internal::StoreState
+          end
+
+          class CompensationJobDetails
+            @queued_job_ids: Array[String]
+
+            def initialize: (Array[String] queued_job_ids) -> void
+            def to_h: () -> Karya::interaction_payload
+
+          private
+
+            attr_reader queued_job_ids: Array[String]
           end
         end
       end

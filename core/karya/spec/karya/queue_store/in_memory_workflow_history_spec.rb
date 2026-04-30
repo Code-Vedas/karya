@@ -91,6 +91,37 @@ RSpec.describe Karya::QueueStore::InMemory do
       expect(signal_entry.details).to eq('name' => 'manager_approved', 'payload' => { 'source' => 'ops' })
     end
 
+    it 'rejects oversized interaction history details before mutating the workflow inbox' do
+      definition = Karya::Workflow.define(:signal_flow) do
+        step :review, handler: :review, wait_for_signal: :manager_approved
+      end
+      store.enqueue_workflow(
+        definition:,
+        jobs_by_step_id: { review: workflow_job(:review, handler: :review) },
+        batch_id: :batch_one,
+        now: created_at + 1
+      )
+      max_payload_bytes = Karya::Workflow::InteractionSnapshot.const_get(:MAX_PAYLOAD_BYTES, false)
+      payload = {
+        'message' => 'x' * (max_payload_bytes - JSON.generate({ 'message' => '' }).bytesize)
+      }
+
+      expect do
+        store.deliver_workflow_signal(
+          batch_id: :batch_one,
+          signal: :manager_approved,
+          payload:,
+          now: created_at + 2
+        )
+      end.to raise_error(Karya::Workflow::InvalidExecutionError, 'details exceeds 16384 bytes')
+
+      snapshot = store.workflow_snapshot(batch_id: :batch_one, now: created_at + 3)
+      history = workflow_history(:batch_one, 4)
+
+      expect(snapshot.signals).to eq([])
+      expect(history.entries.map(&:action)).not_to include('signal_delivered')
+    end
+
     it 'records approval history when a delivered signal auto-approves a checkpoint' do
       definition = Karya::Workflow.define(:approval_via_signal) do
         step :review, handler: :review, wait_for_approval: :manager_approved
@@ -168,6 +199,11 @@ RSpec.describe Karya::QueueStore::InMemory do
       rollback_entry = history.entries.find { |entry| entry.action == 'rollback_requested' }
       expect(rollback_entry.details.fetch('reason')).to eq('operator rollback')
       expect(rollback_entry.details.fetch('rollback_batch_created')).to be(false)
+      expect(rollback_entry.details).to include(
+        'compensation_job_count',
+        'compensation_job_ids_preview',
+        'compensation_job_ids_omitted_count'
+      )
       expect(history.entries.map(&:action)).to include('rollback_noop_boundary')
     end
 

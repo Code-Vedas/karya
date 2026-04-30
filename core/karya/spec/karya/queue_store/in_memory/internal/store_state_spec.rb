@@ -498,6 +498,19 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
     expect(store_state.workflow_history_for('batch-1').map { |entry| entry.details.fetch('attempt') }).to eq((1..max).to_a)
   end
 
+  it 'builds reverse workflow step lookup metadata at registration time' do
+    registration = store_state.register_workflow(
+      batch_id: 'batch-1',
+      workflow_id: 'invoice_closeout',
+      step_job_ids: { 'root' => 'job-1', 'review' => 'job-2' },
+      dependency_job_ids_by_job_id: { 'job-1' => [], 'job-2' => [] },
+      compensation_jobs_by_step_id: {}
+    )
+
+    expect(registration.step_id_by_job_id).to eq('job-1' => 'root', 'job-2' => 'review')
+    expect(registration.step_id_by_job_id).to be_frozen
+  end
+
   it 'skips workflow job transitions for jobs outside the registered step map' do
     store_state.register_workflow(
       batch_id: 'batch-1',

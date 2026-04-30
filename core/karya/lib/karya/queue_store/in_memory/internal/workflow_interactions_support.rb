@@ -67,8 +67,7 @@ module Karya
               snapshot = build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now)
               validate_workflow_interaction_delivery(snapshot, workflow_batch_id)
               validate_workflow_interaction_support(registration, interaction_kind, interaction_name, workflow_batch_id)
-              state.register_workflow_interaction(batch_id: workflow_batch_id, interaction:)
-              state.register_workflow_history_entry(
+              history_entry = state.build_workflow_history_entry(
                 batch_id: workflow_batch_id,
                 kind: :interaction,
                 action: interaction_action,
@@ -78,6 +77,8 @@ module Karya
                   'payload' => interaction.payload
                 }
               )
+              state.register_workflow_interaction(batch_id: workflow_batch_id, interaction:)
+              state.append_workflow_history_entry(batch_id: workflow_batch_id, entry: history_entry)
               if signal_interaction
                 auto_approve_matching_checkpoints(
                   workflow_batch_id:,
@@ -124,7 +125,7 @@ module Karya
                 kind: :control,
                 action: :approval_approved,
                 occurred_at: decided_at,
-                step_id: registration.step_job_ids.key(job_id),
+                step_id: registration.step_id_by_job_id[job_id],
                 job_id:,
                 details: {
                   'auto_approved_via' => 'signal',

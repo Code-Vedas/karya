@@ -11,6 +11,8 @@ module Karya
       module Internal
         # Owner-local workflow history inspection and journal helpers.
         module WorkflowHistorySupport
+          MAX_COMPENSATION_JOB_ID_PREVIEW = 20
+
           def workflow_history(batch_id:, now:)
             normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
@@ -53,24 +55,24 @@ module Karya
               kind: :control,
               action:,
               occurred_at:,
-              step_id: registration.step_job_ids.key(job_id),
+              step_id: registration.step_id_by_job_id[job_id],
               job_id:
             )
           end
 
           def record_workflow_rollback_history(batch_id:, rollback_batch_id:, queued_job_ids:, reason:, occurred_at:)
             rollback_boundary_action = rollback_batch_id ? :rollback_batch_created : :rollback_noop_boundary
+            compensation_job_details = CompensationJobDetails.new(queued_job_ids).to_h
             state.register_workflow_history_entry(
               batch_id:,
               kind: :rollback,
               action: :rollback_requested,
               occurred_at:,
               child_batch_id: rollback_batch_id,
-              details: {
+              details: compensation_job_details.merge(
                 'reason' => reason,
-                'compensation_job_ids' => queued_job_ids,
                 'rollback_batch_created' => (rollback_boundary_action == :rollback_batch_created)
-              }
+              )
             )
             state.register_workflow_history_entry(
               batch_id:,
@@ -78,7 +80,7 @@ module Karya
               action: rollback_boundary_action,
               occurred_at:,
               child_batch_id: rollback_batch_id,
-              details: { 'compensation_job_ids' => queued_job_ids }
+              details: compensation_job_details
             )
           end
 
@@ -106,6 +108,27 @@ module Karya
             private
 
             attr_reader :batch, :now, :registration, :state
+          end
+
+          # Builds bounded rollback details for workflow history entries.
+          class CompensationJobDetails
+            def initialize(queued_job_ids)
+              @queued_job_ids = queued_job_ids
+            end
+
+            def to_h
+              preview_job_ids = queued_job_ids.first(MAX_COMPENSATION_JOB_ID_PREVIEW)
+              total_count = queued_job_ids.length
+              {
+                'compensation_job_count' => total_count,
+                'compensation_job_ids_preview' => preview_job_ids,
+                'compensation_job_ids_omitted_count' => total_count - preview_job_ids.length
+              }
+            end
+
+            private
+
+            attr_reader :queued_job_ids
           end
         end
       end

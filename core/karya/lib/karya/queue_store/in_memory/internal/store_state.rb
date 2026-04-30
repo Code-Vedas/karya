@@ -380,10 +380,9 @@ module Karya
               child_batch_id: nil,
               details: {}
             )
-              workflow_history.append(
+              append_workflow_history_entry(
                 batch_id:,
-                entry: WorkflowHistoryEntryBuilder.build(
-                  registration: workflow_registrations_by_batch_id.fetch(batch_id),
+                entry: build_workflow_history_entry(
                   batch_id:,
                   kind:,
                   action:,
@@ -396,6 +395,33 @@ module Karya
               )
             end
 
+            def build_workflow_history_entry(
+              batch_id:,
+              kind:,
+              action:,
+              occurred_at:,
+              step_id: nil,
+              job_id: nil,
+              child_batch_id: nil,
+              details: {}
+            )
+              WorkflowHistoryEntryBuilder.build(
+                registration: workflow_registrations_by_batch_id.fetch(batch_id),
+                batch_id:,
+                kind:,
+                action:,
+                occurred_at:,
+                step_id:,
+                job_id:,
+                child_batch_id:,
+                details:
+              )
+            end
+
+            def append_workflow_history_entry(batch_id:, entry:)
+              workflow_history.append(batch_id:, entry:)
+            end
+
             def register_workflow_job_transition(job:, from_state:)
               job_id = job.id
               batch_id = batch_id_by_job_id[job_id]
@@ -404,7 +430,7 @@ module Karya
               registration = workflow_registrations_by_batch_id[batch_id]
               return unless registration
 
-              step_id = registration.step_job_ids.key(job_id)
+              step_id = registration.step_id_by_job_id[job_id]
               return unless step_id
 
               action = job.state
