@@ -85,26 +85,26 @@ RSpec.describe Karya do
     lib_path = File.expand_path('../lib', __dir__)
     script = <<~RUBY
       require 'karya/worker'
-      puts Karya::Worker::DEFAULT_POLL_INTERVAL
+      puts [Karya::Worker::DEFAULT_POLL_INTERVAL, Karya::UnsupportedOutboundEventError.superclass.name].join(':')
     RUBY
 
     stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
 
     expect(status).to be_success, stderr
-    expect(stdout).to eq("1\n")
+    expect(stdout).to eq("1:Karya::Error\n")
   end
 
   it 'allows requiring karya/worker_supervisor directly' do
     lib_path = File.expand_path('../lib', __dir__)
     script = <<~RUBY
       require 'karya/worker_supervisor'
-      puts Karya::WorkerSupervisor::DEFAULT_PROCESSES
+      puts [Karya::WorkerSupervisor::DEFAULT_PROCESSES, Karya::UnsupportedOutboundEventError.superclass.name].join(':')
     RUBY
 
     stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
 
     expect(status).to be_success, stderr
-    expect(stdout).to eq("1\n")
+    expect(stdout).to eq("1:Karya::Error\n")
   end
 
   it 'allows requiring karya/cli directly' do

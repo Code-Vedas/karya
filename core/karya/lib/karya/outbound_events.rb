@@ -16,15 +16,6 @@ require_relative 'outbound_events/webhook_signer'
 require_relative 'outbound_events/webhook_verifier'
 
 module Karya
-  # Raised when outbound event input cannot be normalized into a supported contract.
-  class InvalidOutboundEventError < Error; end
-
-  # Raised when a caller asks for an outbound event that is not part of the supported contract.
-  class UnsupportedOutboundEventError < Error; end
-
-  # Raised when a webhook signature cannot be parsed or verified.
-  class InvalidWebhookSignatureError < Error; end
-
   # Shared outbound event contracts for external delivery and verification.
   module OutboundEvents
   end

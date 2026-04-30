@@ -30,6 +30,15 @@ module Karya
   class MissingQueueStoreConfigurationError < Error
   end
 
+  class InvalidOutboundEventError < Error
+  end
+
+  class UnsupportedOutboundEventError < Error
+  end
+
+  class InvalidWebhookSignatureError < Error
+  end
+
   attr_reader self.instrumenter: instrumenter?
   attr_reader self.outbound_event_dispatcher: outbound_event_dispatcher?
 

@@ -4,15 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 module Karya
-  class InvalidOutboundEventError < Error
-  end
-
-  class UnsupportedOutboundEventError < Error
-  end
-
-  class InvalidWebhookSignatureError < Error
-  end
-
   module OutboundEvents
     class PresentString
       @name: Symbol | String
