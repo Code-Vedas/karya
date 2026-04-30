@@ -139,6 +139,7 @@ module Karya
           def child_relationship: (String parent_batch_id, String parent_step_id) -> InMemory::Internal::StoreState::WorkflowChildren::Relationship?
           def child_relationships_for_parent_batch: (String parent_batch_id) -> Array[InMemory::Internal::StoreState::WorkflowChildren::Relationship]
           def sync_child_workflow_job: (
+            parent_batch_id: String,
             job_id: String,
             now: Time,
             changed_jobs: Array[Job],

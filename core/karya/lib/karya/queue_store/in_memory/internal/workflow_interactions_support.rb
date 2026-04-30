@@ -54,7 +54,9 @@ module Karya
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
             interaction = Workflow::InteractionSnapshot.new(kind:, name:, payload:, received_at: normalized_now)
             interaction_kind = interaction.kind
+            signal_interaction = interaction_kind == :signal
             interaction_name = interaction.name
+            interaction_action = signal_interaction ? :signal_delivered : :event_delivered
 
             @mutex.synchronize do
               recover_in_flight_locked(normalized_now)
@@ -65,8 +67,26 @@ module Karya
               snapshot = build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now)
               validate_workflow_interaction_delivery(snapshot, workflow_batch_id)
               validate_workflow_interaction_support(registration, interaction_kind, interaction_name, workflow_batch_id)
+              history_entry = state.build_workflow_history_entry(
+                batch_id: workflow_batch_id,
+                kind: :interaction,
+                action: interaction_action,
+                occurred_at: normalized_now,
+                details: {
+                  'name' => interaction_name,
+                  'payload' => interaction.payload
+                }
+              )
               state.register_workflow_interaction(batch_id: workflow_batch_id, interaction:)
-              auto_approve_matching_checkpoints(registration, signal_name: interaction_name, decided_at: normalized_now) if interaction_kind == :signal
+              state.append_workflow_history_entry(batch_id: workflow_batch_id, entry: history_entry)
+              if signal_interaction
+                auto_approve_matching_checkpoints(
+                  workflow_batch_id:,
+                  registration:,
+                  signal_name: interaction_name,
+                  decided_at: normalized_now
+                )
+              end
               BulkMutationReport.new(
                 action:,
                 performed_at: normalized_now,
@@ -95,11 +115,23 @@ module Karya
                   "workflow batch #{batch_id.inspect} does not support #{interaction_kind} #{interaction_name.inspect}"
           end
 
-          def auto_approve_matching_checkpoints(registration, signal_name:, decided_at:)
+          def auto_approve_matching_checkpoints(workflow_batch_id:, registration:, signal_name:, decided_at:)
             registration.approval_requirements_by_job_id.each do |job_id, requirement|
               next unless requirement.fetch(:name) == signal_name
 
               state.register_workflow_approval_approved(job_id:, decided_at:)
+              state.register_workflow_history_entry(
+                batch_id: workflow_batch_id,
+                kind: :control,
+                action: :approval_approved,
+                occurred_at: decided_at,
+                step_id: registration.step_id_by_job_id[job_id],
+                job_id:,
+                details: {
+                  'auto_approved_via' => 'signal',
+                  'signal_name' => signal_name
+                }
+              )
             end
           end
 

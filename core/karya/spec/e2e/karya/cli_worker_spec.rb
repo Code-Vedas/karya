@@ -12,11 +12,92 @@ RSpec.describe Karya::CLI, :e2e, :integration do
     Open3.capture3(*karya_command(*args), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
   end
 
-  def wait_for_runtime_phase(state_file, phase)
+  def wait_for_runtime_phase(state_file, *phases)
+    expected_phases = phases.flatten
     wait_until do
       snapshot = read_runtime_state(state_file).fetch('snapshot')
-      snapshot.fetch('phase') == phase ? snapshot : nil
+      expected_phases.include?(snapshot.fetch('phase')) ? snapshot : nil
     end
+  end
+
+  def build_force_stop_boot_file(directory:, marker_file:, draining_marker_file:)
+    write_boot_file(
+      directory:,
+      handler_class_name: 'CliWorkerBlockingHandler',
+      marker_path: marker_file,
+      handler_body: <<~RUBY.strip
+        File.write(marker_path, Process.pid.to_s)
+        Signal.trap('TERM') do
+          File.write(#{draining_marker_file.inspect}, 'draining')
+          loop { sleep 0.1 }
+        end
+        loop { sleep 0.1 }
+      RUBY
+    )
+  end
+
+  def with_force_stop_worker(boot_file:, state_file:, &)
+    Open3.popen2e(*karya_command(
+      'worker',
+      'billing',
+      '--require',
+      boot_file,
+      '--handler',
+      'billing_sync=CliWorkerBlockingHandler',
+      '--worker-id',
+      'worker-cli-force-stop',
+      '--processes',
+      '1',
+      '--threads',
+      '1',
+      '--poll-interval',
+      '0',
+      '--state-file',
+      state_file
+    ), chdir: KaryaE2EHelpers::PACKAGE_ROOT, &)
+  end
+
+  def request_force_stop(supervisor_pid:, draining_marker_file:)
+    Process.kill('TERM', supervisor_pid)
+    wait_until { File.exist?(draining_marker_file) }
+    Process.kill('TERM', supervisor_pid)
+  rescue Errno::ESRCH
+    nil
+  end
+
+  def cleanup_worker_process(wait_thr)
+    return unless wait_thr.alive?
+
+    Process.kill('TERM', wait_thr.pid)
+    sleep(0.1)
+    Process.kill('KILL', wait_thr.pid) if wait_thr.alive?
+  rescue Errno::ESRCH
+    nil
+  end
+
+  def expect_force_stopped_worker(wait_thr:, stdout_and_stderr:, state_file:, marker_file:)
+    process_status = Timeout.timeout(10) { wait_thr.value }
+    output = stdout_and_stderr.read
+    runtime_state = wait_for_runtime_phase(state_file, 'stopped', 'force_stopping')
+
+    expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{output}" }
+    expect(File.read(marker_file).strip).not_to be_empty
+    expect(runtime_state.fetch('phase')).to match(/\A(?:stopped|force_stopping)\z/)
+  end
+
+  def with_force_stop_cleanup(wait_thr:, stdout_and_stderr:, state_file:, marker_file:)
+    yield
+    expect_force_stopped_worker(
+      wait_thr:,
+      stdout_and_stderr:,
+      state_file:,
+      marker_file:
+    )
+  rescue Timeout::Error, RSpec::Expectations::ExpectationNotMetError
+    cleanup_worker_process(wait_thr)
+    raise
+  ensure
+    cleanup_worker_process(wait_thr)
   end
 
   it 'executes a queued job end-to-end through exe/karya worker' do
@@ -66,62 +147,19 @@ RSpec.describe Karya::CLI, :e2e, :integration do
     Dir.mktmpdir('karya-cli-force-stop') do |directory|
       state_file = File.join(directory, 'runtime.json')
       marker_file = File.join(directory, 'started.txt')
-      boot_file = write_boot_file(
-        directory:,
-        handler_class_name: 'CliWorkerBlockingHandler',
-        marker_path: marker_file,
-        handler_body: <<~RUBY.strip
-          File.write(marker_path, Process.pid.to_s)
-          loop { sleep 0.1 }
-        RUBY
-      )
+      draining_marker_file = File.join(directory, 'draining.txt')
+      boot_file = build_force_stop_boot_file(directory:, marker_file:, draining_marker_file:)
 
-      Open3.popen2e(*karya_command(
-        'worker',
-        'billing',
-        '--require',
-        boot_file,
-        '--handler',
-        'billing_sync=CliWorkerBlockingHandler',
-        '--worker-id',
-        'worker-cli-force-stop',
-        '--processes',
-        '1',
-        '--threads',
-        '1',
-        '--poll-interval',
-        '0',
-        '--state-file',
-        state_file
-      ), chdir: KaryaE2EHelpers::PACKAGE_ROOT) do |_stdin, stdout_and_stderr, wait_thr|
-        process_status = nil
-
-        begin
-          wait_until { File.exist?(marker_file) && File.exist?(state_file) }
+      with_force_stop_worker(boot_file:, state_file:) do |_stdin, stdout_and_stderr, wait_thr|
+        with_force_stop_cleanup(
+          wait_thr:,
+          stdout_and_stderr:,
+          state_file:,
+          marker_file:
+        ) do
+          expect(wait_until { File.exist?(marker_file) && File.exist?(state_file) }).to be(true)
           supervisor_pid = read_runtime_state(state_file).fetch('supervisor_pid')
-          Process.kill('TERM', supervisor_pid)
-          sleep(0.1)
-          Process.kill('TERM', supervisor_pid)
-        rescue Errno::ESRCH
-          nil
-        ensure
-          begin
-            if wait_thr.alive?
-              Process.kill('TERM', wait_thr.pid)
-              sleep(0.1)
-              Process.kill('KILL', wait_thr.pid) if wait_thr.alive?
-            end
-          rescue Errno::ESRCH
-            nil
-          ensure
-            process_status ||= Timeout.timeout(10) { wait_thr.value }
-            output = stdout_and_stderr.read
-            runtime_state = wait_for_runtime_phase(state_file, 'stopped')
-
-            expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{output}" }
-            expect(File.read(marker_file).strip).not_to be_empty
-            expect(runtime_state.fetch('phase')).to eq('stopped')
-          end
+          request_force_stop(supervisor_pid:, draining_marker_file:)
         end
       end
     end

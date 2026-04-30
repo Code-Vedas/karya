@@ -45,6 +45,7 @@ module Karya
         ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
       ) -> BulkMutationReport
       def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
+      def workflow_history: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::HistorySnapshot
       def query_workflow: (
         batch_id: Karya::state_name,
         query: Karya::state_name,

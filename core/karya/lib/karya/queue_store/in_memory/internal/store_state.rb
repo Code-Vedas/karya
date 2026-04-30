@@ -34,6 +34,7 @@ module Karya
                       :stuck_job_recoveries_by_id,
                       :workflow_children,
                       :workflow_dependency_job_ids_by_job_id,
+                      :workflow_history,
                       :workflow_interactions,
                       :workflow_pause_requests_by_batch_id,
                       :workflow_approval_decisions_by_job_id,
@@ -254,6 +255,10 @@ module Karya
               workflow_indexes.fetch(:workflow_interactions)
             end
 
+            def workflow_history
+              workflow_indexes.fetch(:workflow_history)
+            end
+
             def workflow_pause_requests_by_batch_id
               workflow_indexes.fetch(:workflow_pause_requests_by_batch_id)
             end
@@ -289,6 +294,7 @@ module Karya
                 workflow_indexes: {
                   workflow_approval_decisions_by_job_id:,
                   workflow_children:,
+                  workflow_history:,
                   workflow_interactions:,
                   workflow_pause_requests_by_batch_id:,
                   workflow_rollback_batch_ids:,
@@ -301,6 +307,38 @@ module Karya
 
           # Workflow registration writers kept separate from generic store state.
           module WorkflowMetadata
+            # Builds one immutable public workflow-history entry from registration metadata.
+            class WorkflowHistoryEntryBuilder
+              def self.build(...)
+                new(...).to_entry
+              end
+
+              def initialize(registration:, **attributes)
+                @registration = registration
+                @attributes = attributes
+              end
+
+              def to_entry
+                Karya::Workflow::HistoryEntry.new(
+                  kind: attributes.fetch(:kind),
+                  action: attributes.fetch(:action),
+                  occurred_at: attributes.fetch(:occurred_at),
+                  workflow_id: registration.workflow_id,
+                  workflow_family: registration.workflow_family,
+                  workflow_version: registration.workflow_version,
+                  batch_id: attributes.fetch(:batch_id),
+                  step_id: attributes.fetch(:step_id),
+                  job_id: attributes.fetch(:job_id),
+                  child_batch_id: attributes.fetch(:child_batch_id),
+                  details: attributes.fetch(:details)
+                )
+              end
+
+              private
+
+              attr_reader :attributes, :registration
+            end
+
             def register_workflow(
               batch_id:,
               workflow_id:,
@@ -330,6 +368,82 @@ module Karya
                 workflow_children.register_expected_child(step_job_ids.fetch(step_id), child_workflow_id)
               end
               registration
+            end
+
+            def register_workflow_history_entry(
+              batch_id:,
+              kind:,
+              action:,
+              occurred_at:,
+              step_id: nil,
+              job_id: nil,
+              child_batch_id: nil,
+              details: {}
+            )
+              append_workflow_history_entry(
+                batch_id:,
+                entry: build_workflow_history_entry(
+                  batch_id:,
+                  kind:,
+                  action:,
+                  occurred_at:,
+                  step_id:,
+                  job_id:,
+                  child_batch_id:,
+                  details:
+                )
+              )
+            end
+
+            def build_workflow_history_entry(
+              batch_id:,
+              kind:,
+              action:,
+              occurred_at:,
+              step_id: nil,
+              job_id: nil,
+              child_batch_id: nil,
+              details: {}
+            )
+              WorkflowHistoryEntryBuilder.build(
+                registration: workflow_registrations_by_batch_id.fetch(batch_id),
+                batch_id:,
+                kind:,
+                action:,
+                occurred_at:,
+                step_id:,
+                job_id:,
+                child_batch_id:,
+                details:
+              )
+            end
+
+            def append_workflow_history_entry(batch_id:, entry:)
+              workflow_history.append(batch_id:, entry:)
+            end
+
+            def register_workflow_job_transition(job:, from_state:)
+              job_id = job.id
+              batch_id = batch_id_by_job_id[job_id]
+              return unless batch_id
+
+              registration = workflow_registrations_by_batch_id[batch_id]
+              return unless registration
+
+              step_id = registration.step_id_by_job_id[job_id]
+              return unless step_id
+
+              action = job.state
+              occurred_at = job.updated_at
+              register_workflow_history_entry(
+                batch_id:,
+                kind: :step,
+                action:,
+                occurred_at:,
+                step_id:,
+                job_id:,
+                details: { 'from_state' => from_state.to_s }
+              )
             end
 
             def register_workflow_dependencies(dependency_job_ids_by_job_id)
@@ -389,6 +503,10 @@ module Karya
               workflow_interactions.for_batch(batch_id)
             end
 
+            def workflow_history_for(batch_id)
+              workflow_history.for_batch(batch_id)
+            end
+
             def workflow_interaction_delivered?(batch_id:, kind:, name:)
               workflow_interactions.includes?(batch_id:, kind:, name:)
             end
@@ -407,6 +525,8 @@ module Karya
                 compensation_job_ids.dup.freeze
               ).freeze
             end
+
+            private_constant :WorkflowHistoryEntryBuilder
           end
 
           include WorkflowMetadata
@@ -446,6 +566,7 @@ module Karya
               workflow_approval_decisions_by_job_id: {},
               workflow_children: WorkflowChildren.new,
               workflow_dependency_job_ids_by_job_id: {},
+              workflow_history: WorkflowHistory.new,
               workflow_interactions: WorkflowInteractions.new,
               workflow_pause_requests_by_batch_id: {},
               workflow_rollback_batch_ids: {},
@@ -617,6 +738,7 @@ module Karya
                 workflow_approval_decisions_by_job_id:,
                 workflow_dependency_job_ids_by_job_id:,
                 workflow_children:,
+                workflow_history:,
                 workflow_interactions:,
                 workflow_pause_requests_by_batch_id:,
                 workflow_rollback_batch_ids:,
@@ -707,6 +829,7 @@ module Karya
               registration = workflow_registrations_by_batch_id.delete(batch_id)
               rollback = workflow_rollbacks_by_batch_id.delete(batch_id)
               workflow_interactions.delete_by_batch(batch_id)
+              workflow_history.delete_by_batch(batch_id)
               workflow_pause_requests_by_batch_id.delete(batch_id)
               cleanup_approval_decisions(registration)
               cleanup_child_workflows(registration)
@@ -773,6 +896,10 @@ module Karya
 
             def workflow_interactions
               workflow_indexes.fetch(:workflow_interactions)
+            end
+
+            def workflow_history
+              workflow_indexes.fetch(:workflow_history)
             end
 
             def workflow_pause_requests_by_batch_id

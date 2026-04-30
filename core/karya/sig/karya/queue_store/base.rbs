@@ -22,6 +22,7 @@ module Karya
       ) -> BulkMutationReport
 
       def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
+      def workflow_history: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::HistorySnapshot
       def query_workflow: (
         batch_id: Karya::state_name,
         query: Karya::state_name,

@@ -90,6 +90,13 @@ module Karya
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 
+      # Inspect one workflow run history journal by batch id.
+      def workflow_history(batch_id:, now:)
+        _batch_id = batch_id
+        _now = now
+        raise NotImplementedError, "#{self.class} must implement ##{__method__}"
+      end
+
       # Execute one explicit workflow state query.
       def query_workflow(batch_id:, query:, now:)
         _batch_id = batch_id

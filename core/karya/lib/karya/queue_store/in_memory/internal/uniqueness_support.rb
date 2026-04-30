@@ -178,9 +178,13 @@ module Karya
           UNIQUENESS_SCOPES = %i[queued active until_terminal].freeze
           private_constant :UNIQUENESS_SCOPES
 
-          def store_job(job:)
+          def store_job(job:, from_state: nil)
             job_id = job.id
-            state.jobs_by_id[job_id] = job
+            jobs_by_id = state.jobs_by_id
+            previous_job = jobs_by_id[job_id]
+            jobs_by_id[job_id] = job
+            transition_source_state = from_state || previous_job&.state
+            state.register_workflow_job_transition(job:, from_state: transition_source_state) if transition_source_state
             state.prune_terminal_batches(completed_batch_retention_limit, changed_job: job)
             clear_stuck_job_recovery(job_id) if StuckRecoveryClearance.new(job).clear?
             job

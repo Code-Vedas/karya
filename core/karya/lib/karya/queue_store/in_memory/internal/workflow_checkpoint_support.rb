@@ -19,6 +19,12 @@ module Karya
               recover_in_flight_locked(normalized_now)
               workflow_batch_id = fetch_workflow_control_batch_id(normalized_batch_id, normalized_now)
               state.mark_workflow_pause_requested(batch_id: workflow_batch_id, now: normalized_now)
+              state.register_workflow_history_entry(
+                batch_id: workflow_batch_id,
+                kind: :control,
+                action: :pause_requested,
+                occurred_at: normalized_now
+              )
               BulkMutationReport.new(
                 action: :pause_workflow,
                 performed_at: normalized_now,
@@ -37,6 +43,12 @@ module Karya
               recover_in_flight_locked(normalized_now)
               workflow_batch_id = fetch_workflow_control_batch_id(normalized_batch_id, normalized_now)
               state.clear_workflow_pause_requested(workflow_batch_id)
+              state.register_workflow_history_entry(
+                batch_id: workflow_batch_id,
+                kind: :control,
+                action: :resumed,
+                occurred_at: normalized_now
+              )
               BulkMutationReport.new(
                 action: :resume_workflow,
                 performed_at: normalized_now,
@@ -51,12 +63,21 @@ module Karya
             normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
 
             @mutex.synchronize do
+              workflow_batch_id, registration, job_ids = workflow_approval_control(batch_id, step_ids, now: normalized_now)
               Karya::Internal::BulkMutation::ReportBuilder.new(
                 action: :approve_workflow_checkpoints,
-                job_ids: workflow_approval_control_job_ids(batch_id, step_ids, now: normalized_now),
+                job_ids:,
                 now: normalized_now
               ).to_report do |job_id, _changed_jobs, _skipped_jobs|
                 state.register_workflow_approval_approved(job_id:, decided_at: normalized_now)
+                state.register_workflow_history_entry(
+                  batch_id: workflow_batch_id,
+                  kind: :control,
+                  action: :approval_approved,
+                  occurred_at: normalized_now,
+                  step_id: registration.step_id_by_job_id[job_id],
+                  job_id:
+                )
               end
             end
           end
@@ -66,13 +87,23 @@ module Karya
             normalized_reason = normalize_approval_rejection_reason(reason)
 
             @mutex.synchronize do
+              workflow_batch_id, registration, job_ids = workflow_approval_control(batch_id, step_ids, now: normalized_now)
               Karya::Internal::BulkMutation::ReportBuilder.new(
                 action: :reject_workflow_checkpoints,
-                job_ids: workflow_approval_control_job_ids(batch_id, step_ids, now: normalized_now),
+                job_ids:,
                 now: normalized_now
               ).to_report do |job_id, changed_jobs, skipped_jobs|
                 state.register_workflow_approval_rejected(job_id:, decided_at: normalized_now, reason: normalized_reason)
                 cancel_requested_job(job_id, normalized_now, changed_jobs, skipped_jobs)
+                state.register_workflow_history_entry(
+                  batch_id: workflow_batch_id,
+                  kind: :control,
+                  action: :approval_rejected,
+                  occurred_at: normalized_now,
+                  step_id: registration.step_id_by_job_id[job_id],
+                  job_id:,
+                  details: { 'reason' => normalized_reason }
+                )
               end
             end
           end
@@ -103,14 +134,16 @@ module Karya
             raise Workflow::InvalidExecutionError, "workflow batch #{batch_id.inspect} is terminal and cannot be controlled"
           end
 
-          def workflow_approval_control_job_ids(batch_id, step_ids, now:)
+          def workflow_approval_control(batch_id, step_ids, now:)
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
             batch = fetch_batch(normalized_batch_id)
-            registration = fetch_workflow_registration(batch.id)
+            workflow_batch_id = batch.id
+            registration = fetch_workflow_registration(workflow_batch_id)
             jobs = fetch_batch_jobs(batch)
             snapshot = build_workflow_snapshot(batch:, registration:, jobs:, now:)
-            workflow_control_job_ids(batch_id, step_ids).tap do |job_ids|
+            workflow_control_job_ids(batch_id, step_ids).then do |job_ids|
               validate_workflow_approval_targets(snapshot, registration, job_ids)
+              [workflow_batch_id, registration, job_ids]
             end
           end
 

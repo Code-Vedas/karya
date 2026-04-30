@@ -22,7 +22,11 @@ module Karya
           def normalize_approval_rejection_reason: (String reason) -> String
           def fetch_workflow_control_batch_id: (String normalized_batch_id, Time now) -> String
           def validate_workflow_control_target: (Karya::Workflow::Snapshot snapshot, String batch_id) -> nil
-          def workflow_approval_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids, now: Time) -> Array[String]
+          def workflow_approval_control: (
+            Karya::state_name batch_id,
+            Array[Karya::state_name] step_ids,
+            now: Time
+          ) -> [String, InMemory::Internal::StoreState::WorkflowRegistration, Array[String]]
           def validate_workflow_approval_targets: (
             Karya::Workflow::Snapshot snapshot,
             InMemory::Internal::StoreState::WorkflowRegistration registration,

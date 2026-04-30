@@ -66,6 +66,12 @@ aggregate state:
 - `failed` when a step failed, was dead-lettered, or terminal mixed outcomes
   prevent workflow success
 
+Workflow history complements the current snapshot with an ordered execution
+journal. Operators can inspect workflow registration, step state transitions,
+delivered signals and events, pause or resume boundaries, approval decisions,
+replay actions, rollback requests, and child-workflow synchronization without
+reconstructing that story from current state alone.
+
 The definition and runtime snapshots are also inspectable without reaching into
 queue-store internals:
 
@@ -152,4 +158,6 @@ batch.fetch_job("job-capture_payment")
 - [Job Model](/runtime/job-model/): workflows build on the core job runtime
 - [Replay](/workflows/replay/): recovery depends on the same execution story
 - [Signals](/workflows/signals/): live interaction matters once the workflow is running
+- [Activity And Audit](/operator/activity-audit/): workflow history and
+  governed actions stay inspectable over time
 - [Versioning](/workflows/versioning/): durable workflows eventually need evolution rules

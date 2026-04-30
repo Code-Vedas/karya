@@ -14,6 +14,7 @@ the change.
 
 - live activity feeds
 - audit timelines
+- workflow-history inspection for one workflow batch at a time
 - bulk actions with governed recovery boundaries
 - investigation flows for workflow and runtime history
 
@@ -32,6 +33,12 @@ result: accepted
 
 Operator-visible history should support investigation, recovery, and
 auditability.
+
+Workflow history is an explicit execution journal rather than an inferred view
+of current workflow state. Timeline entries can include workflow registration,
+step lifecycle transitions, delivered signals and events, pause and resume
+actions, approval decisions, replay and rollback controls, and child-workflow
+boundaries.
 
 ## Related Concepts
 

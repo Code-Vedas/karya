@@ -31,6 +31,7 @@ module Karya
           @terminal_batch_ids_in_order: Array[String]
           @workflow_children: WorkflowChildren
           @workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
+          @workflow_history: WorkflowHistory
           @workflow_interactions: WorkflowInteractions
           @workflow_pause_requests_by_batch_id: Hash[String, Time]
           @workflow_approval_decisions_by_job_id: Hash[String, WorkflowApprovalDecision]
@@ -60,6 +61,7 @@ module Karya
           attr_reader stuck_job_recoveries_by_id: Hash[String, Karya::stuck_job_recovery]
           attr_reader workflow_children: WorkflowChildren
           attr_reader workflow_dependency_job_ids_by_job_id: Hash[String, Array[String]]
+          attr_reader workflow_history: WorkflowHistory
           attr_reader workflow_interactions: WorkflowInteractions
           attr_reader workflow_pause_requests_by_batch_id: Hash[String, Time]
           attr_reader workflow_approval_decisions_by_job_id: Hash[String, WorkflowApprovalDecision]
@@ -94,6 +96,31 @@ module Karya
           def register_batch: (Karya::Workflow::Batch batch) -> Karya::Workflow::Batch
           def prune_terminal_batches: (Integer retention_limit, ?changed_job: Job?) -> Array[String]
           def register_workflow_dependencies: (Hash[String, Array[String]] dependency_job_ids_by_job_id) -> Hash[String, Array[String]]
+          def register_workflow_history_entry: (
+            batch_id: String,
+            kind: Karya::workflow_history_kind_input,
+            action: Karya::state_name,
+            occurred_at: Time,
+            ?step_id: String?,
+            ?job_id: String?,
+            ?child_batch_id: String?,
+            ?details: Karya::interaction_payload
+          ) -> Karya::Workflow::HistoryEntry
+          def build_workflow_history_entry: (
+            batch_id: String,
+            kind: Karya::workflow_history_kind_input,
+            action: Karya::state_name,
+            occurred_at: Time,
+            ?step_id: String?,
+            ?job_id: String?,
+            ?child_batch_id: String?,
+            ?details: Karya::interaction_payload
+          ) -> Karya::Workflow::HistoryEntry
+          def append_workflow_history_entry: (
+            batch_id: String,
+            entry: Karya::Workflow::HistoryEntry
+          ) -> Karya::Workflow::HistoryEntry
+          def register_workflow_job_transition: (job: Job, from_state: Karya::state_name) -> Karya::Workflow::HistoryEntry?
           def register_workflow_interaction: (batch_id: String, interaction: Karya::Workflow::InteractionSnapshot) -> Array[Karya::Workflow::InteractionSnapshot]
           def workflow_dependency_job_ids_for: (String job_id) -> Array[String]?
           def workflow_pause_requested_at: (String batch_id) -> Time?
@@ -104,6 +131,7 @@ module Karya
           def workflow_approval_decision_for: (String job_id) -> WorkflowApprovalDecision?
           def register_workflow_approval_approved: (job_id: String, decided_at: Time) -> WorkflowApprovalDecision
           def register_workflow_approval_rejected: (job_id: String, decided_at: Time, reason: String) -> WorkflowApprovalDecision
+          def workflow_history_for: (String batch_id) -> Array[Karya::Workflow::HistoryEntry]
           def workflow_interactions_for: (String batch_id) -> Array[Karya::Workflow::InteractionSnapshot]
           def workflow_interaction_delivered?: (batch_id: String, kind: Karya::interaction_kind, name: String) -> bool
           def workflow_interaction_received_at: (batch_id: String, kind: Karya::interaction_kind, name: String) -> Time?
@@ -136,6 +164,7 @@ module Karya
             @workflow_family: String
             @workflow_version: String
             @step_job_ids: Hash[String, String]
+            @step_id_by_job_id: Hash[String, String]
             @dependency_job_ids_by_job_id: Hash[String, Array[String]]
             @approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
             @interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
@@ -160,6 +189,7 @@ module Karya
               String workflow_family,
               String workflow_version,
               Hash[String, String] step_job_ids,
+              Hash[String, String] step_id_by_job_id,
               Hash[String, Array[String]] dependency_job_ids_by_job_id,
               Hash[String, Karya::approval_requirement] approval_requirements_by_job_id,
               Hash[String, Karya::interaction_requirement] interaction_requirements_by_job_id,
@@ -172,6 +202,7 @@ module Karya
             attr_reader workflow_family: String
             attr_reader workflow_version: String
             attr_reader step_job_ids: Hash[String, String]
+            attr_reader step_id_by_job_id: Hash[String, String]
             attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
             attr_reader approval_requirements_by_job_id: Hash[String, Karya::approval_requirement]
             attr_reader interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement]
@@ -206,6 +237,7 @@ module Karya
             }
             @workflow_indexes: {
               workflow_children: WorkflowChildren,
+              workflow_history: WorkflowHistory,
               workflow_interactions: WorkflowInteractions,
               workflow_rollback_batch_ids: Hash[String, bool],
               workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration],
@@ -221,6 +253,7 @@ module Karya
               },
               workflow_indexes: {
                 workflow_children: WorkflowChildren,
+                workflow_history: WorkflowHistory,
                 workflow_interactions: WorkflowInteractions,
                 workflow_rollback_batch_ids: Hash[String, bool],
                 workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration],
@@ -236,6 +269,7 @@ module Karya
               },
               workflow_indexes: {
                 workflow_children: WorkflowChildren,
+                workflow_history: WorkflowHistory,
                 workflow_interactions: WorkflowInteractions,
                 workflow_rollback_batch_ids: Hash[String, bool],
                 workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration],
@@ -254,6 +288,7 @@ module Karya
             }
             attr_reader workflow_indexes: {
               workflow_children: WorkflowChildren,
+              workflow_history: WorkflowHistory,
               workflow_interactions: WorkflowInteractions,
               workflow_rollback_batch_ids: Hash[String, bool],
               workflow_registrations_by_batch_id: Hash[String, WorkflowRegistration],
@@ -266,6 +301,7 @@ module Karya
             def batch_id_by_job_id: () -> Hash[String, String]
             def workflow_dependency_job_ids_by_job_id: () -> Hash[String, Array[String]]
             def workflow_children: () -> WorkflowChildren
+            def workflow_history: () -> WorkflowHistory
             def workflow_rollback_batch_ids: () -> Hash[String, bool]
             def workflow_interactions: () -> WorkflowInteractions
             def workflow_registrations_by_batch_id: () -> Hash[String, WorkflowRegistration]
@@ -404,6 +440,39 @@ module Karya
 
           def trim_fair_queue_history: () -> void
           def prune_expired_reservation_tokens: () -> bool?
+
+        private
+
+          class WorkflowHistory
+            @by_batch_id: Hash[String, BatchHistory]
+            @max_entries_per_batch: Integer
+
+            def initialize: () -> void
+            def for_batch: (String batch_id) -> Array[Karya::Workflow::HistoryEntry]
+            def append: (batch_id: String, entry: Karya::Workflow::HistoryEntry) -> Karya::Workflow::HistoryEntry
+            def delete_by_batch: (String batch_id) -> Array[Karya::Workflow::HistoryEntry]
+
+          private
+
+            EMPTY: Array[Karya::Workflow::HistoryEntry]
+            MAX_ENTRIES_PER_BATCH: Integer
+            attr_reader max_entries_per_batch: Integer
+
+            class BatchHistory
+              @entries: Array[Karya::Workflow::HistoryEntry]
+              @max_size: Integer
+              @to_a: Array[Karya::Workflow::HistoryEntry]?
+
+              def initialize: (max_size: Integer) -> void
+              def append: (Karya::Workflow::HistoryEntry entry) -> BatchHistory
+              def to_a: () -> Array[Karya::Workflow::HistoryEntry]
+
+            private
+
+              attr_reader entries: Array[Karya::Workflow::HistoryEntry]
+              attr_reader max_size: Integer
+            end
+          end
         end
       end
     end

@@ -49,6 +49,12 @@ RSpec.describe Karya::QueueStore do
     end.to raise_error(NotImplementedError, /implement #workflow_snapshot/)
   end
 
+  it 'requires workflow_history to be implemented' do
+    expect do
+      store.workflow_history(batch_id: 'batch-1', now: Time.utc(2026, 3, 27, 12, 0, 0))
+    end.to raise_error(NotImplementedError, /implement #workflow_history/)
+  end
+
   it 'requires query_workflow to be implemented' do
     expect do
       store.query_workflow(batch_id: 'batch-1', query: 'state', now: Time.utc(2026, 3, 27, 12, 0, 0))

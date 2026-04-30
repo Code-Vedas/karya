@@ -400,6 +400,183 @@ module Karya
       end
     end
 
+    class HistoryEntry
+      @kind: Karya::workflow_history_kind
+      @action: String
+      @occurred_at: Time
+      @identity: Identity
+      @linkage: Linkage
+      @details: Karya::interaction_payload
+
+      attr_reader kind: Karya::workflow_history_kind
+      attr_reader action: String
+      attr_reader occurred_at: Time
+      attr_reader workflow_id: String
+      attr_reader workflow_family: String
+      attr_reader workflow_version: String
+      attr_reader batch_id: String
+      attr_reader step_id: String?
+      attr_reader job_id: String?
+      attr_reader child_batch_id: String?
+      attr_reader details: Karya::interaction_payload
+
+      def initialize: (
+        kind: Karya::workflow_history_kind_input,
+        action: state_name,
+        occurred_at: Time,
+        workflow_id: state_name,
+        batch_id: state_name,
+        ?workflow_family: state_name,
+        ?workflow_version: state_name,
+        ?step_id: state_name?,
+        ?job_id: state_name?,
+        ?child_batch_id: state_name?,
+        ?details: Karya::interaction_payload
+      ) -> void
+
+    private
+
+      attr_reader identity: Identity
+      attr_reader linkage: Linkage
+
+      class Attributes
+        REQUIRED_ATTRIBUTES: Array[Symbol]
+        OPTIONAL_ATTRIBUTES: Array[Symbol]
+        SUPPORTED_ATTRIBUTES: Array[Symbol]
+
+        @attributes: Hash[Symbol, Karya::history_entry_attribute_value]
+
+        def initialize: (Hash[Symbol, Karya::history_entry_attribute_value] attributes) -> void
+        def kind: () -> Karya::workflow_history_kind
+        def action: () -> String
+        def occurred_at: () -> Time
+        def workflow_id: () -> String
+        def workflow_family: () -> String
+        def workflow_version: () -> String
+        def batch_id: () -> String
+        def step_id: () -> String?
+        def job_id: () -> String?
+        def child_batch_id: () -> String?
+        def details: () -> Karya::interaction_payload
+        def identity: () -> Identity
+        def linkage: () -> Linkage
+
+      private
+
+        attr_reader attributes: Hash[Symbol, Karya::history_entry_attribute_value]
+        def fetch: (Symbol name) -> Karya::history_entry_attribute_value
+        def validate_keys: () -> void
+      end
+
+      class Identity
+        @workflow_id: String
+        @workflow_family: String
+        @workflow_version: String
+        @batch_id: String
+
+        attr_reader workflow_id: String
+        attr_reader workflow_family: String
+        attr_reader workflow_version: String
+        attr_reader batch_id: String
+
+        def initialize: (
+          workflow_id: String,
+          workflow_family: String,
+          workflow_version: String,
+          batch_id: String
+        ) -> void
+      end
+
+      class Linkage
+        @step_id: String?
+        @job_id: String?
+        @child_batch_id: String?
+
+        attr_reader step_id: String?
+        attr_reader job_id: String?
+        attr_reader child_batch_id: String?
+
+        def initialize: (
+          step_id: String?,
+          job_id: String?,
+          child_batch_id: String?
+        ) -> void
+      end
+
+      class Payload
+        @payload: Karya::interaction_payload
+
+        def initialize: (Karya::interaction_payload payload) -> void
+        def to_h: () -> Karya::interaction_payload
+
+      private
+
+        attr_reader payload: Karya::interaction_payload
+        def normalize_hash: (Karya::interaction_payload hash) -> Karya::interaction_payload
+        def normalize_value: (Karya::interaction_payload_value value) -> Karya::interaction_payload_value
+      end
+    end
+
+    class HistorySnapshot
+      @workflow_id: String
+      @workflow_family: String
+      @workflow_version: String
+      @batch_id: String
+      @captured_at: Time
+      @entries: Array[HistoryEntry]
+
+      attr_reader workflow_id: String
+      attr_reader workflow_family: String
+      attr_reader workflow_version: String
+      attr_reader batch_id: String
+      attr_reader captured_at: Time
+      attr_reader entries: Array[HistoryEntry]
+
+      def initialize: (
+        workflow_id: state_name,
+        batch_id: state_name,
+        captured_at: Time,
+        entries: Array[HistoryEntry],
+        ?workflow_family: state_name,
+        ?workflow_version: state_name
+      ) -> void
+
+    private
+
+      class Attributes
+        REQUIRED_ATTRIBUTES: Array[Symbol]
+        OPTIONAL_ATTRIBUTES: Array[Symbol]
+        SUPPORTED_ATTRIBUTES: Array[Symbol]
+
+        @attributes: Hash[Symbol, Karya::history_snapshot_attribute_value]
+
+        def initialize: (Hash[Symbol, Karya::history_snapshot_attribute_value] attributes) -> void
+        def workflow_id: () -> String
+        def workflow_family: () -> String
+        def workflow_version: () -> String
+        def batch_id: () -> String
+        def captured_at: () -> Time
+        def entries: () -> Array[HistoryEntry]
+
+      private
+
+        attr_reader attributes: Hash[Symbol, Karya::history_snapshot_attribute_value]
+        def fetch: (Symbol name) -> Karya::history_snapshot_attribute_value
+        def validate_keys: () -> void
+      end
+
+      class EntryList
+        @entries: Array[HistoryEntry]
+
+        def initialize: (Array[HistoryEntry] entries) -> void
+        def to_a: () -> Array[HistoryEntry]
+
+      private
+
+        attr_reader entries: Array[HistoryEntry]
+      end
+    end
+
     class QueryResult
       @query: String
       @value: Karya::workflow_query_value
