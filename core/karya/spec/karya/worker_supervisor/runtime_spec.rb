@@ -150,6 +150,18 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(waited_pid).to eq(123)
     end
 
+    it 'accepts callable objects for forker hooks' do
+      forker = Object.new
+      forker.define_singleton_method(:call) do |&block|
+        block.call
+        123
+      end
+
+      runtime_instance = runtime_class.new(forker:)
+
+      expect(runtime_instance.fork_child { :ok }).to eq(123)
+    end
+
     it 'returns nil when the default poll waiter has no child process' do
       expect(runtime_class.new.poll_for_child_exit).to be_nil
     end
