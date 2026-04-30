@@ -310,6 +310,13 @@ RSpec.describe Karya::OutboundEvents do
       }
 
       expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers:, now: occurred_at)).to be(false)
+
+      out_of_range_headers = {
+        'Karya-Webhook-Timestamp' => '999999999999999999999999999',
+        'Karya-Webhook-Signature' => 'v1=deadbeef'
+      }
+
+      expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers: out_of_range_headers, now: occurred_at)).to be(false)
     end
 
     it 'rejects invalid header containers, malformed signature formats, and unsupported schemes' do

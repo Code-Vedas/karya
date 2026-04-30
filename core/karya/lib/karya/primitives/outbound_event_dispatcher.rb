@@ -8,23 +8,7 @@
 module Karya
   module Primitives
     # Validates outbound event dispatcher dependencies.
-    class OutboundEventDispatcher
-      def initialize(name, value, error_class:)
-        @name = name
-        @value = value
-        @error_class = error_class
-      end
-
-      def normalize
-        value.public_method(:call)
-        value
-      rescue NameError
-        raise error_class, "#{name} must respond to #call"
-      end
-
-      private
-
-      attr_reader :error_class, :name, :value
+    class OutboundEventDispatcher < Callable
     end
   end
 end

@@ -6,24 +6,9 @@
 module Karya
   module Primitives
     # Validates optional outbound event dispatcher dependencies while allowing nil.
-    class OptionalOutboundEventDispatcher
-      @name: Symbol
-
-      @value: Karya::outbound_event_dispatcher?
-
-      @error_class: Karya::error_class
-
+    class OptionalOutboundEventDispatcher < OptionalCallable
       def initialize: (Symbol name, Karya::outbound_event_dispatcher? value, error_class: Karya::error_class) -> void
-
       def normalize: () -> Karya::outbound_event_dispatcher?
-
-      private
-
-      attr_reader name: Symbol
-
-      attr_reader value: Karya::outbound_event_dispatcher?
-
-      attr_reader error_class: Karya::error_class
     end
   end
 end

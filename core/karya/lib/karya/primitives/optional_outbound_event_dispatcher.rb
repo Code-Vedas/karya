@@ -8,22 +8,12 @@
 module Karya
   module Primitives
     # Validates optional outbound event dispatcher dependencies while allowing nil.
-    class OptionalOutboundEventDispatcher
-      def initialize(name, value, error_class:)
-        @name = name
-        @value = value
-        @error_class = error_class
-      end
-
+    class OptionalOutboundEventDispatcher < OptionalCallable
       def normalize
         return nil if [nil].include?(value)
 
         OutboundEventDispatcher.new(name, value, error_class:).normalize
       end
-
-      private
-
-      attr_reader :error_class, :name, :value
     end
   end
 end

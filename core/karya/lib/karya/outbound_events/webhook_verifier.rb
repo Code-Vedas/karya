@@ -63,7 +63,7 @@ module Karya
       def parse_timestamp(value)
         timestamp = Integer(value, 10)
         Time.at(timestamp).utc
-      rescue ArgumentError
+      rescue ArgumentError, RangeError
         raise InvalidWebhookSignatureError, 'timestamp header must be an integer epoch second'
       end
 
