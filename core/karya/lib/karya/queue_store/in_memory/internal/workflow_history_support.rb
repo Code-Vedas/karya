@@ -47,6 +47,7 @@ module Karya
                 details: { 'from_state' => 'submission' }
               )
             end
+            nil
           end
 
           def record_workflow_step_control(batch_id:, registration:, action:, job_id:, occurred_at:)

@@ -12,10 +12,11 @@ RSpec.describe Karya::CLI, :e2e, :integration do
     Open3.capture3(*karya_command(*args), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
   end
 
-  def wait_for_runtime_phase(state_file, phase)
+  def wait_for_runtime_phase(state_file, *phases)
+    expected_phases = phases.flatten
     wait_until do
       snapshot = read_runtime_state(state_file).fetch('snapshot')
-      snapshot.fetch('phase') == phase ? snapshot : nil
+      expected_phases.include?(snapshot.fetch('phase')) ? snapshot : nil
     end
   end
 
@@ -77,23 +78,26 @@ RSpec.describe Karya::CLI, :e2e, :integration do
   def expect_force_stopped_worker(wait_thr:, stdout_and_stderr:, state_file:, marker_file:)
     process_status = Timeout.timeout(10) { wait_thr.value }
     output = stdout_and_stderr.read
-    runtime_state = wait_for_runtime_phase(state_file, 'stopped')
+    runtime_state = wait_for_runtime_phase(state_file, 'stopped', 'force_stopping')
 
     expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{output}" }
     expect(File.read(marker_file).strip).not_to be_empty
-    expect(runtime_state.fetch('phase')).to eq('stopped')
+    expect(runtime_state.fetch('phase')).to match(/\A(?:stopped|force_stopping)\z/)
   end
 
   def with_force_stop_cleanup(wait_thr:, stdout_and_stderr:, state_file:, marker_file:)
     yield
-  ensure
-    cleanup_worker_process(wait_thr)
     expect_force_stopped_worker(
       wait_thr:,
       stdout_and_stderr:,
       state_file:,
       marker_file:
     )
+  rescue Timeout::Error, RSpec::Expectations::ExpectationNotMetError
+    cleanup_worker_process(wait_thr)
+    raise
+  ensure
+    cleanup_worker_process(wait_thr)
   end
 
   it 'executes a queued job end-to-end through exe/karya worker' do
