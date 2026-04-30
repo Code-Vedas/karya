@@ -29,4 +29,37 @@ RSpec.describe 'Karya::Worker::Runtime' do
     expect(runtime.instrument('worker.poll', {})).to be_nil
     expect(logger).to have_received(:error).with('instrumentation failed', hash_including(error_message: 'boom'))
   end
+
+  it 'dispatches supported outbound events through the configured dispatcher' do
+    deliveries = []
+    dispatcher = Karya::OutboundEvents::Dispatcher.new(
+      delivery_handler: ->(delivery) { deliveries << delivery },
+      signer: Karya::OutboundEvents::WebhookSigner.new(secret: 'secret'),
+      clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
+      event_id_generator: -> { 'event-1' }
+    )
+    runtime = runtime_class.new(logger: logger, outbound_event_dispatcher: dispatcher)
+
+    runtime.instrument(
+      'worker.job.started',
+      reservation_token: 'lease-1',
+      job_id: 'job-1',
+      handler: 'billing_sync',
+      queue: 'billing',
+      worker_id: 'worker-1'
+    )
+
+    expect(deliveries.length).to eq(1)
+    expect(deliveries.first.event.type).to eq('io.karya.worker.job.started')
+  end
+
+  it 'logs and swallows outbound event dispatch failures' do
+    runtime = runtime_class.new(
+      logger: logger,
+      outbound_event_dispatcher: ->(_event, _payload) { raise 'boom' }
+    )
+
+    expect(runtime.instrument('worker.job.started', worker_id: 'worker-1')).to be_nil
+    expect(logger).to have_received(:error).with('outbound event dispatch failed', hash_including(error_message: 'boom'))
+  end
 end

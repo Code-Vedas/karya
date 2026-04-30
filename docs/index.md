@@ -63,6 +63,8 @@ workflows, framework hosts, operator tooling, and governed production rollout.
   and initial platform evaluation
 - [Runtime](/runtime/): job model, workers, control surfaces, and
   execution semantics
+- [Outbound Events](/runtime/outbound-events/): CloudEvents-compatible
+  runtime delivery contract and webhook signing conventions
 - [Reliability](/reliability/): retries, uniqueness, dead-letter isolation,
   governed recovery, and backpressure
 - [Workflows](/workflows/): orchestration, replay, signals, child

@@ -371,6 +371,23 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(instrumented_events).to eq([['supervisor.child.spawned', { pid: 123 }]])
     end
 
+    it 'dispatches supported outbound events through the configured dispatcher' do
+      deliveries = []
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: Karya::OutboundEvents::Dispatcher.new(
+          delivery_handler: ->(delivery) { deliveries << delivery },
+          signer: Karya::OutboundEvents::WebhookSigner.new(secret: 'secret'),
+          clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
+          event_id_generator: -> { 'event-1' }
+        )
+      )
+
+      runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')
+
+      expect(deliveries.length).to eq(1)
+      expect(deliveries.first.event.type).to eq('io.karya.supervisor.child.spawned')
+    end
+
     it 'swallows instrumentation errors and logs them' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(
@@ -381,6 +398,22 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123)).to be_nil
       expect(logger).to have_received(:error).with(
         'instrumentation failed',
+        event: 'supervisor.child.spawned',
+        error_class: 'RuntimeError',
+        error_message: 'boom'
+      )
+    end
+
+    it 'swallows outbound event dispatch errors and logs them' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: ->(_event, _payload) { raise 'boom' },
+        logger:
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
+      expect(logger).to have_received(:error).with(
+        'outbound event dispatch failed',
         event: 'supervisor.child.spawned',
         error_class: 'RuntimeError',
         error_message: 'boom'

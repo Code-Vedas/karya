@@ -80,6 +80,10 @@ Karya documents standards-facing compatibility for:
 These are part of the supported product surface because operator tooling,
 external integrations, and governance workflows depend on them.
 
+For outbound eventing, Karya treats versioned event schemas and webhook signing
+as part of the shared runtime contract rather than framework-local integration
+glue.
+
 ## Documentation Map
 
 - [Runtime](/runtime/)

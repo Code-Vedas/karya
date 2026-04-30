@@ -9,10 +9,10 @@ module Karya
   class WorkerSupervisor
     # Supervisor runtime hooks for process management and signal handling.
     class Runtime
-      OPTION_KEYS = %i[forker instrumenter killer logger poll_waiter signal_subscriber waiter].freeze
+      OPTION_KEYS = %i[forker instrumenter killer logger outbound_event_dispatcher poll_waiter signal_subscriber waiter].freeze
       UNSET = Object.new.freeze
 
-      attr_reader :instrumenter, :logger, :signal_subscriber
+      attr_reader :instrumenter, :logger, :outbound_event_dispatcher, :signal_subscriber
 
       def self.from_options(options)
         attributes = OPTION_KEYS.each_with_object({}) do |key, collected|
@@ -63,6 +63,10 @@ module Karya
         @logger = validate_logger(
           runtime_class.resolve_option(attributes, :logger, default: Karya.logger)
         )
+        @outbound_event_dispatcher = runtime_class.normalize_optional_callable(
+          :outbound_event_dispatcher,
+          runtime_class.resolve_option(attributes, :outbound_event_dispatcher, default: Karya.outbound_event_dispatcher)
+        )
         @poll_waiter = runtime_class.normalize_callable(
           :poll_waiter,
           runtime_class.resolve_option(attributes, :poll_waiter, default: default_poll_waiter)
@@ -109,9 +113,8 @@ module Karya
       end
 
       def instrument(event, payload)
-        return unless instrumenter
-
-        instrumenter.call(event, payload)
+        emit_instrumentation(event, payload)
+        emit_outbound_event(event, payload)
       rescue StandardError => e
         logger.error('instrumentation failed', event:, error_class: e.class.name, error_message: e.message)
         nil
@@ -158,6 +161,21 @@ module Karya
         value
       rescue NameError
         raise InvalidWorkerSupervisorConfigurationError, 'logger must respond to #debug, #info, #warn, and #error'
+      end
+
+      def emit_instrumentation(event, payload)
+        return unless instrumenter
+
+        instrumenter.call(event, payload)
+      end
+
+      def emit_outbound_event(event, payload)
+        return unless outbound_event_dispatcher
+
+        outbound_event_dispatcher.call(event, payload)
+      rescue StandardError => e
+        logger.error('outbound event dispatch failed', event:, error_class: e.class.name, error_message: e.message)
+        nil
       end
 
       private_constant :UNSET

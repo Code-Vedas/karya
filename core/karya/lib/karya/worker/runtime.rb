@@ -9,10 +9,10 @@ module Karya
   class Worker
     # Worker runtime dependencies that provide clock and sleep behavior.
     class Runtime
-      OPTION_KEYS = %i[clock instrumenter logger signal_subscriber sleeper state_reporter].freeze
+      OPTION_KEYS = %i[clock instrumenter logger outbound_event_dispatcher signal_subscriber sleeper state_reporter].freeze
       UNSET = Object.new.freeze
 
-      attr_reader :instrumenter, :logger
+      attr_reader :instrumenter, :logger, :outbound_event_dispatcher
 
       def self.from_options(options)
         attributes = OPTION_KEYS.each_with_object({}) do |key, collected|
@@ -27,6 +27,7 @@ module Karya
 
         initialize_clock(attributes)
         initialize_instrumenter(attributes)
+        initialize_outbound_event_dispatcher(attributes)
         initialize_logger_dependency(attributes)
         initialize_sleeper(attributes)
         initialize_signal_subscriber(attributes)
@@ -56,9 +57,8 @@ module Karya
       end
 
       def instrument(event, payload)
-        return unless instrumenter
-
-        instrumenter.call(event, payload)
+        emit_instrumentation(event, payload)
+        emit_outbound_event(event, payload)
       rescue StandardError => e
         logger.error('instrumentation failed', event:, error_class: e.class.name, error_message: e.message)
         nil
@@ -96,6 +96,15 @@ module Karya
         @logger = validate_logger(logger.equal?(UNSET) ? Karya.logger : logger)
       end
 
+      def initialize_outbound_event_dispatcher(attributes)
+        outbound_event_dispatcher = attributes.fetch(:outbound_event_dispatcher, UNSET)
+        @outbound_event_dispatcher = Primitives::OptionalCallable.new(
+          :outbound_event_dispatcher,
+          outbound_event_dispatcher.equal?(UNSET) ? Karya.outbound_event_dispatcher : outbound_event_dispatcher,
+          error_class: InvalidWorkerConfigurationError
+        ).normalize
+      end
+
       def initialize_sleeper(attributes)
         sleeper = attributes.fetch(:sleeper, UNSET)
         @sleeper = Primitives::Callable.new(
@@ -127,6 +136,21 @@ module Karya
         lambda do |duration|
           Kernel.sleep(duration)
         end
+      end
+
+      def emit_instrumentation(event, payload)
+        return unless instrumenter
+
+        instrumenter.call(event, payload)
+      end
+
+      def emit_outbound_event(event, payload)
+        return unless outbound_event_dispatcher
+
+        outbound_event_dispatcher.call(event, payload)
+      rescue StandardError => e
+        logger.error('outbound event dispatch failed', event:, error_class: e.class.name, error_message: e.message)
+        nil
       end
 
       def validate_logger(value)

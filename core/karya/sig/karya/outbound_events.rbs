@@ -1,0 +1,203 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  class InvalidOutboundEventError < Error
+  end
+
+  class UnsupportedOutboundEventError < Error
+  end
+
+  class InvalidWebhookSignatureError < Error
+  end
+
+  module OutboundEvents
+    class PresentString
+      @name: Symbol | String
+      @value: Karya::outbound_event_scalar_input
+      @error_class: Karya::error_class
+
+      def initialize: ((Symbol | String) name, Karya::outbound_event_scalar_input value, error_class: Karya::error_class) -> void
+      def normalize: () -> String
+    end
+
+    class OptionalString
+      @name: Symbol | String
+      @value: Karya::outbound_event_scalar_input
+      @error_class: Karya::error_class
+
+      def initialize: ((Symbol | String) name, Karya::outbound_event_scalar_input value, error_class: Karya::error_class) -> void
+      def normalize: () -> String?
+    end
+
+    class Timestamp
+      @name: Symbol | String
+      @value: Karya::outbound_event_scalar_input
+      @error_class: Karya::error_class
+
+      def initialize: ((Symbol | String) name, Karya::outbound_event_scalar_input value, error_class: Karya::error_class) -> void
+      def normalize: () -> Time
+    end
+
+    class JsonHash
+      @hash: Karya::outbound_event_input_value
+      @error_class: Karya::error_class
+      @hash_message: String
+      @value_message: String
+
+      def initialize: (Karya::outbound_event_input_value hash, error_class: Karya::error_class, hash_message: String, value_message: String) -> void
+      def normalize: () -> Karya::outbound_event_payload
+    end
+
+    class Schema
+      @event_type: String
+      @schema_version: String
+      @data_schema: String
+
+      def initialize: (event_type: String, schema_version: String, data_schema: String) -> void
+
+      attr_reader event_type: String
+      attr_reader schema_version: String
+      attr_reader data_schema: String
+    end
+
+    class Event
+      SPEC_VERSION: String
+      DATA_CONTENT_TYPE: String
+
+      @id: String
+      @source: String
+      @schema: Schema
+      @time: Time
+      @data: Karya::outbound_event_payload
+      @subject: String?
+
+      def initialize: (
+        id: String,
+        source: String,
+        schema: Schema,
+        time: Time,
+        data: Karya::outbound_event_payload,
+        ?subject: String?
+      ) -> void
+
+      attr_reader id: String
+      attr_reader source: String
+      attr_reader schema: Schema
+      attr_reader time: Time
+      attr_reader data: Karya::outbound_event_payload
+      attr_reader subject: String?
+
+      def spec_version: () -> String
+      def type: () -> String
+      def schema_version: () -> String
+      def data_schema: () -> String
+      def data_content_type: () -> String
+      def to_h: () -> Karya::outbound_event_attributes
+      def to_json: () -> String
+    end
+
+    class WebhookSignature
+      DEFAULT_SIGNATURE_HEADER: String
+      DEFAULT_TIMESTAMP_HEADER: String
+
+      @scheme: String
+      @timestamp: Time
+      @digest: String
+      @signature_header: String
+      @timestamp_header: String
+
+      def initialize: (
+        scheme: String,
+        timestamp: Time,
+        digest: String,
+        ?signature_header: String,
+        ?timestamp_header: String
+      ) -> void
+
+      attr_reader scheme: String
+      attr_reader timestamp: Time
+      attr_reader digest: String
+      attr_reader signature_header: String
+      attr_reader timestamp_header: String
+
+      def header_value: () -> String
+      def headers: () -> Karya::webhook_headers
+    end
+
+    class WebhookSigner
+      DEFAULT_SCHEME: String
+      DIGEST_ALGORITHM: String
+
+      def initialize: (secret: String, ?scheme: String) -> void
+      def sign: (body: String, now: Time) -> WebhookSignature
+    end
+
+    class WebhookVerifier
+      DEFAULT_MAX_SKEW_SECONDS: Integer
+
+      def initialize: (secret: String, ?max_skew_seconds: Integer) -> void
+      def verify: (body: String, headers: Karya::webhook_headers, now: Time) -> bool
+      def validate: (body: String, headers: Karya::webhook_headers, now: Time) -> bool
+      def enforce_signature_validity: (body: String, headers: Karya::webhook_headers, now: Time) -> bool
+      def enforce_signature_validity!: (body: String, headers: Karya::webhook_headers, now: Time) -> void
+    end
+
+    class Delivery
+      CONTENT_TYPE: String
+
+      @event: Event
+      @body: String
+      @signature: WebhookSignature?
+      @headers: Karya::webhook_headers
+
+      def initialize: (event: Event, ?signature: WebhookSignature?) -> void
+
+      attr_reader event: Event
+      attr_reader body: String
+      attr_reader signature: WebhookSignature?
+      attr_reader headers: Karya::webhook_headers
+    end
+
+    class SchemaCatalog
+      SCHEMAS: Hash[String, Karya::outbound_event_schema_definition]
+
+      def self.build_event: (
+        event_name: Karya::state_name,
+        payload: Karya::context_payload,
+        occurred_at: Time,
+        event_id: String
+      ) -> Event
+      def self.fetch_definition: (Karya::state_name event_name) -> Karya::outbound_event_schema_definition
+      def self.data_schema_for: (String event_type, String schema_version) -> String
+      def self.subject_for: (Karya::outbound_event_schema_definition schema_definition, Karya::outbound_event_payload normalized_payload) -> String?
+
+    private
+
+      class Payload
+        @payload: Karya::context_payload
+        @schema_definition: Karya::outbound_event_schema_definition
+
+        def initialize: (payload: Karya::context_payload, schema_definition: Karya::outbound_event_schema_definition) -> void
+        def to_h: () -> Karya::outbound_event_payload
+      end
+    end
+
+    class Dispatcher
+      @delivery_handler: Karya::callable_value
+      @signer: WebhookSigner?
+      @clock: Karya::callable_value
+      @event_id_generator: Karya::callable_value
+
+      def initialize: (
+        delivery_handler: Karya::callable_value,
+        ?signer: WebhookSigner?,
+        ?clock: Karya::callable_value,
+        ?event_id_generator: Karya::callable_value
+      ) -> void
+      def call: (Karya::state_name event_name, Karya::context_payload payload) -> Delivery
+    end
+  end
+end

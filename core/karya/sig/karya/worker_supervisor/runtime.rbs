@@ -10,6 +10,7 @@ module Karya
       @forker: (Method | Proc)
 
       @instrumenter: instrumenter?
+      @outbound_event_dispatcher: outbound_event_dispatcher?
 
       @killer: ^(String, Integer) -> Integer
 
@@ -23,11 +24,13 @@ module Karya
 
       @waiter: ^() -> [Integer, Process::Status]?
 
-      OPTION_KEYS: ::Array[:forker | :instrumenter | :killer | :logger | :poll_waiter | :signal_subscriber | :waiter]
+      OPTION_KEYS: ::Array[:forker | :instrumenter | :killer | :logger | :outbound_event_dispatcher | :poll_waiter | :signal_subscriber | :waiter]
 
       attr_reader instrumenter: instrumenter?
 
       attr_reader logger: logger
+
+      attr_reader outbound_event_dispatcher: outbound_event_dispatcher?
 
       attr_reader signal_subscriber: (nil | ^(String, Karya::signal_handler) -> Karya::signal_restorer?)
 

@@ -14,6 +14,8 @@ RSpec.describe Karya do
     original_logger = described_class.instance_variable_get(:@logger)
     original_instrumenter_defined = described_class.instance_variable_defined?(:@instrumenter)
     original_instrumenter = described_class.instance_variable_get(:@instrumenter)
+    original_outbound_event_dispatcher_defined = described_class.instance_variable_defined?(:@outbound_event_dispatcher)
+    original_outbound_event_dispatcher = described_class.instance_variable_get(:@outbound_event_dispatcher)
 
     example.run
   ensure
@@ -28,6 +30,12 @@ RSpec.describe Karya do
     elsif described_class.instance_variable_defined?(:@instrumenter)
       described_class.remove_instance_variable(:@instrumenter)
     end
+
+    if original_outbound_event_dispatcher_defined
+      described_class.configure_outbound_event_dispatcher(original_outbound_event_dispatcher)
+    elsif described_class.instance_variable_defined?(:@outbound_event_dispatcher)
+      described_class.remove_instance_variable(:@outbound_event_dispatcher)
+    end
   end
 
   it 'loads the canonical entrypoint' do
@@ -39,15 +47,18 @@ RSpec.describe Karya do
     expect(described_class.logger.info('hello')).to be_nil
   end
 
-  it 'allows configuring global logger and instrumenter defaults' do
+  it 'allows configuring global logger, instrumenter, and outbound event dispatcher defaults' do
     logger = Object.new
     instrumenter = ->(_event, _payload) {}
+    outbound_event_dispatcher = ->(_event, _payload) {}
 
     described_class.configure_logger(logger)
     described_class.configure_instrumenter(instrumenter)
+    described_class.configure_outbound_event_dispatcher(outbound_event_dispatcher)
 
     expect(described_class.logger).to be(logger)
     expect(described_class.instrumenter).to be(instrumenter)
+    expect(described_class.outbound_event_dispatcher).to be(outbound_event_dispatcher)
   end
 
   it 'allows direct requires for job model subfiles' do

@@ -20,11 +20,16 @@ module Karya
   class MissingQueueStoreConfigurationError < Error; end
 
   class << self
-    attr_reader :instrumenter
+    attr_reader :instrumenter, :outbound_event_dispatcher
 
     def configure_instrumenter(instrumenter)
       # Process-wide default used when a runtime does not receive an explicit instrumenter.
       @instrumenter = instrumenter
+    end
+
+    def configure_outbound_event_dispatcher(outbound_event_dispatcher)
+      # Process-wide default used when a runtime does not receive an explicit outbound event dispatcher.
+      @outbound_event_dispatcher = outbound_event_dispatcher
     end
 
     def configure_logger(logger)
