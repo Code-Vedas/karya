@@ -16,6 +16,10 @@ module Karya
     def call: (*callable_argument args) -> callable_result
   end
 
+  interface _OutboundEventDispatcher
+    def call: (String event, context_payload payload) -> (callable_result | OutboundEvents::Delivery)
+  end
+
   type lifecycle = _Lifecycle
   type callable_argument = nil | bool | Numeric | String | Symbol | Time | context_payload | signal_handler | Array[String]
   type callable_result = nil | bool | Numeric | String | Symbol | Time | signal_restorer | context_payload | Array[String]
@@ -406,7 +410,7 @@ module Karya
   type error_class = singleton(StandardError)
   type logger = Internal::_Logger
   type instrumenter = ^(String, context_payload) -> nil
-  type outbound_event_dispatcher = ^(String, context_payload) -> (callable_result | OutboundEvents::Delivery)
+  type outbound_event_dispatcher = Method | Proc | _OutboundEventDispatcher
   type signal_handler = ^() -> nil
   type signal_restorer = ^() -> nil
   type cli_defaults = Hash[Symbol, Integer]

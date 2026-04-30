@@ -34,9 +34,9 @@ module Karya
           occurred_at:,
           event_id: event_id_generator.call
         )
-        unsigned_delivery = Delivery.new(event:)
-        signature = signer&.sign(body: unsigned_delivery.body, now: occurred_at)
-        delivery = Delivery.new(event:, signature:)
+        body = event.to_json.freeze
+        signature = signer&.sign(body:, now: occurred_at)
+        delivery = Delivery.new(event:, signature:, body:)
         delivery_handler.call(delivery)
         delivery
       end

@@ -13,9 +13,9 @@ module Karya
 
       attr_reader :body, :event, :headers, :signature
 
-      def initialize(event:, signature: nil)
+      def initialize(event:, signature: nil, body: nil)
         @event = normalize_event(event)
-        @body = @event.to_json.freeze
+        @body = normalize_body(body)
         @signature = normalize_signature(signature)
         @headers = build_headers.freeze
         freeze
@@ -34,6 +34,13 @@ module Karya
         return value if value.is_a?(WebhookSignature)
 
         raise InvalidOutboundEventError, 'signature must be Karya::OutboundEvents::WebhookSignature'
+      end
+
+      def normalize_body(value)
+        return @event.to_json.freeze unless [value].compact.any?
+        return value.dup.freeze if value.is_a?(String)
+
+        raise InvalidOutboundEventError, 'body must be a String'
       end
 
       def build_headers

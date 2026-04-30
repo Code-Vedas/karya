@@ -153,7 +153,7 @@ module Karya
       @signature: WebhookSignature?
       @headers: Karya::webhook_headers
 
-      def initialize: (event: Event, ?signature: WebhookSignature?) -> void
+      def initialize: (event: Event, ?signature: WebhookSignature?, ?body: String?) -> void
 
       attr_reader event: Event
       attr_reader body: String

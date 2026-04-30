@@ -173,6 +173,10 @@ RSpec.describe Karya::OutboundEvents do
       expect do
         described_class.new(event:, signature: 'bad')
       end.to raise_error(Karya::InvalidOutboundEventError, 'signature must be Karya::OutboundEvents::WebhookSignature')
+
+      expect do
+        described_class.new(event:, body: :bad)
+      end.to raise_error(Karya::InvalidOutboundEventError, 'body must be a String')
     end
 
     it 'serializes the normalized event instance instead of the raw initializer argument' do
@@ -309,6 +313,39 @@ RSpec.describe Karya::OutboundEvents do
       expect(delivery.headers.fetch('Content-Type')).to eq('application/cloudevents+json')
       expect(delivery.headers.fetch('Karya-Webhook-Signature')).to start_with('v1=')
       expect(delivery.event.type).to eq('io.karya.supervisor.child.spawned')
+    end
+
+    it 'serializes one event body when signing a dispatch' do
+      event_class = Class.new do
+        attr_reader :to_json_calls
+
+        def initialize
+          @to_json_calls = 0
+        end
+
+        def is_a?(klass)
+          klass == Karya::OutboundEvents::Event || super
+        end
+
+        def to_json(*)
+          @to_json_calls += 1
+          '{"event":"ok"}'
+        end
+      end
+      event = event_class.new
+
+      allow(Karya::OutboundEvents::SchemaCatalog).to receive(:build_event).and_return(event)
+
+      dispatcher = described_class.new(
+        delivery_handler: ->(_delivery) {},
+        signer: Karya::OutboundEvents::WebhookSigner.new(secret: 'secret'),
+        clock: -> { occurred_at },
+        event_id_generator: -> { 'event-1' }
+      )
+
+      dispatcher.call('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')
+
+      expect(event.to_json_calls).to eq(1)
     end
 
     it 'supports unsigned dispatchers and rejects clocks that do not return Time' do
