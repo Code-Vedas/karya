@@ -63,13 +63,10 @@ module Karya
             normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
 
             @mutex.synchronize do
-              normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
-              batch = fetch_batch(normalized_batch_id)
-              workflow_batch_id = batch.id
-              registration = fetch_workflow_registration(workflow_batch_id)
+              workflow_batch_id, registration, job_ids = workflow_approval_control(batch_id, step_ids, now: normalized_now)
               Karya::Internal::BulkMutation::ReportBuilder.new(
                 action: :approve_workflow_checkpoints,
-                job_ids: workflow_approval_control_job_ids(batch_id, step_ids, now: normalized_now),
+                job_ids:,
                 now: normalized_now
               ).to_report do |job_id, _changed_jobs, _skipped_jobs|
                 state.register_workflow_approval_approved(job_id:, decided_at: normalized_now)
@@ -90,13 +87,10 @@ module Karya
             normalized_reason = normalize_approval_rejection_reason(reason)
 
             @mutex.synchronize do
-              normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
-              batch = fetch_batch(normalized_batch_id)
-              workflow_batch_id = batch.id
-              registration = fetch_workflow_registration(workflow_batch_id)
+              workflow_batch_id, registration, job_ids = workflow_approval_control(batch_id, step_ids, now: normalized_now)
               Karya::Internal::BulkMutation::ReportBuilder.new(
                 action: :reject_workflow_checkpoints,
-                job_ids: workflow_approval_control_job_ids(batch_id, step_ids, now: normalized_now),
+                job_ids:,
                 now: normalized_now
               ).to_report do |job_id, changed_jobs, skipped_jobs|
                 state.register_workflow_approval_rejected(job_id:, decided_at: normalized_now, reason: normalized_reason)
@@ -140,14 +134,16 @@ module Karya
             raise Workflow::InvalidExecutionError, "workflow batch #{batch_id.inspect} is terminal and cannot be controlled"
           end
 
-          def workflow_approval_control_job_ids(batch_id, step_ids, now:)
+          def workflow_approval_control(batch_id, step_ids, now:)
             normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
             batch = fetch_batch(normalized_batch_id)
-            registration = fetch_workflow_registration(batch.id)
+            workflow_batch_id = batch.id
+            registration = fetch_workflow_registration(workflow_batch_id)
             jobs = fetch_batch_jobs(batch)
             snapshot = build_workflow_snapshot(batch:, registration:, jobs:, now:)
-            workflow_control_job_ids(batch_id, step_ids).tap do |job_ids|
+            workflow_control_job_ids(batch_id, step_ids).then do |job_ids|
               validate_workflow_approval_targets(snapshot, registration, job_ids)
+              [workflow_batch_id, registration, job_ids]
             end
           end
 
