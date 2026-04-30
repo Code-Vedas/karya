@@ -398,7 +398,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
           clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
           event_id_generator: -> { 'event-1' }
         ),
-        logger:
+        logger: logger
       )
 
       expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
@@ -415,7 +415,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(
         instrumenter: ->(_event, _payload) { raise 'boom' },
-        logger:
+        logger: logger
       )
 
       expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123)).to be_nil
@@ -431,7 +431,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(
         outbound_event_dispatcher: ->(_event, _payload) { raise 'boom' },
-        logger:
+        logger: logger
       )
 
       expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
@@ -451,7 +451,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
           clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
           event_id_generator: -> { 'event-1' }
         ),
-        logger:
+        logger: logger
       )
 
       expect(runtime_instance.instrument('supervisor.child.exited', pid: 123, worker_id: 'worker-1', success: true)).to be_nil
@@ -462,7 +462,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(
         outbound_event_dispatcher: ->(_event, _payload) { raise Karya::UnsupportedOutboundEventError, 'skip' },
-        logger:
+        logger: logger
       )
 
       expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
