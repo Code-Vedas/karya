@@ -122,6 +122,8 @@ module Karya
 
         attr_reader :value
       end
+
+      private_constant :HeaderValue, :SignatureHeader
     end
   end
 end
