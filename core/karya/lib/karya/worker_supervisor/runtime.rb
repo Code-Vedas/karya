@@ -125,8 +125,9 @@ module Karya
       end
 
       def instrument(event, payload)
-        emit_instrumentation(event, payload)
-        emit_outbound_event(event, payload)
+        instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(payload)
+        emit_instrumentation(event, instrumentation_payload)
+        emit_outbound_event(event, outbound_payload)
         nil
       end
 

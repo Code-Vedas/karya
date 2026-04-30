@@ -423,6 +423,37 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       )
     end
 
+    it 'isolates instrumentation and outbound dispatch payload snapshots' do
+      instrumentation_payload = nil
+      outbound_payload = nil
+      mutation_error = nil
+      stage = +'original'
+      stage.freeze
+      runtime_instance = runtime_class.new(
+        instrumenter: lambda do |_event, payload|
+          instrumentation_payload = payload
+          mutation_error = begin
+            payload.fetch(:metadata)['stage'] = 'mutated'
+            nil
+          rescue StandardError => e
+            e
+          end
+        end,
+        outbound_event_dispatcher: ->(_event, payload) { outbound_payload = payload }
+      )
+
+      runtime_instance.instrument('supervisor.child.spawned', pid: 123, metadata: { 'stage' => stage })
+
+      expect(mutation_error).to be_a(FrozenError)
+      expect(instrumentation_payload).not_to be(outbound_payload)
+      expect(instrumentation_payload).to eq(outbound_payload)
+      expect(outbound_payload).to eq(pid: 123, metadata: { 'stage' => 'original' })
+      expect(outbound_payload).to be_frozen
+      expect(outbound_payload.fetch(:metadata)).to be_frozen
+      expect(instrumentation_payload.fetch(:metadata).fetch('stage')).to be(stage)
+      expect(outbound_payload.fetch(:metadata).fetch('stage')).to be(stage)
+    end
+
     it 'swallows instrumentation errors and logs them' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(

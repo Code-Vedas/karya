@@ -1,0 +1,24 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    # Builds immutable snapshots for runtime hook payloads.
+    class ImmutableHookPayload
+      @payload: Karya::context_payload
+
+      def self.snapshot: (Karya::context_payload payload) -> Karya::context_payload
+      def self.snapshot_pair: (Karya::context_payload payload) -> [Karya::context_payload, Karya::context_payload]
+
+      def initialize: (Karya::context_payload payload) -> void
+
+      def snapshot: () -> Karya::context_payload
+
+      private
+
+      attr_reader payload: Karya::context_payload
+    end
+  end
+end

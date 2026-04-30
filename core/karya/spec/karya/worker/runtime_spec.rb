@@ -85,6 +85,42 @@ RSpec.describe 'Karya::Worker::Runtime' do
     expect(logger).to have_received(:error).with('instrumentation failed', hash_including(error_message: 'boom'))
   end
 
+  it 'isolates instrumentation and outbound dispatch payload snapshots' do
+    instrumentation_payload = nil
+    outbound_payload = nil
+    mutation_error = nil
+    job_id = +'job-1'
+    stage = +'original'
+    stage.freeze
+    runtime = runtime_class.new(
+      logger: logger,
+      instrumenter: lambda do |_event, payload|
+        instrumentation_payload = payload
+        mutation_error = begin
+          payload.fetch(:metadata)['stage'] = 'mutated'
+          nil
+        rescue StandardError => e
+          e
+        end
+      end,
+      outbound_event_dispatcher: ->(_event, payload) { outbound_payload = payload }
+    )
+
+    runtime.instrument('worker.job.started', job_id:, metadata: { 'stage' => stage })
+
+    expect(mutation_error).to be_a(FrozenError)
+    expect(instrumentation_payload).not_to be(outbound_payload)
+    expect(instrumentation_payload).to eq(outbound_payload)
+    expect(outbound_payload).to eq(job_id: 'job-1', metadata: { 'stage' => 'original' })
+    expect(outbound_payload).to be_frozen
+    expect(instrumentation_payload.fetch(:job_id)).not_to be(job_id)
+    expect(outbound_payload.fetch(:job_id)).not_to be(job_id)
+    expect(outbound_payload.fetch(:job_id)).to be_frozen
+    expect(outbound_payload.fetch(:metadata)).to be_frozen
+    expect(instrumentation_payload.fetch(:metadata).fetch('stage')).to be(stage)
+    expect(outbound_payload.fetch(:metadata).fetch('stage')).to be(stage)
+  end
+
   it 'logs and swallows outbound event dispatch failures' do
     runtime = runtime_class.new(
       logger: logger,
