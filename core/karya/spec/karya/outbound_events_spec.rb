@@ -140,6 +140,18 @@ RSpec.describe Karya::OutboundEvents do
 
       expect(JSON.parse(event.to_json(json_state))).to eq(event.to_h)
     end
+
+    it 'accepts JSON option hashes when serializing to JSON' do
+      event = described_class.new(
+        id: 'event-1',
+        source: 'karya://workers/worker-1',
+        schema:,
+        time: occurred_at,
+        data: { 'job_id' => 'job-1' }
+      )
+
+      expect(JSON.parse(event.to_json(indent: '  '))).to eq(event.to_h)
+    end
   end
 
   describe Karya::OutboundEvents::Delivery do

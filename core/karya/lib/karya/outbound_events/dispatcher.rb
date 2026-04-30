@@ -2,7 +2,6 @@
 
 require 'securerandom'
 require_relative '../primitives/callable'
-require_relative '../primitives/optional_callable'
 
 # Copyright Codevedas Inc. 2025-present
 #

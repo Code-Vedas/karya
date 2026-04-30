@@ -388,6 +388,29 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(deliveries.first.event.type).to eq('io.karya.supervisor.child.spawned')
     end
 
+    it 'still dispatches outbound events when the instrumenter raises' do
+      deliveries = []
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(
+        instrumenter: ->(_event, _payload) { raise 'boom' },
+        outbound_event_dispatcher: Karya::OutboundEvents::Dispatcher.new(
+          delivery_handler: ->(delivery) { deliveries << delivery },
+          clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
+          event_id_generator: -> { 'event-1' }
+        ),
+        logger:
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
+      expect(deliveries.length).to eq(1)
+      expect(logger).to have_received(:error).with(
+        'instrumentation failed',
+        event: 'supervisor.child.spawned',
+        error_class: 'RuntimeError',
+        error_message: 'boom'
+      )
+    end
+
     it 'swallows instrumentation errors and logs them' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(
@@ -418,6 +441,21 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         error_class: 'RuntimeError',
         error_message: 'boom'
       )
+    end
+
+    it 'ignores unsupported outbound events without logging dispatch failures' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: Karya::OutboundEvents::Dispatcher.new(
+          delivery_handler: ->(_delivery) {},
+          clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
+          event_id_generator: -> { 'event-1' }
+        ),
+        logger:
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.exited', pid: 123, worker_id: 'worker-1', success: true)).to be_nil
+      expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
     end
   end
 end

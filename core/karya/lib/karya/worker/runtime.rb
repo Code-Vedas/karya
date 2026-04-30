@@ -59,8 +59,6 @@ module Karya
       def instrument(event, payload)
         emit_instrumentation(event, payload)
         emit_outbound_event(event, payload)
-      rescue StandardError => e
-        logger.error('instrumentation failed', event:, error_class: e.class.name, error_message: e.message)
         nil
       end
 
@@ -142,12 +140,17 @@ module Karya
         return unless instrumenter
 
         instrumenter.call(event, payload)
+      rescue StandardError => e
+        logger.error('instrumentation failed', event:, error_class: e.class.name, error_message: e.message)
+        nil
       end
 
       def emit_outbound_event(event, payload)
         return unless outbound_event_dispatcher
 
         outbound_event_dispatcher.call(event, payload)
+      rescue UnsupportedOutboundEventError
+        nil
       rescue StandardError => e
         logger.error('outbound event dispatch failed', event:, error_class: e.class.name, error_message: e.message)
         nil
