@@ -150,7 +150,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(waited_pid).to eq(123)
     end
 
-    it 'accepts callable objects for forker hooks' do
+    it 'accepts callable objects as forker hooks' do
       forker = Object.new
       forker.define_singleton_method(:call) do |&block|
         block.call

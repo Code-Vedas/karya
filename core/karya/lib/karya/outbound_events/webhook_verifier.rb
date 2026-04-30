@@ -87,7 +87,7 @@ module Karya
 
           normalized_value = OptionalString.new(
             key,
-            [headers[key], headers[key.downcase]].compact.first,
+            normalized_headers[key.downcase],
             error_class: InvalidWebhookSignatureError
           ).normalize
           normalized_value || raise(InvalidWebhookSignatureError, "#{key} header must be present")
@@ -96,6 +96,12 @@ module Karya
         private
 
         attr_reader :headers, :key
+
+        def normalized_headers
+          @normalized_headers ||= headers.each_with_object({}) do |(header_key, header_value), normalized|
+            normalized[header_key.to_s.downcase] = header_value
+          end
+        end
       end
 
       # Parses the versioned webhook signature header.
@@ -105,10 +111,10 @@ module Karya
         end
 
         def parse
-          /\A([A-Za-z0-9_]+)=([0-9a-f]+)\z/.match(value).then do |match|
+          /\A([A-Za-z0-9_]+)=([0-9a-fA-F]+)\z/.match(value).then do |match|
             raise InvalidWebhookSignatureError, 'signature header must use <scheme>=<digest> format' unless match
 
-            [match[1], match[2]]
+            [match[1], match[2].downcase]
           end
         end
 

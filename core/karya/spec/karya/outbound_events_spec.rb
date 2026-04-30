@@ -335,6 +335,16 @@ RSpec.describe Karya::OutboundEvents do
         'Karya-Webhook-Signature' => 'v2=deadbeef'
       }
       expect(verifier.verify(body: '{"id":"event-1"}', headers: unsupported_scheme_headers, now: occurred_at)).to be(false)
+
+      signature = Karya::OutboundEvents::WebhookSigner.new(secret: 'secret').sign(
+        body: '{"id":"event-1"}',
+        now: occurred_at
+      )
+      uppercase_digest_headers = {
+        'kArYa-WeBhOoK-TiMeStAmP': occurred_at.to_i.to_s,
+        'kArYa-WeBhOoK-SiGnAtUrE': "#{signature.scheme}=#{signature.digest.upcase}"
+      }
+      expect(verifier.verify(body: '{"id":"event-1"}', headers: uppercase_digest_headers, now: occurred_at)).to be(true)
     end
 
     it 'rejects invalid max_skew_seconds configuration during initialization' do
