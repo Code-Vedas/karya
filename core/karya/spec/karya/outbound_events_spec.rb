@@ -329,6 +329,19 @@ RSpec.describe Karya::OutboundEvents do
       }
       expect(verifier.verify(body: '{"id":"event-1"}', headers: unsupported_scheme_headers, now: occurred_at)).to be(false)
     end
+
+    it 'rejects invalid max_skew_seconds configuration during initialization' do
+      expect do
+        described_class.new(secret: 'secret', max_skew_seconds: '300')
+      end.to raise_error(Karya::InvalidWebhookSignatureError, 'max_skew_seconds must be an Integer')
+
+      expect do
+        described_class.new(secret: 'secret', max_skew_seconds: -1)
+      end.to raise_error(
+        Karya::InvalidWebhookSignatureError,
+        'max_skew_seconds must be greater than or equal to 0'
+      )
+    end
   end
 
   describe Karya::OutboundEvents::Dispatcher do
@@ -409,6 +422,23 @@ RSpec.describe Karya::OutboundEvents do
           clock: -> { 'bad' }
         ).call('worker.recovery.orphaned_jobs', recovered_jobs: 1, worker_id: 'worker-1')
       end.to raise_error(Karya::InvalidOutboundEventError, 'clock must return a Time')
+    end
+
+    it 'skips unsupported instrumentation events without calling hot-path dependencies' do
+      deliveries = []
+      clock_calls = 0
+      dispatcher = described_class.new(
+        delivery_handler: ->(delivery) { deliveries << delivery },
+        clock: lambda do
+          clock_calls += 1
+          occurred_at
+        end,
+        event_id_generator: -> { raise 'should not generate event ids for unsupported events' }
+      )
+
+      expect(dispatcher.call('worker.poll', worker_id: 'worker-1')).to be_nil
+      expect(deliveries).to eq([])
+      expect(clock_calls).to eq(0)
     end
 
     it 'rejects invalid signer objects during initialization' do

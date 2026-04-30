@@ -40,7 +40,7 @@ module Karya
 
       def self.normalize_callable: (Symbol name, (Method | Proc) value) -> (Method | Proc)
 
-      def self.normalize_optional_callable: (Symbol name, (Method | Proc | nil) value) -> (Method | Proc | nil)
+      def self.normalize_optional_callable: (Symbol name, Karya::callable_value? value) -> Karya::callable_value?
 
       def initialize: (**symbol_options attributes) -> void
 

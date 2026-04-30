@@ -65,6 +65,10 @@ module Karya
         }
       }.freeze
 
+      def self.supported?(event_name)
+        SCHEMAS.key?(normalize_event_name(event_name))
+      end
+
       def self.build_event(event_name:, payload:, occurred_at:, event_id:)
         schema_definition = fetch_definition(event_name)
         event_type = schema_definition.fetch(:event_type)
@@ -86,7 +90,7 @@ module Karya
       end
 
       def self.fetch_definition(event_name)
-        normalized_event_name = event_name.to_s.strip
+        normalized_event_name = normalize_event_name(event_name)
         schema_definition = SCHEMAS[normalized_event_name]
         return schema_definition if schema_definition
 
@@ -102,6 +106,10 @@ module Karya
         return nil unless subject_key
 
         normalized_payload.fetch(subject_key).to_s.freeze
+      end
+
+      def self.normalize_event_name(event_name)
+        event_name.to_s.strip
       end
 
       # Validates and normalizes one supported outbound payload.

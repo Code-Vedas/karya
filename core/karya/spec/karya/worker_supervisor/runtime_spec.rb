@@ -457,5 +457,16 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(runtime_instance.instrument('supervisor.child.exited', pid: 123, worker_id: 'worker-1', success: true)).to be_nil
       expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
     end
+
+    it 'swallows unsupported outbound event errors from custom dispatchers' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: ->(_event, _payload) { raise Karya::UnsupportedOutboundEventError, 'skip' },
+        logger:
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
+      expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
+    end
   end
 end

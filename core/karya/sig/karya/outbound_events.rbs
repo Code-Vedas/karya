@@ -164,6 +164,7 @@ module Karya
     class SchemaCatalog
       SCHEMAS: Hash[String, Karya::outbound_event_schema_definition]
 
+      def self.supported?: (Karya::state_name event_name) -> bool
       def self.build_event: (
         event_name: Karya::state_name,
         payload: Karya::context_payload,
@@ -197,7 +198,7 @@ module Karya
         ?clock: Karya::callable_value,
         ?event_id_generator: Karya::callable_value
       ) -> void
-      def call: (Karya::state_name event_name, Karya::context_payload payload) -> Delivery
+      def call: (Karya::state_name event_name, Karya::context_payload payload) -> Delivery?
     end
   end
 end

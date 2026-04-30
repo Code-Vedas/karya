@@ -102,4 +102,14 @@ RSpec.describe 'Karya::Worker::Runtime' do
     expect(runtime.instrument('worker.poll', worker_id: 'worker-1')).to be_nil
     expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
   end
+
+  it 'swallows unsupported outbound event errors from custom dispatchers' do
+    runtime = runtime_class.new(
+      logger: logger,
+      outbound_event_dispatcher: ->(_event, _payload) { raise Karya::UnsupportedOutboundEventError, 'skip' }
+    )
+
+    expect(runtime.instrument('worker.job.started', worker_id: 'worker-1')).to be_nil
+    expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
+  end
 end

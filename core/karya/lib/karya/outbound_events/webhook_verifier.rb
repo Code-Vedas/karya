@@ -14,7 +14,7 @@ module Karya
       DEFAULT_MAX_SKEW_SECONDS = 300
 
       def initialize(secret:, max_skew_seconds: DEFAULT_MAX_SKEW_SECONDS)
-        @max_skew_seconds = max_skew_seconds
+        @max_skew_seconds = normalize_max_skew_seconds(max_skew_seconds)
         @signer = WebhookSigner.new(secret:)
       end
 
@@ -52,6 +52,13 @@ module Karya
       private
 
       attr_reader :max_skew_seconds, :signer
+
+      def normalize_max_skew_seconds(value)
+        raise InvalidWebhookSignatureError, 'max_skew_seconds must be an Integer' unless value.is_a?(Integer)
+        raise InvalidWebhookSignatureError, 'max_skew_seconds must be greater than or equal to 0' if value.negative?
+
+        value
+      end
 
       def parse_timestamp(value)
         timestamp = Integer(value, 10)

@@ -24,6 +24,8 @@ module Karya
       end
 
       def call(event_name, payload)
+        return nil unless SchemaCatalog.supported?(event_name)
+
         occurred_at = clock.call
         raise InvalidOutboundEventError, 'clock must return a Time' unless occurred_at.is_a?(Time)
 
