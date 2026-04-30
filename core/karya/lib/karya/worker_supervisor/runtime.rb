@@ -30,7 +30,7 @@ module Karya
       end
 
       def self.normalize_forker(name, value)
-        Primitives::Callable.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
+        Primitives::Forker.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
       end
 
       def self.normalize_optional_callable(name, value)
@@ -125,9 +125,18 @@ module Karya
       end
 
       def instrument(event, payload)
-        instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(payload)
-        emit_instrumentation(event, instrumentation_payload)
-        emit_outbound_event(event, outbound_payload)
+        return nil unless instrumenter || outbound_event_dispatcher
+
+        if instrumenter && outbound_event_dispatcher
+          instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(payload)
+          emit_instrumentation(event, instrumentation_payload)
+          emit_outbound_event(event, outbound_payload)
+          return nil
+        end
+
+        snapshot = Internal::ImmutableHookPayload.snapshot(payload)
+        emit_instrumentation(event, snapshot)
+        emit_outbound_event(event, snapshot)
         nil
       end
 

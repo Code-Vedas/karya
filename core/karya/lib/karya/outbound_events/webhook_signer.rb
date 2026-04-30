@@ -14,8 +14,27 @@ module Karya
       DEFAULT_SCHEME = 'v1'
       DIGEST_ALGORITHM = 'SHA256'
 
+      # Validates webhook secrets without altering their bytes.
+      class Secret
+        def initialize(value)
+          @value = value
+        end
+
+        def normalize
+          raise InvalidWebhookSignatureError, 'secret must be a String' unless value.is_a?(String)
+          raise InvalidWebhookSignatureError, 'secret must be present' if value.empty?
+
+          value.frozen? ? value : value.dup.freeze
+        end
+
+        private
+
+        attr_reader :value
+      end
+      private_constant :Secret
+
       def initialize(secret:, scheme: DEFAULT_SCHEME)
-        @secret = PresentString.new(:secret, secret, error_class: InvalidWebhookSignatureError).normalize
+        @secret = Secret.new(secret).normalize
         @scheme = PresentString.new(:scheme, scheme, error_class: InvalidWebhookSignatureError).normalize
       end
 

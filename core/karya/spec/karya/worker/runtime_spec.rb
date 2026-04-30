@@ -30,6 +30,33 @@ RSpec.describe 'Karya::Worker::Runtime' do
     expect(logger).to have_received(:error).with('instrumentation failed', hash_including(error_message: 'boom'))
   end
 
+  it 'skips hook payload snapshots when no hooks are configured' do
+    allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
+    allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+    runtime = runtime_class.new(logger: logger, instrumenter: nil, outbound_event_dispatcher: nil)
+
+    expect(runtime.instrument('worker.poll', worker_id: 'worker-1')).to be_nil
+    expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
+    expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
+  end
+
+  it 'builds one hook payload snapshot when only one hook is configured' do
+    instrumenter_payload = nil
+    allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
+    allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+    runtime = runtime_class.new(
+      logger: logger,
+      instrumenter: ->(_event, payload) { instrumenter_payload = payload },
+      outbound_event_dispatcher: nil
+    )
+
+    expect(runtime.instrument('worker.poll', worker_id: 'worker-1')).to be_nil
+    expect(Karya::Internal::ImmutableHookPayload).to have_received(:snapshot).once
+    expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
+    expect(instrumenter_payload).to eq(worker_id: 'worker-1')
+    expect(instrumenter_payload).to be_frozen
+  end
+
   it 'dispatches supported outbound events through the configured dispatcher' do
     deliveries = []
     dispatcher = Karya::OutboundEvents::Dispatcher.new(

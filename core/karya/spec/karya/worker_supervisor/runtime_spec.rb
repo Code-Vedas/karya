@@ -162,6 +162,43 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(runtime_instance.fork_child { :ok }).to eq(123)
     end
 
+    it 'skips hook payload snapshots when no hooks are configured' do
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+      runtime_instance = runtime_class.new(
+        forker: lambda do |&block|
+          block.call
+          123
+        end,
+        instrumenter: nil,
+        outbound_event_dispatcher: nil
+      )
+
+      expect(runtime_instance.instrument('supervisor.poll', worker_id: 'worker-1')).to be_nil
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
+    end
+
+    it 'builds one hook payload snapshot when only one hook is configured' do
+      instrumentation_payload = nil
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+      runtime_instance = runtime_class.new(
+        forker: lambda do |&block|
+          block.call
+          123
+        end,
+        instrumenter: ->(_event, payload) { instrumentation_payload = payload },
+        outbound_event_dispatcher: nil
+      )
+
+      expect(runtime_instance.instrument('supervisor.poll', worker_id: 'worker-1')).to be_nil
+      expect(Karya::Internal::ImmutableHookPayload).to have_received(:snapshot).once
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
+      expect(instrumentation_payload).to eq(worker_id: 'worker-1')
+      expect(instrumentation_payload).to be_frozen
+    end
+
     it 'returns nil when the default poll waiter has no child process' do
       expect(runtime_class.new.poll_for_child_exit).to be_nil
     end

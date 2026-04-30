@@ -296,6 +296,29 @@ RSpec.describe Karya::OutboundEvents do
         signer.sign(body: '', now: occurred_at)
       end.to raise_error(Karya::InvalidWebhookSignatureError, 'body must be present')
     end
+
+    it 'uses exact secret bytes and rejects invalid secret inputs' do
+      spaced_secret = +' secret '
+      plain_secret = +'secret'
+      spaced_signer = described_class.new(secret: spaced_secret)
+      plain_signer = described_class.new(secret: plain_secret)
+
+      expect(
+        spaced_signer.sign(body: '{"id":"event-1"}', now: occurred_at).digest
+      ).not_to eq(
+        plain_signer.sign(body: '{"id":"event-1"}', now: occurred_at).digest
+      )
+      expect(spaced_secret).not_to be_frozen
+      expect(plain_secret).not_to be_frozen
+
+      expect do
+        described_class.new(secret: :secret)
+      end.to raise_error(Karya::InvalidWebhookSignatureError, 'secret must be a String')
+
+      expect do
+        described_class.new(secret: '')
+      end.to raise_error(Karya::InvalidWebhookSignatureError, 'secret must be present')
+    end
   end
 
   describe Karya::OutboundEvents::WebhookVerifier do
