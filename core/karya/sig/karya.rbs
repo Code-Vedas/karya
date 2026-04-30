@@ -366,7 +366,8 @@ module Karya
     rate_limits: Hash[String, backpressure_rate_limit_snapshot]
   }
   type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
-  type outbound_event_scalar_input = nil | bool | Numeric | String | Symbol | Time
+  type outbound_event_string_input = nil | bool | Numeric | String | Symbol | Time
+  type outbound_event_scalar_input = nil | bool | Numeric | String | Symbol
   type outbound_event_input_value =
     outbound_event_scalar_input |
     Array[outbound_event_input_value] |
@@ -394,6 +395,8 @@ module Karya
       subject_key: String
     }
   type webhook_headers = Hash[String, String]
+  type webhook_header_input_value = nil | bool | Numeric | String | Symbol
+  type webhook_headers_input = Hash[String, webhook_header_input_value] | Array[webhook_header_input_value]
   type outbound_event_attributes = Hash[String, String | outbound_event_payload]
   type handler_mapping = ::Hash[String, Worker::_Handler]
   type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)

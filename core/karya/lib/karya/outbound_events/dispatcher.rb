@@ -13,7 +13,7 @@ module Karya
     class Dispatcher
       def initialize(delivery_handler:, signer: nil, clock: -> { Time.now.utc }, event_id_generator: -> { SecureRandom.uuid })
         @delivery_handler = Primitives::Callable.new(:delivery_handler, delivery_handler, error_class: InvalidOutboundEventError).normalize
-        @signer = signer
+        @signer = normalize_signer(signer)
         @clock = Primitives::Callable.new(:clock, clock, error_class: InvalidOutboundEventError).normalize
         @event_id_generator = Primitives::Callable.new(
           :event_id_generator,
@@ -42,6 +42,13 @@ module Karya
       private
 
       attr_reader :clock, :delivery_handler, :event_id_generator, :signer
+
+      def normalize_signer(value)
+        return nil unless [value].compact.any?
+        return value if value.is_a?(WebhookSigner)
+
+        raise InvalidOutboundEventError, 'signer must be Karya::OutboundEvents::WebhookSigner'
+      end
     end
   end
 end

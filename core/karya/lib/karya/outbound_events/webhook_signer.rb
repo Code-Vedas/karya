@@ -20,10 +20,12 @@ module Karya
       end
 
       def sign(body:, now:)
-        normalized_body = PresentString.new(:body, body, error_class: InvalidWebhookSignatureError).normalize
+        raise InvalidWebhookSignatureError, 'body must be a String' unless body.is_a?(String)
+        raise InvalidWebhookSignatureError, 'body must be present' if body.empty?
+
         normalized_now = Timestamp.new(:now, now, error_class: InvalidWebhookSignatureError).normalize
         timestamp = normalized_now.to_i.to_s
-        digest = OpenSSL::HMAC.hexdigest(DIGEST_ALGORITHM, secret, "#{timestamp}.#{normalized_body}")
+        digest = OpenSSL::HMAC.hexdigest(DIGEST_ALGORITHM, secret, "#{timestamp}.#{body}")
         WebhookSignature.new(
           scheme:,
           timestamp: normalized_now,

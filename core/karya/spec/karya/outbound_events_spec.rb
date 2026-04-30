@@ -186,6 +186,27 @@ RSpec.describe Karya::OutboundEvents do
         'Karya-Webhook-Signature' => 'v1=92550d04b40d7e37370ac616b3a58c4fee591f8cb5d4d894999e09c538cb1b14'
       )
     end
+
+    it 'signs the exact body bytes without trimming surrounding whitespace' do
+      signer = described_class.new(secret: 'secret')
+
+      signature = signer.sign(body: "  {\"id\":\"event-1\"}\n", now: occurred_at)
+      stripped_signature = signer.sign(body: '{"id":"event-1"}', now: occurred_at)
+
+      expect(signature.digest).not_to eq(stripped_signature.digest)
+    end
+
+    it 'rejects non-string and empty bodies' do
+      signer = described_class.new(secret: 'secret')
+
+      expect do
+        signer.sign(body: :bad, now: occurred_at)
+      end.to raise_error(Karya::InvalidWebhookSignatureError, 'body must be a String')
+
+      expect do
+        signer.sign(body: '', now: occurred_at)
+      end.to raise_error(Karya::InvalidWebhookSignatureError, 'body must be present')
+    end
   end
 
   describe Karya::OutboundEvents::WebhookVerifier do
@@ -273,6 +294,15 @@ RSpec.describe Karya::OutboundEvents do
           clock: -> { 'bad' }
         ).call('worker.recovery.orphaned_jobs', recovered_jobs: 1, worker_id: 'worker-1')
       end.to raise_error(Karya::InvalidOutboundEventError, 'clock must return a Time')
+    end
+
+    it 'rejects invalid signer objects during initialization' do
+      expect do
+        described_class.new(
+          delivery_handler: ->(_delivery) {},
+          signer: Object.new
+        )
+      end.to raise_error(Karya::InvalidOutboundEventError, 'signer must be Karya::OutboundEvents::WebhookSigner')
     end
   end
 

@@ -3,11 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-module JSON
-  class State
-  end
-end
-
 module Karya
   class InvalidOutboundEventError < Error
   end
@@ -21,28 +16,28 @@ module Karya
   module OutboundEvents
     class PresentString
       @name: Symbol | String
-      @value: Karya::outbound_event_scalar_input
+      @value: Karya::outbound_event_string_input
       @error_class: Karya::error_class
 
-      def initialize: ((Symbol | String) name, Karya::outbound_event_scalar_input value, error_class: Karya::error_class) -> void
+      def initialize: ((Symbol | String) name, Karya::outbound_event_string_input value, error_class: Karya::error_class) -> void
       def normalize: () -> String
     end
 
     class OptionalString
       @name: Symbol | String
-      @value: Karya::outbound_event_scalar_input
+      @value: Karya::outbound_event_string_input
       @error_class: Karya::error_class
 
-      def initialize: ((Symbol | String) name, Karya::outbound_event_scalar_input value, error_class: Karya::error_class) -> void
+      def initialize: ((Symbol | String) name, Karya::outbound_event_string_input value, error_class: Karya::error_class) -> void
       def normalize: () -> String?
     end
 
     class Timestamp
       @name: Symbol | String
-      @value: Karya::outbound_event_scalar_input
+      @value: Karya::outbound_event_string_input
       @error_class: Karya::error_class
 
-      def initialize: ((Symbol | String) name, Karya::outbound_event_scalar_input value, error_class: Karya::error_class) -> void
+      def initialize: ((Symbol | String) name, Karya::outbound_event_string_input value, error_class: Karya::error_class) -> void
       def normalize: () -> Time
     end
 
@@ -144,10 +139,10 @@ module Karya
       DEFAULT_MAX_SKEW_SECONDS: Integer
 
       def initialize: (secret: String, ?max_skew_seconds: Integer) -> void
-      def verify: (body: String, headers: Karya::webhook_headers, now: Time) -> bool
-      def validate: (body: String, headers: Karya::webhook_headers, now: Time) -> bool
-      def enforce_signature_validity: (body: String, headers: Karya::webhook_headers, now: Time) -> bool
-      def enforce_signature_validity!: (body: String, headers: Karya::webhook_headers, now: Time) -> void
+      def verify: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool
+      def validate: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool
+      def enforce_signature_validity: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool
+      def enforce_signature_validity!: (body: String, headers: Karya::webhook_headers_input, now: Time) -> void
     end
 
     class Delivery

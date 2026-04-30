@@ -53,8 +53,8 @@ module Karya
         }.compact.freeze
       end
 
-      def to_json(*)
-        JSON.generate(to_h, *)
+      def to_json(state = nil)
+        JSON.generate(to_h, state)
       end
 
       # Validates and exposes outbound event construction attributes.
