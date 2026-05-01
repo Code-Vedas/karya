@@ -5,6 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative 'base'
 require_relative 'outbound_events/delivery'
 require_relative 'outbound_events/dispatcher'
 require_relative 'outbound_events/event'

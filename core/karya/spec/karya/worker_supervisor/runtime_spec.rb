@@ -538,6 +538,30 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
     end
 
+    it 'skips snapshots for unsupported built-in outbound events when no other hook runs' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: Karya::OutboundEvents::Dispatcher.new(
+          delivery_handler: ->(_delivery) { raise 'should not dispatch unsupported events' }
+        ),
+        logger: logger
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.exited', pid: 123, worker_id: 'worker-1', success: true)).to be_nil
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
+    end
+
+    it 'returns early from private emit helpers when the corresponding hook is absent' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(instrumenter: nil, outbound_event_dispatcher: nil, logger: logger)
+
+      expect(runtime_instance.send(:emit_instrumentation, 'supervisor.poll', worker_id: 'worker-1')).to be_nil
+      expect(runtime_instance.send(:emit_outbound_event, 'supervisor.poll', worker_id: 'worker-1')).to be_nil
+    end
+
     it 'swallows unsupported outbound event errors from custom dispatchers' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(

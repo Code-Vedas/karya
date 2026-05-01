@@ -562,10 +562,10 @@ RSpec.describe Karya::OutboundEvents do
 
     it 'can be loaded directly through karya/outbound_events without worker runtime requires' do
       command = <<~RUBY
-        require_relative '../../lib/karya/base'
         require_relative '../../lib/karya/outbound_events'
         dispatcher = Karya::OutboundEvents::Dispatcher.new(delivery_handler: ->(_delivery) {})
         abort('dispatcher missing') unless dispatcher.is_a?(Karya::OutboundEvents::Dispatcher)
+        abort('error missing') unless Karya::UnsupportedOutboundEventError.superclass == Karya::Error
       RUBY
 
       expect(system('ruby', '-e', command, chdir: __dir__)).to be(true)

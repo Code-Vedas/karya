@@ -125,9 +125,10 @@ module Karya
       end
 
       def instrument(event, payload)
-        return nil unless instrumenter || outbound_event_dispatcher
+        dispatch_outbound = outbound_dispatcher_supports_event?(event)
+        return nil unless instrumenter || dispatch_outbound
 
-        if instrumenter && outbound_event_dispatcher
+        if instrumenter && dispatch_outbound
           instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(payload)
           emit_instrumentation(event, instrumentation_payload)
           emit_outbound_event(event, outbound_payload)
@@ -135,8 +136,8 @@ module Karya
         end
 
         snapshot = Internal::ImmutableHookPayload.snapshot(payload)
-        emit_instrumentation(event, snapshot)
-        emit_outbound_event(event, snapshot)
+        emit_instrumentation(event, snapshot) if instrumenter
+        emit_outbound_event(event, snapshot) if dispatch_outbound
         nil
       end
 
@@ -201,6 +202,17 @@ module Karya
       rescue StandardError => e
         logger.error('outbound event dispatch failed', event:, error_class: e.class.name, error_message: e.message)
         nil
+      end
+
+      def outbound_dispatcher_supports_event?(event)
+        return false unless outbound_event_dispatcher
+        return Karya::OutboundEvents::SchemaCatalog.supported?(event) if built_in_outbound_event_dispatcher?
+
+        true
+      end
+
+      def built_in_outbound_event_dispatcher?
+        defined?(Karya::OutboundEvents::Dispatcher) && outbound_event_dispatcher.is_a?(Karya::OutboundEvents::Dispatcher)
       end
 
       private_constant :UNSET
