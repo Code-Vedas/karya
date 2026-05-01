@@ -6,7 +6,7 @@
 module Karya
   module Internal
     class PayloadInput
-      ABSENT: Object
+      ABSENT: Symbol
 
       @payload: Karya::context_payload?
       @payload_keywords: Karya::context_payload

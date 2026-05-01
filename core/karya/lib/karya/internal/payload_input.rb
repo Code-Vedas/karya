@@ -9,7 +9,7 @@ module Karya
   module Internal
     # Normalizes positional and keyword payload inputs into one Hash.
     class PayloadInput
-      ABSENT = Object.new.freeze
+      ABSENT = :__payload_input_absent__
 
       def initialize(payload, payload_keywords, payload_given:, error_class:, mixed_payload_message:)
         @payload = payload
