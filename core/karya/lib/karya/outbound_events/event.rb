@@ -44,7 +44,7 @@ module Karya
           'id' => id,
           'source' => source,
           'type' => type,
-          'time' => time.getutc.iso8601,
+          'time' => time.dup.getutc.iso8601,
           'subject' => subject,
           'datacontenttype' => data_content_type,
           'dataschema' => data_schema,
