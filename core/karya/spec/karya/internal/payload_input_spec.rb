@@ -2,6 +2,7 @@
 
 RSpec.describe Karya::Internal::PayloadInput do
   let(:error_class) { Karya::InvalidOutboundEventError }
+  let(:payload_message) { 'payload must be a Hash' }
   let(:mixed_payload_message) { 'payload must be a Hash when keyword payload is also given' }
 
   it 'returns keyword payloads when no positional payload is given' do
@@ -27,5 +28,11 @@ RSpec.describe Karya::Internal::PayloadInput do
     payload = described_class.new('bad', { worker_id: 'worker-1' }, payload_given: true, error_class:, mixed_payload_message:)
 
     expect { payload.to_h }.to raise_error(Karya::InvalidOutboundEventError, mixed_payload_message)
+  end
+
+  it 'rejects non-hash positional payloads when no keyword payloads are given' do
+    payload = described_class.new('bad', {}, payload_given: true, error_class:, mixed_payload_message:)
+
+    expect { payload.to_h }.to raise_error(Karya::InvalidOutboundEventError, payload_message)
   end
 end

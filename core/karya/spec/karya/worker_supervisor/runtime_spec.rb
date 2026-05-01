@@ -165,6 +165,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
     it 'skips hook payload snapshots when no hooks are configured' do
       allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
       allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+      allow(Karya::Internal::PayloadInput).to receive(:new).and_call_original
       runtime_instance = runtime_class.new(
         forker: lambda do |&block|
           block.call
@@ -175,6 +176,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       )
 
       expect(runtime_instance.instrument('supervisor.poll', { worker_id: 'worker-1' })).to be_nil
+      expect(Karya::Internal::PayloadInput).not_to have_received(:new)
       expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
       expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
     end

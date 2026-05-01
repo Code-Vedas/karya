@@ -59,6 +59,9 @@ module Karya
       end
 
       def instrument(event, payload = Internal::PayloadInput::ABSENT, **payload_keywords)
+        dispatch_outbound = outbound_dispatcher_supports_event?(event)
+        return nil unless instrumenter || dispatch_outbound
+
         payload_given = !payload.equal?(Internal::PayloadInput::ABSENT)
         normalized_payload = Internal::PayloadInput.new(
           payload_given ? payload : nil,
@@ -67,8 +70,6 @@ module Karya
           error_class: InvalidWorkerConfigurationError,
           mixed_payload_message: 'payload must be a Hash when keyword payload is also given'
         ).to_h
-        dispatch_outbound = outbound_dispatcher_supports_event?(event)
-        return nil unless instrumenter || dispatch_outbound
 
         if instrumenter && dispatch_outbound
           instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(normalized_payload)

@@ -21,9 +21,16 @@ module Karya
 
       def to_h
         return payload_keywords unless payload_given
-        return payload if payload_keywords.empty?
 
-        raise error_class, mixed_payload_message unless payload.is_a?(Hash)
+        payload_is_hash = payload.is_a?(Hash)
+
+        if payload_keywords.empty?
+          raise error_class, 'payload must be a Hash' unless payload_is_hash
+
+          return payload
+        end
+
+        raise error_class, mixed_payload_message unless payload_is_hash
 
         payload.merge(payload_keywords)
       end
