@@ -129,7 +129,7 @@ module Karya
     class WebhookVerifier
       DEFAULT_MAX_SKEW_SECONDS: Integer
 
-      def initialize: (secret: String, ?max_skew_seconds: Integer) -> void
+      def initialize: (secret: String, ?max_skew_seconds: Integer, ?scheme: String) -> void
       def verify: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool
       def validate: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool
       def enforce_signature_validity: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool

@@ -14,9 +14,9 @@ module Karya
       DEFAULT_MAX_SKEW_SECONDS = 300
       MAX_TIMESTAMP_DIGITS = 12
 
-      def initialize(secret:, max_skew_seconds: DEFAULT_MAX_SKEW_SECONDS)
+      def initialize(secret:, max_skew_seconds: DEFAULT_MAX_SKEW_SECONDS, scheme: WebhookSigner::DEFAULT_SCHEME)
         @max_skew_seconds = normalize_max_skew_seconds(max_skew_seconds)
-        @signer = WebhookSigner.new(secret:)
+        @signer = WebhookSigner.new(secret:, scheme:)
       end
 
       def verify(body:, headers:, now:)

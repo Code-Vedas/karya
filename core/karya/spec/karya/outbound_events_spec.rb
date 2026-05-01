@@ -369,7 +369,7 @@ RSpec.describe Karya::OutboundEvents do
       body = '{"id":"event-1"}'
       headers = Karya::OutboundEvents::WebhookSigner.new(secret: 'secret', scheme: 'v-1').sign(body:, now: occurred_at).headers
 
-      expect(described_class.new(secret: 'secret').verify(body:, headers:, now: occurred_at + 60)).to be(true)
+      expect(described_class.new(secret: 'secret', scheme: 'v-1').verify(body:, headers:, now: occurred_at + 60)).to be(true)
     end
 
     it 'rejects malformed timestamp headers' do
