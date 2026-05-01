@@ -75,6 +75,41 @@ bytes. Consumers verify that exact byte sequence with the shared secret, reject
 tampered payloads, and enforce a bounded timestamp window to reduce replay
 exposure.
 
+## Enabling Delivery
+
+Karya treats outbound delivery as an explicit runtime collaborator, not as an
+always-on side effect.
+
+You can supply an outbound dispatcher either:
+
+- process-wide through `Karya.configure_outbound_event_dispatcher(...)`
+- per runtime through `outbound_event_dispatcher:` on worker and
+  worker-supervisor runtime construction
+
+Process-wide configuration is the default only for runtimes that do not receive
+an explicit dispatcher. Multi-runtime hosts should prefer explicit
+`outbound_event_dispatcher:` injection so one runtime’s delivery policy does
+not leak into another runtime by accident.
+
+The dispatcher contract is versioned outbound delivery, not raw mutable
+instrumentation. Unsupported runtime events are ignored rather than becoming
+part of the external event contract automatically.
+
+## Verifying Deliveries
+
+Consumers verify webhook deliveries by:
+
+1. reading `Karya-Webhook-Timestamp`
+2. reading `Karya-Webhook-Signature`
+3. rebuilding the exact base string `"#{timestamp}.#{body}"`
+4. computing the expected digest with the shared secret
+5. rejecting requests whose timestamp falls outside the allowed skew window
+
+`Karya::OutboundEvents::WebhookVerifier` enforces a default maximum skew window
+of `300` seconds. Hosts that need a different replay window can provide an
+explicit `max_skew_seconds:` value, but the verifier still expects the exact
+timestamp header bytes to match the signed base string.
+
 ## Related Concepts
 
 - [Observability](/observability/): traces, logs, metrics, and outbound event
