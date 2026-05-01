@@ -523,9 +523,16 @@ RSpec.describe Karya::OutboundEvents do
       expect(Karya::OutboundEvents::OptionalString.new(:subject, nil, error_class:).normalize).to be_nil
       expect(Karya::OutboundEvents::OptionalString.new(:subject, false, error_class:).normalize).to eq('false')
       expect(Karya::OutboundEvents::OptionalString.new(:subject, 'job-1', error_class:).normalize).to eq('job-1')
+      expect(Karya::OutboundEvents::PresentString.new(:subject, :job_one, error_class:).normalize).to eq('job_one')
       expect do
         Karya::OutboundEvents::PresentString.new(:subject, '   ', error_class:).normalize
       end.to raise_error(Karya::InvalidOutboundEventError, 'subject must be present')
+      expect do
+        Karya::OutboundEvents::PresentString.new(:subject, Object.new, error_class:).normalize
+      end.to raise_error(Karya::InvalidOutboundEventError, 'subject must be a String-compatible scalar')
+      expect do
+        Karya::OutboundEvents::PresentString.new(:subject, {}, error_class:).normalize
+      end.to raise_error(Karya::InvalidOutboundEventError, 'subject must be a String-compatible scalar')
       expect do
         Karya::OutboundEvents::Timestamp.new(:time, 'bad', error_class:).normalize
       end.to raise_error(Karya::InvalidOutboundEventError, 'time must be a Time')

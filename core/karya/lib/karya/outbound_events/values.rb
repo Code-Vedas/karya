@@ -9,6 +9,8 @@ module Karya
   module OutboundEvents
     # Normalizes required string-like values.
     class PresentString
+      SUPPORTED_VALUE_CLASSES = [NilClass, TrueClass, FalseClass, Numeric, String, Symbol, Time].freeze
+
       def initialize(name, value, error_class:)
         @name = name
         @value = value
@@ -16,6 +18,8 @@ module Karya
       end
 
       def normalize
+        raise error_class, "#{name} must be a String-compatible scalar" unless SUPPORTED_VALUE_CLASSES.any? { |klass| value.is_a?(klass) }
+
         value.to_s.strip.then do |normalized_value|
           raise error_class, "#{name} must be present" if normalized_value.empty?
 
