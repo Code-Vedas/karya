@@ -237,6 +237,21 @@ RSpec.describe Karya::OutboundEvents do
       expect(JSON.parse(event.to_json(json_state))).to eq(event.to_h)
     end
 
+    it 'serializes frozen non-UTC times without mutating them' do
+      local_time = Time.new(2026, 4, 29, 8, 0, 0, '-04:00')
+      event = described_class.new(
+        id: 'event-1',
+        source: 'karya://workers/worker-1',
+        schema:,
+        time: local_time,
+        data: { 'job_id' => 'job-1' }
+      )
+
+      expect(event.to_h.fetch('time')).to eq('2026-04-29T12:00:00Z')
+      expect(event.time.utc_offset).to eq(-14_400)
+      expect(event.time).to be_frozen
+    end
+
     it 'accepts JSON option hashes when serializing to JSON' do
       event = described_class.new(
         id: 'event-1',

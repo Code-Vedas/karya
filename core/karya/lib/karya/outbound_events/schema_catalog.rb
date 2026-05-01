@@ -173,8 +173,8 @@ module Karya
             ).normalize
           end
 
-          normalized_string_values = schema_definition.fetch(:string_keys).each_with_object({}) do |string_key, rewritten_values|
-            rewritten_values[string_key] = normalize_string_value.call(string_key, normalized_payload.fetch(string_key))
+          normalized_string_values = schema_definition.fetch(:string_keys).to_h do |string_key|
+            [string_key, normalize_string_value.call(string_key, normalized_payload.fetch(string_key))]
           end
 
           normalized_payload.merge(normalized_string_values).freeze

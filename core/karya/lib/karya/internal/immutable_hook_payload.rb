@@ -18,9 +18,10 @@ module Karya
       end
 
       def self.snapshot_key(value)
-        return value unless value.is_a?(String)
+        return value if value.is_a?(Symbol)
+        return value.frozen? ? value : value.dup.freeze if value.is_a?(String)
 
-        value.frozen? ? value : value.dup.freeze
+        raise ArgumentError, 'payload keys must be Symbols or Strings'
       end
       private_class_method :snapshot_key
 
@@ -40,6 +41,8 @@ module Karya
       def snapshot_hash(value)
         value.each_with_object({}) do |(key, item), duplicated|
           duplicated[self.class.send(:snapshot_key, key)] = snapshot_value(item)
+        rescue ArgumentError => e
+          raise error_class, e.message
         end.freeze
       end
 

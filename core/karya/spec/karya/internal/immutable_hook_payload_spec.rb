@@ -30,4 +30,13 @@ RSpec.describe Karya::Internal::ImmutableHookPayload do
       'payload values must be nil, booleans, numerics, strings, symbols, times, arrays, or hashes'
     )
   end
+
+  it 'rejects payload keys outside the Symbol or String contract' do
+    expect do
+      described_class.snapshot({ [] => 'bad' }, error_class:)
+    end.to raise_error(
+      Karya::InvalidWorkerConfigurationError,
+      'payload keys must be Symbols or Strings'
+    )
+  end
 end
