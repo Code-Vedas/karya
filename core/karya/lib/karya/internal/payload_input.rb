@@ -9,7 +9,17 @@ module Karya
   module Internal
     # Normalizes positional and keyword payload inputs into one Hash.
     class PayloadInput
-      ABSENT = :__payload_input_absent__
+      # Unique sentinel for omitted positional payload arguments.
+      class Absent
+        def self.instance
+          @instance ||= new.freeze
+        end
+
+        private_class_method :new
+      end
+      private_constant :Absent
+
+      ABSENT = Absent.instance
 
       def initialize(payload, payload_keywords, payload_given:, error_class:, mixed_payload_message:)
         @payload = payload

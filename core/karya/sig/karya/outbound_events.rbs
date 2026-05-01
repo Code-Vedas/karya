@@ -191,8 +191,8 @@ module Karya
       ) -> void
       def call: (
         Karya::state_name event_name,
-        ?Karya::outbound_event_input_payload payload,
-        **Karya::outbound_event_input_value payload_keywords
+        ?Karya::context_payload payload,
+        **Karya::context_payload_value payload_keywords
       ) -> Delivery?
     end
   end

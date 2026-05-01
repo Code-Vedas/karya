@@ -6,15 +6,19 @@
 module Karya
   module Internal
     class PayloadInput
-      ABSENT: Symbol
+      class Absent
+        def self.instance: () -> instance
+      end
 
-      @payload: Karya::context_payload?
+      ABSENT: Absent
+
+      @payload: (Karya::context_payload? | Absent)
       @payload_keywords: Karya::context_payload
       @error_class: Karya::error_class
       @mixed_payload_message: String
 
       def initialize: (
-        Karya::context_payload? payload,
+        (Karya::context_payload? | Absent) payload,
         Karya::context_payload payload_keywords,
         payload_given: bool,
         error_class: Karya::error_class,
