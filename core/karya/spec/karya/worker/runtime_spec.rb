@@ -35,7 +35,7 @@ RSpec.describe 'Karya::Worker::Runtime' do
     allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
     runtime = runtime_class.new(logger: logger, instrumenter: nil, outbound_event_dispatcher: nil)
 
-    expect(runtime.instrument('worker.poll', worker_id: 'worker-1')).to be_nil
+    expect(runtime.instrument('worker.poll', { worker_id: 'worker-1' })).to be_nil
     expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
     expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
   end
@@ -50,7 +50,7 @@ RSpec.describe 'Karya::Worker::Runtime' do
       outbound_event_dispatcher: nil
     )
 
-    expect(runtime.instrument('worker.poll', worker_id: 'worker-1')).to be_nil
+    expect(runtime.instrument('worker.poll', { worker_id: 'worker-1' })).to be_nil
     expect(Karya::Internal::ImmutableHookPayload).to have_received(:snapshot).once
     expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
     expect(instrumenter_payload).to eq(worker_id: 'worker-1')
@@ -69,11 +69,13 @@ RSpec.describe 'Karya::Worker::Runtime' do
 
     runtime.instrument(
       'worker.job.started',
-      reservation_token: 'lease-1',
-      job_id: 'job-1',
-      handler: 'billing_sync',
-      queue: 'billing',
-      worker_id: 'worker-1'
+      {
+        reservation_token: 'lease-1',
+        job_id: 'job-1',
+        handler: 'billing_sync',
+        queue: 'billing',
+        worker_id: 'worker-1'
+      }
     )
 
     expect(deliveries.length).to eq(1)
@@ -101,11 +103,13 @@ RSpec.describe 'Karya::Worker::Runtime' do
 
     expect(runtime.instrument(
              'worker.job.started',
-             reservation_token: 'lease-1',
-             job_id: 'job-1',
-             handler: 'billing_sync',
-             queue: 'billing',
-             worker_id: 'worker-1'
+             {
+               reservation_token: 'lease-1',
+               job_id: 'job-1',
+               handler: 'billing_sync',
+               queue: 'billing',
+               worker_id: 'worker-1'
+             }
            )).to be_nil
 
     expect(deliveries.length).to eq(1)
@@ -133,7 +137,7 @@ RSpec.describe 'Karya::Worker::Runtime' do
       outbound_event_dispatcher: ->(_event, payload) { outbound_payload = payload }
     )
 
-    runtime.instrument('worker.job.started', job_id:, metadata: { 'stage' => stage })
+    runtime.instrument('worker.job.started', { job_id:, metadata: { 'stage' => stage } })
 
     expect(mutation_error).to be_a(FrozenError)
     expect(instrumentation_payload).not_to be(outbound_payload)
@@ -154,7 +158,7 @@ RSpec.describe 'Karya::Worker::Runtime' do
       outbound_event_dispatcher: ->(_event, _payload) { raise 'boom' }
     )
 
-    expect(runtime.instrument('worker.job.started', worker_id: 'worker-1')).to be_nil
+    expect(runtime.instrument('worker.job.started', { worker_id: 'worker-1' })).to be_nil
     expect(logger).to have_received(:error).with('outbound event dispatch failed', hash_including(error_message: 'boom'))
   end
 
@@ -168,7 +172,7 @@ RSpec.describe 'Karya::Worker::Runtime' do
       )
     )
 
-    expect(runtime.instrument('worker.poll', worker_id: 'worker-1')).to be_nil
+    expect(runtime.instrument('worker.poll', { worker_id: 'worker-1' })).to be_nil
     expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
   end
 
@@ -184,7 +188,7 @@ RSpec.describe 'Karya::Worker::Runtime' do
       )
     )
 
-    expect(runtime.instrument('worker.poll', worker_id: 'worker-1')).to be_nil
+    expect(runtime.instrument('worker.poll', { worker_id: 'worker-1' })).to be_nil
     expect(Karya::Internal::ImmutableHookPayload).to have_received(:snapshot).once
     expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
     expect(instrumenter_payload).to eq(worker_id: 'worker-1')
@@ -193,8 +197,8 @@ RSpec.describe 'Karya::Worker::Runtime' do
   it 'returns early from private emit helpers when the corresponding hook is absent' do
     runtime = runtime_class.new(logger: logger, instrumenter: nil, outbound_event_dispatcher: nil)
 
-    expect(runtime.send(:emit_instrumentation, 'worker.poll', worker_id: 'worker-1')).to be_nil
-    expect(runtime.send(:emit_outbound_event, 'worker.poll', worker_id: 'worker-1')).to be_nil
+    expect(runtime.send(:emit_instrumentation, 'worker.poll', { worker_id: 'worker-1' })).to be_nil
+    expect(runtime.send(:emit_outbound_event, 'worker.poll', { worker_id: 'worker-1' })).to be_nil
   end
 
   it 'swallows unsupported outbound event errors from custom dispatchers' do
@@ -203,7 +207,7 @@ RSpec.describe 'Karya::Worker::Runtime' do
       outbound_event_dispatcher: ->(_event, _payload) { raise Karya::UnsupportedOutboundEventError, 'skip' }
     )
 
-    expect(runtime.instrument('worker.job.started', worker_id: 'worker-1')).to be_nil
+    expect(runtime.instrument('worker.job.started', { worker_id: 'worker-1' })).to be_nil
     expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
   end
 end

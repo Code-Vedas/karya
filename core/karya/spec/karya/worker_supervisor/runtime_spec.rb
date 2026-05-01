@@ -174,7 +174,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         outbound_event_dispatcher: nil
       )
 
-      expect(runtime_instance.instrument('supervisor.poll', worker_id: 'worker-1')).to be_nil
+      expect(runtime_instance.instrument('supervisor.poll', { worker_id: 'worker-1' })).to be_nil
       expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
       expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
     end
@@ -192,7 +192,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         outbound_event_dispatcher: nil
       )
 
-      expect(runtime_instance.instrument('supervisor.poll', worker_id: 'worker-1')).to be_nil
+      expect(runtime_instance.instrument('supervisor.poll', { worker_id: 'worker-1' })).to be_nil
       expect(Karya::Internal::ImmutableHookPayload).to have_received(:snapshot).once
       expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
       expect(instrumentation_payload).to eq(worker_id: 'worker-1')
@@ -406,7 +406,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
     end
 
     it 'returns nil when no instrumenter is configured' do
-      expect(runtime_class.new.instrument('supervisor.child.spawned', pid: 123)).to be_nil
+      expect(runtime_class.new.instrument('supervisor.child.spawned', { pid: 123 })).to be_nil
     end
 
     it 'emits instrumentation through the configured instrumenter' do
@@ -415,7 +415,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         instrumenter: ->(event, payload) { instrumented_events << [event, payload] }
       )
 
-      runtime_instance.instrument('supervisor.child.spawned', pid: 123)
+      runtime_instance.instrument('supervisor.child.spawned', { pid: 123 })
 
       expect(instrumented_events).to eq([['supervisor.child.spawned', { pid: 123 }]])
     end
@@ -431,7 +431,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         )
       )
 
-      runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')
+      runtime_instance.instrument('supervisor.child.spawned', { pid: 123, worker_id: 'worker-1' })
 
       expect(deliveries.length).to eq(1)
       expect(deliveries.first.event.type).to eq('io.karya.supervisor.child.spawned')
@@ -450,7 +450,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         logger: logger
       )
 
-      expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
+      expect(runtime_instance.instrument('supervisor.child.spawned', { pid: 123, worker_id: 'worker-1' })).to be_nil
       expect(deliveries.length).to eq(1)
       expect(logger).to have_received(:error).with(
         'instrumentation failed',
@@ -479,7 +479,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         outbound_event_dispatcher: ->(_event, payload) { outbound_payload = payload }
       )
 
-      runtime_instance.instrument('supervisor.child.spawned', pid: 123, metadata: { 'stage' => stage })
+      runtime_instance.instrument('supervisor.child.spawned', { pid: 123, metadata: { 'stage' => stage } })
 
       expect(mutation_error).to be_a(FrozenError)
       expect(instrumentation_payload).not_to be(outbound_payload)
@@ -498,7 +498,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         logger: logger
       )
 
-      expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123)).to be_nil
+      expect(runtime_instance.instrument('supervisor.child.spawned', { pid: 123 })).to be_nil
       expect(logger).to have_received(:error).with(
         'instrumentation failed',
         event: 'supervisor.child.spawned',
@@ -514,7 +514,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         logger: logger
       )
 
-      expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
+      expect(runtime_instance.instrument('supervisor.child.spawned', { pid: 123, worker_id: 'worker-1' })).to be_nil
       expect(logger).to have_received(:error).with(
         'outbound event dispatch failed',
         event: 'supervisor.child.spawned',
@@ -534,7 +534,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         logger: logger
       )
 
-      expect(runtime_instance.instrument('supervisor.child.exited', pid: 123, worker_id: 'worker-1', success: true)).to be_nil
+      expect(runtime_instance.instrument('supervisor.child.exited', { pid: 123, worker_id: 'worker-1', success: true })).to be_nil
       expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
     end
 
@@ -549,7 +549,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         logger: logger
       )
 
-      expect(runtime_instance.instrument('supervisor.child.exited', pid: 123, worker_id: 'worker-1', success: true)).to be_nil
+      expect(runtime_instance.instrument('supervisor.child.exited', { pid: 123, worker_id: 'worker-1', success: true })).to be_nil
       expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
       expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
     end
@@ -558,8 +558,8 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(instrumenter: nil, outbound_event_dispatcher: nil, logger: logger)
 
-      expect(runtime_instance.send(:emit_instrumentation, 'supervisor.poll', worker_id: 'worker-1')).to be_nil
-      expect(runtime_instance.send(:emit_outbound_event, 'supervisor.poll', worker_id: 'worker-1')).to be_nil
+      expect(runtime_instance.send(:emit_instrumentation, 'supervisor.poll', { worker_id: 'worker-1' })).to be_nil
+      expect(runtime_instance.send(:emit_outbound_event, 'supervisor.poll', { worker_id: 'worker-1' })).to be_nil
     end
 
     it 'swallows unsupported outbound event errors from custom dispatchers' do
@@ -569,7 +569,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         logger: logger
       )
 
-      expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123, worker_id: 'worker-1')).to be_nil
+      expect(runtime_instance.instrument('supervisor.child.spawned', { pid: 123, worker_id: 'worker-1' })).to be_nil
       expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
     end
   end
