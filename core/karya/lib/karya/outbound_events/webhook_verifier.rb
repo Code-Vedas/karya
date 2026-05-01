@@ -12,6 +12,7 @@ module Karya
     # Verifies signed outbound webhook payloads for external consumers.
     class WebhookVerifier
       DEFAULT_MAX_SKEW_SECONDS = 300
+      MAX_TIMESTAMP_DIGITS = 12
 
       def initialize(secret:, max_skew_seconds: DEFAULT_MAX_SKEW_SECONDS)
         @max_skew_seconds = normalize_max_skew_seconds(max_skew_seconds)
@@ -62,6 +63,7 @@ module Karya
 
       def parse_timestamp(value)
         raise_invalid_timestamp_error unless /\A\d+\z/.match?(value)
+        raise_invalid_timestamp_error if value.length > MAX_TIMESTAMP_DIGITS
 
         timestamp = Integer(value, 10)
         raise_invalid_timestamp_error unless timestamp.to_s == value

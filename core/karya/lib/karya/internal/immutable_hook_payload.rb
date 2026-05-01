@@ -18,7 +18,9 @@ module Karya
       end
 
       def self.snapshot_key(value)
-        value.is_a?(String) ? value.dup.freeze : value
+        return value unless value.is_a?(String)
+
+        value.frozen? ? value : value.dup.freeze
       end
       private_class_method :snapshot_key
 

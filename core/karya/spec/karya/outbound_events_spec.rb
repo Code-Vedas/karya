@@ -353,6 +353,12 @@ RSpec.describe Karya::OutboundEvents do
 
       expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers: out_of_range_headers, now: occurred_at)).to be(false)
 
+      oversized_headers = {
+        'Karya-Webhook-Timestamp' => '1234567890123',
+        'Karya-Webhook-Signature' => 'v1=deadbeef'
+      }
+      expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers: oversized_headers, now: occurred_at)).to be(false)
+
       leading_zero_headers = signed_headers.merge(
         'Karya-Webhook-Timestamp' => "0#{occurred_at.to_i}"
       )
