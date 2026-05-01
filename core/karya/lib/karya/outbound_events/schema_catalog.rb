@@ -142,9 +142,24 @@ module Karya
 
         def validate_required_keys(normalized_payload)
           missing_keys = schema_definition.fetch(:required_keys) - normalized_payload.keys
-          return if missing_keys.empty?
+          raise InvalidOutboundEventError, "payload is missing required keys: #{missing_keys.join(', ')}" unless missing_keys.empty?
 
-          raise InvalidOutboundEventError, "payload is missing required keys: #{missing_keys.join(', ')}"
+          validate_required_values(normalized_payload)
+        end
+
+        def validate_required_values(normalized_payload)
+          schema_definition.fetch(:required_keys).each do |required_key|
+            next if normalized_payload.slice(required_key).compact.key?(required_key)
+
+            raise InvalidOutboundEventError, "#{required_key} must be present"
+          end
+
+          PresentString.new('worker_id', normalized_payload.fetch('worker_id'), error_class: InvalidOutboundEventError).normalize
+
+          subject_key = schema_definition.fetch(:subject_key, nil)
+          return unless subject_key
+
+          PresentString.new(subject_key, normalized_payload.fetch(subject_key), error_class: InvalidOutboundEventError).normalize
         end
       end
 

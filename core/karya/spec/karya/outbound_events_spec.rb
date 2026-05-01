@@ -61,6 +61,38 @@ RSpec.describe Karya::OutboundEvents do
       )
     end
 
+    it 'rejects semantically missing required values for source and subject fields' do
+      expect do
+        described_class.build_event(
+          event_name: 'worker.job.started',
+          payload: {
+            reservation_token: 'lease-1',
+            job_id: 'job-1',
+            handler: 'billing_sync',
+            queue: 'billing',
+            worker_id: nil
+          },
+          occurred_at:,
+          event_id: 'event-1'
+        )
+      end.to raise_error(Karya::InvalidOutboundEventError, 'worker_id must be present')
+
+      expect do
+        described_class.build_event(
+          event_name: 'worker.job.started',
+          payload: {
+            reservation_token: 'lease-1',
+            job_id: '   ',
+            handler: 'billing_sync',
+            queue: 'billing',
+            worker_id: 'worker-1'
+          },
+          occurred_at:,
+          event_id: 'event-1'
+        )
+      end.to raise_error(Karya::InvalidOutboundEventError, 'job_id must be present')
+    end
+
     it 'omits subject for event families without a natural target and rejects non-hash payloads' do
       event = described_class.build_event(
         event_name: 'worker.recovery.orphaned_jobs',
