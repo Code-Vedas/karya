@@ -93,6 +93,63 @@ RSpec.describe Karya::OutboundEvents do
       end.to raise_error(Karya::InvalidOutboundEventError, 'job_id must be present')
     end
 
+    it 'normalizes string contract fields before emitting the event' do
+      event = described_class.build_event(
+        event_name: 'worker.job.started',
+        payload: {
+          reservation_token: ' lease-1 ',
+          job_id: ' job-1 ',
+          handler: ' billing_sync ',
+          queue: ' billing ',
+          worker_id: ' worker-1 '
+        },
+        occurred_at:,
+        event_id: 'event-1'
+      )
+
+      expect(event.source).to eq('karya://workers/worker-1')
+      expect(event.subject).to eq('job-1')
+      expect(event.data).to eq(
+        'reservation_token' => 'lease-1',
+        'job_id' => 'job-1',
+        'handler' => 'billing_sync',
+        'queue' => 'billing',
+        'worker_id' => 'worker-1'
+      )
+    end
+
+    it 'rejects blank required identifier fields beyond worker and subject values' do
+      expect do
+        described_class.build_event(
+          event_name: 'worker.job.started',
+          payload: {
+            reservation_token: 'lease-1',
+            job_id: 'job-1',
+            handler: '   ',
+            queue: 'billing',
+            worker_id: 'worker-1'
+          },
+          occurred_at:,
+          event_id: 'event-1'
+        )
+      end.to raise_error(Karya::InvalidOutboundEventError, 'handler must be present')
+
+      expect do
+        described_class.build_event(
+          event_name: 'worker.job.started',
+          payload: {
+            reservation_token: '   ',
+            job_id: 'job-1',
+            handler: 'billing_sync',
+            queue: 'billing',
+            worker_id: 'worker-1'
+          },
+          occurred_at:,
+          event_id: 'event-1'
+        )
+      end.to raise_error(Karya::InvalidOutboundEventError, 'reservation_token must be present')
+    end
+
     it 'omits subject for event families without a natural target and rejects non-hash payloads' do
       event = described_class.build_event(
         event_name: 'worker.recovery.orphaned_jobs',

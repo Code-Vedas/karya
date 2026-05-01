@@ -14,6 +14,7 @@ module Karya
           event_type: 'io.karya.worker.job.reserved',
           schema_version: 'v1',
           required_keys: %w[job_id queue reservation_token worker_id],
+          string_keys: %w[job_id queue reservation_token worker_id],
           subject_key: 'job_id',
           source_prefix: 'karya://workers/'
         },
@@ -21,18 +22,21 @@ module Karya
           event_type: 'io.karya.worker.recovery.orphaned_jobs',
           schema_version: 'v1',
           required_keys: %w[recovered_jobs worker_id],
+          string_keys: %w[worker_id],
           source_prefix: 'karya://workers/'
         },
         'worker.job.released' => {
           event_type: 'io.karya.worker.job.released',
           schema_version: 'v1',
           required_keys: %w[reservation_token worker_id],
+          string_keys: %w[reservation_token worker_id],
           source_prefix: 'karya://workers/'
         },
         'worker.job.started' => {
           event_type: 'io.karya.worker.job.started',
           schema_version: 'v1',
           required_keys: %w[handler job_id queue reservation_token worker_id],
+          string_keys: %w[handler job_id queue reservation_token worker_id],
           subject_key: 'job_id',
           source_prefix: 'karya://workers/'
         },
@@ -40,6 +44,7 @@ module Karya
           event_type: 'io.karya.worker.job.succeeded',
           schema_version: 'v1',
           required_keys: %w[handler job_id queue reservation_token worker_id],
+          string_keys: %w[handler job_id queue reservation_token worker_id],
           subject_key: 'job_id',
           source_prefix: 'karya://workers/'
         },
@@ -47,6 +52,7 @@ module Karya
           event_type: 'io.karya.worker.job.failed',
           schema_version: 'v1',
           required_keys: %w[handler job_id queue reservation_token worker_id],
+          string_keys: %w[handler job_id queue reservation_token worker_id],
           subject_key: 'job_id',
           source_prefix: 'karya://workers/'
         },
@@ -54,6 +60,7 @@ module Karya
           event_type: 'io.karya.supervisor.child.spawned',
           schema_version: 'v1',
           required_keys: %w[pid worker_id],
+          string_keys: %w[worker_id],
           subject_key: 'pid',
           source_prefix: 'karya://worker-supervisors/'
         },
@@ -61,6 +68,7 @@ module Karya
           event_type: 'io.karya.supervisor.shutdown.signal_forwarded',
           schema_version: 'v1',
           required_keys: %w[pids signal worker_id],
+          string_keys: %w[signal worker_id],
           source_prefix: 'karya://worker-supervisors/'
         }
       }.transform_values do |schema_definition|
@@ -133,7 +141,6 @@ module Karya
             value_message: 'payload values must be JSON-compatible'
           ).normalize
           validate_required_keys(normalized_payload)
-          normalized_payload
         end
 
         private
@@ -154,12 +161,23 @@ module Karya
             raise InvalidOutboundEventError, "#{required_key} must be present"
           end
 
-          PresentString.new('worker_id', normalized_payload.fetch('worker_id'), error_class: InvalidOutboundEventError).normalize
+          normalize_string_keys(normalized_payload)
+        end
 
-          subject_key = schema_definition.fetch(:subject_key, nil)
-          return unless subject_key
+        def normalize_string_keys(normalized_payload)
+          normalize_string_value = lambda do |string_key, value|
+            PresentString.new(
+              string_key,
+              value,
+              error_class: InvalidOutboundEventError
+            ).normalize
+          end
 
-          PresentString.new(subject_key, normalized_payload.fetch(subject_key), error_class: InvalidOutboundEventError).normalize
+          normalized_string_values = schema_definition.fetch(:string_keys).each_with_object({}) do |string_key, rewritten_values|
+            rewritten_values[string_key] = normalize_string_value.call(string_key, normalized_payload.fetch(string_key))
+          end
+
+          normalized_payload.merge(normalized_string_values).freeze
         end
       end
 

@@ -403,12 +403,14 @@ module Karya
       event_type: String,
       schema_version: String,
       required_keys: Array[String],
+      string_keys: Array[String],
       source_prefix: String
     } |
     {
       event_type: String,
       schema_version: String,
       required_keys: Array[String],
+      string_keys: Array[String],
       source_prefix: String,
       subject_key: String
     }
