@@ -535,6 +535,19 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       )
     end
 
+    it 'rejects unsupported mutable payload values before dispatching hooks' do
+      runtime_instance = runtime_class.new(
+        instrumenter: ->(_event, _payload) {}
+      )
+
+      expect do
+        runtime_instance.instrument('supervisor.child.spawned', { pid: 123, metadata: Object.new })
+      end.to raise_error(
+        Karya::InvalidWorkerSupervisorConfigurationError,
+        'payload values must be nil, booleans, numerics, strings, symbols, times, arrays, or hashes'
+      )
+    end
+
     it 'ignores unsupported outbound events without logging dispatch failures' do
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(

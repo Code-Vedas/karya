@@ -9,12 +9,12 @@ module Karya
   module Internal
     # Builds immutable snapshots for runtime hook payloads.
     class ImmutableHookPayload
-      def self.snapshot(payload)
-        new(payload).snapshot
+      def self.snapshot(payload, error_class:)
+        new(payload, error_class:).snapshot
       end
 
-      def self.snapshot_pair(payload)
-        Array.new(2) { snapshot(payload) }.freeze
+      def self.snapshot_pair(payload, error_class:)
+        Array.new(2) { snapshot(payload, error_class:) }.freeze
       end
 
       def self.snapshot_key(value)
@@ -24,8 +24,9 @@ module Karya
       end
       private_class_method :snapshot_key
 
-      def initialize(payload)
+      def initialize(payload, error_class:)
         @payload = payload
+        @error_class = error_class
       end
 
       def snapshot
@@ -34,7 +35,7 @@ module Karya
 
       private
 
-      attr_reader :payload
+      attr_reader :error_class, :payload
 
       def snapshot_hash(value)
         value.each_with_object({}) do |(key, item), duplicated|
@@ -54,8 +55,10 @@ module Karya
           snapshot_array(value)
         when String, Time
           value.frozen? ? value : value.dup.freeze
-        else
+        when NilClass, TrueClass, FalseClass, Numeric, Symbol
           value
+        else
+          raise error_class, 'payload values must be nil, booleans, numerics, strings, symbols, times, arrays, or hashes'
         end
       end
     end

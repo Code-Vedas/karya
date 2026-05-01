@@ -164,6 +164,20 @@ RSpec.describe 'Karya::Worker::Runtime' do
     expect(logger).to have_received(:error).with('outbound event dispatch failed', hash_including(error_message: 'boom'))
   end
 
+  it 'rejects unsupported mutable payload values before dispatching hooks' do
+    runtime = runtime_class.new(
+      logger: logger,
+      instrumenter: ->(_event, _payload) {}
+    )
+
+    expect do
+      runtime.instrument('worker.job.started', { worker_id: 'worker-1', metadata: Object.new })
+    end.to raise_error(
+      Karya::InvalidWorkerConfigurationError,
+      'payload values must be nil, booleans, numerics, strings, symbols, times, arrays, or hashes'
+    )
+  end
+
   it 'ignores unsupported outbound events without logging dispatch failures' do
     runtime = runtime_class.new(
       logger: logger,

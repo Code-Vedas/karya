@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 RSpec.describe Karya::Internal::ImmutableHookPayload do
+  let(:error_class) { Karya::InvalidWorkerConfigurationError }
+
   it 'reuses already frozen string keys when snapshotting keys' do
     frozen_key = +'stage'
     frozen_key.freeze
@@ -18,5 +20,14 @@ RSpec.describe Karya::Internal::ImmutableHookPayload do
     expect(snapshot_key).to eq(mutable_key)
     expect(snapshot_key).not_to be(mutable_key)
     expect(snapshot_key).to be_frozen
+  end
+
+  it 'rejects unsupported payload value types' do
+    expect do
+      described_class.snapshot({ bad: Object.new }, error_class:)
+    end.to raise_error(
+      Karya::InvalidWorkerConfigurationError,
+      'payload values must be nil, booleans, numerics, strings, symbols, times, arrays, or hashes'
+    )
   end
 end

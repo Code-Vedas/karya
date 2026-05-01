@@ -140,13 +140,19 @@ module Karya
         ).to_h
 
         if instrumenter && dispatch_outbound
-          instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(normalized_payload)
+          instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(
+            normalized_payload,
+            error_class: InvalidWorkerSupervisorConfigurationError
+          )
           emit_instrumentation(event, instrumentation_payload)
           emit_outbound_event(event, outbound_payload)
           return nil
         end
 
-        snapshot = Internal::ImmutableHookPayload.snapshot(normalized_payload)
+        snapshot = Internal::ImmutableHookPayload.snapshot(
+          normalized_payload,
+          error_class: InvalidWorkerSupervisorConfigurationError
+        )
         emit_instrumentation(event, snapshot) if instrumenter
         emit_outbound_event(event, snapshot) if dispatch_outbound
         nil
