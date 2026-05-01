@@ -61,10 +61,14 @@ module Karya
       end
 
       def parse_timestamp(value)
+        raise_invalid_timestamp_error unless /\A\d+\z/.match?(value)
+
         timestamp = Integer(value, 10)
+        raise_invalid_timestamp_error unless timestamp.to_s == value
+
         Time.at(timestamp).utc
       rescue ArgumentError, RangeError
-        raise InvalidWebhookSignatureError, 'timestamp header must be an integer epoch second'
+        raise_invalid_timestamp_error
       end
 
       def validate_timestamp(timestamp, now)
@@ -73,6 +77,10 @@ module Karya
         return if skew <= max_skew_seconds
 
         raise InvalidWebhookSignatureError, 'timestamp is outside the allowed verification window'
+      end
+
+      def raise_invalid_timestamp_error
+        raise InvalidWebhookSignatureError, 'timestamp header must be an integer epoch second'
       end
 
       # Fetches and normalizes one webhook verification header.
@@ -85,17 +93,27 @@ module Karya
         def fetch
           raise InvalidWebhookSignatureError, 'headers must be a Hash' unless headers.is_a?(Hash)
 
-          normalized_value = OptionalString.new(
-            key,
-            normalized_headers[key.downcase],
-            error_class: InvalidWebhookSignatureError
-          ).normalize
-          normalized_value || raise(InvalidWebhookSignatureError, "#{key} header must be present")
+          normalize_value(
+            normalized_headers.fetch(key.downcase) do
+              raise InvalidWebhookSignatureError, "#{key} header must be present"
+            end
+          )
         end
 
         private
 
         attr_reader :headers, :key
+
+        def normalize_value(value)
+          unless [true, false].include?(value) || value.is_a?(Numeric) || value.is_a?(String) || value.is_a?(Symbol)
+            raise InvalidWebhookSignatureError, "#{key} header must be a String-compatible scalar"
+          end
+
+          normalized_value = value.to_s
+          raise InvalidWebhookSignatureError, "#{key} header must be present" if normalized_value.empty?
+
+          normalized_value.frozen? ? normalized_value : normalized_value.dup.freeze
+        end
 
         def normalized_headers
           @normalized_headers ||= headers.each_with_object({}) do |(header_key, header_value), normalized|

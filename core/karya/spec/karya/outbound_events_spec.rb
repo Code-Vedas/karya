@@ -334,6 +334,11 @@ RSpec.describe Karya::OutboundEvents do
     end
 
     it 'rejects malformed timestamp headers' do
+      signed_headers = Karya::OutboundEvents::WebhookSigner.new(secret: 'secret').sign(
+        body: '{"id":"event-1"}',
+        now: occurred_at
+      ).headers
+
       headers = {
         'Karya-Webhook-Timestamp' => 'invalid',
         'Karya-Webhook-Signature' => 'v1=deadbeef'
@@ -347,6 +352,51 @@ RSpec.describe Karya::OutboundEvents do
       }
 
       expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers: out_of_range_headers, now: occurred_at)).to be(false)
+
+      leading_zero_headers = signed_headers.merge(
+        'Karya-Webhook-Timestamp' => "0#{occurred_at.to_i}"
+      )
+      expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers: leading_zero_headers, now: occurred_at)).to be(false)
+
+      spaced_headers = signed_headers.merge(
+        'Karya-Webhook-Timestamp' => " #{occurred_at.to_i} "
+      )
+      expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers: spaced_headers, now: occurred_at)).to be(false)
+
+      empty_headers = signed_headers.merge(
+        'Karya-Webhook-Timestamp' => ''
+      )
+      expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers: empty_headers, now: occurred_at)).to be(false)
+
+      invalid_value_headers = signed_headers.merge(
+        'Karya-Webhook-Timestamp' => {}
+      )
+      expect(described_class.new(secret: 'secret').verify(body: '{"id":"event-1"}', headers: invalid_value_headers, now: occurred_at)).to be(false)
+    end
+
+    it 'rejects missing required headers and range-overflow timestamp parsing' do
+      verifier = described_class.new(secret: 'secret')
+
+      expect(
+        verifier.verify(
+          body: '{"id":"event-1"}',
+          headers: { 'Karya-Webhook-Signature' => 'v1=deadbeef' },
+          now: occurred_at
+        )
+      ).to be(false)
+
+      allow(Time).to receive(:at).and_raise(RangeError)
+
+      expect(
+        verifier.verify(
+          body: '{"id":"event-1"}',
+          headers: {
+            'Karya-Webhook-Timestamp' => occurred_at.to_i.to_s,
+            'Karya-Webhook-Signature' => 'v1=deadbeef'
+          },
+          now: occurred_at
+        )
+      ).to be(false)
     end
 
     it 'rejects invalid header containers, malformed signature formats, and unsupported schemes' do
