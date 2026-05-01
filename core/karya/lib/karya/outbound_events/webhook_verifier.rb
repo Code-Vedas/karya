@@ -139,7 +139,7 @@ module Karya
         end
 
         def parse
-          /\A([A-Za-z0-9_]+)=([0-9a-fA-F]+)\z/.match(value).then do |match|
+          /\A([^=]+)=([0-9a-fA-F]+)\z/.match(value).then do |match|
             raise InvalidWebhookSignatureError, 'signature header must use <scheme>=<digest> format' unless match
 
             [match[1], match[2].downcase]
