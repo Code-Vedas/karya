@@ -373,7 +373,16 @@ module Karya
     concurrency: Hash[String, backpressure_concurrency_snapshot],
     rate_limits: Hash[String, backpressure_rate_limit_snapshot]
   }
-  type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
+  type context_payload_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Symbol |
+    Time |
+    Array[context_payload_value] |
+    Hash[Symbol | String, context_payload_value]
+  type context_payload = Hash[Symbol | String, context_payload_value]
   type outbound_event_string_input = nil | bool | Numeric | String | Symbol | Time
   type outbound_event_scalar_input = nil | bool | Numeric | String | Symbol
   type outbound_event_input_value =
