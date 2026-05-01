@@ -5,6 +5,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative '../internal/payload_input'
+
 module Karya
   class Worker
     # Worker runtime dependencies that provide clock and sleep behavior.
@@ -56,18 +58,26 @@ module Karya
         ).normalize
       end
 
-      def instrument(event, payload)
+      def instrument(event, payload = Internal::PayloadInput::ABSENT, **payload_keywords)
+        payload_given = !payload.equal?(Internal::PayloadInput::ABSENT)
+        normalized_payload = Internal::PayloadInput.new(
+          payload_given ? payload : nil,
+          payload_keywords,
+          payload_given:,
+          error_class: InvalidWorkerConfigurationError,
+          mixed_payload_message: 'payload must be a Hash when keyword payload is also given'
+        ).to_h
         dispatch_outbound = outbound_dispatcher_supports_event?(event)
         return nil unless instrumenter || dispatch_outbound
 
         if instrumenter && dispatch_outbound
-          instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(payload)
+          instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(normalized_payload)
           emit_instrumentation(event, instrumentation_payload)
           emit_outbound_event(event, outbound_payload)
           return nil
         end
 
-        snapshot = Internal::ImmutableHookPayload.snapshot(payload)
+        snapshot = Internal::ImmutableHookPayload.snapshot(normalized_payload)
         emit_instrumentation(event, snapshot) if instrumenter
         emit_outbound_event(event, snapshot) if dispatch_outbound
         nil

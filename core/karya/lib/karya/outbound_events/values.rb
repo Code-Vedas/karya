@@ -83,7 +83,10 @@ module Karya
         raise error_class, hash_message unless hash.is_a?(Hash)
 
         hash.each_with_object({}) do |(key, value), normalized|
-          normalized[normalize_key(key)] = normalize_value(value)
+          normalized_key = normalize_key(key)
+          raise error_class, 'payload keys must remain distinct after normalization' if normalized.key?(normalized_key)
+
+          normalized[normalized_key] = normalize_value(value)
         end.freeze
       end
 
@@ -100,7 +103,7 @@ module Karya
         when NilClass, TrueClass, FalseClass, Numeric
           value
         when String
-          value.dup.freeze
+          value.frozen? ? value : value.dup.freeze
         when Symbol
           value.to_s.freeze
         when Array

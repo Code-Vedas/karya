@@ -63,7 +63,7 @@ module Karya
 
       def poll_for_child_exit: () -> [Integer, Process::Status]?
 
-      def instrument: (String event, context_payload payload) -> nil
+      def instrument: (String event, ?context_payload payload, **context_payload_value payload_keywords) -> nil
 
       # :nocov:
       def default_forker: [A] () { () -> A } -> Integer

@@ -46,7 +46,7 @@ module Karya
 
       def subscribe_signal: (String signal, Karya::signal_handler handler) -> Karya::signal_restorer
 
-      def instrument: (String event, context_payload payload) -> nil
+      def instrument: (String event, ?context_payload payload, **context_payload_value payload_keywords) -> nil
 
       def report_state: (worker_id: String, state: String) -> nil
     end

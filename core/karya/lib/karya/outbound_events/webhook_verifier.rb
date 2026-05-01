@@ -107,14 +107,22 @@ module Karya
         attr_reader :headers, :key
 
         def normalize_value(value)
-          unless [true, false].include?(value) || value.is_a?(Numeric) || value.is_a?(String) || value.is_a?(Symbol)
-            raise InvalidWebhookSignatureError, "#{key} header must be a String-compatible scalar"
-          end
+          ensure_present_header_value(
+            case value
+            when String
+              value.frozen? ? value : value.dup.freeze
+            when TrueClass, FalseClass, Numeric, Symbol
+              value.to_s.freeze
+            else
+              raise InvalidWebhookSignatureError, "#{key} header must be a String-compatible scalar"
+            end
+          )
+        end
 
-          normalized_value = value.to_s
-          raise InvalidWebhookSignatureError, "#{key} header must be present" if normalized_value.empty?
+        def ensure_present_header_value(value)
+          raise InvalidWebhookSignatureError, "#{key} header must be present" if value.empty?
 
-          normalized_value.frozen? ? normalized_value : normalized_value.dup.freeze
+          value
         end
 
         def normalized_headers

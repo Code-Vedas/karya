@@ -431,6 +431,12 @@ RSpec.describe Karya::OutboundEvents do
         'kArYa-WeBhOoK-SiGnAtUrE': "#{signature.scheme}=#{signature.digest.upcase}"
       }
       expect(verifier.verify(body: '{"id":"event-1"}', headers: uppercase_digest_headers, now: occurred_at)).to be(true)
+
+      numeric_timestamp_headers = {
+        'Karya-Webhook-Timestamp' => occurred_at.to_i,
+        'Karya-Webhook-Signature' => signature.header_value
+      }
+      expect(verifier.verify(body: '{"id":"event-1"}', headers: numeric_timestamp_headers, now: occurred_at)).to be(true)
     end
 
     it 'rejects invalid max_skew_seconds configuration during initialization' do
@@ -606,7 +612,7 @@ RSpec.describe Karya::OutboundEvents do
   end
 
   describe 'shared value normalizers' do
-    it 'covers optional strings, timestamps, and JSON payload normalization branches' do
+    it 'covers optional strings and timestamp normalization branches' do
       error_class = Karya::InvalidOutboundEventError
 
       expect(Karya::OutboundEvents::OptionalString.new(:subject, nil, error_class:).normalize).to be_nil
@@ -625,7 +631,10 @@ RSpec.describe Karya::OutboundEvents do
       expect do
         Karya::OutboundEvents::Timestamp.new(:time, 'bad', error_class:).normalize
       end.to raise_error(Karya::InvalidOutboundEventError, 'time must be a Time')
+    end
 
+    it 'covers JSON payload normalization branches' do
+      error_class = Karya::InvalidOutboundEventError
       normalized_hash = Karya::OutboundEvents::JsonHash.new(
         { role: :ops, 'attempts' => [1, { 'nested' => 'ok' }] },
         error_class:,
@@ -636,6 +645,26 @@ RSpec.describe Karya::OutboundEvents do
         'role' => 'ops',
         'attempts' => [1, { 'nested' => 'ok' }]
       )
+      frozen_stage = +'ready'
+      frozen_stage.freeze
+      expect(
+        Karya::OutboundEvents::JsonHash.new(
+          { 'stage' => frozen_stage },
+          error_class:,
+          hash_message: 'payload must be a Hash',
+          value_message: 'payload values must be JSON-compatible'
+        ).normalize.fetch('stage')
+      ).to be(frozen_stage)
+      mutable_stage = +'queued'
+      normalized_stage = Karya::OutboundEvents::JsonHash.new(
+        { 'stage' => mutable_stage },
+        error_class:,
+        hash_message: 'payload must be a Hash',
+        value_message: 'payload values must be JSON-compatible'
+      ).normalize.fetch('stage')
+      expect(normalized_stage).to eq('queued')
+      expect(normalized_stage).not_to be(mutable_stage)
+      expect(normalized_stage).to be_frozen
 
       expect do
         Karya::OutboundEvents::JsonHash.new(
@@ -654,6 +683,15 @@ RSpec.describe Karya::OutboundEvents do
           value_message: 'payload values must be JSON-compatible'
         ).normalize
       end.to raise_error(Karya::InvalidOutboundEventError, 'payload values must be JSON-compatible')
+
+      expect do
+        Karya::OutboundEvents::JsonHash.new(
+          { worker_id: 'one', ' worker_id ' => 'two' },
+          error_class:,
+          hash_message: 'payload must be a Hash',
+          value_message: 'payload values must be JSON-compatible'
+        ).normalize
+      end.to raise_error(Karya::InvalidOutboundEventError, 'payload keys must remain distinct after normalization')
     end
   end
 end

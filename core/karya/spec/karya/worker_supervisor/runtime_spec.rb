@@ -199,6 +199,16 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(instrumentation_payload).to be_frozen
     end
 
+    it 'accepts keyword payloads for instrumentation hooks' do
+      instrumented_events = []
+      runtime_instance = runtime_class.new(
+        instrumenter: ->(event, payload) { instrumented_events << [event, payload] }
+      )
+
+      expect(runtime_instance.instrument('supervisor.poll', worker_id: 'worker-1')).to be_nil
+      expect(instrumented_events).to eq([['supervisor.poll', { worker_id: 'worker-1' }]])
+    end
+
     it 'returns nil when the default poll waiter has no child process' do
       expect(runtime_class.new.poll_for_child_exit).to be_nil
     end
