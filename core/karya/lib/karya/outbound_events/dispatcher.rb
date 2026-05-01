@@ -12,6 +12,29 @@ module Karya
   module OutboundEvents
     # Builds canonical outbound deliveries from runtime instrumentation events.
     class Dispatcher
+      # Normalizes positional and keyword payload inputs into one Hash.
+      class PayloadInput
+        NONE = Object.new.freeze
+
+        def initialize(payload, payload_keywords)
+          @payload = payload
+          @payload_keywords = payload_keywords
+        end
+
+        def to_h
+          return payload_keywords if payload.equal?(NONE)
+          return payload if payload_keywords.empty?
+
+          raise InvalidOutboundEventError, 'payload must be a Hash when keyword payload is also given' unless payload.is_a?(Hash)
+
+          payload.merge(payload_keywords)
+        end
+
+        private
+
+        attr_reader :payload, :payload_keywords
+      end
+
       def initialize(delivery_handler:, signer: nil, clock: -> { Time.now.utc }, event_id_generator: -> { SecureRandom.uuid })
         @delivery_handler = Primitives::Callable.new(:delivery_handler, delivery_handler, error_class: InvalidOutboundEventError).normalize
         @signer = normalize_signer(signer)
@@ -23,7 +46,7 @@ module Karya
         ).normalize
       end
 
-      def call(event_name, payload)
+      def call(event_name, payload = PayloadInput::NONE, **payload_keywords)
         return nil unless SchemaCatalog.supported?(event_name)
 
         occurred_at = clock.call
@@ -31,7 +54,7 @@ module Karya
 
         event = SchemaCatalog.build_event(
           event_name:,
-          payload:,
+          payload: PayloadInput.new(payload, payload_keywords).to_h,
           occurred_at:,
           event_id: event_id_generator.call
         )
@@ -52,6 +75,8 @@ module Karya
 
         raise InvalidOutboundEventError, 'signer must be Karya::OutboundEvents::WebhookSigner'
       end
+
+      private_constant :PayloadInput
     end
   end
 end

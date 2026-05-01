@@ -527,6 +527,39 @@ RSpec.describe Karya::OutboundEvents do
       end.to raise_error(Karya::InvalidOutboundEventError, 'clock must return a Time')
     end
 
+    it 'accepts positional payload hashes and merges them with keyword payloads' do
+      deliveries = []
+      dispatcher = described_class.new(
+        delivery_handler: ->(delivery) { deliveries << delivery },
+        clock: -> { occurred_at },
+        event_id_generator: -> { 'event-3' }
+      )
+
+      delivery = dispatcher.call(
+        'supervisor.child.spawned',
+        { pid: 123 },
+        worker_id: 'worker-1'
+      )
+
+      expect(delivery.event.data).to eq('pid' => 123, 'worker_id' => 'worker-1')
+      expect(deliveries).to eq([delivery])
+    end
+
+    it 'rejects non-hash positional payloads when keyword payloads are also given' do
+      dispatcher = described_class.new(
+        delivery_handler: ->(_delivery) {},
+        clock: -> { occurred_at },
+        event_id_generator: -> { 'event-4' }
+      )
+
+      expect do
+        dispatcher.call('supervisor.child.spawned', 'bad', worker_id: 'worker-1')
+      end.to raise_error(
+        Karya::InvalidOutboundEventError,
+        'payload must be a Hash when keyword payload is also given'
+      )
+    end
+
     it 'skips unsupported instrumentation events without calling hot-path dependencies' do
       deliveries = []
       clock_calls = 0
