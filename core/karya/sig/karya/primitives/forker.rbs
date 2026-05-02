@@ -7,8 +7,6 @@ module Karya
   module Primitives
     # Validates forker dependencies.
     class Forker < Callable
-      def initialize: (Symbol name, Karya::forker value, error_class: Karya::error_class) -> void
-      def normalize: () -> Karya::forker
     end
   end
 end
