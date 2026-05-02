@@ -389,6 +389,16 @@ RSpec.describe Karya::OutboundEvents do
       expect(signature.digest).not_to eq(stripped_signature.digest)
     end
 
+    it 'signs non-UTF-8 request body bytes without encoding failures' do
+      signer = described_class.new(secret: 'secret')
+      body = 'abc'.encode(Encoding::UTF_16LE)
+
+      signature = signer.sign(body:, now: occurred_at)
+
+      expect(signature.digest).to be_a(String)
+      expect(Karya::OutboundEvents::WebhookVerifier.new(secret: 'secret').verify(body:, headers: signature.headers, now: occurred_at)).to be(true)
+    end
+
     it 'rejects non-string and empty bodies' do
       signer = described_class.new(secret: 'secret')
 

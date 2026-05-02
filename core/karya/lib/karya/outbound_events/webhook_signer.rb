@@ -44,7 +44,9 @@ module Karya
 
         normalized_now = Timestamp.new(:now, now, error_class: InvalidWebhookSignatureError).normalize
         timestamp = normalized_now.to_i.to_s
-        digest = OpenSSL::HMAC.hexdigest(DIGEST_ALGORITHM, secret, "#{timestamp}.#{body}")
+        signature_payload = String.new(capacity: timestamp.bytesize + body.bytesize + 1, encoding: Encoding::BINARY)
+        signature_payload << timestamp.b << '.'.b << body.b
+        digest = OpenSSL::HMAC.hexdigest(DIGEST_ALGORITHM, secret, signature_payload)
         WebhookSignature.new(
           scheme:,
           timestamp: normalized_now,
