@@ -1,9 +1,9 @@
 module Karya
   module Backend
     class Selection
-      KNOWN_IDENTIFIERS: Array[String]
-      IDENTIFIER_ALIASES: Hash[String, String]
-      CLASSIFICATIONS: Hash[String, backend_classification]
+      KNOWN_IDENTIFIERS: Array[backend_identifier]
+      IDENTIFIER_ALIASES: Hash[String, backend_identifier]
+      CLASSIFICATIONS: Hash[backend_identifier, backend_classification]
 
       @identifier: backend_identifier
 
