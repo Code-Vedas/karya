@@ -255,26 +255,12 @@ module Karya
 
     def register_signal_restorers(restorers, shutdown_controller)
       SIGNALS.each do |signal|
-        restorers << runtime.subscribe_signal(signal, -> { handle_shutdown_signal(shutdown_controller) })
+        restorers << runtime.subscribe_signal(signal, proc do
+          shutdown_controller.advance
+        ensure
+          WakeupSignal.interrupt(WAKEUP_SIGNAL)
+        end)
       end
-    end
-
-    def handle_shutdown_signal(shutdown_controller)
-      phase = shutdown_controller.advance
-      runtime_phase =
-        if phase == Internal::RuntimeSupport::ShutdownState::DRAINING
-          RuntimeStateStore::DRAINING_PHASE
-        elsif phase == Internal::RuntimeSupport::ShutdownState::FORCE_STOP
-          RuntimeStateStore::FORCE_STOPPING_PHASE
-        end
-      return unless runtime_phase
-      return unless control_monitor.synchronize { @running_claimed }
-
-      runtime_state_store.mark_supervisor_phase(runtime_phase)
-    rescue InvalidRuntimeStateFileError
-      nil
-    ensure
-      WakeupSignal.interrupt(WAKEUP_SIGNAL)
     end
 
     def cleanup_tracked_children(child_pids)

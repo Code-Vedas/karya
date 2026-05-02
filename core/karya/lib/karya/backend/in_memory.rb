@@ -15,6 +15,7 @@ module Karya
 
       DESCRIPTOR = Descriptor.new(identifier: :in_memory)
       UNSET = Object.new.freeze
+      private_constant :UNSET
 
       def initialize(queue_store_class: QueueStore::InMemory)
         @queue_store_class = queue_store_class
