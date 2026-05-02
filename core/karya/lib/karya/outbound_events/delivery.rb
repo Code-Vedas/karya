@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require_relative 'event'
+require_relative 'webhook_signature'
+
 # Copyright Codevedas Inc. 2025-present
 #
 # This source code is licensed under the MIT license found in the

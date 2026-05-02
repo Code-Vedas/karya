@@ -176,6 +176,34 @@ RSpec.describe Karya do
     expect(stdout).to eq("true\n")
   end
 
+  it 'allows requiring karya/outbound_events/dispatcher directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/base'
+      require 'karya/outbound_events/dispatcher'
+      deliveries = []
+      dispatcher = Karya::OutboundEvents::Dispatcher.new(
+        delivery_handler: ->(delivery) { deliveries << delivery },
+        clock: -> { Time.utc(2026, 5, 2, 1, 0, 0) },
+        event_id_generator: -> { 'event-1' }
+      )
+      dispatcher.call(
+        'worker.job.started',
+        reservation_token: 'lease-1',
+        job_id: 'job-1',
+        handler: 'billing_sync',
+        queue: 'billing',
+        worker_id: 'worker-1'
+      )
+      puts deliveries.first.event.type
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("io.karya.worker.job.started\n")
+  end
+
   it 'allows requiring karya/cli directly' do
     lib_path = File.expand_path('../lib', __dir__)
     script = <<~RUBY

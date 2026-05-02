@@ -2,6 +2,8 @@
 
 require 'json'
 require 'time'
+require_relative 'schema'
+require_relative 'values'
 
 # Copyright Codevedas Inc. 2025-present
 #
