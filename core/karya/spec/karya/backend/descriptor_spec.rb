@@ -25,21 +25,31 @@ RSpec.describe Karya::Backend::Descriptor do
     expect(descriptor.production_grade?).to be(false)
   end
 
+  it 'accepts string classifications that Ruby normalizes to symbols' do
+    descriptor = described_class.new(
+      identifier: 'inmemory',
+      classification: 'quick_setup_and_run',
+      capabilities:
+    )
+
+    expect(descriptor.classification).to eq(:quick_setup_and_run)
+  end
+
   it 'rejects unsupported classifications' do
     expect do
-      described_class.new(identifier: :redis, classification: :local, capabilities:)
+      described_class.new(identifier: :in_memory, classification: :local, capabilities:)
     end.to raise_error(Karya::InvalidBackendSelectionError, /classification must be one of/)
   end
 
   it 'rejects non-symbolizable classifications' do
     expect do
-      described_class.new(identifier: :redis, classification: Object.new, capabilities:)
+      described_class.new(identifier: :in_memory, classification: Object.new, capabilities:)
     end.to raise_error(Karya::InvalidBackendSelectionError, /classification must be one of/)
   end
 
   it 'requires a backend capabilities object' do
     expect do
-      described_class.new(identifier: :redis, classification: :production_grade, capabilities: Object.new)
+      described_class.new(identifier: :in_memory, classification: :production_grade, capabilities: Object.new)
     end.to raise_error(Karya::InvalidBackendSelectionError, /capabilities must be a Karya::Backend::Capabilities/)
   end
 end

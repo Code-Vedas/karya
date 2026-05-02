@@ -24,6 +24,16 @@ RSpec.describe Karya::Backend::InMemory do
     expect(queue_store).to be_a(Karya::QueueStore::InMemory)
   end
 
+  it 'allows an injected queue store factory that returns a queue store base' do
+    queue_store = Karya::QueueStore::InMemory.new
+    queue_store_factory = Class.new do
+      define_singleton_method(:new) { |**| queue_store }
+    end
+    backend = described_class.new(queue_store_class: queue_store_factory)
+
+    expect(backend.build_queue_store).to be(queue_store)
+  end
+
   it 'declares no-op lifecycle hooks around queue-store usage' do
     queue_store = backend.build_queue_store
 

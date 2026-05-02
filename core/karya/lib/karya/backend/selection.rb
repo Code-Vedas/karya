@@ -11,23 +11,12 @@ module Karya
   module Backend
     # Normalized backend selection without runtime boot wiring.
     class Selection
-      SUPPORTED_IDENTIFIERS = %w[in_memory sqlite redis postgres mysql].freeze
+      SUPPORTED_IDENTIFIERS = %w[in_memory].freeze
 
       IDENTIFIER_ALIASES = {
         'InMemory' => 'in_memory',
         'inmemory' => 'in_memory',
-        'in_memory' => 'in_memory',
-        'SQLite' => 'sqlite',
-        'sqlite' => 'sqlite',
-        'Redis' => 'redis',
-        'redis' => 'redis',
-        'Postgres' => 'postgres',
-        'PostgreSQL' => 'postgres',
-        'postgres' => 'postgres',
-        'postgresql' => 'postgres',
-        'MySQL' => 'mysql',
-        'my_sql' => 'mysql',
-        'mysql' => 'mysql'
+        'in_memory' => 'in_memory'
       }.freeze
 
       CLASSIFICATIONS = {

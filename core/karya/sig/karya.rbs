@@ -440,25 +440,14 @@ module Karya
   type symbol_options = ::Hash[Symbol, option_value]
   type mixed_options = ::Hash[Symbol | String, option_value]
   type job_arguments = ::Hash[String, job_argument]
-  type backend_identifier = :in_memory | :sqlite | :redis | :postgres | :mysql
-  type backend_identifier_input =
-    backend_identifier |
-    "inmemory" |
-    "in_memory" |
-    "sqlite" |
-    "redis" |
-    "postgres" |
-    "postgresql" |
-    "mysql" |
-    "my_sql" |
-    "InMemory" |
-    "SQLite" |
-    "Redis" |
-    "Postgres" |
-    "PostgreSQL" |
-    "MySQL"
-  type optional_backend_identifier_input = backend_identifier_input | nil
+  type backend_identifier = :in_memory
+  type backend_identifier_input = state_name?
   type backend_classification = :quick_setup_and_run | :production_like_local | :production_grade
+  type backend_classification_input =
+    backend_classification |
+    "quick_setup_and_run" |
+    "production_like_local" |
+    "production_grade"
   type error_class = singleton(StandardError)
   type logger = Internal::_Logger
   type instrumenter = ^(String, context_payload) -> nil

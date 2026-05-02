@@ -9,7 +9,7 @@ module Karya
 
       def initialize: (
         identifier: backend_identifier_input,
-        classification: backend_classification,
+        classification: backend_classification_input,
         capabilities: Capabilities
       ) -> void
 
