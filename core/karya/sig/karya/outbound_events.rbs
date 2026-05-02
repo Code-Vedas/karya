@@ -182,13 +182,13 @@ module Karya
     end
 
     class Dispatcher
-      @delivery_handler: Karya::callable_value
+      @delivery_handler: Karya::outbound_event_delivery_handler
       @signer: WebhookSigner?
       @clock: Karya::callable_value
       @event_id_generator: Karya::callable_value
 
       def initialize: (
-        delivery_handler: Karya::callable_value,
+        delivery_handler: Karya::outbound_event_delivery_handler,
         ?signer: WebhookSigner?,
         ?clock: Karya::callable_value,
         ?event_id_generator: Karya::callable_value
