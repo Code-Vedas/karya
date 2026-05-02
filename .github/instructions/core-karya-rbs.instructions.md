@@ -37,6 +37,18 @@ RBS in this repository is a correctness contract.
   `private`, mirror that visibility change in the same RBS patch.
 - Match argument names, keyword names, optionality, return types, and nested
   module/class structure.
+- Match the full accepted input surface before normalization. If Ruby accepts
+  aliases, alternative casing, delimiter variants, or `nil` before rejecting or
+  normalizing, model that accepted input in the RBS instead of only the
+  normalized canonical value.
+- Do not collapse shared contracts to one concrete implementation's keyword
+  surface. Shared interfaces should model only the common contract they truly
+  guarantee, not adapter-local boot options copied from the first
+  implementation.
+- Do not use broad keyword maps to dodge exactness. If Ruby requires specific
+  keys, rejects unknown keys, or distinguishes one optional keyword from
+  another, encode that explicitly instead of using a generic catch-all keyword
+  shape.
 - Remove stale entries for deleted methods, constants, and modules.
 - Do not use `untyped`, `any`, or other generic escape hatches where a concrete
   type is knowable.

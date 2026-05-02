@@ -1,0 +1,24 @@
+module Karya
+  module Backend
+    class InMemory
+      include Base
+
+      CAPABILITIES: Capabilities
+      DESCRIPTOR: Descriptor
+
+      def initialize: (?queue_store_class: singleton(QueueStore::InMemory)) -> void
+      def descriptor: () -> Descriptor
+      def build_queue_store: (
+        ?token_generator: Karya::callable_value,
+        ?expired_tombstone_limit: Integer,
+        ?completed_batch_retention_limit: Integer,
+        ?max_batch_size: Integer,
+        ?policy_set: Backpressure::PolicySet,
+        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
+        ?fairness_policy: Fairness::Policy
+      ) -> QueueStore::InMemory
+      def before_start: (queue_store: QueueStore::Base) -> nil
+      def after_stop: (queue_store: QueueStore::Base) -> nil
+    end
+  end
+end

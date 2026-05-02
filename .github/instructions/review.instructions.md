@@ -207,6 +207,16 @@ For any Ruby change that has a mirrored file under `sig/`:
 - **Required:** Treat spec-layout drift as a review concern when extracted
   owner-local files leave all direct behavior buried only in a monolithic owner
   spec.
+- **Required:** Mirror the accepted input surface, not just the normalized
+  output surface. If Ruby accepts aliases, mixed casing, delimiter variants, or
+  broader nilability before normalization, the RBS input type must reflect
+  that same accepted set.
+- **Required:** Flag signatures that overfit one implementation while claiming
+  to model a shared contract. If a shared base/module type is narrowed to one
+  concrete adapter's keyword set or return posture, treat that as contract
+  drift even when the current implementation still passes tests.
+- **Required:** Flag generic keyword or catch-all type shapes that hide runtime
+  rules about required keys, rejected keys, or known option names.
 
 ## Architecture Guidelines Review
 

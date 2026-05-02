@@ -1,0 +1,38 @@
+module Karya
+  module Backend
+    class Capabilities
+      @job_persistence: bool
+      @workflow_state: bool
+      @schedule_state: bool
+      @audit_history: bool
+      @shared_processes: bool
+      @multi_node: bool
+      @parity_exceptions: Array[String]
+
+      def initialize: (
+        job_persistence: bool,
+        workflow_state: bool,
+        schedule_state: bool,
+        audit_history: bool,
+        shared_processes: bool,
+        multi_node: bool,
+        ?parity_exceptions: Array[String]
+      ) -> void
+
+      attr_reader job_persistence: bool
+      attr_reader workflow_state: bool
+      attr_reader schedule_state: bool
+      attr_reader audit_history: bool
+      attr_reader shared_processes: bool
+      attr_reader multi_node: bool
+      attr_reader parity_exceptions: Array[String]
+
+      def job_persistence?: () -> bool
+      def workflow_state?: () -> bool
+      def schedule_state?: () -> bool
+      def audit_history?: () -> bool
+      def shared_processes?: () -> bool
+      def multi_node?: () -> bool
+    end
+  end
+end

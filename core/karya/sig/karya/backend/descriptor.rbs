@@ -1,0 +1,25 @@
+module Karya
+  module Backend
+    class Descriptor
+      CLASSIFICATIONS: Array[backend_classification]
+
+      @identifier: String
+      @classification: backend_classification
+      @capabilities: Capabilities
+
+      def initialize: (
+        identifier: backend_identifier_input,
+        classification: backend_classification,
+        capabilities: Capabilities
+      ) -> void
+
+      attr_reader identifier: String
+      attr_reader classification: backend_classification
+      attr_reader capabilities: Capabilities
+
+      def quick_setup_and_run?: () -> bool
+      def production_like_local?: () -> bool
+      def production_grade?: () -> bool
+    end
+  end
+end
