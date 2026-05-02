@@ -14,7 +14,8 @@ module Karya
       end
 
       def self.snapshot_pair(payload, error_class:)
-        Array.new(2) { snapshot(payload, error_class:) }.freeze
+        snapshot = snapshot(payload, error_class:)
+        [snapshot, shallow_snapshot(snapshot)].freeze
       end
 
       def self.snapshot_key(value)
@@ -37,6 +38,13 @@ module Karya
       private
 
       attr_reader :error_class, :payload
+
+      def self.shallow_snapshot(snapshot)
+        snapshot.each_with_object({}) do |(key, value), duplicated|
+          duplicated[key] = value
+        end.freeze
+      end
+      private_class_method :shallow_snapshot
 
       def snapshot_hash(value)
         value.each_with_object({}) do |(key, item), duplicated|
