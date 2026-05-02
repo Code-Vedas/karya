@@ -91,6 +91,18 @@ RSpec.describe Karya::OutboundEvents do
           event_id: 'event-1'
         )
       end.to raise_error(Karya::InvalidOutboundEventError, 'job_id must be present')
+
+      expect do
+        described_class.build_event(
+          event_name: 'supervisor.child.spawned',
+          payload: {
+            pid: '   ',
+            worker_id: 'worker-1'
+          },
+          occurred_at:,
+          event_id: 'event-1'
+        )
+      end.to raise_error(Karya::InvalidOutboundEventError, 'pid must be present')
     end
 
     it 'normalizes string contract fields before emitting the event' do

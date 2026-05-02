@@ -133,6 +133,49 @@ RSpec.describe Karya do
     expect(stdout).to eq("true\n")
   end
 
+  it 'allows requiring karya/outbound_events/webhook_signer directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/base'
+      require 'karya/outbound_events/webhook_signer'
+      signature = Karya::OutboundEvents::WebhookSigner.new(secret: 'secret').sign(
+        body: '{"ok":true}',
+        now: Time.utc(2026, 5, 2, 1, 0, 0)
+      )
+      puts signature.header_value.start_with?('v1=')
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("true\n")
+  end
+
+  it 'allows requiring karya/outbound_events/webhook_verifier directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/base'
+      require 'karya/outbound_events/webhook_verifier'
+      now = Time.utc(2026, 5, 2, 1, 0, 0)
+      signer = Karya::OutboundEvents::WebhookSigner.new(secret: 'secret')
+      signature = signer.sign(body: '{"ok":true}', now:)
+      verifier = Karya::OutboundEvents::WebhookVerifier.new(secret: 'secret')
+      puts verifier.verify(
+        body: '{"ok":true}',
+        headers: {
+          'Karya-Webhook-Timestamp' => signature.headers.fetch(signature.timestamp_header),
+          'Karya-Webhook-Signature' => signature.header_value
+        },
+        now:
+      )
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("true\n")
+  end
+
   it 'allows requiring karya/cli directly' do
     lib_path = File.expand_path('../lib', __dir__)
     script = <<~RUBY

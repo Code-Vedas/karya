@@ -117,7 +117,11 @@ module Karya
         subject_key = schema_definition.fetch(:subject_key, nil)
         return nil unless subject_key
 
-        normalized_payload.fetch(subject_key).to_s.freeze
+        PresentString.new(
+          subject_key,
+          normalized_payload.fetch(subject_key),
+          error_class: InvalidOutboundEventError
+        ).normalize
       end
 
       def self.normalize_event_name(event_name)

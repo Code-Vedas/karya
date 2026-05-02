@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require 'openssl'
+require_relative 'values'
+require_relative 'webhook_signature'
+require_relative 'webhook_signer'
 
 # Copyright Codevedas Inc. 2025-present
 #
