@@ -39,33 +39,10 @@ RSpec.describe Karya::Backend::Selection do
     end.to raise_error(Karya::UnsupportedBackendError, /unsupported backend "in-memory"/)
   end
 
-  it 'classifies inmemory as quick setup and run' do
+  it 'creates a selection for a known backend identifier' do
     selection = described_class.new('InMemory')
 
     expect(selection.identifier).to eq('in_memory')
-    expect(selection.classification).to eq(:quick_setup_and_run)
-    expect(selection.quick_setup_and_run?).to be(true)
-    expect(selection.production_like_local?).to be(false)
-    expect(selection.production_grade?).to be(false)
-  end
-
-  it 'exposes the class-level quick setup predicate' do
-    expect(described_class.quick_setup_and_run?('InMemory')).to be(true)
-  end
-
-  it 'exposes the class-level production-like-local predicate' do
-    expect(described_class.production_like_local?('sqlite')).to be(true)
-  end
-
-  it 'exposes the class-level production-grade predicate' do
-    expect(described_class.production_grade?('postgres')).to be(true)
-  end
-
-  it 'defines deployment classifications for the shared backend contract' do
-    expect(described_class::CLASSIFICATIONS.fetch('sqlite')).to eq(:production_like_local)
-    expect(described_class::CLASSIFICATIONS.fetch('redis')).to eq(:production_grade)
-    expect(described_class::CLASSIFICATIONS.fetch('postgres')).to eq(:production_grade)
-    expect(described_class::CLASSIFICATIONS.fetch('mysql')).to eq(:production_grade)
   end
 
   it 'reports whether an identifier is known' do

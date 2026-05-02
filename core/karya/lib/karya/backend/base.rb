@@ -13,14 +13,6 @@ module Karya
         descriptor.identifier
       end
 
-      def classification
-        descriptor.classification
-      end
-
-      def capabilities
-        descriptor.capabilities
-      end
-
       def descriptor
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end

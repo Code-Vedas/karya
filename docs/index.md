@@ -21,7 +21,7 @@ workflows, framework hosts, operator tooling, and governed production rollout.
 ## What The Platform Includes
 
 - a canonical runtime and CLI
-- backend adapters with an explicit capability matrix
+- backend adapters with a shared backend selection contract
 - first-class integrations for plain Ruby, Rails, Sinatra, Roda, and Hanami
 - ActiveJob compatibility and migration guidance
 - an optional dashboard addon with shared UI delivery, internal APIs, and Kaal
@@ -57,7 +57,7 @@ workflows, framework hosts, operator tooling, and governed production rollout.
 
 ## Explore The Docs
 
-- [Architecture](/architecture/): package map, capability model, and how
+- [Architecture](/architecture/): package map, product layers, and how
   the platform fits together
 - [Getting Started](/getting-started/): setup path for repository work
   and initial platform evaluation
@@ -69,8 +69,8 @@ workflows, framework hosts, operator tooling, and governed production rollout.
   governed recovery, and backpressure
 - [Workflows](/workflows/): orchestration, replay, signals, child
   workflows, and versioning
-- [Backends](/backends/): selection guidance, tiers, and capability
-  matrix
+- [Backends](/backends/): selection guidance, backend identifiers, and
+  adapter fit
 - [Frameworks](/frameworks/): host integrations, ActiveJob, and
   parity notes
 - [Dashboard Hosting](/dashboard-hosting/): packaged asset contract and host

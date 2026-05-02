@@ -3,25 +3,15 @@ module Karya
     class Selection
       KNOWN_IDENTIFIERS: Array[backend_identifier]
       IDENTIFIER_ALIASES: Hash[String, backend_identifier]
-      CLASSIFICATIONS: Hash[backend_identifier, backend_classification]
 
       @identifier: backend_identifier
 
       def self.normalize_identifier: (backend_identifier_input value) -> backend_identifier
       def self.known_identifier?: (backend_identifier_input value) -> bool
-      def self.classification_for: (backend_identifier_input value) -> backend_classification
-      def self.quick_setup_and_run?: (backend_identifier_input value) -> bool
-      def self.production_like_local?: (backend_identifier_input value) -> bool
-      def self.production_grade?: (backend_identifier_input value) -> bool
 
       def initialize: (backend_identifier_input value) -> void
 
       attr_reader identifier: backend_identifier
-
-      def classification: () -> backend_classification
-      def quick_setup_and_run?: () -> bool
-      def production_like_local?: () -> bool
-      def production_grade?: () -> bool
     end
   end
 end

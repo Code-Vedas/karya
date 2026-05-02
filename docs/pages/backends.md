@@ -6,8 +6,8 @@ permalink: /backends/
 
 # Backends
 
-Karya documents backend support through an explicit capability matrix instead of
-implying parity from package names alone.
+Karya documents backend selection through a shared backend identifier contract
+instead of implying selection semantics from package names alone.
 
 Backend choice shapes durability, operator workflows, scheduling behavior,
 failure recovery, and the overall fit between Karya and the rest of the stack.
@@ -22,7 +22,7 @@ For most teams, Postgres is the easiest recommendation to defend: it fits the
 broader Karya product model, works well with framework integrations, and gives
 operators one durable system of record for execution and orchestration state.
 
-## Support Matrix
+## Backend Identifiers
 
 | Backend    | Position                      | Typical Fit                                            |
 | ---------- | ----------------------------- | ------------------------------------------------------ |
@@ -39,7 +39,7 @@ Choose Postgres when:
 - you want the default production path
 - you expect workflows, schedules, audit history, and operator workflows to
   matter from the beginning
-- you want the broadest fit across hosts and future backlog capability
+- you want the broadest fit across hosts and operator workflows
 
 Choose Redis when:
 
@@ -65,15 +65,19 @@ Choose `InMemory` when:
 - you need quick examples or tests
 - durability and multi-process production behavior are not part of the goal
 
-## Capability Expectations
+## Selection Contract
 
-The documented backend contract covers parity for:
+The shared backend contract defines these normalized backend identifiers:
 
-- job and queue persistence
-- workflow and batch state
-- schedules and recurring-job state
-- audit-relevant and operator-visible history
-- capability reporting and intentional parity exceptions
+- `postgres`
+- `redis`
+- `mysql`
+- `sqlite`
+- `in_memory`
+
+Selection input is normalized onto those identifiers. For example, `InMemory`
+and `inmemory` resolve to `in_memory`, and `postgresql` resolves to
+`postgres`.
 
 ## What Backends Influence
 
@@ -81,14 +85,14 @@ Backend choice affects more than persistence:
 
 - how operators reason about queue depth, recovery, and history
 - how workflows and schedules remain durable across process or host failures
-- what parity guarantees can be treated as universal versus backend-specific
+- what adapter path and operational posture fit the deployment best
 - what troubleshooting guidance applies in production
 
-## Unsupported Or Tiered Cases
+## Selection Notes
 
-When a backend has different scale, durability, or concurrency tradeoffs, the
-docs call that out explicitly. `InMemory` is documented as a non-primary backend
-for local/dev/test usage rather than a peer production recommendation.
+Backend identifiers are part of the shared product contract. Adapter wiring,
+runtime boot behavior, and backend-local implementation details are separate
+concerns, but they all build on the same backend names.
 
 ## Common Scenarios
 

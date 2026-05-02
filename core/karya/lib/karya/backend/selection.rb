@@ -25,14 +25,6 @@ module Karya
         'my_sql' => 'mysql'
       }.freeze
 
-      CLASSIFICATIONS = {
-        'in_memory' => :quick_setup_and_run,
-        'sqlite' => :production_like_local,
-        'redis' => :production_grade,
-        'postgres' => :production_grade,
-        'mysql' => :production_grade
-      }.freeze
-
       attr_reader :identifier
 
       def self.normalize_identifier(value)
@@ -50,40 +42,8 @@ module Karya
         false
       end
 
-      def self.classification_for(value)
-        CLASSIFICATIONS.fetch(normalize_identifier(value))
-      end
-
-      def self.quick_setup_and_run?(value)
-        classification_for(value) == :quick_setup_and_run
-      end
-
-      def self.production_like_local?(value)
-        classification_for(value) == :production_like_local
-      end
-
-      def self.production_grade?(value)
-        classification_for(value) == :production_grade
-      end
-
       def initialize(value)
         @identifier = self.class.normalize_identifier(value)
-      end
-
-      def classification
-        self.class.classification_for(identifier)
-      end
-
-      def quick_setup_and_run?
-        classification == :quick_setup_and_run
-      end
-
-      def production_like_local?
-        classification == :production_like_local
-      end
-
-      def production_grade?
-        classification == :production_grade
       end
 
       def self.normalize_identifier_input(value)

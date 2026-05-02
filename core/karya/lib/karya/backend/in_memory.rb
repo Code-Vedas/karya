@@ -13,28 +13,11 @@ module Karya
     class InMemory
       include Base
 
+      DESCRIPTOR = Descriptor.new(identifier: :in_memory)
+
       def initialize(queue_store_class: QueueStore::InMemory)
         @queue_store_class = queue_store_class
       end
-
-      CAPABILITIES = Capabilities.new(
-        job_persistence: false,
-        workflow_state: false,
-        schedule_state: false,
-        audit_history: false,
-        shared_processes: false,
-        multi_node: false,
-        parity_exceptions: [
-          'Jobs, workflow state, schedules, and audit history are process-local and lost on restart',
-          'The backend is for quick setup, tests, and ephemeral local runs rather than production-grade deployments'
-        ]
-      )
-
-      DESCRIPTOR = Descriptor.new(
-        identifier: :in_memory,
-        classification: :quick_setup_and_run,
-        capabilities: CAPABILITIES
-      )
 
       def descriptor
         DESCRIPTOR

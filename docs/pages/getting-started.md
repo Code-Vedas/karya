@@ -28,8 +28,8 @@ run the shared verification flow.
 
 1. Read the [Architecture](/architecture/) page for the package map and
    platform boundaries.
-2. Choose a backend using [Backends](/backends/). Postgres is the default
-   production recommendation.
+2. Choose a backend identifier using [Backends](/backends/). Postgres is the
+   default production recommendation.
 3. Choose a host integration from [Frameworks](/frameworks/).
 4. Review [Dashboard Hosting](/dashboard-hosting/) if you want a framework host to
    include the optional dashboard addon.

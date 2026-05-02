@@ -25,7 +25,7 @@ and operator surfaces each have a clear role and are meant to compose cleanly.
 | `gems/karya-roda`         | Roda host integration                                                         |
 | `gems/karya-sinatra`      | Sinatra host integration                                                      |
 
-## Capability Model
+## Product Layers
 
 Karya’s product model is built from these layers:
 
@@ -34,8 +34,8 @@ Karya’s product model is built from these layers:
    dead-letter isolation, and recovery automation.
 3. Orchestration: workflows, batch execution, signals, child workflows,
    approval checkpoints, replay, and version evolution.
-4. Persistence: backend adapters, capability reporting, parity guarantees, and
-   documented exceptions.
+4. Persistence: backend adapters, shared backend selection, and durable runtime
+   state.
 5. Framework integration: host-native mounting, auth/session alignment, adapter
    pairing, and operator API exposure.
 6. Operator experience: dashboard, APIs, CLI, search, drilldowns, activity,

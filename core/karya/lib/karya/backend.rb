@@ -12,10 +12,9 @@ module Karya
   # Raised when a caller refers to a backend outside the supported backend set.
   class UnsupportedBackendError < Error; end
 
-  # Namespace for backend selection, capability, and lifecycle contracts.
+  # Namespace for backend selection and lifecycle contracts.
   module Backend
     autoload :Base, 'karya/backend/base'
-    autoload :Capabilities, 'karya/backend/capabilities'
     autoload :Descriptor, 'karya/backend/descriptor'
     autoload :InMemory, 'karya/backend/in_memory'
     autoload :Selection, 'karya/backend/selection'

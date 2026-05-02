@@ -442,8 +442,6 @@ module Karya
   type job_arguments = ::Hash[String, job_argument]
   type backend_identifier = "in_memory" | "sqlite" | "redis" | "postgres" | "mysql"
   type backend_identifier_input = state_name?
-  type backend_classification = :quick_setup_and_run | :production_like_local | :production_grade
-  type backend_classification_input = state_name
   type error_class = singleton(StandardError)
   type logger = Internal::_Logger
   type instrumenter = ^(String, context_payload) -> nil

@@ -15,7 +15,6 @@ module Karya
     class InMemory
       include Base
 
-      CAPABILITIES: Capabilities
       DESCRIPTOR: Descriptor
 
       def initialize: (?queue_store_class: _QueueStoreFactory) -> void
