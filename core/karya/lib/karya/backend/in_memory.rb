@@ -14,6 +14,7 @@ module Karya
       include Base
 
       DESCRIPTOR = Descriptor.new(identifier: :in_memory)
+      UNSET = Object.new.freeze
 
       def initialize(queue_store_class: QueueStore::InMemory)
         @queue_store_class = queue_store_class
@@ -24,13 +25,13 @@ module Karya
       end
 
       def build_queue_store(
-        token_generator: nil,
-        expired_tombstone_limit: nil,
-        completed_batch_retention_limit: nil,
-        max_batch_size: nil,
-        policy_set: nil,
-        circuit_breaker_policy_set: nil,
-        fairness_policy: nil
+        token_generator: UNSET,
+        expired_tombstone_limit: UNSET,
+        completed_batch_retention_limit: UNSET,
+        max_batch_size: UNSET,
+        policy_set: UNSET,
+        circuit_breaker_policy_set: UNSET,
+        fairness_policy: UNSET
       )
         queue_store = queue_store_class.new(**{
           token_generator:,
@@ -40,7 +41,7 @@ module Karya
           policy_set:,
           circuit_breaker_policy_set:,
           fairness_policy:
-        }.compact)
+        }.reject { |_name, value| value.equal?(UNSET) })
         return queue_store if queue_store.is_a?(QueueStore::Base)
 
         raise InvalidBackendSelectionError, 'queue_store_class must build a Karya::QueueStore::Base'

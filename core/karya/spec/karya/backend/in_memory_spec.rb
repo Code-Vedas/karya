@@ -26,7 +26,7 @@ RSpec.describe Karya::Backend::InMemory do
     expect(backend.build_queue_store).to be(queue_store)
   end
 
-  it 'forwards provided queue-store builder keywords and omits nil values' do
+  it 'forwards provided queue-store builder keywords and preserves explicit nil values' do
     queue_store = Karya::QueueStore::InMemory.new
     captured_options = nil
     queue_store_factory = Class.new do
@@ -48,6 +48,7 @@ RSpec.describe Karya::Backend::InMemory do
     expect(captured_options).to eq(
       token_generator:,
       expired_tombstone_limit: 12,
+      completed_batch_retention_limit: nil,
       max_batch_size: 50
     )
   end

@@ -261,11 +261,18 @@ module Karya
 
     def handle_shutdown_signal(shutdown_controller)
       phase = shutdown_controller.advance
-      if phase == Internal::RuntimeSupport::ShutdownState::DRAINING
-        runtime_state_store.mark_supervisor_phase(RuntimeStateStore::DRAINING_PHASE)
-      elsif phase == Internal::RuntimeSupport::ShutdownState::FORCE_STOP
-        runtime_state_store.mark_supervisor_phase(RuntimeStateStore::FORCE_STOPPING_PHASE)
-      end
+      runtime_phase =
+        if phase == Internal::RuntimeSupport::ShutdownState::DRAINING
+          RuntimeStateStore::DRAINING_PHASE
+        elsif phase == Internal::RuntimeSupport::ShutdownState::FORCE_STOP
+          RuntimeStateStore::FORCE_STOPPING_PHASE
+        end
+      return unless runtime_phase
+      return unless control_monitor.synchronize { @running_claimed }
+
+      runtime_state_store.mark_supervisor_phase(runtime_phase)
+    rescue InvalidRuntimeStateFileError
+      nil
     ensure
       WakeupSignal.interrupt(WAKEUP_SIGNAL)
     end
