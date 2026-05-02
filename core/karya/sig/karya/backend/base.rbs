@@ -1,8 +1,7 @@
 module Karya
   module Backend
     module Base
-      def identifier: () -> backend_identifier
-      def descriptor: () -> Descriptor
+      def identifier: () -> String
       def build_queue_store: () -> QueueStore::Base
       def before_start: (queue_store: QueueStore::Base) -> nil
       def after_stop: (queue_store: QueueStore::Base) -> nil

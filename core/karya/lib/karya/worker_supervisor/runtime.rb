@@ -14,7 +14,6 @@ module Karya
     # Supervisor runtime hooks for process management and signal handling.
     class Runtime
       OPTION_KEYS = %i[forker instrumenter killer logger outbound_event_dispatcher poll_waiter signal_subscriber waiter].freeze
-      WAIT_FOR_CHILD_POLL_INTERVAL = 0.05
       UNSET = Object.new.freeze
 
       attr_reader :instrumenter, :logger, :outbound_event_dispatcher, :signal_subscriber

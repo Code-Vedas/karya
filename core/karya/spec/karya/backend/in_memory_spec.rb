@@ -1,13 +1,26 @@
 # frozen_string_literal: true
 
+require 'open3'
+require 'rbconfig'
+
 RSpec.describe Karya::Backend::InMemory do
   subject(:backend) { described_class.new }
 
-  it 'exposes the in-memory backend descriptor' do
-    descriptor = backend.descriptor
+  it 'loads as a standalone backend file' do
+    lib_path = File.expand_path('../../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/backend/in_memory'
+      puts Karya::Backend::InMemory.new.identifier
+    RUBY
 
-    expect(descriptor.identifier).to eq('in_memory')
-    expect(descriptor).to be_frozen
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status.success?).to be(true), stderr
+    expect(stdout).to eq("in_memory\n")
+  end
+
+  it 'exposes the normalized backend identifier' do
+    expect(backend.identifier).to eq('in_memory')
   end
 
   it 'builds the queue store provider owned by the backend definition' do
@@ -61,7 +74,7 @@ RSpec.describe Karya::Backend::InMemory do
 
     expect do
       backend.build_queue_store
-    end.to raise_error(Karya::InvalidBackendSelectionError, /queue_store_class must build a Karya::QueueStore::Base/)
+    end.to raise_error(Karya::InvalidBackendConfigurationError, /queue_store_class must build a Karya::QueueStore::Base/)
   end
 
   it 'declares no-op lifecycle hooks around queue-store usage' do

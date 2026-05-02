@@ -261,6 +261,7 @@ module Karya
           WakeupSignal.interrupt(WAKEUP_SIGNAL)
         end)
       end
+      restorers
     end
 
     def cleanup_tracked_children(child_pids)

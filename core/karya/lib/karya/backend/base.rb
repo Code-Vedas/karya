@@ -10,10 +10,6 @@ module Karya
     # Shared backend contract above the queue-store persistence API.
     module Base
       def identifier
-        descriptor.identifier
-      end
-
-      def descriptor
         raise NotImplementedError, "#{self.class} must implement ##{__method__}"
       end
 

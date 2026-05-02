@@ -9,8 +9,8 @@ RSpec.describe Karya::Backend::Base do
     end
   end
 
-  it 'requires descriptor to be implemented' do
-    expect { backend.descriptor }.to raise_error(NotImplementedError, /implement #descriptor/)
+  it 'requires identifier to be implemented' do
+    expect { backend.identifier }.to raise_error(NotImplementedError, /implement #identifier/)
   end
 
   it 'requires build_queue_store to be implemented' do
@@ -22,18 +22,5 @@ RSpec.describe Karya::Backend::Base do
 
     expect(backend.before_start(queue_store:)).to be_nil
     expect(backend.after_stop(queue_store:)).to be_nil
-  end
-
-  it 'delegates identifier through the descriptor' do
-    descriptor = instance_double(Karya::Backend::Descriptor, identifier: 'in_memory')
-    backend_class = Class.new do
-      include Karya::Backend::Base
-
-      define_method(:descriptor) { descriptor }
-    end
-
-    delegating_backend = backend_class.new
-
-    expect(delegating_backend.identifier).to eq('in_memory')
   end
 end

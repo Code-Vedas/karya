@@ -15,10 +15,8 @@ module Karya
     class InMemory
       include Base
 
-      DESCRIPTOR: Descriptor
-
       def initialize: (?queue_store_class: _QueueStoreFactory) -> void
-      def descriptor: () -> Descriptor
+      def identifier: () -> "in_memory"
       def build_queue_store: (
         ?token_generator: Karya::callable_value?,
         ?expired_tombstone_limit: Integer?,

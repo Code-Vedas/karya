@@ -7,7 +7,7 @@ permalink: /adoption/goodjob/
 
 # GoodJob
 
-GoodJob aligns naturally with Karya’s Postgres-first backend posture.
+GoodJob aligns naturally with Karya when the target runtime stays SQL-backed.
 
 ## Guidance
 
@@ -34,7 +34,8 @@ thinking into Karya’s workflow and operator surfaces.
 
 ## Related Concepts
 
-- [Backends](/backends/): Postgres remains the default production path here
+- [Backends](/backends/): choose the production backend that matches the
+  target SQL runtime
 - [Workflow Basics](/workflows/basics/): this is usually the biggest product
   expansion
 - [Cutover And Rollback](/adoption/cutover-rollback/): backend continuity does not

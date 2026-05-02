@@ -5,6 +5,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative '../base'
+require_relative '../backend'
 require_relative '../queue_store/in_memory'
 
 module Karya
@@ -13,17 +15,15 @@ module Karya
     class InMemory
       include Base
 
-      DESCRIPTOR = Descriptor.new(identifier: :in_memory)
       UNSET = Object.new.freeze
       private_constant :UNSET
 
       def initialize(queue_store_class: QueueStore::InMemory)
+        @identifier = 'in_memory'
         @queue_store_class = queue_store_class
       end
 
-      def descriptor
-        DESCRIPTOR
-      end
+      attr_reader :identifier
 
       def build_queue_store(
         token_generator: UNSET,
@@ -45,7 +45,7 @@ module Karya
         }.reject { |_name, value| value.equal?(UNSET) })
         return queue_store if queue_store.is_a?(QueueStore::Base)
 
-        raise InvalidBackendSelectionError, 'queue_store_class must build a Karya::QueueStore::Base'
+        raise InvalidBackendConfigurationError, 'queue_store_class must build a Karya::QueueStore::Base'
       end
 
       def before_start(queue_store:)

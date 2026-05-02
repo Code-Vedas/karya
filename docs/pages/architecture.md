@@ -34,7 +34,7 @@ Karya’s product model is built from these layers:
    dead-letter isolation, and recovery automation.
 3. Orchestration: workflows, batch execution, signals, child workflows,
    approval checkpoints, replay, and version evolution.
-4. Persistence: backend adapters, shared backend selection, and durable runtime
+4. Persistence: backend adapters, shared backend contracts, and durable runtime
    state.
 5. Framework integration: host-native mounting, auth/session alignment, adapter
    pairing, and operator API exposure.
