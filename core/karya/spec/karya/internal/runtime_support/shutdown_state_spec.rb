@@ -19,4 +19,12 @@ RSpec.describe Karya::Internal::RuntimeSupport::ShutdownState do
     expect(state.force_stop).to be(true)
     expect(state.force_stop).to be(false)
   end
+
+  it 'returns the resulting shutdown phase when advancing' do
+    state = described_class.new
+
+    expect(state.advance).to eq(described_class::DRAINING)
+    expect(state.advance).to eq(described_class::FORCE_STOP)
+    expect(state.advance).to be_nil
+  end
 end

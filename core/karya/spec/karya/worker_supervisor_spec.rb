@@ -250,6 +250,52 @@ RSpec.describe Karya::WorkerSupervisor do
 
       expect(supervisor.run).to eq(1)
       expect(killed_processes).to eq([['TERM', 100], ['KILL', 100]])
+      expect(supervisor.runtime_snapshot.phase).to eq('stopped')
+    end
+
+    it 'records runtime phases when OS signals escalate shutdown' do
+      wait_call_count = 0
+      runtime_state_store = instance_double(
+        described_class.const_get(:RuntimeStateStore, false),
+        write_running: nil,
+        write_stopped: nil,
+        control_socket_path: '/tmp/runtime.sock',
+        instance_token: 'runtime-token',
+        snapshot: instance_double(described_class.const_get(:RuntimeSnapshot, false), phase: 'running'),
+        register_child: nil,
+        mark_supervisor_phase: nil,
+        mark_child_phase: nil,
+        mark_child_stopped: nil
+      )
+      allow(runtime).to receive(:wait_for_child) do
+        wait_call_count += 1
+        if wait_call_count <= 3
+          subscriptions.fetch('TERM').call
+          nil
+        else
+          wait_results.shift
+        end
+      end
+      wait_results << [100, failure_status]
+      supervisor_with_runtime_state = described_class.new(
+        queue_store: queue_store,
+        worker_id: 'worker-supervisor',
+        queues: ['billing'],
+        handlers: { 'billing_sync' => -> {} },
+        lease_duration: 30,
+        processes: 1,
+        threads: 1,
+        poll_interval: 0,
+        max_iterations: 1,
+        runtime: runtime,
+        runtime_state_store: runtime_state_store,
+        child_worker_class: child_worker_class
+      )
+
+      expect(supervisor_with_runtime_state.run).to eq(1)
+      expect(runtime_state_store).to have_received(:mark_supervisor_phase).with('draining').ordered
+      expect(runtime_state_store).to have_received(:mark_supervisor_phase).with('force_stopping').ordered
+      expect(runtime_state_store).to have_received(:mark_supervisor_phase).twice
     end
 
     it 'supports begin_drain through the public control API while running' do
