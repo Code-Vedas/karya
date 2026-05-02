@@ -5,6 +5,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative '../internal/hook_dispatch'
+require_relative '../internal/immutable_hook_payload'
 require_relative '../internal/payload_input'
 
 module Karya

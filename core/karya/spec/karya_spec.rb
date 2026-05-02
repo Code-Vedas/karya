@@ -107,6 +107,32 @@ RSpec.describe Karya do
     expect(stdout).to eq("1:Karya::Error\n")
   end
 
+  it 'allows requiring karya/worker/runtime directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/worker/runtime'
+      puts Karya::Worker::Runtime::OPTION_KEYS.include?(:outbound_event_dispatcher)
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("true\n")
+  end
+
+  it 'allows requiring karya/worker_supervisor/runtime directly' do
+    lib_path = File.expand_path('../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/worker_supervisor/runtime'
+      puts Karya::WorkerSupervisor::Runtime::OPTION_KEYS.include?(:outbound_event_dispatcher)
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("true\n")
+  end
+
   it 'allows requiring karya/cli directly' do
     lib_path = File.expand_path('../lib', __dir__)
     script = <<~RUBY
