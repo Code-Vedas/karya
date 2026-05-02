@@ -6,7 +6,7 @@
 module Karya
   module Primitives
     # Validates forker dependencies.
-    class Forker < Callable
+    class Forker < Callable[Karya::forker]
     end
   end
 end

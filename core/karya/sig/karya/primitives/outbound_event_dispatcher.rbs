@@ -6,7 +6,7 @@
 module Karya
   module Primitives
     # Validates outbound event dispatcher dependencies.
-    class OutboundEventDispatcher < Callable
+    class OutboundEventDispatcher < Callable[Karya::outbound_event_dispatcher]
     end
   end
 end

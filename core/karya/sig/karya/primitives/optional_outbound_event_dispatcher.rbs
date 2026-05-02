@@ -6,7 +6,7 @@
 module Karya
   module Primitives
     # Validates optional outbound event dispatcher dependencies while allowing nil.
-    class OptionalOutboundEventDispatcher < OptionalCallable
+    class OptionalOutboundEventDispatcher < OptionalCallable[Karya::outbound_event_dispatcher]
     end
   end
 end
