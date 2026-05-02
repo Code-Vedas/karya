@@ -7,7 +7,7 @@ RSpec.describe Karya::Backend::InMemory do
   subject(:backend) { described_class.new }
 
   it 'loads as a standalone backend file' do
-    lib_path = File.expand_path('../../lib', __dir__)
+    lib_path = File.expand_path('../../../lib', __dir__)
     script = <<~RUBY
       require 'karya/backend/in_memory'
       puts Karya::Backend::InMemory.new.identifier

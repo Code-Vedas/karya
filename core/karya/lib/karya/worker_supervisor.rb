@@ -249,8 +249,8 @@ module Karya
     end
 
     def collect_signal_restorers(restorers, shutdown_controller)
-      register_signal_restorers(restorers, shutdown_controller)
       restorers << WakeupSignal.register_restorer(WAKEUP_SIGNAL)
+      register_signal_restorers(restorers, shutdown_controller)
     end
 
     def register_signal_restorers(restorers, shutdown_controller)

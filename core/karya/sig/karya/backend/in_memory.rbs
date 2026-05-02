@@ -1,6 +1,6 @@
 module Karya
   module Backend
-    interface _QueueStoreFactory
+    interface _QueueStoreFactoryInput
       def new: (
         ?token_generator: Karya::callable_value?,
         ?expired_tombstone_limit: Integer?,
@@ -15,7 +15,7 @@ module Karya
     class InMemory
       include Base
 
-      def initialize: (?queue_store_class: _QueueStoreFactory) -> void
+      def initialize: (?queue_store_class: _QueueStoreFactoryInput) -> void
       def identifier: () -> "in_memory"
       def build_queue_store: (
         ?token_generator: Karya::callable_value?,
@@ -26,8 +26,6 @@ module Karya
         ?circuit_breaker_policy_set: CircuitBreaker::PolicySet?,
         ?fairness_policy: Fairness::Policy?
       ) -> QueueStore::Base
-      def before_start: (queue_store: QueueStore::Base) -> nil
-      def after_stop: (queue_store: QueueStore::Base) -> nil
     end
   end
 end

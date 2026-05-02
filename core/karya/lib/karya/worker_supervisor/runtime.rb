@@ -32,7 +32,10 @@ module Karya
       def self.default_signal_subscriber
         lambda do |signal, handler|
           previous_handler = Signal.trap(signal) { handler.call }
-          -> { Signal.trap(signal, previous_handler) }
+          lambda do
+            Signal.trap(signal, previous_handler)
+            nil
+          end
         end
       end
 

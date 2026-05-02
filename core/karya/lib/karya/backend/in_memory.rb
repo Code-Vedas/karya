@@ -48,16 +48,6 @@ module Karya
         raise InvalidBackendConfigurationError, 'queue_store_class must build a Karya::QueueStore::Base'
       end
 
-      def before_start(queue_store:)
-        _queue_store = queue_store
-        nil
-      end
-
-      def after_stop(queue_store:)
-        _queue_store = queue_store
-        nil
-      end
-
       private
 
       attr_reader :queue_store_class
