@@ -150,6 +150,67 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(waited_pid).to eq(123)
     end
 
+    it 'accepts callable objects as forker hooks' do
+      forker = Object.new
+      forker.define_singleton_method(:call) do |&block|
+        block.call
+        123
+      end
+
+      runtime_instance = runtime_class.new(forker:)
+
+      expect(runtime_instance.fork_child { :ok }).to eq(123)
+    end
+
+    it 'skips hook payload snapshots when no hooks are configured' do
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+      allow(Karya::Internal::PayloadInput).to receive(:new).and_call_original
+      runtime_instance = runtime_class.new(
+        forker: lambda do |&block|
+          block.call
+          123
+        end,
+        instrumenter: nil,
+        outbound_event_dispatcher: nil
+      )
+
+      expect(runtime_instance.instrument('supervisor.poll', { worker_id: 'worker-1' })).to be_nil
+      expect(Karya::Internal::PayloadInput).not_to have_received(:new)
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
+    end
+
+    it 'builds one hook payload snapshot when only one hook is configured' do
+      instrumentation_payload = nil
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+      runtime_instance = runtime_class.new(
+        forker: lambda do |&block|
+          block.call
+          123
+        end,
+        instrumenter: ->(_event, payload) { instrumentation_payload = payload },
+        outbound_event_dispatcher: nil
+      )
+
+      expect(runtime_instance.instrument('supervisor.poll', { worker_id: 'worker-1' })).to be_nil
+      expect(Karya::Internal::ImmutableHookPayload).to have_received(:snapshot).once
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
+      expect(instrumentation_payload).to eq(worker_id: 'worker-1')
+      expect(instrumentation_payload).to be_frozen
+    end
+
+    it 'accepts keyword payloads for instrumentation hooks' do
+      instrumented_events = []
+      runtime_instance = runtime_class.new(
+        instrumenter: ->(event, payload) { instrumented_events << [event, payload] }
+      )
+
+      expect(runtime_instance.instrument('supervisor.poll', worker_id: 'worker-1')).to be_nil
+      expect(instrumented_events).to eq([['supervisor.poll', { worker_id: 'worker-1' }]])
+    end
+
     it 'returns nil when the default poll waiter has no child process' do
       expect(runtime_class.new.poll_for_child_exit).to be_nil
     end
@@ -357,7 +418,7 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
     end
 
     it 'returns nil when no instrumenter is configured' do
-      expect(runtime_class.new.instrument('supervisor.child.spawned', pid: 123)).to be_nil
+      expect(runtime_class.new.instrument('supervisor.child.spawned', { pid: 123 })).to be_nil
     end
 
     it 'emits instrumentation through the configured instrumenter' do
@@ -366,25 +427,175 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
         instrumenter: ->(event, payload) { instrumented_events << [event, payload] }
       )
 
-      runtime_instance.instrument('supervisor.child.spawned', pid: 123)
+      runtime_instance.instrument('supervisor.child.spawned', { pid: 123 })
 
       expect(instrumented_events).to eq([['supervisor.child.spawned', { pid: 123 }]])
     end
 
-    it 'swallows instrumentation errors and logs them' do
+    it 'dispatches supported outbound events through the configured dispatcher' do
+      deliveries = []
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: Karya::OutboundEvents::Dispatcher.new(
+          delivery_handler: ->(delivery) { deliveries << delivery },
+          signer: Karya::OutboundEvents::WebhookSigner.new(secret: 'secret'),
+          clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
+          event_id_generator: -> { 'event-1' }
+        )
+      )
+
+      runtime_instance.instrument('supervisor.child.spawned', { pid: 123, worker_id: 'worker-1' })
+
+      expect(deliveries.length).to eq(1)
+      expect(deliveries.first.event.type).to eq('io.karya.supervisor.child.spawned')
+    end
+
+    it 'still dispatches outbound events when the instrumenter raises' do
+      deliveries = []
       logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
       runtime_instance = runtime_class.new(
         instrumenter: ->(_event, _payload) { raise 'boom' },
-        logger:
+        outbound_event_dispatcher: Karya::OutboundEvents::Dispatcher.new(
+          delivery_handler: ->(delivery) { deliveries << delivery },
+          clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
+          event_id_generator: -> { 'event-1' }
+        ),
+        logger: logger
       )
 
-      expect(runtime_instance.instrument('supervisor.child.spawned', pid: 123)).to be_nil
+      expect(runtime_instance.instrument('supervisor.child.spawned', { pid: 123, worker_id: 'worker-1' })).to be_nil
+      expect(deliveries.length).to eq(1)
       expect(logger).to have_received(:error).with(
         'instrumentation failed',
         event: 'supervisor.child.spawned',
         error_class: 'RuntimeError',
         error_message: 'boom'
       )
+    end
+
+    it 'isolates instrumentation and outbound dispatch payload snapshots' do
+      instrumentation_payload = nil
+      outbound_payload = nil
+      mutation_error = nil
+      stage = +'original'
+      stage.freeze
+      runtime_instance = runtime_class.new(
+        instrumenter: lambda do |_event, payload|
+          instrumentation_payload = payload
+          mutation_error = begin
+            payload.fetch(:metadata)['stage'] = 'mutated'
+            nil
+          rescue StandardError => e
+            e
+          end
+        end,
+        outbound_event_dispatcher: ->(_event, payload) { outbound_payload = payload }
+      )
+
+      runtime_instance.instrument('supervisor.child.spawned', { pid: 123, metadata: { 'stage' => stage } })
+
+      expect(mutation_error).to be_a(FrozenError)
+      expect(instrumentation_payload).not_to be(outbound_payload)
+      expect(instrumentation_payload).to eq(outbound_payload)
+      expect(outbound_payload).to eq(pid: 123, metadata: { 'stage' => 'original' })
+      expect(outbound_payload).to be_frozen
+      expect(outbound_payload.fetch(:metadata)).to be_frozen
+      expect(instrumentation_payload.fetch(:metadata).fetch('stage')).to be(stage)
+      expect(outbound_payload.fetch(:metadata).fetch('stage')).to be(stage)
+    end
+
+    it 'swallows instrumentation errors and logs them' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(
+        instrumenter: ->(_event, _payload) { raise 'boom' },
+        logger: logger
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.spawned', { pid: 123 })).to be_nil
+      expect(logger).to have_received(:error).with(
+        'instrumentation failed',
+        event: 'supervisor.child.spawned',
+        error_class: 'RuntimeError',
+        error_message: 'boom'
+      )
+    end
+
+    it 'swallows outbound event dispatch errors and logs them' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: ->(_event, _payload) { raise 'boom' },
+        logger: logger
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.spawned', { pid: 123, worker_id: 'worker-1' })).to be_nil
+      expect(logger).to have_received(:error).with(
+        'outbound event dispatch failed',
+        event: 'supervisor.child.spawned',
+        error_class: 'RuntimeError',
+        error_message: 'boom'
+      )
+    end
+
+    it 'rejects unsupported mutable payload values before dispatching hooks' do
+      runtime_instance = runtime_class.new(
+        instrumenter: ->(_event, _payload) {}
+      )
+
+      expect do
+        runtime_instance.instrument('supervisor.child.spawned', { pid: 123, metadata: Object.new })
+      end.to raise_error(
+        Karya::InvalidWorkerSupervisorConfigurationError,
+        'payload values must be nil, booleans, numerics, strings, symbols, times, arrays, or hashes'
+      )
+    end
+
+    it 'ignores unsupported outbound events without logging dispatch failures' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: Karya::OutboundEvents::Dispatcher.new(
+          delivery_handler: ->(_delivery) {},
+          clock: -> { Time.utc(2026, 4, 29, 12, 0, 0) },
+          event_id_generator: -> { 'event-1' }
+        ),
+        logger: logger
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.exited', { pid: 123, worker_id: 'worker-1', success: true })).to be_nil
+      expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
+    end
+
+    it 'skips snapshots for unsupported built-in outbound events when no other hook runs' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot).and_call_original
+      allow(Karya::Internal::ImmutableHookPayload).to receive(:snapshot_pair).and_call_original
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: Karya::OutboundEvents::Dispatcher.new(
+          delivery_handler: ->(_delivery) { raise 'should not dispatch unsupported events' }
+        ),
+        logger: logger
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.exited', { pid: 123, worker_id: 'worker-1', success: true })).to be_nil
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot)
+      expect(Karya::Internal::ImmutableHookPayload).not_to have_received(:snapshot_pair)
+    end
+
+    it 'returns early from private emit helpers when the corresponding hook is absent' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(instrumenter: nil, outbound_event_dispatcher: nil, logger: logger)
+
+      expect(runtime_instance.send(:emit_instrumentation, 'supervisor.poll', { worker_id: 'worker-1' })).to be_nil
+      expect(runtime_instance.send(:emit_outbound_event, 'supervisor.poll', { worker_id: 'worker-1' })).to be_nil
+    end
+
+    it 'swallows unsupported outbound event errors from custom dispatchers' do
+      logger = instance_double(Karya::Internal::NullLogger, debug: nil, info: nil, warn: nil, error: nil)
+      runtime_instance = runtime_class.new(
+        outbound_event_dispatcher: ->(_event, _payload) { raise Karya::UnsupportedOutboundEventError, 'skip' },
+        logger: logger
+      )
+
+      expect(runtime_instance.instrument('supervisor.child.spawned', { pid: 123, worker_id: 'worker-1' })).to be_nil
+      expect(logger).not_to have_received(:error).with('outbound event dispatch failed', anything)
     end
   end
 end

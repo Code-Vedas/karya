@@ -137,6 +137,16 @@ expiration (`:expired`).
 defaults. If a process hosts multiple runtimes, inject explicit `logger:` and
 `instrumenter:` collaborators to avoid cross-runtime global mutation.
 
+Runtime hooks receive immutable payload snapshots. Instrumenters and outbound
+dispatchers should treat the payload as read-only contract data, not as a
+mutable annotation hash. If host-specific enrichment is needed, derive a new
+payload or log structure instead of mutating the runtime snapshot in place.
+Runtime hook payloads use `Symbol` or `String` keys and allow values only from
+the shared contract set: `nil`, booleans, numerics, strings, symbols, times,
+arrays, and nested hashes built from the same value rules. Invalid payload
+shapes fail at runtime instead of being passed through to instrumenters or
+outbound dispatchers.
+
 ## Related Concepts
 
 - [Job Model](/runtime/job-model/): worker behavior starts from the job lifecycle
