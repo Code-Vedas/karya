@@ -16,10 +16,23 @@ module Karya
     def call: (*callable_argument args) -> callable_result
   end
 
+  interface _OutboundEventDispatcher
+    def call: (String event, context_payload payload) -> (callable_result | OutboundEvents::Delivery)
+  end
+
+  interface _OutboundEventDeliveryHandler
+    def call: (OutboundEvents::Delivery delivery) -> callable_result
+  end
+
+  interface _Forker
+    def call: [A] () { () -> A } -> Integer
+  end
+
   type lifecycle = _Lifecycle
   type callable_argument = nil | bool | Numeric | String | Symbol | Time | context_payload | signal_handler | Array[String]
   type callable_result = nil | bool | Numeric | String | Symbol | Time | signal_restorer | context_payload | Array[String]
   type callable_value = Method | Proc | _CallableValue
+  type outbound_event_delivery_handler = Method | Proc | _OutboundEventDeliveryHandler
   type state_name = Symbol | String
   type state_name_array = Array[state_name]
   type normalized_state_name = String
@@ -365,15 +378,72 @@ module Karya
     concurrency: Hash[String, backpressure_concurrency_snapshot],
     rate_limits: Hash[String, backpressure_rate_limit_snapshot]
   }
-  type context_payload = ::Hash[Symbol, job_argument | Integer | Array[Integer] | String]
+  type context_payload_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Symbol |
+    Time |
+    Array[context_payload_value] |
+    Hash[Symbol | String, context_payload_value]
+  type context_payload = Hash[Symbol | String, context_payload_value]
+  type outbound_event_string_input = nil | bool | Numeric | String | Symbol | Time
+  type outbound_event_scalar_input = nil | bool | Numeric | String | Symbol
+  type outbound_event_input_value =
+    outbound_event_scalar_input |
+    Array[outbound_event_input_value] |
+    Hash[Symbol | String, outbound_event_input_value]
+  type outbound_event_input_payload = Hash[Symbol | String, outbound_event_input_value]
+  type outbound_event_payload_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Array[outbound_event_payload_value] |
+    Hash[String, outbound_event_payload_value]
+  type outbound_event_payload = Hash[String, outbound_event_payload_value]
+  type outbound_event_schema_definition =
+    {
+      event_type: String,
+      schema_version: String,
+      required_keys: Array[String],
+      string_keys: Array[String],
+      source_prefix: String
+    } |
+    {
+      event_type: String,
+      schema_version: String,
+      required_keys: Array[String],
+      string_keys: Array[String],
+      source_prefix: String,
+      subject_key: String
+    }
+  type webhook_headers = Hash[String, String]
+  type webhook_header_input_value = nil | bool | Numeric | String | Symbol
+  type webhook_headers_input = Hash[Symbol | String, webhook_header_input_value]
+  type webhook_verifier_input =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Symbol |
+    Time |
+    Array[webhook_verifier_input] |
+    Hash[Symbol | String, webhook_verifier_input]
+  type outbound_event_attributes = Hash[String, String | outbound_event_payload]
+  type json_generate_option_value = nil | bool | Integer | String
+  type json_generate_state_input = nil | ::JSON::State | Hash[Symbol | String, json_generate_option_value]
   type handler_mapping = ::Hash[String, Worker::_Handler]
-  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
+  type forker = Method | Proc | _Forker
+  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | outbound_event_dispatcher | forker | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
   type symbol_options = ::Hash[Symbol, option_value]
   type mixed_options = ::Hash[Symbol | String, option_value]
   type job_arguments = ::Hash[String, job_argument]
   type error_class = singleton(StandardError)
   type logger = Internal::_Logger
   type instrumenter = ^(String, context_payload) -> nil
+  type outbound_event_dispatcher = Method | Proc | _OutboundEventDispatcher
   type signal_handler = ^() -> nil
   type signal_restorer = ^() -> nil
   type cli_defaults = Hash[Symbol, Integer]

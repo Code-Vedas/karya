@@ -19,12 +19,26 @@ module Karya
   # Raised when runtime code requires a configured queue store but none has been set.
   class MissingQueueStoreConfigurationError < Error; end
 
+  # Raised when outbound event input cannot be normalized into a supported contract.
+  class InvalidOutboundEventError < Error; end
+
+  # Raised when a caller asks for an outbound event that is not part of the supported contract.
+  class UnsupportedOutboundEventError < Error; end
+
+  # Raised when a webhook signature cannot be parsed or verified.
+  class InvalidWebhookSignatureError < Error; end
+
   class << self
-    attr_reader :instrumenter
+    attr_reader :instrumenter, :outbound_event_dispatcher
 
     def configure_instrumenter(instrumenter)
       # Process-wide default used when a runtime does not receive an explicit instrumenter.
       @instrumenter = instrumenter
+    end
+
+    def configure_outbound_event_dispatcher(outbound_event_dispatcher)
+      # Process-wide default used when a runtime does not receive an explicit outbound event dispatcher.
+      @outbound_event_dispatcher = outbound_event_dispatcher
     end
 
     def configure_logger(logger)

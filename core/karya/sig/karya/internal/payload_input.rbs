@@ -1,0 +1,31 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    class PayloadInput
+      class Absent
+        def self.instance: () -> instance
+      end
+
+      ABSENT: Absent
+
+      @payload: (Karya::context_payload? | Absent)
+      @payload_keywords: Karya::context_payload
+      @error_class: Karya::error_class
+      @mixed_payload_message: String
+
+      def initialize: (
+        (Karya::context_payload? | Absent) payload,
+        Karya::context_payload payload_keywords,
+        payload_given: bool,
+        error_class: Karya::error_class,
+        mixed_payload_message: String
+      ) -> void
+
+      def to_h: () -> Karya::context_payload
+    end
+  end
+end

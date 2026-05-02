@@ -105,11 +105,17 @@ Karya also documents standards-aware integration around:
 - webhook signing conventions for external consumers
 - error envelope and pagination conventions on operator-facing APIs
 
+Outbound events use explicit schema versions so external consumers can pin to a
+stable event contract instead of inferring payload meaning from ad hoc runtime
+instrumentation.
+
 ## Related Concepts
 
 - [Operator](/operator/): use dashboard, internal API, and CLI surfaces
   alongside observability data
 - [Runtime](/runtime/): understand what the runtime emits and why
+- [Outbound Events](/runtime/outbound-events/): event envelope, schema
+  versions, and webhook verification conventions
 - [Workflows](/workflows/): connect execution history to trace and log
   analysis
 - [Governance](/governance/): keep operator actions, approvals, and
