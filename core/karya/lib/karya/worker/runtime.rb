@@ -5,14 +5,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative '../internal/hook_dispatch'
+require_relative '../internal/immutable_hook_payload'
+require_relative '../internal/payload_input'
+
 module Karya
   class Worker
     # Worker runtime dependencies that provide clock and sleep behavior.
     class Runtime
-      OPTION_KEYS = %i[clock instrumenter logger signal_subscriber sleeper state_reporter].freeze
+      OPTION_KEYS = %i[clock instrumenter logger outbound_event_dispatcher signal_subscriber sleeper state_reporter].freeze
       UNSET = Object.new.freeze
 
-      attr_reader :instrumenter, :logger
+      attr_reader :instrumenter, :logger, :outbound_event_dispatcher
 
       def self.from_options(options)
         attributes = OPTION_KEYS.each_with_object({}) do |key, collected|
@@ -27,6 +31,7 @@ module Karya
 
         initialize_clock(attributes)
         initialize_instrumenter(attributes)
+        initialize_outbound_event_dispatcher(attributes)
         initialize_logger_dependency(attributes)
         initialize_sleeper(attributes)
         initialize_signal_subscriber(attributes)
@@ -55,13 +60,21 @@ module Karya
         ).normalize
       end
 
-      def instrument(event, payload)
-        return unless instrumenter
-
-        instrumenter.call(event, payload)
-      rescue StandardError => e
-        logger.error('instrumentation failed', event:, error_class: e.class.name, error_message: e.message)
-        nil
+      def instrument(event, payload = Internal::PayloadInput::ABSENT, **payload_keywords)
+        dispatch_outbound = outbound_dispatcher_supports_event?(event)
+        payload_given = !payload.equal?(Internal::PayloadInput::ABSENT)
+        Internal::HookDispatch.instrument(
+          event:,
+          payload: payload_given ? payload : nil,
+          payload_keywords:,
+          payload_given:,
+          error_class: InvalidWorkerConfigurationError,
+          instrumenter:,
+          dispatch_outbound:,
+          mixed_payload_message: 'payload must be a Hash when keyword payload is also given',
+          emit_instrumentation: method(:emit_instrumentation),
+          emit_outbound_event: method(:emit_outbound_event)
+        )
       end
 
       def report_state(worker_id:, state:)
@@ -96,6 +109,15 @@ module Karya
         @logger = validate_logger(logger.equal?(UNSET) ? Karya.logger : logger)
       end
 
+      def initialize_outbound_event_dispatcher(attributes)
+        outbound_event_dispatcher = attributes.fetch(:outbound_event_dispatcher, UNSET)
+        @outbound_event_dispatcher = Primitives::OptionalOutboundEventDispatcher.new(
+          :outbound_event_dispatcher,
+          outbound_event_dispatcher.equal?(UNSET) ? Karya.outbound_event_dispatcher : outbound_event_dispatcher,
+          error_class: InvalidWorkerConfigurationError
+        ).normalize
+      end
+
       def initialize_sleeper(attributes)
         sleeper = attributes.fetch(:sleeper, UNSET)
         @sleeper = Primitives::Callable.new(
@@ -127,6 +149,37 @@ module Karya
         lambda do |duration|
           Kernel.sleep(duration)
         end
+      end
+
+      def emit_instrumentation(event, payload)
+        return unless instrumenter
+
+        instrumenter.call(event, payload)
+      rescue StandardError => e
+        logger.error('instrumentation failed', event:, error_class: e.class.name, error_message: e.message)
+        nil
+      end
+
+      def emit_outbound_event(event, payload)
+        return unless outbound_event_dispatcher
+
+        outbound_event_dispatcher.call(event, payload)
+      rescue UnsupportedOutboundEventError
+        nil
+      rescue StandardError => e
+        logger.error('outbound event dispatch failed', event:, error_class: e.class.name, error_message: e.message)
+        nil
+      end
+
+      def outbound_dispatcher_supports_event?(event)
+        return false unless outbound_event_dispatcher
+        return Karya::OutboundEvents::SchemaCatalog.supported?(event) if built_in_outbound_event_dispatcher?
+
+        true
+      end
+
+      def built_in_outbound_event_dispatcher?
+        defined?(Karya::OutboundEvents::Dispatcher) && outbound_event_dispatcher.is_a?(Karya::OutboundEvents::Dispatcher)
       end
 
       def validate_logger(value)

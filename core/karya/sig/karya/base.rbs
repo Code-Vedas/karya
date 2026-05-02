@@ -6,6 +6,7 @@
 # Karya module serves as the namespace for all classes and modules related to the Karya gem.
 module Karya
   self.@instrumenter: instrumenter?
+  self.@outbound_event_dispatcher: outbound_event_dispatcher?
 
   self.@logger: logger
 
@@ -29,9 +30,20 @@ module Karya
   class MissingQueueStoreConfigurationError < Error
   end
 
+  class InvalidOutboundEventError < Error
+  end
+
+  class UnsupportedOutboundEventError < Error
+  end
+
+  class InvalidWebhookSignatureError < Error
+  end
+
   attr_reader self.instrumenter: instrumenter?
+  attr_reader self.outbound_event_dispatcher: outbound_event_dispatcher?
 
   def self.configure_instrumenter: (instrumenter? instrumenter) -> instrumenter?
+  def self.configure_outbound_event_dispatcher: (outbound_event_dispatcher? outbound_event_dispatcher) -> outbound_event_dispatcher?
 
   def self.configure_logger: (logger logger) -> logger
 

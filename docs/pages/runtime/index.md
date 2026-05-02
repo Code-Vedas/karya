@@ -19,6 +19,7 @@ inspectable, and operationally predictable.
 - [Job Model](/runtime/job-model/): the executable unit, lifecycle, and state model
 - [Workers](/runtime/workers/): reservation, execution, drain, and supervision behavior
 - [Controls](/runtime/controls/): CLI, API, and operator control surfaces
+- [Outbound Events](/runtime/outbound-events/): versioned CloudEvents-compatible delivery contracts
 
 ## What This Section Covers
 
@@ -28,6 +29,7 @@ The runtime section is the source of truth for:
 - canonical job lifecycle states and transition boundaries
 - worker bootstrap and coordinated supervisor-managed execution flow
 - graceful shutdown and drain behavior
+- versioned outbound event emission and webhook signing conventions
 - lifecycle controls that later reliability and workflow features build on
 
 ## About The Examples
