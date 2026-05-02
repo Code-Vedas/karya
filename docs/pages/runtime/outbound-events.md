@@ -75,6 +75,11 @@ bytes. Consumers verify that exact byte sequence with the shared secret, reject
 tampered payloads, and enforce a bounded timestamp window to reduce replay
 exposure.
 
+Karya computes the digest with `HMAC-SHA256` over that exact byte sequence and
+encodes the digest as lowercase hexadecimal in `Karya-Webhook-Signature`.
+The `v1` prefix is the signing scheme and version label for the delivery
+contract; it is not the hash algorithm name.
+
 ## Enabling Delivery
 
 Karya treats outbound delivery as an explicit runtime collaborator, not as an
