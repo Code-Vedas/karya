@@ -12,6 +12,11 @@ module Karya
     # Immutable backend identity and deployment posture description.
     class Descriptor
       CLASSIFICATIONS = %i[quick_setup_and_run production_like_local production_grade].freeze
+      STRING_CLASSIFICATIONS = {
+        'quick_setup_and_run' => :quick_setup_and_run,
+        'production_like_local' => :production_like_local,
+        'production_grade' => :production_grade
+      }.freeze
 
       attr_reader :capabilities, :classification, :identifier
 
@@ -55,7 +60,7 @@ module Karya
       end
 
       def normalize_string_classification(value)
-        normalized_value = value.to_sym
+        normalized_value = STRING_CLASSIFICATIONS[value]
         return normalized_value if CLASSIFICATIONS.include?(normalized_value)
 
         raise_invalid_classification_error

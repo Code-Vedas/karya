@@ -1,14 +1,14 @@
 module Karya
   module Backend
     class Selection
-      SUPPORTED_IDENTIFIERS: Array[String]
+      KNOWN_IDENTIFIERS: Array[String]
       IDENTIFIER_ALIASES: Hash[String, String]
       CLASSIFICATIONS: Hash[String, backend_classification]
 
       @identifier: backend_identifier
 
       def self.normalize_identifier: (backend_identifier_input value) -> backend_identifier
-      def self.supported_identifier?: (backend_identifier_input value) -> bool
+      def self.known_identifier?: (backend_identifier_input value) -> bool
       def self.classification_for: (backend_identifier_input value) -> backend_classification
       def self.quick_setup_and_run?: (backend_identifier_input value) -> bool
       def self.production_like_local?: (backend_identifier_input value) -> bool

@@ -11,12 +11,18 @@ module Karya
   module Backend
     # Normalized backend selection without runtime boot wiring.
     class Selection
-      SUPPORTED_IDENTIFIERS = %w[in_memory].freeze
+      KNOWN_IDENTIFIERS = %w[in_memory sqlite redis postgres mysql].freeze
 
       IDENTIFIER_ALIASES = {
         'InMemory' => 'in_memory',
         'inmemory' => 'in_memory',
-        'in_memory' => 'in_memory'
+        'in_memory' => 'in_memory',
+        'sqlite' => 'sqlite',
+        'redis' => 'redis',
+        'postgres' => 'postgres',
+        'postgresql' => 'postgres',
+        'mysql' => 'mysql',
+        'my_sql' => 'mysql'
       }.freeze
 
       CLASSIFICATIONS = {
@@ -35,11 +41,11 @@ module Karya
         return normalized_alias.freeze if normalized_alias
 
         raise UnsupportedBackendError,
-              "unsupported backend #{normalized_input.inspect}; supported backends: #{SUPPORTED_IDENTIFIERS.join(', ')}"
+              "unsupported backend #{normalized_input.inspect}; known backends: #{KNOWN_IDENTIFIERS.join(', ')}"
       end
 
-      def self.supported_identifier?(value)
-        SUPPORTED_IDENTIFIERS.include?(normalize_identifier(value))
+      def self.known_identifier?(value)
+        KNOWN_IDENTIFIERS.include?(normalize_identifier(value))
       rescue InvalidBackendSelectionError, UnsupportedBackendError
         false
       end

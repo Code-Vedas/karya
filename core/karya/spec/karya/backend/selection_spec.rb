@@ -5,6 +5,12 @@ RSpec.describe Karya::Backend::Selection do
     expect(described_class.normalize_identifier(:in_memory)).to eq('in_memory')
     expect(described_class.normalize_identifier('inmemory')).to eq('in_memory')
     expect(described_class.normalize_identifier('InMemory')).to eq('in_memory')
+    expect(described_class.normalize_identifier(:sqlite)).to eq('sqlite')
+    expect(described_class.normalize_identifier(:redis)).to eq('redis')
+    expect(described_class.normalize_identifier(:postgres)).to eq('postgres')
+    expect(described_class.normalize_identifier(:postgresql)).to eq('postgres')
+    expect(described_class.normalize_identifier(:mysql)).to eq('mysql')
+    expect(described_class.normalize_identifier(:my_sql)).to eq('mysql')
   end
 
   it 'rejects blank backend input' do
@@ -33,14 +39,6 @@ RSpec.describe Karya::Backend::Selection do
     end.to raise_error(Karya::UnsupportedBackendError, /unsupported backend "in-memory"/)
   end
 
-  it 'rejects backends without a defined backend implementation' do
-    %w[sqlite redis postgres mysql].each do |identifier|
-      expect do
-        described_class.normalize_identifier(identifier)
-      end.to raise_error(Karya::UnsupportedBackendError, /unsupported backend/)
-    end
-  end
-
   it 'classifies inmemory as quick setup and run' do
     selection = described_class.new('InMemory')
 
@@ -55,25 +53,25 @@ RSpec.describe Karya::Backend::Selection do
     expect(described_class.quick_setup_and_run?('InMemory')).to be(true)
   end
 
-  it 'exposes the class-level production-like-local predicate for planned classifications' do
-    expect(described_class.production_like_local?('in_memory')).to be(false)
+  it 'exposes the class-level production-like-local predicate' do
+    expect(described_class.production_like_local?('sqlite')).to be(true)
   end
 
-  it 'exposes the class-level production-grade predicate for planned classifications' do
-    expect(described_class.production_grade?('in_memory')).to be(false)
+  it 'exposes the class-level production-grade predicate' do
+    expect(described_class.production_grade?('postgres')).to be(true)
   end
 
-  it 'keeps planned deployment classifications internal until those backends exist' do
+  it 'defines deployment classifications for the shared backend contract' do
     expect(described_class::CLASSIFICATIONS.fetch('sqlite')).to eq(:production_like_local)
     expect(described_class::CLASSIFICATIONS.fetch('redis')).to eq(:production_grade)
     expect(described_class::CLASSIFICATIONS.fetch('postgres')).to eq(:production_grade)
     expect(described_class::CLASSIFICATIONS.fetch('mysql')).to eq(:production_grade)
   end
 
-  it 'reports whether an identifier is supported' do
-    expect(described_class.supported_identifier?('inmemory')).to be(true)
-    expect(described_class.supported_identifier?('postgres')).to be(false)
-    expect(described_class.supported_identifier?('mongodb')).to be(false)
-    expect(described_class.supported_identifier?(42)).to be(false)
+  it 'reports whether an identifier is known' do
+    expect(described_class.known_identifier?('inmemory')).to be(true)
+    expect(described_class.known_identifier?('postgres')).to be(true)
+    expect(described_class.known_identifier?('mongodb')).to be(false)
+    expect(described_class.known_identifier?(42)).to be(false)
   end
 end
