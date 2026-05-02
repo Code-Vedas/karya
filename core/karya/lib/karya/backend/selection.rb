@@ -30,7 +30,7 @@ module Karya
       attr_reader :identifier
 
       def self.normalize_identifier(value)
-        normalized_input = Primitives::Identifier.new(:backend, value, error_class: InvalidBackendSelectionError).normalize
+        normalized_input = normalize_identifier_input(value)
         normalized_alias = IDENTIFIER_ALIASES[normalized_input]
         return normalized_alias.freeze if normalized_alias
 
@@ -79,6 +79,15 @@ module Karya
       def production_grade?
         classification == :production_grade
       end
+
+      def self.normalize_identifier_input(value)
+        if [NilClass, String, Symbol].any? { |klass| value.is_a?(klass) }
+          return Primitives::Identifier.new(:backend, value, error_class: InvalidBackendSelectionError).normalize
+        end
+
+        raise InvalidBackendSelectionError, 'backend must be a String or Symbol'
+      end
+      private_class_method :normalize_identifier_input
     end
   end
 end

@@ -13,6 +13,14 @@ RSpec.describe Karya::Backend::Selection do
     end.to raise_error(Karya::InvalidBackendSelectionError, /backend must be present/)
   end
 
+  it 'rejects non string-or-symbol backend input before normalization' do
+    [42, true, Time.now].each do |value|
+      expect do
+        described_class.normalize_identifier(value)
+      end.to raise_error(Karya::InvalidBackendSelectionError, /backend must be a String or Symbol/)
+    end
+  end
+
   it 'rejects unsupported backends' do
     expect do
       described_class.normalize_identifier('mongodb')
@@ -66,5 +74,6 @@ RSpec.describe Karya::Backend::Selection do
     expect(described_class.supported_identifier?('inmemory')).to be(true)
     expect(described_class.supported_identifier?('postgres')).to be(false)
     expect(described_class.supported_identifier?('mongodb')).to be(false)
+    expect(described_class.supported_identifier?(42)).to be(false)
   end
 end
