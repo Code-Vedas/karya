@@ -417,6 +417,15 @@ module Karya
   type webhook_headers = Hash[String, String]
   type webhook_header_input_value = nil | bool | Numeric | String | Symbol
   type webhook_headers_input = Hash[Symbol | String, webhook_header_input_value]
+  type webhook_verifier_input =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Symbol |
+    Time |
+    Array[webhook_verifier_input] |
+    Hash[Symbol | String, webhook_verifier_input]
   type outbound_event_attributes = Hash[String, String | outbound_event_payload]
   type json_generate_option_value = nil | bool | Integer | String
   type json_generate_state_input = nil | ::JSON::State | Hash[Symbol | String, json_generate_option_value]

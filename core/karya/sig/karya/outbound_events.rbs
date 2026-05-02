@@ -47,7 +47,11 @@ module Karya
       @schema_version: String
       @data_schema: String
 
-      def initialize: (event_type: String, schema_version: String, data_schema: String) -> void
+      def initialize: (
+        event_type: Karya::outbound_event_string_input,
+        schema_version: Karya::outbound_event_string_input,
+        data_schema: Karya::outbound_event_string_input
+      ) -> void
 
       attr_reader event_type: String
       attr_reader schema_version: String
@@ -66,12 +70,12 @@ module Karya
       @subject: String?
 
       def initialize: (
-        id: String,
-        source: String,
+        id: Karya::outbound_event_string_input,
+        source: Karya::outbound_event_string_input,
         schema: Schema,
         time: Time,
-        data: Karya::outbound_event_payload,
-        ?subject: String?
+        data: Karya::outbound_event_input_payload,
+        ?subject: Karya::outbound_event_string_input?
       ) -> void
 
       attr_reader id: String
@@ -101,11 +105,11 @@ module Karya
       @timestamp_header: String
 
       def initialize: (
-        scheme: String,
+        scheme: Karya::outbound_event_string_input,
         timestamp: Time,
-        digest: String,
-        ?signature_header: String,
-        ?timestamp_header: String
+        digest: Karya::outbound_event_string_input,
+        ?signature_header: Karya::outbound_event_string_input,
+        ?timestamp_header: Karya::outbound_event_string_input
       ) -> void
 
       attr_reader scheme: String
@@ -122,18 +126,18 @@ module Karya
       DEFAULT_SCHEME: String
       DIGEST_ALGORITHM: String
 
-      def initialize: (secret: String, ?scheme: String) -> void
+      def initialize: (secret: String, ?scheme: Karya::outbound_event_string_input) -> void
       def sign: (body: String, now: Time) -> WebhookSignature
     end
 
     class WebhookVerifier
       DEFAULT_MAX_SKEW_SECONDS: Integer
 
-      def initialize: (secret: String, ?max_skew_seconds: Integer, ?scheme: String) -> void
-      def verify: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool
-      def validate: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool
-      def enforce_signature_validity: (body: String, headers: Karya::webhook_headers_input, now: Time) -> bool
-      def enforce_signature_validity!: (body: String, headers: Karya::webhook_headers_input, now: Time) -> void
+      def initialize: (secret: String, ?max_skew_seconds: Integer, ?scheme: Karya::outbound_event_string_input) -> void
+      def verify: (body: Karya::webhook_verifier_input, headers: Karya::webhook_verifier_input, now: Karya::webhook_verifier_input) -> bool
+      def validate: (body: Karya::webhook_verifier_input, headers: Karya::webhook_verifier_input, now: Karya::webhook_verifier_input) -> bool
+      def enforce_signature_validity: (body: Karya::webhook_verifier_input, headers: Karya::webhook_verifier_input, now: Karya::webhook_verifier_input) -> bool
+      def enforce_signature_validity!: (body: Karya::webhook_verifier_input, headers: Karya::webhook_verifier_input, now: Karya::webhook_verifier_input) -> void
     end
 
     class Delivery

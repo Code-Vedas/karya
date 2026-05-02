@@ -60,34 +60,19 @@ module Karya
 
       def instrument(event, payload = Internal::PayloadInput::ABSENT, **payload_keywords)
         dispatch_outbound = outbound_dispatcher_supports_event?(event)
-        return nil unless instrumenter || dispatch_outbound
-
         payload_given = !payload.equal?(Internal::PayloadInput::ABSENT)
-        normalized_payload = Internal::PayloadInput.new(
-          payload_given ? payload : nil,
-          payload_keywords,
+        Internal::HookDispatch.instrument(
+          event:,
+          payload: payload_given ? payload : nil,
+          payload_keywords:,
           payload_given:,
           error_class: InvalidWorkerConfigurationError,
-          mixed_payload_message: 'payload must be a Hash when keyword payload is also given'
-        ).to_h
-
-        if instrumenter && dispatch_outbound
-          instrumentation_payload, outbound_payload = Internal::ImmutableHookPayload.snapshot_pair(
-            normalized_payload,
-            error_class: InvalidWorkerConfigurationError
-          )
-          emit_instrumentation(event, instrumentation_payload)
-          emit_outbound_event(event, outbound_payload)
-          return nil
-        end
-
-        snapshot = Internal::ImmutableHookPayload.snapshot(
-          normalized_payload,
-          error_class: InvalidWorkerConfigurationError
+          instrumenter:,
+          dispatch_outbound:,
+          mixed_payload_message: 'payload must be a Hash when keyword payload is also given',
+          emit_instrumentation: method(:emit_instrumentation),
+          emit_outbound_event: method(:emit_outbound_event)
         )
-        emit_instrumentation(event, snapshot) if instrumenter
-        emit_outbound_event(event, snapshot) if dispatch_outbound
-        nil
       end
 
       def report_state(worker_id:, state:)
