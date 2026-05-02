@@ -44,17 +44,36 @@ module Karya
       end
 
       def normalize_classification(value)
+        case value
+        when String
+          normalize_string_classification(value)
+        when Symbol
+          normalize_symbol_classification(value)
+        else
+          raise_invalid_classification_type_error
+        end
+      end
+
+      def normalize_string_classification(value)
         normalized_value = value.to_sym
         return normalized_value if CLASSIFICATIONS.include?(normalized_value)
 
         raise_invalid_classification_error
-      rescue NoMethodError
+      end
+
+      def normalize_symbol_classification(value)
+        return value if CLASSIFICATIONS.include?(value)
+
         raise_invalid_classification_error
       end
 
       def raise_invalid_classification_error
         valid_classifications = CLASSIFICATIONS.map(&:inspect).join(', ')
         raise InvalidBackendSelectionError, "classification must be one of #{valid_classifications}"
+      end
+
+      def raise_invalid_classification_type_error
+        raise InvalidBackendSelectionError, 'classification must be a String or Symbol'
       end
 
       def validate_classification_consistency

@@ -40,8 +40,27 @@ module Karya
         DESCRIPTOR
       end
 
-      def build_queue_store(**)
-        queue_store_class.new(**)
+      def build_queue_store(
+        token_generator: nil,
+        expired_tombstone_limit: nil,
+        completed_batch_retention_limit: nil,
+        max_batch_size: nil,
+        policy_set: nil,
+        circuit_breaker_policy_set: nil,
+        fairness_policy: nil
+      )
+        queue_store = queue_store_class.new(**{
+          token_generator:,
+          expired_tombstone_limit:,
+          completed_batch_retention_limit:,
+          max_batch_size:,
+          policy_set:,
+          circuit_breaker_policy_set:,
+          fairness_policy:
+        }.compact)
+        return queue_store if queue_store.is_a?(QueueStore::Base)
+
+        raise InvalidBackendSelectionError, 'queue_store_class must build a Karya::QueueStore::Base'
       end
 
       def before_start(queue_store:)

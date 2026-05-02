@@ -62,6 +62,20 @@ RSpec.describe Karya::Backend::Capabilities do
     end.to raise_error(Karya::InvalidBackendSelectionError, /parity_exceptions entries must be present/)
   end
 
+  it 'rejects non-string parity exceptions' do
+    expect do
+      described_class.new(
+        job_persistence: true,
+        workflow_state: true,
+        schedule_state: true,
+        audit_history: true,
+        shared_processes: true,
+        multi_node: true,
+        parity_exceptions: [:local_only]
+      )
+    end.to raise_error(Karya::InvalidBackendSelectionError, /parity_exceptions entries must be String values/)
+  end
+
   it 'rejects non-array parity exceptions' do
     expect do
       described_class.new(

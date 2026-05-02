@@ -61,7 +61,9 @@ module Karya
         raise InvalidBackendSelectionError, 'parity_exceptions must be an Array' unless values.is_a?(Array)
 
         values.map do |value|
-          normalized_value = value.to_s.strip
+          raise InvalidBackendSelectionError, 'parity_exceptions entries must be String values' unless value.is_a?(String)
+
+          normalized_value = value.strip
           raise InvalidBackendSelectionError, 'parity_exceptions entries must be present' if normalized_value.empty?
 
           normalized_value.freeze

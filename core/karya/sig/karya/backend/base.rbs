@@ -1,7 +1,7 @@
 module Karya
   module Backend
     module Base
-      def identifier: () -> String
+      def identifier: () -> backend_identifier
       def classification: () -> backend_classification
       def capabilities: () -> Capabilities
       def descriptor: () -> Descriptor

@@ -42,10 +42,16 @@ RSpec.describe Karya::Backend::Descriptor do
     end.to raise_error(Karya::InvalidBackendSelectionError, /classification must be one of/)
   end
 
+  it 'rejects unsupported string classifications' do
+    expect do
+      described_class.new(identifier: :in_memory, classification: 'local', capabilities:)
+    end.to raise_error(Karya::InvalidBackendSelectionError, /classification must be one of/)
+  end
+
   it 'rejects non-symbolizable classifications' do
     expect do
       described_class.new(identifier: :in_memory, classification: Object.new, capabilities:)
-    end.to raise_error(Karya::InvalidBackendSelectionError, /classification must be one of/)
+    end.to raise_error(Karya::InvalidBackendSelectionError, /classification must be a String or Symbol/)
   end
 
   it 'requires a backend capabilities object' do
