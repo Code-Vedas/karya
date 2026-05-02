@@ -5,9 +5,9 @@ module Karya
       IDENTIFIER_ALIASES: Hash[String, String]
       CLASSIFICATIONS: Hash[String, backend_classification]
 
-      @identifier: String
+      @identifier: backend_identifier
 
-      def self.normalize_identifier: (backend_identifier_input value) -> String
+      def self.normalize_identifier: (backend_identifier_input value) -> backend_identifier
       def self.supported_identifier?: (backend_identifier_input value) -> bool
       def self.classification_for: (backend_identifier_input value) -> backend_classification
       def self.quick_setup_and_run?: (backend_identifier_input value) -> bool
@@ -16,7 +16,7 @@ module Karya
 
       def initialize: (backend_identifier_input value) -> void
 
-      attr_reader identifier: String
+      attr_reader identifier: backend_identifier
 
       def classification: () -> backend_classification
       def quick_setup_and_run?: () -> bool

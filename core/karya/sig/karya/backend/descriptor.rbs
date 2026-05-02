@@ -3,7 +3,7 @@ module Karya
     class Descriptor
       CLASSIFICATIONS: Array[backend_classification]
 
-      @identifier: String
+      @identifier: backend_identifier
       @classification: backend_classification
       @capabilities: Capabilities
 
@@ -13,7 +13,7 @@ module Karya
         capabilities: Capabilities
       ) -> void
 
-      attr_reader identifier: String
+      attr_reader identifier: backend_identifier
       attr_reader classification: backend_classification
       attr_reader capabilities: Capabilities
 

@@ -19,6 +19,8 @@ module Karya
         @identifier = Selection.normalize_identifier(identifier)
         @classification = normalize_classification(classification)
         @capabilities = normalize_capabilities(capabilities)
+        validate_classification_consistency
+        freeze
       end
 
       def quick_setup_and_run?
@@ -53,6 +55,14 @@ module Karya
       def raise_invalid_classification_error
         valid_classifications = CLASSIFICATIONS.map(&:inspect).join(', ')
         raise InvalidBackendSelectionError, "classification must be one of #{valid_classifications}"
+      end
+
+      def validate_classification_consistency
+        expected_classification = Selection.classification_for(identifier)
+        return if classification == expected_classification
+
+        raise InvalidBackendSelectionError,
+              "classification #{classification.inspect} does not match backend #{identifier.inspect}; expected #{expected_classification.inspect}"
       end
     end
   end

@@ -19,6 +19,7 @@ RSpec.describe Karya::Backend::Capabilities do
     expect(capabilities.shared_processes?).to be(true)
     expect(capabilities.multi_node?).to be(false)
     expect(capabilities.parity_exceptions).to eq(['Local deployments stay single-node'])
+    expect(capabilities).to be_frozen
     expect(capabilities.parity_exceptions).to be_frozen
   end
 

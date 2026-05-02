@@ -440,7 +440,7 @@ module Karya
   type symbol_options = ::Hash[Symbol, option_value]
   type mixed_options = ::Hash[Symbol | String, option_value]
   type job_arguments = ::Hash[String, job_argument]
-  type backend_identifier = :in_memory
+  type backend_identifier = "in_memory"
   type backend_identifier_input = state_name?
   type backend_classification = :quick_setup_and_run | :production_like_local | :production_grade
   type backend_classification_input =

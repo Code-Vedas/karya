@@ -22,8 +22,7 @@ module Karya
       attr_reader(*BOOLEAN_ATTRIBUTES, :parity_exceptions)
 
       def initialize(**attributes)
-        @attribute_names = attributes.keys.freeze
-        validate_attribute_names
+        validate_attribute_names(attributes)
 
         @job_persistence = required_boolean(:job_persistence, attributes)
         @workflow_state = required_boolean(:workflow_state, attributes)
@@ -32,8 +31,7 @@ module Karya
         @shared_processes = required_boolean(:shared_processes, attributes)
         @multi_node = required_boolean(:multi_node, attributes)
         @parity_exceptions = normalize_parity_exceptions(attributes.fetch(:parity_exceptions, []))
-      ensure
-        @attribute_names = nil
+        freeze
       end
 
       BOOLEAN_ATTRIBUTES.each do |attribute_name|
@@ -46,11 +44,11 @@ module Karya
         normalize_boolean(name, attributes.fetch(name) { raise InvalidBackendSelectionError, "#{name} must be provided" })
       end
 
-      def validate_attribute_names
-        unknown_attributes = attribute_names - ATTRIBUTE_NAMES
+      def validate_attribute_names(attributes)
+        unknown_attributes = attributes.keys - ATTRIBUTE_NAMES
         return if unknown_attributes.empty?
 
-        raise InvalidBackendSelectionError, "unknown capability attributes: #{unknown_attributes.join(', ')}"
+        raise_unknown_attribute_names_error(unknown_attributes)
       end
 
       def normalize_boolean(name, value)
@@ -70,7 +68,9 @@ module Karya
         end.freeze
       end
 
-      attr_reader :attribute_names
+      def raise_unknown_attribute_names_error(unknown_attributes)
+        raise InvalidBackendSelectionError, "unknown capability attributes: #{unknown_attributes.join(', ')}"
+      end
     end
   end
 end
