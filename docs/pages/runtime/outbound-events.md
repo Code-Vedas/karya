@@ -97,8 +97,11 @@ an explicit dispatcher. Multi-runtime hosts should prefer explicit
 not leak into another runtime by accident.
 
 The dispatcher contract is versioned outbound delivery, not raw mutable
-instrumentation. Unsupported runtime events are ignored rather than becoming
-part of the external event contract automatically.
+instrumentation. The built-in `Karya::OutboundEvents::Dispatcher` ignores
+unsupported runtime events rather than promoting them into the external event
+contract automatically. Custom `outbound_event_dispatcher` implementations
+receive the runtime events the host wires to them and should opt out
+explicitly when an event is outside their supported contract.
 
 ## Verifying Deliveries
 
