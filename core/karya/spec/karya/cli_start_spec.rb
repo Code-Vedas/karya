@@ -323,25 +323,31 @@ RSpec.describe Karya::CLI do
 
     it 'does not start backend lifecycle hooks when CLI option validation fails' do
       lifecycle_events = []
+      queue_store_constructions = []
       backend_class = Class.new do
         include Karya::Backend::Base
 
-        define_method(:initialize) do |events:|
+        define_method(:initialize) do |events:, queue_store_constructions:|
           @events = events
+          @queue_store_constructions = queue_store_constructions
         end
 
         define_method(:identifier) { 'test_backend' }
-        define_method(:build_queue_store) { Karya::QueueStore::InMemory.new }
+        define_method(:build_queue_store) do
+          @queue_store_constructions << :built
+          Karya::QueueStore::InMemory.new
+        end
         define_method(:before_start) { |queue_store:| @events << [:before_start, queue_store] }
         define_method(:after_stop) { |queue_store:| @events << [:after_stop, queue_store] }
       end
 
-      Karya.configure_backend(backend_class, events: lifecycle_events)
+      Karya.configure_backend(backend_class, events: lifecycle_events, queue_store_constructions:)
 
       expect do
         described_class.start(%w[worker billing --processes 0], suppress_header: true)
       end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /Invalid value for --processes/)
       expect(lifecycle_events).to eq([])
+      expect(queue_store_constructions).to eq([])
     end
 
     it 'normalizes whole-float max_iterations before building the supervisor' do

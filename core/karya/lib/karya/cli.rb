@@ -76,8 +76,9 @@ module Karya
     method_option :stop_when_idle, type: :boolean, default: false
     def worker(*queues)
       load_required_files(options.fetch(:require))
+      worker_settings = build_worker_settings(queues)
       backend, queue_store = BackendBoot.resolve
-      worker_configuration = build_worker_configuration(queues, queue_store:)
+      worker_configuration = worker_settings.merge(queue_store:)
 
       supervisor = Karya::WorkerSupervisor.new(**worker_configuration)
       status = BackendBoot.run_with_lifecycle(backend, queue_store) { supervisor.run }
@@ -88,11 +89,10 @@ module Karya
     subcommand 'runtime', RuntimeCommand
 
     no_commands do
-      def build_worker_configuration(queues, queue_store:)
-        ConfigBuilder.build(
+      def build_worker_settings(queues)
+        ConfigBuilder.build_settings(
           options:,
           queues:,
-          queue_store:,
           defaults: {
             processes: Karya::WorkerSupervisor::DEFAULT_PROCESSES,
             threads: Karya::WorkerSupervisor::DEFAULT_THREADS

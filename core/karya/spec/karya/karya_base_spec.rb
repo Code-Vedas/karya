@@ -51,6 +51,12 @@ RSpec.describe Karya do
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must respond to \.new/)
     end
 
+    it 'rejects nil as a configured backend class' do
+      expect do
+        described_class.configure_backend(nil)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must respond to \.new/)
+    end
+
     it 'returns nil and an empty options hash when no backend is configured' do
       described_class.remove_instance_variable(:@backend_class) if described_class.instance_variable_defined?(:@backend_class)
       described_class.remove_instance_variable(:@backend_options) if described_class.instance_variable_defined?(:@backend_options)

@@ -11,8 +11,8 @@ module Karya
   self.@logger: logger
 
   self.@queue_store: QueueStore::Base
-  self.@backend_class: Backend::_BackendClass
-  self.@backend_options: Hash[Symbol, backend_option_value]
+  self.@backend_class: Backend::_BackendClass?
+  self.@backend_options: Hash[Symbol, backend_option_value]?
 
   # Internal implementation namespace. Constants here are not part of the supported public API.
   module Internal

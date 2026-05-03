@@ -68,7 +68,7 @@ module Karya
             backend.before_start(queue_store:)
             started = true
             result = yield
-          rescue StandardError, SystemExit
+          rescue StandardError, SignalException, SystemExit
             suppress_cleanup_error = true
             raise
           ensure

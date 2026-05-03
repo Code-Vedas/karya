@@ -10,13 +10,16 @@ module Karya
     # Normalizes CLI worker boot options into a supervisor configuration hash.
     class ConfigBuilder
       def self.build(options:, queues:, queue_store:, defaults:, helpers:)
-        new(options:, queues:, queue_store:, defaults:, helpers:).build
+        build_settings(options:, queues:, defaults:, helpers:).merge(queue_store:)
       end
 
-      def initialize(options:, queues:, queue_store:, defaults:, helpers:)
+      def self.build_settings(options:, queues:, defaults:, helpers:)
+        new(options:, queues:, defaults:, helpers:).build
+      end
+
+      def initialize(options:, queues:, defaults:, helpers:)
         @options = options
         @queues = queues
-        @queue_store = queue_store
         @defaults = defaults
         @helpers = helpers
       end
@@ -24,7 +27,6 @@ module Karya
       def build
         env_prefix = helpers.fetch(:normalize_env_prefix_option).call(:env_prefix)
         {
-          queue_store:,
           **resolved_process_settings(env_prefix),
           state_file: options.fetch(:state_file, nil),
           worker_id: options.fetch(:worker_id),
@@ -41,7 +43,7 @@ module Karya
 
       private
 
-      attr_reader :defaults, :helpers, :options, :queue_store, :queues
+      attr_reader :defaults, :helpers, :options, :queues
 
       def resolved_process_settings(env_prefix)
         resolve_positive_integer_option = helpers.fetch(:resolve_positive_integer_option)
