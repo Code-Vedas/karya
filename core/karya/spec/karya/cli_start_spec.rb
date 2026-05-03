@@ -252,8 +252,18 @@ RSpec.describe Karya::CLI do
 
     it 'fails clearly when the configured backend class does not instantiate a backend implementation' do
       backend_class = Class.new do
+        include Karya::Backend::Base
+
         def self.new(**)
           Object.new
+        end
+
+        def identifier
+          'test_backend'
+        end
+
+        def build_queue_store
+          Karya::QueueStore::InMemory.new
         end
       end
 

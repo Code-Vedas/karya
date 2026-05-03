@@ -52,6 +52,7 @@ module Karya
 
     def configure_backend(backend_class, **options)
       validate_backend_class(backend_class)
+      validate_backend_options(options)
       @backend_class = backend_class
       @backend_options = options.dup.freeze
       @backend_class
@@ -64,13 +65,16 @@ module Karya
     end
 
     def backend_class
-      return @backend_class if defined?(@backend_class) && @backend_class
+      return validate_backend_class(@backend_class) if defined?(@backend_class) && @backend_class
 
       nil
     end
 
     def backend_options
-      return @backend_options.dup if defined?(@backend_options) && @backend_options
+      if defined?(@backend_options) && @backend_options
+        validate_backend_options(@backend_options)
+        return @backend_options.dup
+      end
 
       {}
     end
@@ -84,10 +88,53 @@ module Karya
     private
 
     def validate_backend_class(backend_class)
-      backend_class.method(:new)
+      raise InvalidBackendConfigurationError, 'configured backend class must respond to .new' unless backend_class.is_a?(Class)
+
+      raise InvalidBackendConfigurationError, 'configured backend class must include Karya::Backend::Base' unless backend_class <= Karya::Backend::Base
+
       backend_class
-    rescue NameError
-      raise InvalidBackendConfigurationError, 'configured backend class must respond to .new'
+    end
+
+    def validate_backend_options(options)
+      options.each do |name, value|
+        validate_backend_option(name, value)
+      end
+
+      options
+    end
+
+    def validate_backend_option(name, value)
+      return if valid_backend_option_value?(value)
+
+      raise InvalidBackendConfigurationError,
+            "configured backend option #{name.inspect} has unsupported value #{value.class}"
+    end
+
+    def valid_backend_option_value?(value)
+      case value
+      when NilClass, TrueClass, FalseClass, Numeric, String, Symbol,
+        QueueStore::Base, Backpressure::PolicySet, CircuitBreaker::PolicySet,
+        Fairness::Policy, Method, Proc, Class
+        true
+      when Array
+        valid_backend_option_array?(value)
+      when Hash
+        valid_backend_option_hash?(value)
+      else
+        false
+      end
+    end
+
+    def valid_backend_option_array?(value)
+      value.all? { |item| valid_backend_option_value?(item) }
+    end
+
+    def valid_backend_option_hash?(value)
+      value.all? { |key, item| valid_backend_option_key?(key) && valid_backend_option_value?(item) }
+    end
+
+    def valid_backend_option_key?(key)
+      key.is_a?(Symbol) || key.is_a?(String)
     end
   end
 end
