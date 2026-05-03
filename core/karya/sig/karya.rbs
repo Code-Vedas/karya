@@ -443,6 +443,7 @@ module Karya
     String |
     Symbol |
     callable_value |
+    QueueStore::Base |
     Backpressure::PolicySet |
     CircuitBreaker::PolicySet |
     Fairness::Policy |

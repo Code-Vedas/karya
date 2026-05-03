@@ -1,0 +1,35 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  class CLI < Thor
+    # Resolves configured backend classes into queue stores and manages backend lifecycle hooks.
+    class BackendBoot
+      def self.resolve: () -> [Backend::Base?, QueueStore::Base]
+
+      def self.run_with_lifecycle: [A] (Backend::Base? backend, QueueStore::Base queue_store) { () -> A } -> A
+
+      private
+
+      def self.instantiate: () -> Backend::Base
+
+      def self.validate_backend_class: (Backend::_BackendClass backend_class) -> Backend::_BackendClass
+
+      def self.validate_backend_instance: (::Object backend, Backend::_BackendClass backend_class) -> void
+
+      def self.build_queue_store: (Backend::Base backend) -> QueueStore::Base
+
+      def self.execute_with_lifecycle: [A] (Backend::Base backend, QueueStore::Base queue_store) { () -> A } -> A
+
+      def self.finish_lifecycle: [A] (
+        Backend::Base backend,
+        QueueStore::Base queue_store,
+        started: bool,
+        suppress_cleanup_error: bool,
+        result: A
+      ) -> nil
+    end
+  end
+end

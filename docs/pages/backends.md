@@ -81,7 +81,7 @@ Backend choice affects more than persistence:
 
 ```text
 host: rails
-backend: Karya::Backend::Postgres
+backend: postgres
 goal: durable jobs, workflows, schedules, and operator visibility
 recommendation: production deployment
 ```
@@ -93,7 +93,7 @@ surface.
 
 ```text
 host: plain-ruby
-backend: Karya::Backend::Redis
+backend: redis
 goal: high-throughput queue execution with strong operational monitoring
 recommendation: production deployment
 ```
@@ -116,7 +116,7 @@ This is for speed and simplicity, not as a production durability story.
 
 ```text
 host: rails
-backend: Karya::Backend::SQLite
+backend: sqlite
 goal: local SQL-backed evaluation before production rollout
 recommendation: local only, production-like development path
 ```
