@@ -81,8 +81,7 @@ Worker state is surfaced consistently through:
 Workers are the runtime-side executors for queued work:
 
 ```ruby
-store = Karya::QueueStore::InMemory.new
-Karya.configure_queue_store(store)
+Karya.configure_backend(Karya::Backend::InMemory)
 
 class BillingJob
   def self.call(**)
@@ -114,7 +113,7 @@ begins. Per-worker env overrides use `KARYA_<PREFIX>_PROCESSES` and
 `KARYA_BILLING_WORKER_PROCESSES` and `KARYA_BILLING_WORKER_THREADS`.
 Use multiple processes or threads only with a queue store that is safe to
 share across processes and thread-safe handlers.
-`Karya::QueueStore::InMemory` is single-process and is shown here only for local
+`Karya::Backend::InMemory` is single-process and is shown here only for local
 examples.
 
 Backpressure policies are configured on the queue store, not through `karya worker`

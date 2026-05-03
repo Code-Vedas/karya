@@ -50,10 +50,28 @@ module Karya
       @queue_store = queue_store
     end
 
+    def configure_backend(backend_class, **options)
+      @backend_class = backend_class
+      @backend_options = options.dup.freeze
+      @backend_class
+    end
+
     def logger
       return @logger if defined?(@logger) && @logger
 
       Internal::NullLogger.new
+    end
+
+    def backend_class
+      return @backend_class if defined?(@backend_class) && @backend_class
+
+      nil
+    end
+
+    def backend_options
+      return @backend_options.dup if defined?(@backend_options) && @backend_options
+
+      {}
     end
 
     def queue_store

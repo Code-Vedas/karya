@@ -10,6 +10,7 @@ require_relative 'base'
 require_relative 'version'
 require_relative 'worker'
 require_relative 'worker_supervisor'
+require_relative 'cli/backend_boot'
 require_relative 'cli/config_builder'
 require_relative 'cli/integer_option'
 require_relative 'cli/env_prefix'
@@ -75,21 +76,24 @@ module Karya
     method_option :stop_when_idle, type: :boolean, default: false
     def worker(*queues)
       load_required_files(options.fetch(:require))
-      supervisor = Karya::WorkerSupervisor.new(**build_worker_configuration(queues))
+      backend, queue_store = BackendBoot.resolve
 
-      status = supervisor.run
-      exit(status) if status.positive?
+      BackendBoot.run_with_lifecycle(backend, queue_store) do
+        supervisor = Karya::WorkerSupervisor.new(**build_worker_configuration(queues, queue_store:))
+        status = supervisor.run
+        exit(status) if status.positive?
+      end
     end
 
     desc 'runtime SUBCOMMAND ...ARGS', 'Inspect or control a running supervisor via the local runtime state file'
     subcommand 'runtime', RuntimeCommand
 
     no_commands do
-      def build_worker_configuration(queues)
+      def build_worker_configuration(queues, queue_store:)
         ConfigBuilder.build(
           options:,
           queues:,
-          queue_store: Karya.queue_store,
+          queue_store:,
           defaults: {
             processes: Karya::WorkerSupervisor::DEFAULT_PROCESSES,
             threads: Karya::WorkerSupervisor::DEFAULT_THREADS
@@ -130,6 +134,6 @@ module Karya
 
     # Logger and instrumenter globals are process-wide defaults.
     # Pass explicit runtime collaborators when multiple isolated runtimes share a process.
-    private_constant :ConfigBuilder, :EnvPrefix, :HandlerParser, :IntegerOption, :MappingEntry, :SignalSubscription
+    private_constant :BackendBoot, :ConfigBuilder, :EnvPrefix, :HandlerParser, :IntegerOption, :MappingEntry, :SignalSubscription
   end
 end

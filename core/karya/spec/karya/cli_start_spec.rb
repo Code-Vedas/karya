@@ -41,6 +41,10 @@ RSpec.describe Karya::CLI do
     around do |example|
       original_queue_store = Karya.instance_variable_get(:@queue_store)
       original_queue_store_defined = Karya.instance_variable_defined?(:@queue_store)
+      original_backend_class = Karya.instance_variable_get(:@backend_class)
+      original_backend_class_defined = Karya.instance_variable_defined?(:@backend_class)
+      original_backend_options = Karya.instance_variable_get(:@backend_options)
+      original_backend_options_defined = Karya.instance_variable_defined?(:@backend_options)
 
       example.run
     ensure
@@ -48,6 +52,18 @@ RSpec.describe Karya::CLI do
         Karya.configure_queue_store(original_queue_store)
       elsif Karya.instance_variable_defined?(:@queue_store)
         Karya.remove_instance_variable(:@queue_store)
+      end
+
+      if original_backend_class_defined
+        Karya.instance_variable_set(:@backend_class, original_backend_class)
+      elsif Karya.instance_variable_defined?(:@backend_class)
+        Karya.remove_instance_variable(:@backend_class)
+      end
+
+      if original_backend_options_defined
+        Karya.instance_variable_set(:@backend_options, original_backend_options)
+      elsif Karya.instance_variable_defined?(:@backend_options)
+        Karya.remove_instance_variable(:@backend_options)
       end
     end
 
@@ -113,6 +129,73 @@ RSpec.describe Karya::CLI do
       Dir.rmdir(handler_directory) if handler_directory && Dir.exist?(handler_directory)
     end
 
+    it 'uses the configured backend class and options to build the worker supervisor queue store' do
+      queue_store = Karya::QueueStore::InMemory.new
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        attr_reader :identifier, :url
+
+        def initialize(url:, queue_store:)
+          @identifier = 'test_backend'
+          @queue_store = queue_store
+          @url = url
+        end
+
+        def build_queue_store
+          @queue_store
+        end
+      end
+      supervisor_instance = instance_double(Karya::WorkerSupervisor, run: 0)
+
+      Karya.configure_backend(backend_class, url: 'postgres://example.test/karya', queue_store:)
+      allow(backend_class).to receive(:new).and_call_original
+
+      allow(Karya::WorkerSupervisor).to receive(:new) do |**kwargs|
+        expect(kwargs.fetch(:queue_store)).to be(queue_store)
+      end.and_return(supervisor_instance)
+
+      described_class.start(%w[worker billing], suppress_header: true)
+
+      expect(backend_class).to have_received(:new).with(
+        url: 'postgres://example.test/karya',
+        queue_store:
+      )
+      expect(supervisor_instance).to have_received(:run)
+    end
+
+    it 'prefers configured backend boot over a configured queue store' do
+      fallback_queue_store = Karya::QueueStore::InMemory.new
+      backend_queue_store = Karya::QueueStore::InMemory.new
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        def initialize(queue_store:)
+          @queue_store = queue_store
+        end
+
+        def identifier
+          'test_backend'
+        end
+
+        def build_queue_store
+          @queue_store
+        end
+      end
+      supervisor_instance = instance_double(Karya::WorkerSupervisor, run: 0)
+
+      Karya.configure_queue_store(fallback_queue_store)
+      Karya.configure_backend(backend_class, queue_store: backend_queue_store)
+
+      allow(Karya::WorkerSupervisor).to receive(:new) do |**kwargs|
+        expect(kwargs.fetch(:queue_store)).to be(backend_queue_store)
+      end.and_return(supervisor_instance)
+
+      described_class.start(%w[worker billing], suppress_header: true)
+
+      expect(supervisor_instance).to have_received(:run)
+    end
+
     it 'exits non-zero when the worker supervisor reports a forced shutdown status' do
       configured_queue_store = Karya::QueueStore::InMemory.new
       Karya.configure_queue_store(configured_queue_store)
@@ -127,6 +210,86 @@ RSpec.describe Karya::CLI do
       expect do
         described_class.start(%w[worker billing], suppress_header: true)
       end.to raise_error(Karya::MissingQueueStoreConfigurationError, /Karya.queue_store must be configured/)
+    end
+
+    it 'fails clearly when the configured backend class cannot be initialized with the provided options' do
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        def initialize(url:)
+          @url = url
+        end
+
+        def identifier
+          'test_backend'
+        end
+
+        def build_queue_store
+          Karya::QueueStore::InMemory.new
+        end
+      end
+
+      Karya.configure_backend(backend_class)
+
+      expect do
+        described_class.start(%w[worker billing], suppress_header: true)
+      end.to raise_error(
+        Karya::InvalidBackendConfigurationError,
+        /could not be initialized/
+      )
+    end
+
+    it 'fails clearly when the configured backend class does not respond to .new' do
+      backend_class = Object.new
+
+      Karya.configure_backend(backend_class)
+
+      expect do
+        described_class.start(%w[worker billing], suppress_header: true)
+      end.to raise_error(
+        Karya::InvalidBackendConfigurationError,
+        /must respond to \.new/
+      )
+    end
+
+    it 'fails clearly when the configured backend class does not instantiate a backend implementation' do
+      backend_class = Class.new do
+        def self.new(**)
+          Object.new
+        end
+      end
+
+      Karya.configure_backend(backend_class)
+
+      expect do
+        described_class.start(%w[worker billing], suppress_header: true)
+      end.to raise_error(
+        Karya::InvalidBackendConfigurationError,
+        /must instantiate a backend including Karya::Backend::Base/
+      )
+    end
+
+    it 'fails clearly when the configured backend class builds an invalid queue store' do
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        def identifier
+          'test_backend'
+        end
+
+        def build_queue_store
+          Object.new
+        end
+      end
+
+      Karya.configure_backend(backend_class)
+
+      expect do
+        described_class.start(%w[worker billing], suppress_header: true)
+      end.to raise_error(
+        Karya::InvalidBackendConfigurationError,
+        /must build a Karya::QueueStore::Base/
+      )
     end
 
     it 'surfaces process validation failures' do

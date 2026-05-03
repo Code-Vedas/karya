@@ -436,7 +436,17 @@ module Karya
   type json_generate_state_input = nil | ::JSON::State | Hash[Symbol | String, json_generate_option_value]
   type handler_mapping = ::Hash[String, Worker::_Handler]
   type forker = Method | Proc | _Forker
-  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | outbound_event_dispatcher | forker | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker)
+  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | outbound_event_dispatcher | forker | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker) | Backend::Base
+  type backend_option_value =
+    nil |
+    Numeric |
+    String |
+    Symbol |
+    callable_value |
+    Backpressure::PolicySet |
+    CircuitBreaker::PolicySet |
+    Fairness::Policy |
+    Backend::_QueueStoreFactoryInput
   type symbol_options = ::Hash[Symbol, option_value]
   type mixed_options = ::Hash[Symbol | String, option_value]
   type job_arguments = ::Hash[String, job_argument]
