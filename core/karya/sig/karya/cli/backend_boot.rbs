@@ -17,7 +17,7 @@ module Karya
 
       def self.validate_backend_class: (Backend::_BackendClass backend_class) -> Backend::_BackendClass
 
-      def self.validate_backend_instance: (::Object backend, Backend::_BackendClass backend_class) -> void
+      def self.validate_backend_instance: (Backend::Base backend, Backend::_BackendClass backend_class) -> void
 
       def self.build_queue_store: (Backend::Base backend) -> QueueStore::Base
 
