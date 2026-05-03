@@ -28,8 +28,7 @@ run the shared verification flow.
 
 1. Read the [Architecture](/architecture/) page for the package map and
    platform boundaries.
-2. Choose a backend using [Backends](/backends/). Postgres is the default
-   production recommendation.
+2. Choose a backend implementation using [Backends](/backends/).
 3. Choose a host integration from [Frameworks](/frameworks/).
 4. Review [Dashboard Hosting](/dashboard-hosting/) if you want a framework host to
    include the optional dashboard addon.
@@ -54,7 +53,8 @@ bin/prepackage-build
 ## Recommended Starting Defaults
 
 - host: use the framework package that matches your application stack
-- backend: start with Postgres unless a documented constraint points elsewhere
+- backend: choose the backend implementation that matches the intended runtime
+  and durability model
 - scheduler: use the built-in Kaal-backed recurring-job subsystem
 - operator surface: treat the dashboard, API, and CLI as complementary rather
   than choosing only one

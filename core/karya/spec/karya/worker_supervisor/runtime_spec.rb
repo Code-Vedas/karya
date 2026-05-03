@@ -125,13 +125,15 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
   end
 
   describe 'unit tests' do
-    it 'covers runtime defaults and no-op signal subscriptions' do
+    it 'covers runtime defaults and default signal subscriptions' do
+      allow(Signal).to receive(:trap).and_return('DEFAULT')
       runtime_instance = runtime_class.new
-      noop = runtime_instance.subscribe_signal('TERM', -> {})
+      restorer = runtime_instance.subscribe_signal('TERM', -> {})
       pid = runtime_instance.fork_child { 1 }
       waited_pid, waited_status = runtime_instance.wait_for_child
 
-      expect(noop).to respond_to(:call)
+      expect(restorer).to respond_to(:call)
+      restorer.call
       expect(pid).to be_a(Integer)
       expect(waited_pid).to eq(pid)
       expect(waited_status.success?).to be(true)
@@ -356,6 +358,14 @@ RSpec.describe 'Karya::WorkerSupervisor::Runtime' do
       expect(runtime_instance.wait_for_child).to eq([123, success_status])
       expect(noop).to respond_to(:call)
       expect(subscriptions.keys).to eq(['TERM'])
+    end
+
+    it 'returns the noop subscription when signal subscriptions are explicitly disabled' do
+      runtime_instance = runtime_class.new(signal_subscriber: nil)
+      subscription = runtime_instance.subscribe_signal('TERM', -> {})
+
+      expect(subscription).to respond_to(:call)
+      expect(subscription.call).to be_nil
     end
 
     it 'rejects non-callable signal subscriber restorers' do

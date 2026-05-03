@@ -20,7 +20,7 @@ module Karya
 
         def initialize: () -> void
 
-        def advance: () -> void
+        def advance: () -> (:draining | :force_stop | nil)
 
         def begin_drain: () -> bool
 

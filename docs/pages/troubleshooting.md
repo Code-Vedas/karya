@@ -83,7 +83,7 @@ When work is stuck, backlogged, or repeatedly failing, review:
 - dead-letter isolation snapshots, recovery action availability, and isolation
   reasons before retrying or replaying work
 - workflow replay, checkpoint, or approval state
-- backend-specific caveats documented in the support matrix
+- backend configuration, durability expectations, and host-adapter fit
 
 ### Common Scenario
 
@@ -262,7 +262,7 @@ next move: confirm whether the block is intentional before treating it as a bug
 
 - [Dashboard Hosting](/dashboard-hosting/): asset delivery, mount path, and host
   rendering problems
-- [Backends](/backends/): backend fit, parity caveats, and persistence tradeoffs
+- [Backends](/backends/): backend fit, production boundaries, and persistence tradeoffs
 - [Runtime](/runtime/): job, worker, and control-surface behavior
 - [Reliability](/reliability/): retries, backpressure, uniqueness, and
   dead-letter flows

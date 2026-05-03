@@ -21,7 +21,7 @@ workflows, framework hosts, operator tooling, and governed production rollout.
 ## What The Platform Includes
 
 - a canonical runtime and CLI
-- backend adapters with an explicit capability matrix
+- backend adapters with a shared backend contract
 - first-class integrations for plain Ruby, Rails, Sinatra, Roda, and Hanami
 - ActiveJob compatibility and migration guidance
 - an optional dashboard addon with shared UI delivery, internal APIs, and Kaal
@@ -44,9 +44,7 @@ workflows, framework hosts, operator tooling, and governed production rollout.
 
 | Area                          | Position                                                                  |
 | ----------------------------- | ------------------------------------------------------------------------- |
-| Default production backend    | Postgres                                                                  |
-| Additional supported backends | Redis, MySQL, SQLite                                                      |
-| Local/dev backend             | `InMemory`                                                                |
+| Backend model                 | shared backend interface with concrete backend classes                     |
 | First-class hosts             | plain Ruby, Rails, Sinatra, Roda, Hanami                                  |
 | Compatibility path            | ActiveJob                                                                 |
 | Scheduler                     | Kaal-backed recurring job and cron subsystem                              |
@@ -57,7 +55,7 @@ workflows, framework hosts, operator tooling, and governed production rollout.
 
 ## Explore The Docs
 
-- [Architecture](/architecture/): package map, capability model, and how
+- [Architecture](/architecture/): package map, product layers, and how
   the platform fits together
 - [Getting Started](/getting-started/): setup path for repository work
   and initial platform evaluation
@@ -69,8 +67,8 @@ workflows, framework hosts, operator tooling, and governed production rollout.
   governed recovery, and backpressure
 - [Workflows](/workflows/): orchestration, replay, signals, child
   workflows, and versioning
-- [Backends](/backends/): selection guidance, tiers, and capability
-  matrix
+- [Backends](/backends/): backend fit, production boundaries, and adapter
+  pairing
 - [Frameworks](/frameworks/): host integrations, ActiveJob, and
   parity notes
 - [Dashboard Hosting](/dashboard-hosting/): packaged asset contract and host

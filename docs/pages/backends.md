@@ -6,74 +6,65 @@ permalink: /backends/
 
 # Backends
 
-Karya documents backend support through an explicit capability matrix instead of
-implying parity from package names alone.
-
 Backend choice shapes durability, operator workflows, scheduling behavior,
 failure recovery, and the overall fit between Karya and the rest of the stack.
 This page helps teams make that choice with intent.
 
-## Recommended Default
+Karya supports both local development backends and production backends, but
+they are not interchangeable. The right choice depends on whether the goal is
+fast local iteration, production-like local evaluation, or a durable
+production deployment.
 
-Postgres is the default production recommendation for teams that do not already
-have a stronger operational preference.
+## Backend Positions
 
-For most teams, Postgres is the easiest recommendation to defend: it fits the
-broader Karya product model, works well with framework integrations, and gives
-operators one durable system of record for execution and orchestration state.
+| Backend    | Position                      | Typical Fit                                       |
+| ---------- | ----------------------------- | ------------------------------------------------- |
+| `InMemory` | Local quick-start backend     | Fast examples, tests, and local development       |
+| SQLite     | Local production-like backend | Local SQL-backed evaluation                       |
+| Redis      | Production backend            | Production use                                    |
+| Postgres   | Production backend            | Production use                                    |
+| MySQL      | Production backend            | Production use                                    |
 
-## Support Matrix
+## Support Boundaries
 
-| Backend    | Position                      | Typical Fit                                            |
-| ---------- | ----------------------------- | ------------------------------------------------------ |
-| Postgres   | Default production backend    | General-purpose production deployments                 |
-| Redis      | Supported production backend  | Queue-centric, low-latency operational workloads       |
-| MySQL      | Supported production backend  | SQL environments standardized on MySQL                 |
-| SQLite     | Supported constrained backend | Embedded, single-node, or lightweight SQL deployments  |
-| `InMemory` | Local/dev/test backend        | Examples, development, tests, and ephemeral evaluation |
+- Use `InMemory` for local testing, examples, and development speed.
+- Use SQLite when you want a local backend that feels closer to a real SQL
+  deployment.
+- Use Redis, Postgres, or MySQL for production deployments.
+- Do not use `InMemory` in production.
+- Do not use SQLite in production.
 
 ## How To Choose
 
-Choose Postgres when:
+Choose `Karya::Backend::InMemory` when:
 
-- you want the default production path
-- you expect workflows, schedules, audit history, and operator workflows to
-  matter from the beginning
-- you want the broadest fit across hosts and future backlog capability
-
-Choose Redis when:
-
-- you are optimizing for queue-centric throughput and low-latency operational
-  behavior
-- your team already runs Redis as a core infrastructure dependency
-- you are comfortable reviewing backend-specific caveats as the product surface
-  expands
-
-Choose MySQL when:
-
-- production standards already center on MySQL
-- you want a supported SQL-backed path without introducing Postgres
+- you want the fastest possible setup
+- you are testing locally
+- you are building examples
+- you do not need durability across restarts or processes
 
 Choose SQLite when:
 
-- the deployment is intentionally small, embedded, or single-node
-- the operational tradeoffs are acceptable and clearly understood
+- you want a local SQL-backed runtime
+- you want a production-like local development path
+- you are validating SQL-oriented behavior before moving to a production
+  backend
+- the deployment is intentionally local or single-node
 
-Choose `InMemory` when:
+Choose Redis when:
 
-- you are developing locally
-- you need quick examples or tests
-- durability and multi-process production behavior are not part of the goal
+- you want a production backend
+- Redis is the backend you intend to operate
 
-## Capability Expectations
+Choose Postgres when:
 
-The documented backend contract covers parity for:
+- you want a production backend
+- Postgres is the backend you intend to operate
 
-- job and queue persistence
-- workflow and batch state
-- schedules and recurring-job state
-- audit-relevant and operator-visible history
-- capability reporting and intentional parity exceptions
+Choose MySQL when:
+
+- you want a production backend
+- MySQL is the backend you intend to operate
 
 ## What Backends Influence
 
@@ -81,14 +72,8 @@ Backend choice affects more than persistence:
 
 - how operators reason about queue depth, recovery, and history
 - how workflows and schedules remain durable across process or host failures
-- what parity guarantees can be treated as universal versus backend-specific
+- what adapter path and operational posture fit the deployment best
 - what troubleshooting guidance applies in production
-
-## Unsupported Or Tiered Cases
-
-When a backend has different scale, durability, or concurrency tradeoffs, the
-docs call that out explicitly. `InMemory` is documented as a non-primary backend
-for local/dev/test usage rather than a peer production recommendation.
 
 ## Common Scenarios
 
@@ -98,11 +83,11 @@ for local/dev/test usage rather than a peer production recommendation.
 host: rails
 backend: postgres
 goal: durable jobs, workflows, schedules, and operator visibility
-recommendation: default production path
+recommendation: production deployment
 ```
 
-This is the baseline recommendation for teams adopting Karya as a long-term
-platform rather than a narrow queue runner.
+This fits teams that want durable orchestration and a long-lived operator
+surface.
 
 ### Existing Queue-Centric Runtime
 
@@ -110,7 +95,7 @@ platform rather than a narrow queue runner.
 host: plain-ruby
 backend: redis
 goal: high-throughput queue execution with strong operational monitoring
-recommendation: supported, with explicit review of parity caveats
+recommendation: production deployment
 ```
 
 This fits teams that already operate Redis heavily and want Karya to align with
@@ -120,19 +105,31 @@ that environment.
 
 ```text
 host: plain-ruby
-backend: InMemory
+backend: Karya::Backend::InMemory
 goal: fast setup, tests, examples
 recommendation: local/dev/test only
 ```
 
 This is for speed and simplicity, not as a production durability story.
 
+### Production-Like Local SQL Evaluation
+
+```text
+host: rails
+backend: sqlite
+goal: local SQL-backed evaluation before production rollout
+recommendation: local only, production-like development path
+```
+
+This fits teams that want local SQL behavior without treating the local backend
+as the production deployment target.
+
 ## Adapter Pairings
 
-- Active Record path: typically Rails with `core/karya-activerecord`
-- Sequel path: Hanami, Roda, and Sinatra with `core/karya-sequel`
-- plain Ruby: choose the adapter path that matches the selected backend and
-  persistence style
+- Active Record path: choose a backend class that fits the SQL/runtime model
+- Sequel path: choose a backend class that fits the host and persistence model
+- plain Ruby: compose the backend class and persistence adapter that fit the
+  selected deployment model
 
 ## Related Concepts
 

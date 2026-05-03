@@ -38,6 +38,8 @@ module Karya
 
       def self.default_killer: () -> ^(String, Integer) -> Integer
 
+      def self.default_signal_subscriber: () -> ^(String, Karya::signal_handler) -> Karya::signal_restorer
+
       def self.normalize_callable: (Symbol name, Karya::callable_value value) -> Karya::callable_value
 
       def self.normalize_forker: (Symbol name, Karya::forker value) -> Karya::forker

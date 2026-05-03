@@ -84,6 +84,8 @@ module Karya
 
     def with_signal_handlers: (WorkerSupervisor::ShutdownController shutdown_controller) { () -> Integer } -> Integer
 
+    def collect_signal_restorers: (Array[^() -> nil] restorers, WorkerSupervisor::ShutdownController shutdown_controller) -> Array[^() -> nil]
+
     def register_signal_restorers: (Array[^() -> nil] restorers, WorkerSupervisor::ShutdownController shutdown_controller) -> Array[^() -> nil]
 
     def cleanup_tracked_children: (::Hash[Integer, bool] child_pids) -> nil

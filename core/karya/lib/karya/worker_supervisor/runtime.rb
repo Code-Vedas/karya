@@ -29,6 +29,16 @@ module Karya
         ->(signal, pid) { Process.kill(signal, pid) }
       end
 
+      def self.default_signal_subscriber
+        lambda do |signal, handler|
+          previous_handler = Signal.trap(signal) { handler.call }
+          lambda do
+            Signal.trap(signal, previous_handler)
+            nil
+          end
+        end
+      end
+
       def self.normalize_callable(name, value)
         Primitives::Callable.new(name, value, error_class: InvalidWorkerSupervisorConfigurationError).normalize
       end
@@ -66,34 +76,34 @@ module Karya
         runtime_class = self.class
         @forker = runtime_class.normalize_forker(
           :forker,
-          runtime_class.resolve_option(attributes, :forker, default: method(:default_forker))
+          resolve_runtime_option(attributes, :forker, default: method(:default_forker))
         )
         @instrumenter = runtime_class.normalize_optional_callable(
           :instrumenter,
-          runtime_class.resolve_option(attributes, :instrumenter, default: Karya.instrumenter)
+          resolve_runtime_option(attributes, :instrumenter, default: Karya.instrumenter)
         )
         @killer = runtime_class.normalize_callable(
           :killer,
-          runtime_class.resolve_option(attributes, :killer, default: runtime_class.default_killer)
+          resolve_runtime_option(attributes, :killer, default: runtime_class.default_killer)
         )
         @logger = validate_logger(
-          runtime_class.resolve_option(attributes, :logger, default: Karya.logger)
+          resolve_runtime_option(attributes, :logger, default: Karya.logger)
         )
         @outbound_event_dispatcher = runtime_class.normalize_optional_outbound_event_dispatcher(
           :outbound_event_dispatcher,
-          runtime_class.resolve_option(attributes, :outbound_event_dispatcher, default: Karya.outbound_event_dispatcher)
+          resolve_runtime_option(attributes, :outbound_event_dispatcher, default: Karya.outbound_event_dispatcher)
         )
         @poll_waiter = runtime_class.normalize_callable(
           :poll_waiter,
-          runtime_class.resolve_option(attributes, :poll_waiter, default: default_poll_waiter)
+          resolve_runtime_option(attributes, :poll_waiter, default: default_poll_waiter)
         )
         @signal_subscriber = runtime_class.normalize_optional_callable(
           :signal_subscriber,
-          runtime_class.resolve_option(attributes, :signal_subscriber, default: nil)
+          resolve_runtime_option(attributes, :signal_subscriber, default: runtime_class.default_signal_subscriber)
         )
         @waiter = runtime_class.normalize_callable(
           :waiter,
-          runtime_class.resolve_option(attributes, :waiter, default: default_waiter)
+          resolve_runtime_option(attributes, :waiter, default: default_waiter)
         )
       end
 
@@ -178,6 +188,10 @@ module Karya
       end
 
       private
+
+      def resolve_runtime_option(attributes, key, default:)
+        self.class.resolve_option(attributes, key, default:)
+      end
 
       def validate_logger(value)
         %i[debug info warn error].each do |level|

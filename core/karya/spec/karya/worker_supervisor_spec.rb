@@ -250,6 +250,7 @@ RSpec.describe Karya::WorkerSupervisor do
 
       expect(supervisor.run).to eq(1)
       expect(killed_processes).to eq([['TERM', 100], ['KILL', 100]])
+      expect(supervisor.runtime_snapshot.phase).to eq('stopped')
     end
 
     it 'supports begin_drain through the public control API while running' do

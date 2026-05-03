@@ -249,14 +249,19 @@ module Karya
     end
 
     def collect_signal_restorers(restorers, shutdown_controller)
-      register_signal_restorers(restorers, shutdown_controller)
       restorers << WakeupSignal.register_restorer(WAKEUP_SIGNAL)
+      register_signal_restorers(restorers, shutdown_controller)
     end
 
     def register_signal_restorers(restorers, shutdown_controller)
       SIGNALS.each do |signal|
-        restorers << runtime.subscribe_signal(signal, -> { shutdown_controller.advance })
+        restorers << runtime.subscribe_signal(signal, proc do
+          shutdown_controller.advance
+        ensure
+          WakeupSignal.interrupt(WAKEUP_SIGNAL)
+        end)
       end
+      restorers
     end
 
     def cleanup_tracked_children(child_pids)
