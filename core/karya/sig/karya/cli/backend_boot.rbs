@@ -28,7 +28,7 @@ module Karya
         QueueStore::Base queue_store,
         started: bool,
         suppress_cleanup_error: bool,
-        result: A
+        result: A?
       ) -> nil
     end
   end

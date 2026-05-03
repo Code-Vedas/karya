@@ -77,12 +77,11 @@ module Karya
     def worker(*queues)
       load_required_files(options.fetch(:require))
       backend, queue_store = BackendBoot.resolve
+      worker_configuration = build_worker_configuration(queues, queue_store:)
 
-      BackendBoot.run_with_lifecycle(backend, queue_store) do
-        supervisor = Karya::WorkerSupervisor.new(**build_worker_configuration(queues, queue_store:))
-        status = supervisor.run
-        exit(status) if status.positive?
-      end
+      supervisor = Karya::WorkerSupervisor.new(**worker_configuration)
+      status = BackendBoot.run_with_lifecycle(backend, queue_store) { supervisor.run }
+      exit(status) if status.positive?
     end
 
     desc 'runtime SUBCOMMAND ...ARGS', 'Inspect or control a running supervisor via the local runtime state file'

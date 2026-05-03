@@ -1,6 +1,40 @@
 # frozen_string_literal: true
 
 RSpec.describe Karya::CLI do
+  around do |example|
+    original_backend_class = Karya.instance_variable_get(:@backend_class)
+    original_backend_class_defined = Karya.instance_variable_defined?(:@backend_class)
+    original_backend_options = Karya.instance_variable_get(:@backend_options)
+    original_backend_options_defined = Karya.instance_variable_defined?(:@backend_options)
+
+    example.run
+  ensure
+    if original_backend_class_defined
+      Karya.instance_variable_set(:@backend_class, original_backend_class)
+    elsif Karya.instance_variable_defined?(:@backend_class)
+      Karya.remove_instance_variable(:@backend_class)
+    end
+
+    if original_backend_options_defined
+      Karya.instance_variable_set(:@backend_options, original_backend_options)
+    elsif Karya.instance_variable_defined?(:@backend_options)
+      Karya.remove_instance_variable(:@backend_options)
+    end
+  end
+
+  describe '.resolve' do
+    let(:backend_boot_class) { described_class.const_get(:BackendBoot, false) }
+
+    it 'rejects an invalid configured backend class if global state is corrupted' do
+      Karya.instance_variable_set(:@backend_class, Object.new)
+      Karya.instance_variable_set(:@backend_options, {})
+
+      expect do
+        backend_boot_class.resolve
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must respond to \.new/)
+    end
+  end
+
   describe '.run_with_lifecycle' do
     let(:backend_boot_class) { described_class.const_get(:BackendBoot, false) }
     let(:queue_store) { instance_double(Karya::QueueStore::Base) }
@@ -55,6 +89,22 @@ RSpec.describe Karya::CLI do
 
       expect do
         backend_boot_class.run_with_lifecycle(backend, queue_store) { 0 }
+      end.to raise_error(RuntimeError, /cleanup failed/)
+    end
+
+    it 'surfaces after_stop failures when the wrapped boot returns a non-numeric result' do
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        define_method(:identifier) { 'test_backend' }
+        define_method(:build_queue_store) { raise 'not used in this spec' }
+        define_method(:before_start) { |queue_store:| queue_store }
+        define_method(:after_stop) { |queue_store:| raise "cleanup failed for #{queue_store.object_id}" }
+      end
+      backend = backend_class.new
+
+      expect do
+        backend_boot_class.run_with_lifecycle(backend, queue_store) { Object.new }
       end.to raise_error(RuntimeError, /cleanup failed/)
     end
 

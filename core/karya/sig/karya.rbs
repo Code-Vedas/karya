@@ -439,6 +439,7 @@ module Karya
   type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | outbound_event_dispatcher | forker | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker) | Backend::Base
   type backend_option_value =
     nil |
+    bool |
     Numeric |
     String |
     Symbol |

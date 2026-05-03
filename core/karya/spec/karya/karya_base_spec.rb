@@ -25,7 +25,7 @@ RSpec.describe Karya do
 
     it 'stores the configured backend class and backend options' do
       backend_class = Karya::Backend::InMemory
-      options = { queue_store_class: Karya::QueueStore::InMemory }
+      options = { queue_store_class: Karya::QueueStore::InMemory, enabled: true }
 
       expect(
         described_class.configure_backend(backend_class, **options)
@@ -43,6 +43,12 @@ RSpec.describe Karya do
 
       expect(second_read).to eq(queue_store_class: Karya::QueueStore::InMemory)
       expect(described_class.backend_options).to eq(queue_store_class: Karya::QueueStore::InMemory)
+    end
+
+    it 'rejects a configured backend that does not respond to .new' do
+      expect do
+        described_class.configure_backend(Object.new)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must respond to \.new/)
     end
 
     it 'returns nil and an empty options hash when no backend is configured' do

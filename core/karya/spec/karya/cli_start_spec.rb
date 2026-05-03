@@ -242,10 +242,8 @@ RSpec.describe Karya::CLI do
     it 'fails clearly when the configured backend class does not respond to .new' do
       backend_class = Object.new
 
-      Karya.configure_backend(backend_class)
-
       expect do
-        described_class.start(%w[worker billing], suppress_header: true)
+        Karya.configure_backend(backend_class)
       end.to raise_error(
         Karya::InvalidBackendConfigurationError,
         /must respond to \.new/
@@ -321,6 +319,29 @@ RSpec.describe Karya::CLI do
         described_class.start(%w[worker billing --threads 1.5], suppress_header: true)
       end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /Invalid value for --threads/)
       expect(Karya::WorkerSupervisor).not_to have_received(:new)
+    end
+
+    it 'does not start backend lifecycle hooks when CLI option validation fails' do
+      lifecycle_events = []
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        define_method(:initialize) do |events:|
+          @events = events
+        end
+
+        define_method(:identifier) { 'test_backend' }
+        define_method(:build_queue_store) { Karya::QueueStore::InMemory.new }
+        define_method(:before_start) { |queue_store:| @events << [:before_start, queue_store] }
+        define_method(:after_stop) { |queue_store:| @events << [:after_stop, queue_store] }
+      end
+
+      Karya.configure_backend(backend_class, events: lifecycle_events)
+
+      expect do
+        described_class.start(%w[worker billing --processes 0], suppress_header: true)
+      end.to raise_error(Karya::InvalidWorkerSupervisorConfigurationError, /Invalid value for --processes/)
+      expect(lifecycle_events).to eq([])
     end
 
     it 'normalizes whole-float max_iterations before building the supervisor' do

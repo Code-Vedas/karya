@@ -83,7 +83,11 @@ module Karya
 
           backend.after_stop(queue_store:)
         rescue StandardError
-          raise unless suppress_cleanup_error || result.to_i.positive?
+          raise unless suppress_cleanup_error || positive_status_result?(result)
+        end
+
+        def positive_status_result?(result)
+          result.is_a?(Numeric) && result.positive?
         end
       end
     end

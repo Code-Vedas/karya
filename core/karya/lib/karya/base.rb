@@ -51,6 +51,7 @@ module Karya
     end
 
     def configure_backend(backend_class, **options)
+      validate_backend_class(backend_class)
       @backend_class = backend_class
       @backend_options = options.dup.freeze
       @backend_class
@@ -78,6 +79,15 @@ module Karya
       return @queue_store if defined?(@queue_store) && @queue_store
 
       raise MissingQueueStoreConfigurationError, 'Karya.queue_store must be configured before starting a worker'
+    end
+
+    private
+
+    def validate_backend_class(backend_class)
+      backend_class.method(:new)
+      backend_class
+    rescue NameError
+      raise InvalidBackendConfigurationError, 'configured backend class must respond to .new'
     end
   end
 end
