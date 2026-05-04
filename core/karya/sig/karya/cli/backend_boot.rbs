@@ -15,8 +15,6 @@ module Karya
 
       def self.instantiate: () -> Backend::Base
 
-      def self.validate_backend_instance: (Backend::Base backend, Backend::backend_class backend_class) -> void
-
       def self.build_queue_store: (Backend::Base backend) -> QueueStore::Base
 
       def self.execute_with_lifecycle: [A] (Backend::Base backend, QueueStore::Base queue_store) { () -> A } -> A

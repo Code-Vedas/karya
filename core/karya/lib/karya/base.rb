@@ -117,37 +117,41 @@ module Karya
     end
 
     def validate_backend_option(name, value)
-      return if valid_backend_option_value?(value)
+      return if valid_backend_option_value?(name, value)
 
       raise InvalidBackendConfigurationError,
             "configured backend option #{name.inspect} has unsupported value #{value.class}"
     end
 
-    def valid_backend_option_value?(value)
+    def valid_backend_option_value?(name, value)
       case value
       when NilClass, TrueClass, FalseClass, Numeric, String, Symbol,
         QueueStore::Base, Backpressure::PolicySet, CircuitBreaker::PolicySet,
         Fairness::Policy, Method, Proc, Class
         true
       when Array
-        valid_backend_option_array?(value)
+        valid_backend_option_array?(name, value)
       when Hash
         valid_backend_option_hash?(value)
       else
-        false
+        queue_store_factory_option?(name, value)
       end
     end
 
-    def valid_backend_option_array?(value)
-      value.all? { |item| valid_backend_option_value?(item) }
+    def valid_backend_option_array?(name, value)
+      value.all? { |item| valid_backend_option_value?(name, item) }
     end
 
     def valid_backend_option_hash?(value)
-      value.all? { |key, item| valid_backend_option_key?(key) && valid_backend_option_value?(item) }
+      value.all? { |key, item| valid_backend_option_key?(key) && valid_backend_option_value?(key, item) }
     end
 
     def valid_backend_option_key?(key)
       key.is_a?(Symbol) || key.is_a?(String)
+    end
+
+    def queue_store_factory_option?(name, value)
+      name == :queue_store_class && value.singleton_class.public_method_defined?(:new)
     end
 
     def immutable_backend_option_value(value)
@@ -156,6 +160,8 @@ module Karya
         immutable_backend_option_array(value)
       when Hash
         immutable_backend_option_hash(value)
+      when String
+        immutable_backend_option_string(value)
       else
         value
       end
@@ -167,6 +173,8 @@ module Karya
         duplicate_backend_option_array(value)
       when Hash
         duplicate_backend_option_hash(value)
+      when String
+        duplicate_backend_option_string(value)
       else
         value
       end
@@ -178,7 +186,7 @@ module Karya
 
     def immutable_backend_option_hash(value)
       value.each_with_object({}) do |(key, item), snapshot|
-        snapshot[key] = immutable_backend_option_value(item)
+        snapshot[immutable_backend_option_key(key)] = immutable_backend_option_value(item)
       end.freeze
     end
 
@@ -188,8 +196,30 @@ module Karya
 
     def duplicate_backend_option_hash(value)
       value.each_with_object({}) do |(key, item), duplicated|
-        duplicated[key] = duplicate_backend_option_value(item)
+        duplicated[duplicate_backend_option_key(key)] = duplicate_backend_option_value(item)
       end
+    end
+
+    def immutable_backend_option_key(key)
+      return immutable_backend_option_string(key) if key.is_a?(String)
+
+      key
+    end
+
+    def duplicate_backend_option_key(key)
+      return duplicate_backend_option_string(key) if key.is_a?(String)
+
+      key
+    end
+
+    def immutable_backend_option_string(value)
+      return value if value.frozen?
+
+      value.dup.freeze
+    end
+
+    def duplicate_backend_option_string(value)
+      value.dup
     end
   end
 end

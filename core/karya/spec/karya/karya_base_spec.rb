@@ -67,6 +67,26 @@ RSpec.describe Karya do
       )
     end
 
+    it 'snapshots nested string values and string keys immutably' do
+      adapter = +'in_memory'
+      key = +'adapter'
+      metadata = { key => adapter }
+
+      described_class.configure_backend(Karya::Backend::InMemory, metadata:)
+
+      key << '_changed'
+      adapter << '_changed'
+
+      first_read = described_class.backend_options
+      second_read = described_class.backend_options
+      first_read[:metadata]['adapter'] << '_mutated'
+      first_read[:metadata]['adapter'] = 'rewritten'
+      first_read[:metadata]['new_key'] = 'value'
+
+      expect(second_read).to eq(metadata: { 'adapter' => 'in_memory' })
+      expect(described_class.backend_options).to eq(metadata: { 'adapter' => 'in_memory' })
+    end
+
     it 'accepts nested backend options built from supported values' do
       options = {
         queue_store_class: Karya::QueueStore::InMemory,
@@ -83,6 +103,15 @@ RSpec.describe Karya do
       described_class.configure_backend(Karya::Backend::InMemory, **options)
 
       expect(described_class.backend_options).to eq(options)
+    end
+
+    it 'accepts a queue_store_class factory object that responds to .new' do
+      queue_store_factory = Object.new
+      queue_store_factory.define_singleton_method(:new) { |**| Karya::QueueStore::InMemory.new }
+
+      described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: queue_store_factory)
+
+      expect(described_class.backend_options).to eq(queue_store_class: queue_store_factory)
     end
 
     it 'rejects a configured backend that does not respond to .new' do
