@@ -29,13 +29,7 @@ module Karya
 
         def instantiate
           backend_class = Karya.backend_class
-          backend = backend_class.new(**Karya.backend_options)
-          unless backend.is_a?(Karya::Backend::Base)
-            raise Karya::InvalidBackendConfigurationError,
-                  "#{backend_class} must instantiate a backend including Karya::Backend::Base"
-          end
-
-          backend
+          backend_class.new(**Karya.backend_options)
         rescue ArgumentError, TypeError => e
           raise Karya::InvalidBackendConfigurationError,
                 "configured backend class #{backend_class} could not be initialized: #{e.message}"

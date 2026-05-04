@@ -114,6 +114,15 @@ RSpec.describe Karya do
       expect(described_class.backend_options).to eq(queue_store_class: queue_store_factory)
     end
 
+    it 'accepts generic callable backend option values' do
+      callable = Object.new
+      callable.define_singleton_method(:call) { 'token' }
+
+      described_class.configure_backend(Karya::Backend::InMemory, token_generator: callable)
+
+      expect(described_class.backend_options).to eq(token_generator: callable)
+    end
+
     it 'rejects a configured backend that does not respond to .new' do
       expect do
         described_class.configure_backend(Object.new)
@@ -132,6 +141,28 @@ RSpec.describe Karya do
       expect do
         described_class.configure_backend(backend_class)
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must include Karya::Backend::Base/)
+    end
+
+    it 'rejects a configured backend class that overrides the default .new constructor' do
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        define_singleton_method(:new) do |**|
+          super
+        end
+
+        def identifier
+          'test_backend'
+        end
+
+        def build_queue_store
+          Karya::QueueStore::InMemory.new
+        end
+      end
+
+      expect do
+        described_class.configure_backend(backend_class)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must use the default \.new constructor/)
     end
 
     it 'rejects a configured backend option with an unsupported value' do
@@ -174,12 +205,35 @@ RSpec.describe Karya do
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must be a Class/)
     end
 
-    it 'rejects corrupted backend class state that does not include the backend contract' do
+    it 'rejects corrupted backend class state that no longer includes the backend contract' do
       described_class.instance_variable_set(:@backend_class, Class.new)
 
       expect do
         described_class.backend_class
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must include Karya::Backend::Base/)
+    end
+
+    it 'rejects corrupted backend class state that overrides the default .new constructor' do
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        define_singleton_method(:new) do |**|
+          super
+        end
+
+        def identifier
+          'test_backend'
+        end
+
+        def build_queue_store
+          Karya::QueueStore::InMemory.new
+        end
+      end
+      described_class.instance_variable_set(:@backend_class, backend_class)
+
+      expect do
+        described_class.backend_class
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must use the default \.new constructor/)
     end
 
     it 'loads backend support when karya/base is required directly' do

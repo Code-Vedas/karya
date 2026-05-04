@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative 'internal/null_logger'
+require_relative 'primitives/callable'
 
 # Karya module serves as the namespace for all classes and modules related to the Karya gem.
 module Karya
@@ -102,8 +103,11 @@ module Karya
 
     def validate_backend_class(backend_class)
       raise InvalidBackendConfigurationError, 'configured backend class must be a Class' unless backend_class.is_a?(Class)
-
       raise InvalidBackendConfigurationError, 'configured backend class must include Karya::Backend::Base' unless backend_class <= Karya::Backend::Base
+      unless default_backend_constructor?(backend_class)
+        raise InvalidBackendConfigurationError,
+              'configured backend class must use the default .new constructor'
+      end
 
       backend_class
     end
@@ -133,14 +137,14 @@ module Karya
       case value
       when NilClass, TrueClass, FalseClass, Numeric, String, Symbol,
         QueueStore::Base, Backpressure::PolicySet, CircuitBreaker::PolicySet,
-        Fairness::Policy, Method, Proc, Class
+        Fairness::Policy, Class
         true
       when Array
         valid_backend_option_array?(name, value)
       when Hash
         valid_backend_option_hash?(value)
       else
-        queue_store_factory_option?(name, value)
+        generic_callable_option?(name, value) || queue_store_factory_option?(name, value)
       end
     end
 
@@ -165,6 +169,17 @@ module Karya
 
     def queue_store_factory_option?(name, value)
       name == :queue_store_class && value.singleton_class.public_method_defined?(:new)
+    end
+
+    def default_backend_constructor?(backend_class)
+      backend_class.method(:new).owner == Class
+    end
+
+    def generic_callable_option?(name, value)
+      Primitives::Callable.new(name, value, error_class: InvalidBackendConfigurationError).normalize
+      true
+    rescue InvalidBackendConfigurationError
+      false
     end
 
     def immutable_backend_option_value(value)
