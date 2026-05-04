@@ -51,10 +51,11 @@ module Karya
     end
 
     def configure_backend(backend_class, **options)
+      load_backend_support
       validate_backend_class(backend_class)
       validate_backend_options(options)
       @backend_class = backend_class
-      @backend_options = options.dup.freeze
+      @backend_options = immutable_backend_option_value(options)
       @backend_class
     end
 
@@ -65,15 +66,19 @@ module Karya
     end
 
     def backend_class
-      return validate_backend_class(@backend_class) if defined?(@backend_class) && @backend_class
+      if defined?(@backend_class) && @backend_class
+        load_backend_support
+        return validate_backend_class(@backend_class)
+      end
 
       nil
     end
 
     def backend_options
       if defined?(@backend_options) && @backend_options
+        load_backend_support
         validate_backend_options(@backend_options)
-        return @backend_options.dup
+        return duplicate_backend_option_value(@backend_options)
       end
 
       {}
@@ -87,8 +92,16 @@ module Karya
 
     private
 
+    def load_backend_support
+      require_relative 'backend'
+      require_relative 'queue_store/base'
+      require_relative 'backpressure'
+      require_relative 'circuit_breaker'
+      require_relative 'fairness'
+    end
+
     def validate_backend_class(backend_class)
-      raise InvalidBackendConfigurationError, 'configured backend class must respond to .new' unless backend_class.is_a?(Class)
+      raise InvalidBackendConfigurationError, 'configured backend class must be a Class' unless backend_class.is_a?(Class)
 
       raise InvalidBackendConfigurationError, 'configured backend class must include Karya::Backend::Base' unless backend_class <= Karya::Backend::Base
 
@@ -135,6 +148,48 @@ module Karya
 
     def valid_backend_option_key?(key)
       key.is_a?(Symbol) || key.is_a?(String)
+    end
+
+    def immutable_backend_option_value(value)
+      case value
+      when Array
+        immutable_backend_option_array(value)
+      when Hash
+        immutable_backend_option_hash(value)
+      else
+        value
+      end
+    end
+
+    def duplicate_backend_option_value(value)
+      case value
+      when Array
+        duplicate_backend_option_array(value)
+      when Hash
+        duplicate_backend_option_hash(value)
+      else
+        value
+      end
+    end
+
+    def immutable_backend_option_array(value)
+      value.map { |item| immutable_backend_option_value(item) }.freeze
+    end
+
+    def immutable_backend_option_hash(value)
+      value.each_with_object({}) do |(key, item), snapshot|
+        snapshot[key] = immutable_backend_option_value(item)
+      end.freeze
+    end
+
+    def duplicate_backend_option_array(value)
+      value.map { |item| duplicate_backend_option_value(item) }
+    end
+
+    def duplicate_backend_option_hash(value)
+      value.each_with_object({}) do |(key, item), duplicated|
+        duplicated[key] = duplicate_backend_option_value(item)
+      end
     end
   end
 end

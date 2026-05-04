@@ -239,14 +239,14 @@ RSpec.describe Karya::CLI do
       )
     end
 
-    it 'fails clearly when the configured backend class does not respond to .new' do
+    it 'fails clearly when the configured backend class is not a Class' do
       backend_class = Object.new
 
       expect do
         Karya.configure_backend(backend_class)
       end.to raise_error(
         Karya::InvalidBackendConfigurationError,
-        /must respond to \.new/
+        /must be a Class/
       )
     end
 

@@ -443,6 +443,7 @@ module Karya
     Numeric |
     String |
     Symbol |
+    Class |
     callable_value |
     QueueStore::Base |
     Backpressure::PolicySet |

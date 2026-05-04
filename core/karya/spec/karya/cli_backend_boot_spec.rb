@@ -31,7 +31,7 @@ RSpec.describe Karya::CLI do
 
       expect do
         backend_boot_class.resolve
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /must respond to \.new/)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must be a Class/)
     end
   end
 

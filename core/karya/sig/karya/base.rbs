@@ -11,7 +11,7 @@ module Karya
   self.@logger: logger
 
   self.@queue_store: QueueStore::Base
-  self.@backend_class: Backend::_BackendClass?
+  self.@backend_class: Backend::backend_class?
   self.@backend_options: Hash[Symbol, backend_option_value]?
 
   # Internal implementation namespace. Constants here are not part of the supported public API.
@@ -50,10 +50,10 @@ module Karya
   def self.configure_logger: (logger logger) -> logger
 
   def self.configure_queue_store: (QueueStore::Base queue_store) -> QueueStore::Base
-  def self.configure_backend: (Backend::_BackendClass backend_class, **backend_option_value options) -> Backend::_BackendClass
+  def self.configure_backend: (Backend::backend_class backend_class, **backend_option_value options) -> Backend::backend_class
 
   def self.logger: () -> logger
-  def self.backend_class: () -> Backend::_BackendClass?
+  def self.backend_class: () -> Backend::backend_class?
   def self.backend_options: () -> Hash[Symbol, backend_option_value]
 
   def self.queue_store: () -> QueueStore::Base

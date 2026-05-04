@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require 'open3'
+require 'rbconfig'
+
 RSpec.describe Karya do
   describe '.configure_backend' do
     around do |example|
@@ -45,6 +48,25 @@ RSpec.describe Karya do
       expect(described_class.backend_options).to eq(queue_store_class: Karya::QueueStore::InMemory)
     end
 
+    it 'snapshots nested backend options immutably' do
+      flags = [true, :local]
+      metadata = { adapter: 'in_memory', flags: }
+      described_class.configure_backend(Karya::Backend::InMemory, metadata:)
+
+      flags << :mutated
+      metadata[:adapter] = 'changed'
+      first_read = described_class.backend_options
+      first_read[:metadata][:flags] << :changed
+      first_read[:metadata][:adapter] = 'modified'
+
+      expect(described_class.backend_options).to eq(
+        metadata: {
+          adapter: 'in_memory',
+          flags: [true, :local]
+        }
+      )
+    end
+
     it 'accepts nested backend options built from supported values' do
       options = {
         queue_store_class: Karya::QueueStore::InMemory,
@@ -66,13 +88,13 @@ RSpec.describe Karya do
     it 'rejects a configured backend that does not respond to .new' do
       expect do
         described_class.configure_backend(Object.new)
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /must respond to \.new/)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must be a Class/)
     end
 
     it 'rejects nil as a configured backend class' do
       expect do
         described_class.configure_backend(nil)
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /must respond to \.new/)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must be a Class/)
     end
 
     it 'rejects a configured backend class that does not include the backend contract' do
@@ -102,7 +124,7 @@ RSpec.describe Karya do
 
       expect do
         described_class.backend_class
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /must respond to \.new/)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /must be a Class/)
     end
 
     it 'rejects corrupted backend class state that does not include the backend contract' do
@@ -111,6 +133,29 @@ RSpec.describe Karya do
       expect do
         described_class.backend_class
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must include Karya::Backend::Base/)
+    end
+
+    it 'loads backend support when karya/base is required directly' do
+      lib_path = File.expand_path('../../../lib', __dir__)
+      script = <<~RUBY
+        require 'karya/base'
+        require 'karya/backend/base'
+
+        backend_class = Class.new do
+          include Karya::Backend::Base
+
+          def identifier = 'direct_base_backend'
+          def build_queue_store = nil
+        end
+
+        Karya.configure_backend(backend_class)
+        puts Karya.backend_class == backend_class
+      RUBY
+
+      stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+      expect(status.success?).to be(true), stderr
+      expect(stdout).to eq("true\n")
     end
   end
 end
