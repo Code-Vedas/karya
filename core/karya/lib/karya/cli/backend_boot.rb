@@ -62,7 +62,7 @@ module Karya
             suppress_cleanup_error = true
             raise
           ensure
-            suppress_cleanup_error ||= $ERROR_INFO
+            suppress_cleanup_error ||= $ERROR_INFO.is_a?(Exception)
             finish_lifecycle(backend, queue_store, started:, suppress_cleanup_error:, result:)
           end
 

@@ -149,6 +149,15 @@ RSpec.describe Karya do
       end.to raise_error(Karya::InvalidBackendConfigurationError, /option keys must be Symbols/)
     end
 
+    it 'rejects corrupted backend options that are not a hash' do
+      described_class.instance_variable_set(:@backend_class, Karya::Backend::InMemory)
+      described_class.instance_variable_set(:@backend_options, %w[not a hash])
+
+      expect do
+        described_class.backend_options
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /options must be a Hash/)
+    end
+
     it 'returns nil and an empty options hash when no backend is configured' do
       described_class.remove_instance_variable(:@backend_class) if described_class.instance_variable_defined?(:@backend_class)
       described_class.remove_instance_variable(:@backend_options) if described_class.instance_variable_defined?(:@backend_options)

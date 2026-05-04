@@ -109,6 +109,11 @@ module Karya
     end
 
     def validate_backend_options(options)
+      unless options.is_a?(Hash)
+        raise InvalidBackendConfigurationError,
+              "configured backend options must be a Hash: #{options.class}"
+      end
+
       options.each do |name, value|
         validate_backend_option_key(name)
         validate_backend_option(name, value)
