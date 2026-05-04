@@ -156,6 +156,27 @@ RSpec.describe Karya::CLI do
       expect(lifecycle_events).to eq([[:before_start, queue_store], [:after_stop, queue_store]])
     end
 
+    it 'preserves a fatal exception when cleanup also fails' do
+      lifecycle_events = []
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        define_method(:identifier) { 'test_backend' }
+        define_method(:build_queue_store) { raise 'not used in this spec' }
+        define_method(:before_start) { |queue_store:| lifecycle_events << [:before_start, queue_store] }
+        define_method(:after_stop) do |queue_store:|
+          lifecycle_events << [:after_stop, queue_store]
+          raise 'cleanup failed'
+        end
+      end
+      backend = backend_class.new
+
+      expect do
+        backend_boot_class.run_with_lifecycle(backend, queue_store) { raise ScriptError, 'fatal boom' }
+      end.to raise_error(ScriptError, /fatal boom/)
+      expect(lifecycle_events).to eq([[:before_start, queue_store], [:after_stop, queue_store]])
+    end
+
     it 'does not call after_stop when before_start fails' do
       lifecycle_events = []
       backend_class = Class.new do

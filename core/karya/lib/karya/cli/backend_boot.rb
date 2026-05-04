@@ -5,6 +5,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require 'English'
+
 module Karya
   class CLI < Thor
     # Resolves configured backend classes into queue stores and manages backend lifecycle hooks.
@@ -60,6 +62,7 @@ module Karya
             suppress_cleanup_error = true
             raise
           ensure
+            suppress_cleanup_error ||= $ERROR_INFO
             finish_lifecycle(backend, queue_store, started:, suppress_cleanup_error:, result:)
           end
 

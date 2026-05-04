@@ -239,6 +239,33 @@ RSpec.describe Karya::CLI do
       )
     end
 
+    it 'fails clearly when the configured backend class raises a TypeError during initialization' do
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        def initialize(**)
+          raise TypeError, 'keyword coercion failed'
+        end
+
+        def identifier
+          'test_backend'
+        end
+
+        def build_queue_store
+          Karya::QueueStore::InMemory.new
+        end
+      end
+
+      Karya.configure_backend(backend_class)
+
+      expect do
+        described_class.start(%w[worker billing], suppress_header: true)
+      end.to raise_error(
+        Karya::InvalidBackendConfigurationError,
+        /could not be initialized: keyword coercion failed/
+      )
+    end
+
     it 'fails clearly when the configured backend class is not a Class' do
       backend_class = Object.new
 
