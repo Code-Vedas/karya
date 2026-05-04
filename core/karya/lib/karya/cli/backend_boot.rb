@@ -34,7 +34,7 @@ module Karya
           end
 
           backend
-        rescue ArgumentError => e
+        rescue ArgumentError, TypeError => e
           raise Karya::InvalidBackendConfigurationError,
                 "configured backend class #{backend_class} could not be initialized: #{e.message}"
         end

@@ -140,6 +140,15 @@ RSpec.describe Karya do
       end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
     end
 
+    it 'rejects a configured backend option with a non-symbol top-level key' do
+      described_class.instance_variable_set(:@backend_class, Karya::Backend::InMemory)
+      described_class.instance_variable_set(:@backend_options, { 'queue_store_class' => Karya::QueueStore::InMemory })
+
+      expect do
+        described_class.backend_options
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /option keys must be Symbols/)
+    end
+
     it 'returns nil and an empty options hash when no backend is configured' do
       described_class.remove_instance_variable(:@backend_class) if described_class.instance_variable_defined?(:@backend_class)
       described_class.remove_instance_variable(:@backend_options) if described_class.instance_variable_defined?(:@backend_options)

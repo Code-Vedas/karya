@@ -110,6 +110,7 @@ module Karya
 
     def validate_backend_options(options)
       options.each do |name, value|
+        validate_backend_option_key(name)
         validate_backend_option(name, value)
       end
 
@@ -148,6 +149,13 @@ module Karya
 
     def valid_backend_option_key?(key)
       key.is_a?(Symbol) || key.is_a?(String)
+    end
+
+    def validate_backend_option_key(key)
+      return if key.is_a?(Symbol)
+
+      raise InvalidBackendConfigurationError,
+            "configured backend option keys must be Symbols: #{key.inspect}"
     end
 
     def queue_store_factory_option?(name, value)

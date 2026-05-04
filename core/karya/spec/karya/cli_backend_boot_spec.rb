@@ -33,6 +33,15 @@ RSpec.describe Karya::CLI do
         backend_boot_class.resolve
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must be a Class/)
     end
+
+    it 'rejects corrupted backend options with non-symbol top-level keys before instantiation' do
+      Karya.instance_variable_set(:@backend_class, Karya::Backend::InMemory)
+      Karya.instance_variable_set(:@backend_options, { 'queue_store_class' => Karya::QueueStore::InMemory })
+
+      expect do
+        backend_boot_class.resolve
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /option keys must be Symbols/)
+    end
   end
 
   describe '.run_with_lifecycle' do
