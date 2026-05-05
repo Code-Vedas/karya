@@ -130,13 +130,13 @@ module Karya
     end
 
     def valid_backend_option_value?(name, value)
+      return queue_store_factory_option?(name, value) if name == :queue_store_class
+
       case value
       when NilClass, TrueClass, FalseClass, Numeric, String, Symbol,
-        QueueStore::Base, Backpressure::PolicySet, CircuitBreaker::PolicySet,
+        Class, QueueStore::Base, Backpressure::PolicySet, CircuitBreaker::PolicySet,
         Fairness::Policy
         true
-      when Class
-        name == :queue_store_class ? valid_queue_store_factory_class?(value) : true
       when Array
         valid_backend_option_array?(name, value)
       when Hash
@@ -171,7 +171,7 @@ module Karya
 
     def valid_queue_store_factory_class?(value)
       value < QueueStore::Base
-    rescue NameError
+    rescue StandardError
       false
     end
 

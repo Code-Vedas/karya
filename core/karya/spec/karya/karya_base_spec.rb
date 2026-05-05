@@ -141,6 +141,15 @@ RSpec.describe Karya do
       end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
     end
 
+    it 'rejects queue_store_class when it is a queue store instance' do
+      expect do
+        described_class.configure_backend(
+          Karya::Backend::InMemory,
+          queue_store_class: Karya::QueueStore::InMemory.new
+        )
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
+    end
+
     it 'rejects queue_store_class factory objects that are not classes' do
       queue_store_factory = Object.new
       queue_store_factory.define_singleton_method(:new) { |**| Karya::QueueStore::InMemory.new }
@@ -283,6 +292,28 @@ RSpec.describe Karya do
 
       expect(
         described_class.send(:queue_store_factory_option?, :queue_store_class, invalid_queue_store_class)
+      ).to be(false)
+    end
+
+    it 'rejects queue store classes when the subclass check raises a different error' do
+      invalid_queue_store_class = Class.new
+      invalid_queue_store_class.define_singleton_method(:<) do |_other|
+        raise TypeError, 'broken subclass check'
+      end
+
+      expect(
+        described_class.send(:queue_store_factory_option?, :queue_store_class, invalid_queue_store_class)
+      ).to be(false)
+    end
+  end
+
+  describe '.generic_backend_option?' do
+    it 'does not treat queue_store_class as a generic callable option' do
+      callable = Object.new
+      callable.define_singleton_method(:call) { Karya::QueueStore::InMemory.new }
+
+      expect(
+        described_class.send(:generic_backend_option?, :queue_store_class, callable)
       ).to be(false)
     end
   end
