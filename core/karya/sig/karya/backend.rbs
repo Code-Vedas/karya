@@ -8,6 +8,10 @@ module Karya
   end
 
   module Backend
-    type backend_class = ::Class
+    interface _BackendClass
+       def new: () -> Backend::Base
+     end
+    
+    type backend_class = _BackendClass
   end
 end

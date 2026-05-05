@@ -50,7 +50,7 @@ module Karya
   def self.configure_logger: (logger logger) -> logger
 
   def self.configure_queue_store: (QueueStore::Base queue_store) -> QueueStore::Base
-  def self.configure_backend: (Backend::backend_class backend_class, **backend_option_value options) -> Backend::backend_class
+  def self.configure_backend: (Backend::backend_class backend_class, ?queue_store_class: Class, **backend_option_value options) -> Backend::backend_class
 
   def self.logger: () -> logger
   def self.backend_class: () -> Backend::backend_class?
