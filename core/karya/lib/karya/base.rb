@@ -168,7 +168,23 @@ module Karya
     end
 
     def queue_store_factory_option?(name, value)
-      name == :queue_store_class && value.singleton_class.public_method_defined?(:new)
+      return false unless name == :queue_store_class
+
+      if value.is_a?(Class)
+        valid_queue_store_factory_class?(value)
+      else
+        valid_queue_store_factory_object?(value)
+      end
+    end
+
+    def valid_queue_store_factory_class?(value)
+      value < QueueStore::Base
+    rescue NameError
+      false
+    end
+
+    def valid_queue_store_factory_object?(value)
+      value.singleton_class.public_method_defined?(:new)
     end
 
     def default_backend_constructor?(backend_class)

@@ -274,4 +274,23 @@ RSpec.describe Karya do
       expect(stdout).to eq("true\n")
     end
   end
+
+  describe '.queue_store_factory_option?' do
+    it 'accepts a queue store class through the factory helper' do
+      expect(
+        described_class.send(:queue_store_factory_option?, :queue_store_class, Karya::QueueStore::InMemory)
+      ).to be(true)
+    end
+
+    it 'rejects queue store classes that fail the QueueStore::Base subclass check' do
+      invalid_queue_store_class = Class.new
+      invalid_queue_store_class.define_singleton_method(:<) do |_other|
+        raise NameError, 'broken subclass check'
+      end
+
+      expect(
+        described_class.send(:queue_store_factory_option?, :queue_store_class, invalid_queue_store_class)
+      ).to be(false)
+    end
+  end
 end
