@@ -105,6 +105,18 @@ RSpec.describe Karya do
       expect(described_class.backend_options).to eq(options)
     end
 
+    it 'does not apply top-level queue_store_class special-casing to nested metadata' do
+      callable = Object.new
+      callable.define_singleton_method(:call) { 'token' }
+
+      described_class.configure_backend(
+        Karya::Backend::InMemory,
+        metadata: { queue_store_class: callable }
+      )
+
+      expect(described_class.backend_options).to eq(metadata: { queue_store_class: callable })
+    end
+
     it 'accepts a queue_store_class factory object that responds to .new' do
       queue_store_factory = Object.new
       queue_store_factory.define_singleton_method(:new) { |**| Karya::QueueStore::InMemory.new }

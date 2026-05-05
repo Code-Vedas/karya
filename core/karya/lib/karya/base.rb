@@ -142,7 +142,7 @@ module Karya
       when Array
         valid_backend_option_array?(name, value)
       when Hash
-        valid_backend_option_hash?(value)
+        valid_backend_option_hash?(name, value)
       else
         queue_store_factory_option?(name, value) || generic_backend_option?(name, value)
       end
@@ -152,8 +152,8 @@ module Karya
       value.all? { |item| valid_backend_option_value?(name, item) }
     end
 
-    def valid_backend_option_hash?(value)
-      value.all? { |key, item| valid_backend_option_key?(key) && valid_backend_option_value?(key, item) }
+    def valid_backend_option_hash?(name, value)
+      value.all? { |key, item| valid_backend_option_key?(key) && valid_backend_option_value?(name, item) }
     end
 
     def valid_backend_option_key?(key)
