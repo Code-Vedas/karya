@@ -449,7 +449,6 @@ module Karya
     Backpressure::PolicySet |
     CircuitBreaker::PolicySet |
     Fairness::Policy |
-    Backend::_QueueStoreFactoryInput |
     Array[backend_option_value] |
     Hash[Symbol | String, backend_option_value]
   type symbol_options = ::Hash[Symbol, option_value]

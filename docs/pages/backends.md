@@ -75,6 +75,10 @@ Backend choice affects more than persistence:
 - what adapter path and operational posture fit the deployment best
 - what troubleshooting guidance applies in production
 
+Configure Karya with a backend class and any backend options that backend
+requires. Karya uses the selected backend to initialize the queue storage used
+by workers and supervisors.
+
 ## Common Scenarios
 
 ### General-Purpose Production Platform

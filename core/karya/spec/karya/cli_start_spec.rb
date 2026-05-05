@@ -328,11 +328,13 @@ RSpec.describe Karya::CLI do
         end
       end
 
+      Karya.configure_backend(backend_class)
+
       expect do
-        Karya.configure_backend(backend_class)
+        described_class.start(%w[worker billing], suppress_header: true)
       end.to raise_error(
         Karya::InvalidBackendConfigurationError,
-        /must use the default \.new constructor/
+        /must instantiate a backend including Karya::Backend::Base/
       )
     end
 

@@ -9,7 +9,8 @@ require 'English'
 
 module Karya
   class CLI < Thor
-    # Resolves configured backend classes into queue stores and manages backend lifecycle hooks.
+    # Resolves configured backend settings into a queue store and wraps backend
+    # lifecycle hooks around worker boot.
     class BackendBoot
       class << self
         def resolve
@@ -29,7 +30,11 @@ module Karya
 
         def instantiate
           backend_class = Karya.backend_class
-          backend_class.new(**Karya.backend_options)
+          backend = backend_class.new(**Karya.backend_options)
+          return backend if backend.is_a?(Karya::Backend::Base)
+
+          raise Karya::InvalidBackendConfigurationError,
+                "#{backend_class} must instantiate a backend including Karya::Backend::Base"
         rescue ArgumentError, TypeError => e
           raise Karya::InvalidBackendConfigurationError,
                 "configured backend class #{backend_class} could not be initialized: #{e.message}"

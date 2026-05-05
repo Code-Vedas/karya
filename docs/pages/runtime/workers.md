@@ -106,6 +106,10 @@ Karya::CLI.start([
 ])
 ```
 
+Configure workers with a backend class and any backend options that backend
+requires. Karya uses that backend to initialize worker queue storage when the
+worker starts.
+
 The supervisor coordinates shutdown and control signals, while child worker
 threads reserve work, execute it, and drain in-flight jobs when shutdown
 begins. Per-worker env overrides use `KARYA_<PREFIX>_PROCESSES` and

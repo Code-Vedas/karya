@@ -117,15 +117,6 @@ RSpec.describe Karya do
       expect(described_class.backend_options).to eq(metadata: { queue_store_class: callable })
     end
 
-    it 'accepts a queue_store_class factory object that responds to .new' do
-      queue_store_factory = Object.new
-      queue_store_factory.define_singleton_method(:new) { |**| Karya::QueueStore::InMemory.new }
-
-      described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: queue_store_factory)
-
-      expect(described_class.backend_options).to eq(queue_store_class: queue_store_factory)
-    end
-
     it 'accepts generic callable backend option values' do
       callable = Object.new
       callable.define_singleton_method(:call) { 'token' }
@@ -135,12 +126,27 @@ RSpec.describe Karya do
       expect(described_class.backend_options).to eq(token_generator: callable)
     end
 
+    it 'accepts class-valued backend options outside queue_store_class' do
+      described_class.configure_backend(Karya::Backend::InMemory, adapter_class: String)
+
+      expect(described_class.backend_options).to eq(adapter_class: String)
+    end
+
     it 'rejects queue_store_class when it is only a generic callable' do
       callable = Object.new
       callable.define_singleton_method(:call) { Karya::QueueStore::InMemory.new }
 
       expect do
         described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: callable)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
+    end
+
+    it 'rejects queue_store_class factory objects that are not classes' do
+      queue_store_factory = Object.new
+      queue_store_factory.define_singleton_method(:new) { |**| Karya::QueueStore::InMemory.new }
+
+      expect do
+        described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: queue_store_factory)
       end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
     end
 
@@ -162,7 +168,7 @@ RSpec.describe Karya do
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must be a Class/)
     end
 
-    it 'rejects a configured backend class that does not include the backend contract' do
+    it 'rejects configured backend classes that do not include the backend contract' do
       backend_class = Class.new
 
       expect do
@@ -170,7 +176,7 @@ RSpec.describe Karya do
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must include Karya::Backend::Base/)
     end
 
-    it 'rejects a configured backend class that overrides the default .new constructor' do
+    it 'accepts a configured backend class that overrides .new' do
       backend_class = Class.new do
         include Karya::Backend::Base
 
@@ -187,9 +193,7 @@ RSpec.describe Karya do
         end
       end
 
-      expect do
-        described_class.configure_backend(backend_class)
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /must use the default \.new constructor/)
+      expect(described_class.configure_backend(backend_class)).to be(backend_class)
     end
 
     it 'rejects a configured backend option with an unsupported value' do
@@ -238,29 +242,6 @@ RSpec.describe Karya do
       expect do
         described_class.backend_class
       end.to raise_error(Karya::InvalidBackendConfigurationError, /must include Karya::Backend::Base/)
-    end
-
-    it 'rejects corrupted backend class state that overrides the default .new constructor' do
-      backend_class = Class.new do
-        include Karya::Backend::Base
-
-        define_singleton_method(:new) do |**|
-          super
-        end
-
-        def identifier
-          'test_backend'
-        end
-
-        def build_queue_store
-          Karya::QueueStore::InMemory.new
-        end
-      end
-      described_class.instance_variable_set(:@backend_class, backend_class)
-
-      expect do
-        described_class.backend_class
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /must use the default \.new constructor/)
     end
 
     it 'loads backend support when karya/base is required directly' do
