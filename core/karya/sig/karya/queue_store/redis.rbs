@@ -1,0 +1,43 @@
+module Karya
+  module QueueStore
+    class Redis < InMemory
+      module Internal
+        interface _RedisClient
+          def get: (String key) -> String?
+          def set: (String key, String value, ?nx: bool, ?ex: Integer) -> String?
+          def del: (String key) -> Integer
+          def eval: (String script, keys: Array[String], argv: Array[String]) -> Integer
+        end
+      end
+
+      DEFAULT_NAMESPACE: String
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT: Integer
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: Integer
+      DEFAULT_MAX_BATCH_SIZE: Integer
+
+      def initialize: (
+        url: String,
+        ?namespace: String,
+        ?expired_tombstone_limit: Integer,
+        ?completed_batch_retention_limit: Integer,
+        ?max_batch_size: Integer,
+        ?policy_set: Backpressure::PolicySet,
+        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
+        ?fairness_policy: Fairness::Policy
+      ) -> void
+
+      private
+
+      attr_reader namespace: String
+      attr_reader url: String
+
+      def normalize_url: (String? value) -> String
+      def normalize_namespace: (String? value) -> String
+      def load_persisted_state: () -> void
+      def persist_state: () -> String
+      def redis_client: () -> Internal::_RedisClient
+      def state_key: () -> String
+      def lock_key: () -> String
+    end
+  end
+end

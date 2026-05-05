@@ -12,6 +12,7 @@ gem 'karya', path: '../karya'
 gemspec
 
 gem 'rake', require: false
+gem 'redis', '~> 5.4'
 gem 'reek', require: false
 gem 'rspec', '~> 3.13'
 gem 'rubocop', '~> 1.72', require: false

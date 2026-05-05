@@ -29,54 +29,6 @@ RSpec.describe Karya::Backend::InMemory do
     expect(queue_store).to be_a(Karya::QueueStore::InMemory)
   end
 
-  it 'allows an injected queue store factory that returns a queue store base' do
-    queue_store = Karya::QueueStore::InMemory.new
-    queue_store_factory = Class.new do
-      define_singleton_method(:new) { |**| queue_store }
-    end
-    backend = described_class.new(queue_store_class: queue_store_factory)
-
-    expect(backend.build_queue_store).to be(queue_store)
-  end
-
-  it 'forwards provided queue-store builder keywords and preserves explicit nil values' do
-    queue_store = Karya::QueueStore::InMemory.new
-    captured_options = nil
-    queue_store_factory = Class.new do
-      define_singleton_method(:new) do |**options|
-        captured_options = options
-        queue_store
-      end
-    end
-    backend = described_class.new(queue_store_class: queue_store_factory)
-    token_generator = -> { 'token-1' }
-
-    backend.build_queue_store(
-      token_generator:,
-      expired_tombstone_limit: 12,
-      completed_batch_retention_limit: nil,
-      max_batch_size: 50
-    )
-
-    expect(captured_options).to eq(
-      token_generator:,
-      expired_tombstone_limit: 12,
-      completed_batch_retention_limit: nil,
-      max_batch_size: 50
-    )
-  end
-
-  it 'rejects an injected queue store factory that returns a non queue store' do
-    queue_store_factory = Class.new do
-      define_singleton_method(:new) { |**| Object.new }
-    end
-    backend = described_class.new(queue_store_class: queue_store_factory)
-
-    expect do
-      backend.build_queue_store
-    end.to raise_error(Karya::InvalidBackendConfigurationError, /queue_store_class must build a Karya::QueueStore::Base/)
-  end
-
   it 'declares no-op lifecycle hooks around queue-store usage' do
     queue_store = backend.build_queue_store
 

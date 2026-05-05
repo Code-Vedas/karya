@@ -130,8 +130,6 @@ module Karya
     end
 
     def valid_backend_option_value?(name, value)
-      return queue_store_factory_option?(name, value) if name == :queue_store_class
-
       case value
       when NilClass, TrueClass, FalseClass, Numeric, String, Symbol,
         Class, QueueStore::Base, Backpressure::PolicySet, CircuitBreaker::PolicySet,
@@ -165,16 +163,6 @@ module Karya
             "configured backend option keys must be Symbols: #{key.inspect}"
     end
 
-    def queue_store_factory_option?(name, value)
-      name == :queue_store_class && value.is_a?(Class) && valid_queue_store_factory_class?(value)
-    end
-
-    def valid_queue_store_factory_class?(value)
-      value < QueueStore::Base
-    rescue StandardError
-      false
-    end
-
     def generic_callable_option?(name, value)
       Primitives::Callable.new(name, value, error_class: InvalidBackendConfigurationError).normalize
       true
@@ -183,8 +171,6 @@ module Karya
     end
 
     def generic_backend_option?(name, value)
-      return false if name == :queue_store_class
-
       generic_callable_option?(name, value)
     end
 

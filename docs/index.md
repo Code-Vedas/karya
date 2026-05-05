@@ -70,7 +70,7 @@ workflows, framework hosts, operator tooling, and governed production rollout.
 - [Backends](/backends/): backend fit, production boundaries, and adapter
   pairing
 - [Frameworks](/frameworks/): host integrations, ActiveJob, and
-  parity notes
+  framework-specific guidance
 - [Dashboard Hosting](/dashboard-hosting/): packaged asset contract and host
   responsibilities
 - [Operator](/operator/): dashboard, internal API, CLI, search,

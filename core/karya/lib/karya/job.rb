@@ -17,6 +17,47 @@ module Karya
 
   # Immutable value object for the canonical queued job model.
   class Job
+    # Serializes jobs without persisting the runtime lifecycle registry object.
+    module MarshalSupport
+      def marshal_dump
+        {
+          id:,
+          queue:,
+          handler:,
+          arguments:,
+          priority:,
+          concurrency_scope:,
+          rate_limit_scope:,
+          retry_policy:,
+          execution_timeout:,
+          expires_at:,
+          idempotency_key:,
+          uniqueness_key:,
+          uniqueness_scope:,
+          state:,
+          attempt:,
+          created_at:,
+          updated_at:,
+          next_retry_at:,
+          failure_classification:,
+          dead_letter_reason:,
+          dead_lettered_at:,
+          dead_letter_source_state:
+        }
+      end
+
+      def marshal_load(attributes)
+        reloaded_job = self.class.new(**attributes)
+
+        @identity = reloaded_job.send(:identity)
+        @scheduling = reloaded_job.send(:scheduling)
+        @lifecycle_state = reloaded_job.send(:lifecycle_state)
+        freeze
+      end
+    end
+    private_constant :MarshalSupport
+    include MarshalSupport
+
     # Canonical immutable routing payload for one job instance.
     Identity = Struct.new(:id, :queue, :handler, :arguments)
     # Canonical immutable scheduling metadata for job selection policies.

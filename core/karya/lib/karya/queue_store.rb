@@ -38,6 +38,7 @@ module Karya
     autoload :BulkMutationReport, 'karya/queue_store/bulk_mutation_report'
     autoload :InMemory, 'karya/queue_store/in_memory'
     autoload :QueueControlResult, 'karya/queue_store/queue_control_result'
+    autoload :Redis, 'karya/queue_store/redis'
     autoload :RecoveryReport, 'karya/queue_store/recovery_report'
   end
 end

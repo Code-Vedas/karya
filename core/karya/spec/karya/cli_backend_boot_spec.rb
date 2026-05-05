@@ -36,7 +36,7 @@ RSpec.describe Karya::CLI do
 
     it 'rejects corrupted backend options with non-symbol top-level keys before instantiation' do
       Karya.instance_variable_set(:@backend_class, Karya::Backend::InMemory)
-      Karya.instance_variable_set(:@backend_options, { 'queue_store_class' => Karya::QueueStore::InMemory })
+      Karya.instance_variable_set(:@backend_options, { 'adapter_class' => String })
 
       expect do
         backend_boot_class.resolve

@@ -247,6 +247,10 @@ GEM
       erb
       psych (>= 4.0.0)
       tsort
+    redis (5.4.1)
+      redis-client (>= 0.22.0)
+    redis-client (0.28.0)
+      connection_pool
     reek (6.5.0)
       dry-schema (~> 1.13)
       logger (~> 1.6)
@@ -347,6 +351,7 @@ DEPENDENCIES
   karya-activerecord!
   rails!
   rake
+  redis (~> 5.4)
   reek
   rspec (~> 3.13)
   rubocop (~> 1.72)

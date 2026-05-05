@@ -1,0 +1,27 @@
+module Karya
+  module QueueStore
+    class Redis < InMemory
+      module Internal
+        class PersistenceMutex
+          LOCK_TTL_SECONDS: Integer
+          LOCK_POLL_INTERVAL: Float
+          RELEASE_SCRIPT: String
+
+          def initialize: (redis: _RedisClient, owner: Karya::QueueStore::Redis, state_key: String, lock_key: String) -> void
+          def synchronize: [A] () { () -> A } -> A
+
+          private
+
+          attr_reader lock_key: String
+          attr_reader local_mutex: Thread::Mutex
+          attr_reader owner: Karya::QueueStore::Redis
+          attr_reader redis: _RedisClient
+          attr_reader state_key: String
+
+          def with_distributed_lock: [A] () { () -> A } -> A
+          def release_lock: (String token) -> Integer?
+        end
+      end
+    end
+  end
+end
