@@ -6,6 +6,7 @@ module Karya
           def get: (String key) -> String?
           def set: (String key, String value, ?nx: bool, ?ex: Integer) -> String?
           def del: (String key) -> Integer
+          def expire: (String key, Integer seconds) -> Integer
           def eval: (String script, keys: Array[String], argv: Array[String]) -> Integer
         end
       end
@@ -23,7 +24,8 @@ module Karya
         ?max_batch_size: Integer,
         ?policy_set: Backpressure::PolicySet,
         ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
-        ?fairness_policy: Fairness::Policy
+        ?fairness_policy: Fairness::Policy,
+        ?token_generator: Karya::callable_value
       ) -> void
 
       private

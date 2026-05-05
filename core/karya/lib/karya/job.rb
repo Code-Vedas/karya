@@ -58,6 +58,8 @@ module Karya
     private_constant :MarshalSupport
     include MarshalSupport
 
+    private :marshal_dump, :marshal_load
+
     # Canonical immutable routing payload for one job instance.
     Identity = Struct.new(:id, :queue, :handler, :arguments)
     # Canonical immutable scheduling metadata for job selection policies.

@@ -15,9 +15,16 @@ module Karya
         class PersistenceMutex
           LOCK_TTL_SECONDS = 5
           LOCK_POLL_INTERVAL = 0.01
+          LOCK_RENEW_INTERVAL = LOCK_TTL_SECONDS / 2.0
           RELEASE_SCRIPT = <<~LUA
             if redis.call("get", KEYS[1]) == ARGV[1] then
               return redis.call("del", KEYS[1])
+            end
+            return 0
+          LUA
+          EXTEND_SCRIPT = <<~LUA
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+              return redis.call("expire", KEYS[1], ARGV[2])
             end
             return 0
           LUA
@@ -48,10 +55,31 @@ module Karya
           def with_distributed_lock
             token = SecureRandom.uuid
             sleep(LOCK_POLL_INTERVAL) until redis.set(lock_key, token, nx: true, ex: LOCK_TTL_SECONDS)
+            renewal_thread = start_lock_renewal(token)
 
             yield
           ensure
+            renewal_thread&.kill&.join
             release_lock(token) if token
+          end
+
+          def start_lock_renewal(token)
+            Thread.new do
+              loop do
+                sleep(LOCK_RENEW_INTERVAL)
+                extend_lock(token)
+              end
+            rescue StandardError
+              nil
+            end
+          end
+
+          def extend_lock(token)
+            redis.eval(EXTEND_SCRIPT, keys: [lock_key], argv: [token, LOCK_TTL_SECONDS.to_s])
+          rescue StandardError
+            return if redis.get(lock_key) != token
+
+            redis.expire(lock_key, LOCK_TTL_SECONDS)
           end
 
           def release_lock(token)

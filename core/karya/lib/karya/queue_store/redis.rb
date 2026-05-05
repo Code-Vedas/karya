@@ -37,10 +37,12 @@ module Karya
         attr_reader :value
       end
 
-      def initialize(url:, namespace: DEFAULT_NAMESPACE, **)
+      def initialize(url:, namespace: DEFAULT_NAMESPACE, **options)
         @url = normalize_url(url)
         @namespace = normalize_namespace(namespace)
-        super(**, token_generator: -> { SecureRandom.uuid })
+        raise InvalidQueueStoreOperationError, 'token_generator is managed internally by Karya::QueueStore::Redis' if options.key?(:token_generator)
+
+        super(**options, token_generator: -> { SecureRandom.uuid })
         @mutex = Internal::PersistenceMutex.new(
           redis: redis_client,
           owner: self,

@@ -35,6 +35,10 @@ RSpec.describe Karya::QueueStore::Redis do
         data.delete(key) ? 1 : 0
       end
 
+      def expire(key, _seconds)
+        data.key?(key) ? 1 : 0
+      end
+
       def eval(_script, keys:, argv:)
         raise eval_error if eval_error
 
@@ -116,6 +120,13 @@ RSpec.describe Karya::QueueStore::Redis do
     end.to raise_error(
       Karya::InvalidQueueStoreOperationError,
       /circuit_breaker_policy_set must be a Karya::CircuitBreaker::PolicySet/
+    )
+
+    expect do
+      described_class.new(url: redis_url, token_generator: -> { 'manual-token' })
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'token_generator is managed internally by Karya::QueueStore::Redis'
     )
   end
 

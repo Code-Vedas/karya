@@ -5,7 +5,9 @@ module Karya
         class PersistenceMutex
           LOCK_TTL_SECONDS: Integer
           LOCK_POLL_INTERVAL: Float
+          LOCK_RENEW_INTERVAL: Float
           RELEASE_SCRIPT: String
+          EXTEND_SCRIPT: String
 
           def initialize: (redis: _RedisClient, owner: Karya::QueueStore::Redis, state_key: String, lock_key: String) -> void
           def synchronize: [A] () { () -> A } -> A
@@ -19,6 +21,8 @@ module Karya
           attr_reader state_key: String
 
           def with_distributed_lock: [A] () { () -> A } -> A
+          def start_lock_renewal: (String token) -> Thread
+          def extend_lock: (String token) -> Integer?
           def release_lock: (String token) -> Integer?
         end
       end

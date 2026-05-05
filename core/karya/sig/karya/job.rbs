@@ -179,5 +179,7 @@ module Karya
     attr_reader lifecycle_state: LifecycleState
 
     def lifecycle: () -> JobLifecycle::Registry
+    def marshal_dump: () -> Hash[Symbol, Karya::job_arguments | Karya::job_attribute_value]
+    def marshal_load: (Hash[Symbol, Karya::job_arguments | Karya::job_attribute_value] attributes) -> void
   end
 end
