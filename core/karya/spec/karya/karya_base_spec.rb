@@ -123,6 +123,21 @@ RSpec.describe Karya do
       expect(described_class.backend_options).to eq(token_generator: callable)
     end
 
+    it 'rejects queue_store_class when it is only a generic callable' do
+      callable = Object.new
+      callable.define_singleton_method(:call) { Karya::QueueStore::InMemory.new }
+
+      expect do
+        described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: callable)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
+    end
+
+    it 'rejects non-callable backend options that are not queue store factories' do
+      expect do
+        described_class.configure_backend(Karya::Backend::InMemory, token_generator: Object.new)
+      end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
+    end
+
     it 'rejects a configured backend that does not respond to .new' do
       expect do
         described_class.configure_backend(Object.new)

@@ -144,7 +144,7 @@ module Karya
       when Hash
         valid_backend_option_hash?(value)
       else
-        generic_callable_option?(name, value) || queue_store_factory_option?(name, value)
+        queue_store_factory_option?(name, value) || generic_backend_option?(name, value)
       end
     end
 
@@ -180,6 +180,12 @@ module Karya
       true
     rescue InvalidBackendConfigurationError
       false
+    end
+
+    def generic_backend_option?(name, value)
+      return false if name == :queue_store_class
+
+      generic_callable_option?(name, value)
     end
 
     def immutable_backend_option_value(value)
