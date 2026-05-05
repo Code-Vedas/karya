@@ -40,4 +40,32 @@ RSpec.describe 'Karya::CLI::ConfigBuilder' do
     )
     expect(configuration.fetch(:signal_subscriber)).to eq(signal_subscription_module.method(:subscribe))
   end
+
+  it 'builds validated worker settings without a queue store' do
+    helpers = {
+      normalize_env_prefix_option: ->(_name) {},
+      coerce_optional_positive_integer_option: ->(_name) {},
+      resolve_positive_integer_option: lambda do |_name, env_prefix:, defaults:|
+        _unused = [env_prefix, defaults]
+        1
+      end
+    }
+
+    configuration = config_builder_class.build_settings(
+      options: {
+        worker_id: 'worker-1',
+        handler: ['billing_sync=String'],
+        lease_duration: 30,
+        poll_interval: 1,
+        stop_when_idle: true
+      },
+      queues: ['billing'],
+      defaults: { processes: 1, threads: 1 },
+      helpers:
+    )
+
+    expect(configuration).not_to have_key(:queue_store)
+    expect(configuration.fetch(:worker_id)).to eq('worker-1')
+    expect(configuration.fetch(:queues)).to eq(['billing'])
+  end
 end

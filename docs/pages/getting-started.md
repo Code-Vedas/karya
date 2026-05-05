@@ -53,8 +53,8 @@ bin/prepackage-build
 ## Recommended Starting Defaults
 
 - host: use the framework package that matches your application stack
-- backend: choose the backend implementation that matches the intended runtime
-  and durability model
+- backend: choose the backend class that matches the intended runtime and
+  durability model, then configure it at boot
 - scheduler: use the built-in Kaal-backed recurring-job subsystem
 - operator surface: treat the dashboard, API, and CLI as complementary rather
   than choosing only one
