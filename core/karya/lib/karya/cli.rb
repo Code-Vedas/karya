@@ -80,8 +80,10 @@ module Karya
       backend, queue_store = BackendBoot.resolve
       worker_configuration = worker_settings.merge(queue_store:)
 
-      supervisor = Karya::WorkerSupervisor.new(**worker_configuration)
-      status = BackendBoot.run_with_lifecycle(backend, queue_store) { supervisor.run }
+      status = BackendBoot.run_with_lifecycle(backend, queue_store) do
+        supervisor = Karya::WorkerSupervisor.new(**worker_configuration)
+        supervisor.run
+      end
       exit(status) if status.positive?
     end
 

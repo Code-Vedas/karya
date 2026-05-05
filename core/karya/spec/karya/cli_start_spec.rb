@@ -194,6 +194,31 @@ RSpec.describe Karya::CLI do
       expect(supervisor_instance).to have_received(:run)
     end
 
+    it 'runs backend cleanup when worker supervisor construction fails' do
+      lifecycle_events = []
+      queue_store = Karya::QueueStore::InMemory.new
+      backend_class = Class.new do
+        include Karya::Backend::Base
+
+        define_method(:initialize) do |queue_store:|
+          @queue_store = queue_store
+        end
+
+        define_method(:identifier) { 'test_backend' }
+        define_method(:build_queue_store) { @queue_store }
+        define_method(:before_start) { |queue_store:| lifecycle_events << [:before_start, queue_store] }
+        define_method(:after_stop) { |queue_store:| lifecycle_events << [:after_stop, queue_store] }
+      end
+
+      Karya.configure_backend(backend_class, queue_store:)
+      allow(Karya::WorkerSupervisor).to receive(:new).and_raise(ArgumentError, 'invalid runtime state')
+
+      expect do
+        described_class.start(%w[worker billing], suppress_header: true)
+      end.to raise_error(ArgumentError, /invalid runtime state/)
+      expect(lifecycle_events).to eq([[:before_start, queue_store], [:after_stop, queue_store]])
+    end
+
     it 'exits non-zero when the worker supervisor reports a forced shutdown status' do
       configured_queue_store = Karya::QueueStore::InMemory.new
       Karya.configure_queue_store(configured_queue_store)

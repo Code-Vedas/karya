@@ -8,6 +8,10 @@ module Karya
   end
 
   module Backend
+    interface _QueueStoreFactoryInput
+      def new: (**backend_option_value options) -> QueueStore::Base
+    end
+
     interface _BackendClass
       def new: (**backend_option_value options) -> Base
     end
