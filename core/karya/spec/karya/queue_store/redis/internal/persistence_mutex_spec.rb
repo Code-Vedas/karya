@@ -105,6 +105,7 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
 
     expect(renewal_thread).to eq(fake_thread)
     expect(Kernel).to have_received(:sleep).with(described_class::LOCK_RENEW_INTERVAL).twice
+    expect(mutex.send(:lock_lost?)).to be(true)
   end
 
   it 'swallows renewal thread errors after attempting an extension' do

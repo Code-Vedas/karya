@@ -102,7 +102,10 @@ module Karya
             Thread.new do
               loop do
                 Kernel.sleep(LOCK_RENEW_INTERVAL)
-                break unless extend_lock(token)
+                next if extend_lock(token)
+
+                record_lock_loss
+                break
               end
             rescue StandardError => e
               record_lock_loss(e)
@@ -126,10 +129,11 @@ module Karya
           end
 
           def record_lock_loss(cause = nil)
-            return if @lock_lost
+            return nil if @lock_lost
 
             @lock_lost = true
             @lock_loss_cause = cause
+            nil
           end
 
           def lock_lost?

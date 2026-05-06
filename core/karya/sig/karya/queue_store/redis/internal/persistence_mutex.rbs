@@ -27,8 +27,8 @@ module Karya
           def start_lock_renewal: (String token) -> Thread
           def extend_lock: (String token) -> bool
           def release_lock: (String token) -> Integer?
-          def record_lock_loss: (?Exception cause) -> bool?
-          def lock_lost?: () -> bool?
+          def record_lock_loss: (?Exception cause) -> void
+          def lock_lost?: () -> bool
           def raise_lock_loss: () -> void
         end
       end
