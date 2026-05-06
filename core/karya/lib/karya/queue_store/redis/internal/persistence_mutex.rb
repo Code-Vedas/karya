@@ -75,6 +75,9 @@ module Karya
           attr_reader :lock_key, :local_mutex, :owner, :redis
 
           def with_distributed_lock
+            token = nil
+            lock_acquired = false
+            renewal_thread = nil
             token = SecureRandom.uuid
             lock_acquired = acquire_lock?(token)
             reset_lock_loss_state

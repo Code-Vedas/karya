@@ -47,6 +47,27 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     expect(redis).not_to have_received(:eval)
   end
 
+  it 'preserves acquisition failures instead of masking them in ensure cleanup' do
+    allow(SecureRandom).to receive(:uuid).and_return('token-acquire-error')
+    allow(redis).to receive(:set).with(
+      'redis:test:lock',
+      'token-acquire-error',
+      nx: true,
+      ex: described_class::LOCK_TTL_SECONDS
+    ).and_raise(RuntimeError, 'set failure')
+    allow(redis).to receive(:eval)
+    allow(redis).to receive(:get)
+    allow(redis).to receive(:del)
+
+    expect do
+      mutex.send(:with_distributed_lock) { nil }
+    end.to raise_error(RuntimeError, 'set failure')
+
+    expect(redis).not_to have_received(:eval)
+    expect(redis).not_to have_received(:get)
+    expect(redis).not_to have_received(:del)
+  end
+
   it 'extends the held lock when the primary eval succeeds' do
     allow(redis).to receive(:eval).and_return(1)
 
