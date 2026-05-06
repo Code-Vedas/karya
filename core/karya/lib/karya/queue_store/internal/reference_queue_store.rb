@@ -76,7 +76,7 @@ module Karya
           @circuit_breaker_policy_set = circuit_breaker_policy_set
           @fairness_policy = fairness_policy
           @reservation_token_sequence = 0
-          @mutex = Mutex.new
+          @mutex = Internal::ReadOnlyMutex.new
           @state = store_state_class.new(expired_tombstone_limit:)
         end
 
@@ -197,7 +197,7 @@ module Karya
         def uniqueness_decision(job:, now:)
           normalized_now = normalize_time(:now, now, error_class: InvalidEnqueueError)
 
-          @mutex.synchronize do
+          @mutex.read_only_synchronize do
             validate_enqueue(job)
             build_uniqueness_decision(job, normalized_now)
           end
@@ -206,7 +206,7 @@ module Karya
         def uniqueness_snapshot(now:)
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
-          @mutex.synchronize do
+          @mutex.read_only_synchronize do
             build_uniqueness_snapshot(normalized_now)
           end
         end

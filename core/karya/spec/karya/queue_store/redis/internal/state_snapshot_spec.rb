@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'bigdecimal'
+
 RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
   let(:json_codec) { described_class.const_get(:JsonCodec, false) }
   let(:store_state_class) { Karya::QueueStore::Internal.const_get(:StoreState, false) }
@@ -59,6 +61,11 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
       id: 'job-1',
       queue: 'billing',
       handler: 'billing_sync',
+      arguments: {
+        'amount' => BigDecimal('12.34'),
+        'ratio' => Rational(2, 3),
+        'note' => 'frozen-value'
+      },
       state: :submission,
       created_at:
     )
@@ -82,6 +89,11 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
     expect(restored_job).to be_a(Karya::Job)
     expect(restored_job.state).to eq(:reserved)
     expect(restored_job.can_transition_to?(:running)).to be(true)
+    expect(restored_job.arguments.fetch('amount')).to eq(BigDecimal('12.34'))
+    expect(restored_job.arguments.fetch('ratio')).to eq(Rational(2, 3))
+    expect(restored_job.arguments.fetch('note')).to eq('frozen-value')
+    expect(restored_job.arguments.fetch('note')).to be_frozen
+    expect(restored_job.arguments.keys.first).to be_frozen
   end
 
   it 'rejects invalid JSON payloads' do
@@ -112,6 +124,26 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
 
   it 'decodes plain hashes without tagged metadata' do
     expect(json_codec.send(:decode_tagged_value, { 'state' => { '__karya_type__' => 'symbol', 'value' => 'queued' } })).to eq('state' => :queued)
+  end
+
+  it 'round-trips supported Numeric payloads without losing precision' do
+    payload = json_codec.dump(
+      'amount' => BigDecimal('999999999999999999.1234'),
+      'ratio' => Rational(7, 9)
+    )
+
+    decoded = json_codec.load(payload)
+
+    expect(decoded.fetch('amount')).to eq(BigDecimal('999999999999999999.1234'))
+    expect(decoded.fetch('ratio')).to eq(Rational(7, 9))
+  end
+
+  it 'freezes decoded String scalars and hash keys' do
+    decoded = json_codec.load('{"status":"queued","__karya_type__":"hash","entries":[["name","billing"],["state","queued"]],"frozen":true}')
+
+    expect(decoded).to be_frozen
+    expect(decoded.keys).to all(be_frozen)
+    expect(decoded.values).to all(satisfy { |value| !value.is_a?(String) || value.frozen? })
   end
 
   it 'rejects unsupported object payloads during generic object encoding' do

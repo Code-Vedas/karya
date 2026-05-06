@@ -13,6 +13,7 @@ module Karya
 
           def initialize: (redis: _RedisClient, owner: Karya::QueueStore::Redis, lock_key: String) -> void
           def synchronize: [A] () { () -> A } -> A
+          def read_only_synchronize: [A] () { () -> A } -> A
 
           private
 
@@ -21,10 +22,11 @@ module Karya
           attr_reader owner: Karya::QueueStore::Redis
           attr_reader redis: _RedisClient
 
+          def synchronize_owned_state: [A] (persist: bool) { () -> A } -> A
           def with_distributed_lock: [A] () { () -> A } -> A
           def acquire_lock?: (String token) -> bool
-          def start_lock_renewal: (String token) -> Thread
-          def extend_lock: (String token) -> bool
+          def start_lock_renewal: (String token, Thread::Queue[bool] stop_signal) -> Thread
+          def extend_lock?: (String token) -> bool
           def release_lock: (String token) -> Integer?
           def record_lock_loss: (?Exception cause) -> void
           def reset_lock_loss_state: () -> void

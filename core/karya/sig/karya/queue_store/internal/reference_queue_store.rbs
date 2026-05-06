@@ -11,6 +11,7 @@ module Karya
 
         interface _MutexLike
           def synchronize: [A] () { () -> A } -> A
+          def read_only_synchronize: [A] () { () -> A } -> A
         end
 
       @token_generator: Karya::callable_value

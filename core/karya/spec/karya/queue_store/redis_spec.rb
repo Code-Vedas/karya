@@ -214,14 +214,14 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(replayed.changed_jobs.fetch(0).state).to eq(:queued)
   end
 
-  it 'cleans up the distributed lock when eval fallback is needed' do
+  it 'does not delete the distributed lock when release script execution fails' do
     fallback_client = fake_redis_client_class.new(eval_error: RuntimeError.new('boom'))
     allow(Redis).to receive(:new).with(url: redis_url).and_return(fallback_client)
     fallback_store = described_class.new(url: redis_url, namespace: 'fallback')
 
     fallback_store.enqueue(job: submission_job(id: 'job-fallback'), now: created_at + 1)
 
-    expect(fallback_client.data).not_to have_key('fallback:queue_store:lock')
+    expect(fallback_client.data).to have_key('fallback:queue_store:lock')
   end
 
   it 'retries distributed lock acquisition until Redis grants the lock' do

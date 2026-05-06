@@ -71,7 +71,7 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
   it 'extends the held lock when the primary eval succeeds' do
     allow(redis).to receive(:eval).and_return(1)
 
-    expect(mutex.send(:extend_lock, 'token-1')).to be(true)
+    expect(mutex.send(:extend_lock?, 'token-1')).to be(true)
     expect(redis).to have_received(:eval).with(
       described_class::EXTEND_SCRIPT,
       keys: ['redis:test:lock'],
@@ -79,64 +79,58 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     )
   end
 
-  it 'falls back to expire when eval fails but the caller still owns the lock' do
+  it 'fails fast when lock extension script execution fails' do
     allow(redis).to receive(:eval).and_raise(RuntimeError, 'eval failed')
-    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-2')
-    allow(redis).to receive(:expire).with('redis:test:lock', described_class::LOCK_TTL_SECONDS).and_return(1)
-
-    expect(mutex.send(:extend_lock, 'token-2')).to be(true)
-  end
-
-  it 'does not extend another process lock when eval fallback sees a different token' do
-    allow(redis).to receive(:eval).and_raise(RuntimeError, 'eval failed')
-    allow(redis).to receive(:get).with('redis:test:lock').and_return('other-token')
-    allow(redis).to receive(:expire)
-
-    expect(mutex.send(:extend_lock, 'token-3')).to be(false)
-    expect(redis).not_to have_received(:expire)
-  end
-
-  it 'starts and stops the lock renewal thread cleanly' do
-    allow(redis).to receive(:eval).and_return(1)
     allow(redis).to receive(:get)
     allow(redis).to receive(:expire)
 
-    renewal_thread = mutex.send(:start_lock_renewal, 'token-4')
+    expect do
+      mutex.send(:extend_lock?, 'token-2')
+    end.to raise_error(RuntimeError, 'eval failed')
+
+    expect(redis).not_to have_received(:get)
+    expect(redis).not_to have_received(:expire)
+  end
+
+  it 'starts and stops the lock renewal thread cooperatively' do
+    allow(redis).to receive(:eval).and_return(1)
+
+    stop_signal = Queue.new
+    renewal_thread = mutex.send(:start_lock_renewal, 'token-4', stop_signal)
 
     expect(renewal_thread).to be_a(Thread)
-    renewal_thread.kill.join
+    stop_signal.push(true)
+    renewal_thread.join
     expect(renewal_thread).not_to be_alive
   end
 
   it 'stops the renewal loop when lock extension returns false' do
-    fake_thread = instance_double(Thread, kill: nil, join: nil, alive?: false)
+    fake_thread = instance_double(Thread, join: nil, alive?: false)
     allow(Thread).to receive(:new) do |&block|
       block.call
       fake_thread
     end
-    allow(Kernel).to receive(:sleep)
+    stop_signal = instance_double(Queue)
+    allow(stop_signal).to receive(:pop).with(timeout: described_class::LOCK_RENEW_INTERVAL).and_return(nil, nil)
     allow(redis).to receive(:eval).with(
       described_class::EXTEND_SCRIPT,
       keys: ['redis:test:lock'],
       argv: ['token-stop', described_class::LOCK_TTL_SECONDS.to_s]
     ).and_return(1, 0)
 
-    renewal_thread = mutex.send(:start_lock_renewal, 'token-stop')
+    renewal_thread = mutex.send(:start_lock_renewal, 'token-stop', stop_signal)
 
     expect(renewal_thread).to eq(fake_thread)
-    expect(Kernel).to have_received(:sleep).with(described_class::LOCK_RENEW_INTERVAL).twice
+    expect(stop_signal).to have_received(:pop).with(timeout: described_class::LOCK_RENEW_INTERVAL).twice
     expect(mutex.send(:lock_lost?)).to be(true)
   end
 
   it 'swallows renewal thread errors after attempting an extension' do
-    allow(Kernel).to receive(:sleep).with(described_class::LOCK_RENEW_INTERVAL).and_return(nil)
+    stop_signal = instance_double(Queue)
+    allow(stop_signal).to receive(:pop).with(timeout: described_class::LOCK_RENEW_INTERVAL).and_return(nil)
     allow(redis).to receive(:eval).and_raise(RuntimeError, 'eval failed')
-    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-5')
-    allow(redis).to receive(:expire)
-      .with('redis:test:lock', described_class::LOCK_TTL_SECONDS)
-      .and_raise(RuntimeError, 'expire failed')
 
-    renewal_thread = mutex.send(:start_lock_renewal, 'token-5')
+    renewal_thread = mutex.send(:start_lock_renewal, 'token-5', stop_signal)
     renewal_thread.join
 
     expect(redis).to have_received(:eval).with(
@@ -147,28 +141,45 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     expect(renewal_thread).not_to be_alive
   end
 
-  it 'aborts persistence when the renewal loop loses the distributed lock' do
-    allow(redis).to receive(:set).and_return('OK')
-    allow(redis).to receive(:get).with('redis:test:lock').and_return('different-token')
-    allow(redis).to receive(:eval).and_raise(RuntimeError, 'eval failed')
+  it 'does not persist state for read-only synchronized operations' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-read-only')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-read-only', nx: true, ex: described_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-read-only')
+    allow(redis).to receive(:eval).and_return(1)
     allow(owner).to receive(:load_persisted_state)
     allow(owner).to receive(:persist_state)
-    allow(Kernel).to receive(:sleep)
+
+    result = mutex.read_only_synchronize { :snapshot }
+
+    expect(result).to eq(:snapshot)
+    expect(owner).to have_received(:load_persisted_state)
+    expect(owner).not_to have_received(:persist_state)
+  end
+
+  it 'aborts persistence when the renewal loop loses the distributed lock' do
+    allow(redis).to receive_messages(
+      set: 'OK',
+      eval: 1
+    )
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('different-token')
+    allow(owner).to receive(:load_persisted_state)
+    allow(owner).to receive(:persist_state)
 
     expect do
       mutex.synchronize do
-        mutex.send(:extend_lock, 'token-manual')
-        mutex.send(:record_lock_loss)
+        mutex.send(:record_lock_loss, RuntimeError.new('eval failed'))
         :done
       end
-    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation: eval failed')
 
     expect(owner).to have_received(:load_persisted_state)
     expect(owner).not_to have_received(:persist_state)
   end
 
   it 'resets prior lock-loss state before a new distributed-lock acquisition' do
-    fake_thread = instance_double(Thread, kill: nil, join: nil)
+    fake_thread = instance_double(Thread, join: nil)
     allow(SecureRandom).to receive(:uuid).and_return('token-reset')
     allow(redis).to receive(:set).with('redis:test:lock', 'token-reset', nx: true, ex: described_class::LOCK_TTL_SECONDS).and_return('OK')
     allow(Thread).to receive(:new).and_return(fake_thread)
@@ -188,7 +199,7 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
   end
 
   it 're-checks lock ownership immediately before persisting state' do
-    fake_thread = instance_double(Thread, kill: nil, join: nil)
+    fake_thread = instance_double(Thread, join: nil)
     allow(SecureRandom).to receive(:uuid).and_return('token-recheck')
     allow(redis).to receive(:set).with('redis:test:lock', 'token-recheck', nx: true, ex: described_class::LOCK_TTL_SECONDS).and_return('OK')
     allow(Thread).to receive(:new).and_return(fake_thread)
@@ -223,5 +234,15 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     expect do
       mutex.send(:raise_lock_loss)
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation: first cause')
+  end
+
+  it 'does not fall back to non-atomic delete when release script execution fails' do
+    allow(redis).to receive(:eval).and_raise(RuntimeError, 'eval failed')
+    allow(redis).to receive(:get)
+    allow(redis).to receive(:del)
+
+    expect(mutex.send(:release_lock, 'token-release')).to be_nil
+    expect(redis).not_to have_received(:get)
+    expect(redis).not_to have_received(:del)
   end
 end

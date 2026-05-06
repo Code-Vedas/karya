@@ -7,8 +7,6 @@ module Karya
         interface _RedisClient
           def get: (String key) -> String?
           def set: (String key, String value, ?nx: bool, ?ex: Integer) -> String?
-          def del: (String key) -> Integer
-          def expire: (String key, Integer seconds) -> Integer
           def eval: (String script, keys: Array[String], argv: Array[String]) -> Integer
         end
       end

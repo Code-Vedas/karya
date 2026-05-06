@@ -11,6 +11,7 @@ module Karya
       module Internal
         # Encodes the durable queue-store state payload stored in Redis.
         module StateSnapshot
+          require 'bigdecimal'
           require 'json'
           require 'time'
           require_relative '../../internal'
@@ -26,6 +27,8 @@ module Karya
             IVARS_KEY = 'ivars'
             FROZEN_KEY = 'frozen'
             JOB_ATTRIBUTES_KEY = 'attributes'
+            NUMERATOR_KEY = 'numerator'
+            DENOMINATOR_KEY = 'denominator'
             SCALAR_CLASSES = [NilClass, TrueClass, FalseClass, Integer, Float, String].freeze
             FORBIDDEN_KARYA_CLASSES = [Karya::JobLifecycle::Registry, Karya::JobLifecycle::StateManager].freeze
 
@@ -46,9 +49,13 @@ module Karya
               when *SCALAR_CLASSES
                 value
               when Symbol
-                tagged('symbol', VALUE_KEY => value.to_s)
+                encode_string_scalar('symbol', value)
               when Time
                 tagged('time', VALUE_KEY => value.iso8601(9))
+              when BigDecimal
+                encode_string_scalar('bigdecimal', value)
+              when Rational
+                tagged('rational', NUMERATOR_KEY => value.numerator, DENOMINATOR_KEY => value.denominator)
               when Array
                 encode_array(value)
               when Hash
@@ -64,8 +71,10 @@ module Karya
 
             def decode_value(value)
               case value
-              when *SCALAR_CLASSES
+              when NilClass, TrueClass, FalseClass, Integer, Float
                 value
+              when String
+                value.dup.freeze
               when Array
                 value.map { |item| decode_value(item) }
               when Hash
@@ -116,7 +125,8 @@ module Karya
 
             def decode_known_tagged_value(type, value)
               case type
-              when 'symbol', 'time' then decode_scalar_tag(type, value.fetch(VALUE_KEY))
+              when 'symbol', 'time', 'bigdecimal' then decode_scalar_tag(type, value.fetch(VALUE_KEY))
+              when 'rational' then Rational(value.fetch(NUMERATOR_KEY), value.fetch(DENOMINATOR_KEY))
               when 'array' then decode_tagged_array(value)
               when 'hash' then decode_tagged_hash(value)
               when 'job' then decode_tagged_job(value)
@@ -129,8 +139,13 @@ module Karya
 
             def decode_scalar_tag(type, value)
               return value.to_sym if type == 'symbol'
+              return BigDecimal(value) if type == 'bigdecimal'
 
               Time.iso8601(value)
+            end
+
+            def encode_string_scalar(type, value)
+              tagged(type, VALUE_KEY => value.to_s)
             end
 
             def encode_array(value)

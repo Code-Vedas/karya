@@ -57,36 +57,49 @@ module Karya
             @lock_loss_cause = nil
           end
 
-          def synchronize
-            local_mutex.synchronize do
-              with_distributed_lock do
-                owner.send(:load_persisted_state)
-                result = yield
-                raise_lock_loss if lock_lost?
-                verify_lock_still_held
-                owner.send(:persist_state)
-                result
-              end
-            end
+          def synchronize(&)
+            synchronize_owned_state(persist: true, &)
+          end
+
+          def read_only_synchronize(&)
+            synchronize_owned_state(persist: false, &)
           end
 
           private
 
           attr_reader :lock_key, :local_mutex, :owner, :redis
 
+          def synchronize_owned_state(persist:)
+            local_mutex.synchronize do
+              with_distributed_lock do
+                owner.send(:load_persisted_state)
+                result = yield
+                raise_lock_loss if lock_lost?
+                verify_lock_still_held
+                owner.send(:persist_state) if persist
+                result
+              end
+            end
+          end
+
           def with_distributed_lock
             token = nil
             lock_acquired = false
             renewal_thread = nil
+            stop_signal = nil
             token = SecureRandom.uuid
             lock_acquired = acquire_lock?(token)
             reset_lock_loss_state
             @current_lock_token = token
-            renewal_thread = start_lock_renewal(token)
+            stop_signal = Queue.new
+            renewal_thread = start_lock_renewal(token, stop_signal)
 
             yield
           ensure
-            renewal_thread&.kill&.join
+            if renewal_thread
+              stop_signal.push(true)
+              renewal_thread.join
+            end
             @current_lock_token = nil
             release_lock(token) if token && lock_acquired
           end
@@ -105,11 +118,11 @@ module Karya
             true
           end
 
-          def start_lock_renewal(token)
+          def start_lock_renewal(token, stop_signal)
             Thread.new do
               loop do
-                Kernel.sleep(LOCK_RENEW_INTERVAL)
-                next if extend_lock(token)
+                break if stop_signal.pop(timeout: LOCK_RENEW_INTERVAL)
+                next if extend_lock?(token)
 
                 record_lock_loss
                 break
@@ -119,20 +132,14 @@ module Karya
             end
           end
 
-          def extend_lock(token)
+          def extend_lock?(token)
             redis.eval(EXTEND_SCRIPT, keys: [lock_key], argv: [token, LOCK_TTL_SECONDS.to_s]) == 1
-          rescue StandardError
-            return false if redis.get(lock_key) != token
-
-            redis.expire(lock_key, LOCK_TTL_SECONDS) == 1
           end
 
           def release_lock(token)
             redis.eval(RELEASE_SCRIPT, keys: [lock_key], argv: [token])
           rescue StandardError
-            return if redis.get(lock_key) != token
-
-            redis.del(lock_key)
+            nil
           end
 
           def record_lock_loss(cause = nil)
