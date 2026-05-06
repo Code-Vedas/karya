@@ -4,9 +4,57 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
   let(:json_codec) { described_class.const_get(:JsonCodec, false) }
   let(:store_state_class) { Karya::QueueStore::Internal.const_get(:StoreState, false) }
   let(:created_at) { Time.utc(2026, 5, 5, 12, 0, 0) }
+  let(:redis_url) { 'redis://example.test:6379/0' }
+  let(:namespace) { 'redis-snapshot' }
+  let(:fake_redis_client_class) do
+    Class.new do
+      attr_reader :data
+
+      def initialize
+        @data = {}
+      end
+
+      def get(key)
+        data[key]
+      end
+
+      def set(key, value, **options)
+        if options.fetch(:nx, false)
+          return nil if data.key?(key)
+
+          data[key] = value
+          return 'OK'
+        end
+
+        data[key] = value
+        'OK'
+      end
+
+      def del(key)
+        data.delete(key) ? 1 : 0
+      end
+
+      def expire(key, _seconds)
+        data.key?(key) ? 1 : 0
+      end
+
+      def eval(_script, keys:, argv:)
+        key = keys.fetch(0)
+        token = argv.fetch(0)
+        return 0 unless get(key) == token
+
+        del(key)
+      end
+    end
+  end
+  let(:redis_client) { fake_redis_client_class.new }
+
+  before do
+    allow(Redis).to receive(:new).with(url: redis_url).and_return(redis_client)
+  end
 
   def build_store
-    store = Karya::QueueStore::InMemory.new(token_generator: -> { 'lease-token' })
+    store = Karya::QueueStore::Redis.new(url: redis_url, namespace:)
     job = Karya::Job.new(
       id: 'job-1',
       queue: 'billing',

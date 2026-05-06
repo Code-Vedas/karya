@@ -15,8 +15,7 @@ require_relative '../fairness'
 require_relative '../internal/bulk_mutation'
 require_relative '../internal/failure_classification'
 require_relative '../internal/retry_policy_normalizer'
-require_relative 'in_memory/internal'
-require_relative '../internal/reference_queue_store'
+require_relative 'internal/reference_queue_store'
 require_relative '../job'
 require_relative '../primitives/callable'
 require_relative '../primitives/identifier'
@@ -42,12 +41,12 @@ module Karya
         StoreState = Karya::QueueStore::Internal::StoreState
       end
 
-      include Karya::Internal::ReferenceQueueStore
+      include Karya::QueueStore::Internal::ReferenceQueueStore
 
-      DEFAULT_EXPIRED_TOMBSTONE_LIMIT = Karya::Internal::ReferenceQueueStore::DEFAULT_EXPIRED_TOMBSTONE_LIMIT
-      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = Karya::Internal::ReferenceQueueStore::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT
-      DEFAULT_MAX_BATCH_SIZE = Karya::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE
-      RESERVE_QUEUES_ERROR_MESSAGE = Karya::Internal::ReferenceQueueStore::RESERVE_QUEUES_ERROR_MESSAGE
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_EXPIRED_TOMBSTONE_LIMIT
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT
+      DEFAULT_MAX_BATCH_SIZE = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE
+      RESERVE_QUEUES_ERROR_MESSAGE = Karya::QueueStore::Internal::ReferenceQueueStore::RESERVE_QUEUES_ERROR_MESSAGE
 
       def initialize(**)
         configure_reference_queue_store(

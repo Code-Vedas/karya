@@ -181,12 +181,12 @@ module Karya
       def expire_reservations_locked: (Time now) -> Array[Job]
       def prepare_backpressure_snapshot: (Time now) -> void
       def recover_in_flight_locked: (Time now, ?worker_id: String?, ?include_global_maintenance: bool) -> Karya::QueueStore::Internal::RecoveryReport
-      def perform_reserve_maintenance: (Time now) -> Internal::ReserveScanState
+      def perform_reserve_maintenance: (Time now) -> Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ReserveScanState
       def normalize_identifier: (Symbol name, String value, error_class: Karya::error_class) -> String
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
       def store_and_requeue_if_needed: (Job job) -> Job
       def reserve_matching_job: (
-        handler_matcher: Internal::HandlerMatcher,
+        handler_matcher: Karya::QueueStore::Internal::ReferenceQueueStore::Internal::HandlerMatcher,
         lease_duration: Karya::lease_duration_value,
         now: Time,
         queues: Array[String],

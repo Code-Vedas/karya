@@ -1,0 +1,22 @@
+module Karya
+  module QueueStore
+    module Internal
+      module ReferenceQueueStore
+        module Internal
+        class ExecutionRecovery
+          @running_job: Job
+          @now: Time
+
+          def initialize: (Job running_job, Time now) -> void
+          def to_queued_job: () -> Job
+
+          private
+
+          attr_reader now: Time
+          attr_reader running_job: Job
+        end
+      end
+    end
+  end
+end
+end

@@ -18,13 +18,13 @@ module Karya
 
           def keys = options.keys
           def token_generator = fetch(:token_generator, -> { SecureRandom.uuid })
-          def expired_tombstone_limit = fetch(:expired_tombstone_limit, Karya::Internal::ReferenceQueueStore::DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
+          def expired_tombstone_limit = fetch(:expired_tombstone_limit, Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_EXPIRED_TOMBSTONE_LIMIT)
 
           def completed_batch_retention_limit
-            fetch(:completed_batch_retention_limit, Karya::Internal::ReferenceQueueStore::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT)
+            fetch(:completed_batch_retention_limit, Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT)
           end
 
-          def max_batch_size = fetch(:max_batch_size, Karya::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE)
+          def max_batch_size = fetch(:max_batch_size, Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE)
           def policy_set = fetch(:policy_set, Backpressure::PolicySet.new)
           def circuit_breaker_policy_set = fetch(:circuit_breaker_policy_set, CircuitBreaker::PolicySet.new)
           def fairness_policy = fetch(:fairness_policy, Fairness::Policy.new)

@@ -6,7 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative 'redis/internal/dependency_loader'
-require_relative '../internal/reference_queue_store'
+require_relative 'internal/reference_queue_store'
 require_relative 'redis/internal'
 
 Karya::QueueStore::Redis::Internal::DependencyLoader.require_redis!
@@ -15,17 +15,17 @@ module Karya
   module QueueStore
     # Redis-backed durable queue store that persists canonical queue state in Redis.
     class Redis
-      include Karya::Internal::ReferenceQueueStore
+      include Karya::QueueStore::Internal::ReferenceQueueStore
 
       module Internal
         StoreState = Karya::QueueStore::Internal::StoreState
       end
 
       DEFAULT_NAMESPACE = 'karya'
-      DEFAULT_EXPIRED_TOMBSTONE_LIMIT = Karya::Internal::ReferenceQueueStore::DEFAULT_EXPIRED_TOMBSTONE_LIMIT
-      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = Karya::Internal::ReferenceQueueStore::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT
-      DEFAULT_MAX_BATCH_SIZE = Karya::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE
-      RESERVE_QUEUES_ERROR_MESSAGE = Karya::Internal::ReferenceQueueStore::RESERVE_QUEUES_ERROR_MESSAGE
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_EXPIRED_TOMBSTONE_LIMIT
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT
+      DEFAULT_MAX_BATCH_SIZE = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE
+      RESERVE_QUEUES_ERROR_MESSAGE = Karya::QueueStore::Internal::ReferenceQueueStore::RESERVE_QUEUES_ERROR_MESSAGE
 
       # Normalizes required non-empty Redis string configuration values.
       class PresentString
