@@ -25,7 +25,7 @@ module Karya
           def synchronize_owned_state: [A] (persist: bool) { () -> A } -> A
           def with_distributed_lock: [A] () { () -> A } -> A
           def acquire_lock?: (String token) -> bool
-          def start_lock_renewal: (String token, Thread::Queue[bool] stop_signal) -> Thread
+          def start_lock_renewal: (String token, Thread::Queue stop_signal) -> Thread
           def extend_lock?: (String token) -> bool
           def release_lock: (String token) -> Integer?
           def record_lock_loss: (?Exception cause) -> void
