@@ -17,7 +17,8 @@ module Karya
             require 'redis'
           rescue LoadError => e
             raise LoadError,
-                  "#{e.message}. Add `gem 'redis', '~> 5.4'` to your Gemfile to use Karya::Backend::Redis and Karya::QueueStore::Redis."
+                  "#{e.message}. Add `gem 'redis', '~> 5.4'` to your Gemfile to use Karya::Backend::Redis and Karya::QueueStore::Redis.",
+                  cause: e
           end
         end
       end

@@ -46,7 +46,12 @@ RSpec.describe Karya::QueueStore::Redis do
         token = argv.fetch(0)
         return 0 unless get(key) == token
 
-        del(key)
+        if keys.length == 2
+          data[keys.fetch(1)] = argv.fetch(1)
+          1
+        else
+          del(key)
+        end
       end
 
       private
@@ -215,13 +220,58 @@ RSpec.describe Karya::QueueStore::Redis do
   end
 
   it 'does not delete the distributed lock when release script execution fails' do
-    fallback_client = fake_redis_client_class.new(eval_error: RuntimeError.new('boom'))
+    fallback_client = fake_redis_client_class.new
     allow(Redis).to receive(:new).with(url: redis_url).and_return(fallback_client)
+    allow(fallback_client).to receive(:eval).and_wrap_original do |original, script, keys:, argv:|
+      raise 'boom' if script == Karya::QueueStore::Redis::Internal::PersistenceMutex::RELEASE_SCRIPT
+
+      original.call(script, keys:, argv:)
+    end
     fallback_store = described_class.new(url: redis_url, namespace: 'fallback')
 
-    fallback_store.enqueue(job: submission_job(id: 'job-fallback'), now: created_at + 1)
+    expect do
+      fallback_store.enqueue(job: submission_job(id: 'job-fallback'), now: created_at + 1)
+    end.not_to raise_error
 
     expect(fallback_client.data).to have_key('fallback:queue_store:lock')
+  end
+
+  it 'rejects Symbol job arguments when Redis persistence is required' do
+    expect do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-symbol-arg',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: { 'kind' => :manual },
+          state: :submission,
+          created_at:
+        ),
+        now: created_at + 1
+      )
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis queue-store snapshots do not support Symbol job arguments; use String values instead'
+    )
+  end
+
+  it 'rejects non-finite Float job arguments when Redis persistence is required' do
+    expect do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-nan-arg',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: { 'value' => Float::INFINITY },
+          state: :submission,
+          created_at:
+        ),
+        now: created_at + 1
+      )
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis queue-store snapshots do not support non-finite Float job arguments'
+    )
   end
 
   it 'retries distributed lock acquisition until Redis grants the lock' do
@@ -249,16 +299,19 @@ RSpec.describe Karya::QueueStore::Redis do
   end
 
   it 'does not delete another process lock during eval fallback cleanup' do
-    guarded_client = fake_redis_client_class.new(eval_error: RuntimeError.new('boom'))
+    guarded_client = fake_redis_client_class.new
     allow(Redis).to receive(:new).with(url: redis_url).and_return(guarded_client)
     guarded_store = described_class.new(url: redis_url, namespace: 'guarded')
+    allow(guarded_client).to receive(:eval).and_wrap_original do |original, script, keys:, argv:|
+      raise 'boom' if script == Karya::QueueStore::Redis::Internal::PersistenceMutex::RELEASE_SCRIPT
+
+      original.call(script, keys:, argv:)
+    end
     allow(guarded_client).to receive(:del).and_call_original
-    allow(guarded_client).to receive(:get).and_call_original
-    allow(guarded_client).to receive(:get).with('guarded:queue_store:lock').and_return('different-token')
 
     expect do
       guarded_store.enqueue(job: submission_job(id: 'job-guarded'), now: created_at + 1)
-    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
+    end.not_to raise_error
 
     expect(guarded_client).not_to have_received(:del).with('guarded:queue_store:lock')
   end

@@ -45,8 +45,28 @@ module Karya
             end
 
             def encode_value(value)
+              scalar_value = encode_scalar_value(value)
+              return scalar_value unless scalar_value.equal?(self)
+
+              case value
+              when Array
+                encode_array(value)
+              when Hash
+                encode_hash(value)
+              when Struct
+                encode_karya_struct(value)
+              when Karya::Job
+                validate_supported_job_arguments!(value.arguments)
+                tagged('job', JOB_ATTRIBUTES_KEY => encode_value(value.send(:marshal_dump)))
+              else
+                encode_karya_object(value)
+              end
+            end
+
+            def encode_scalar_value(value)
               case value
               when *SCALAR_CLASSES
+                validate_supported_float!(value) if value.is_a?(Float)
                 value
               when Symbol
                 encode_string_scalar('symbol', value)
@@ -56,16 +76,8 @@ module Karya
                 encode_string_scalar('bigdecimal', value)
               when Rational
                 tagged('rational', NUMERATOR_KEY => value.numerator, DENOMINATOR_KEY => value.denominator)
-              when Array
-                encode_array(value)
-              when Hash
-                encode_hash(value)
-              when Struct
-                encode_karya_struct(value)
-              when Karya::Job
-                tagged('job', JOB_ATTRIBUTES_KEY => encode_value(value.send(:marshal_dump)))
               else
-                encode_karya_object(value)
+                self
               end
             end
 
@@ -146,6 +158,36 @@ module Karya
 
             def encode_string_scalar(type, value)
               tagged(type, VALUE_KEY => value.to_s)
+            end
+
+            def validate_supported_job_arguments!(arguments)
+              validate_argument_value_graph!(arguments)
+            end
+
+            def validate_argument_value_graph!(value)
+              case value
+              when Hash
+                recurse_argument_values(value.each_value)
+              when Array
+                recurse_argument_values(value)
+              when Symbol
+                raise InvalidQueueStoreOperationError,
+                      'Redis queue-store snapshots do not support Symbol job arguments; use String values instead'
+              when Float
+                validate_supported_float!(value)
+              end
+              nil
+            end
+
+            def validate_supported_float!(value)
+              return if value.finite?
+
+              raise InvalidQueueStoreOperationError,
+                    'Redis queue-store snapshots do not support non-finite Float job arguments'
+            end
+
+            def recurse_argument_values(values)
+              values.each { |item| validate_argument_value_graph!(item) }
             end
 
             def encode_array(value)

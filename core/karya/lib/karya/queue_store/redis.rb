@@ -59,6 +59,7 @@ module Karya
         @mutex = Internal::PersistenceMutex.new(
           redis: redis_client,
           owner: self,
+          state_key:,
           lock_key:
         )
       end
@@ -92,13 +93,10 @@ module Karya
         @reservation_token_sequence = snapshot.fetch(:reservation_token_sequence)
       end
 
-      def persist_state
-        redis_client.set(
-          state_key,
-          Internal::StateSnapshot.dump(
-            state:,
-            reservation_token_sequence:
-          )
+      def dump_state_payload
+        Internal::StateSnapshot.dump(
+          state:,
+          reservation_token_sequence:
         )
       end
 

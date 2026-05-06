@@ -45,7 +45,12 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
         token = argv.fetch(0)
         return 0 unless get(key) == token
 
-        del(key)
+        if keys.length == 2
+          data[keys.fetch(1)] = argv.fetch(1)
+          1
+        else
+          del(key)
+        end
       end
     end
   end
@@ -138,12 +143,70 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
     expect(decoded.fetch('ratio')).to eq(Rational(7, 9))
   end
 
+  it 'passes through finite Float scalars' do
+    expect(json_codec.send(:encode_value, 1.5)).to eq(1.5)
+  end
+
   it 'freezes decoded String scalars and hash keys' do
     decoded = json_codec.load('{"status":"queued","__karya_type__":"hash","entries":[["name","billing"],["state","queued"]],"frozen":true}')
 
     expect(decoded).to be_frozen
     expect(decoded.keys).to all(be_frozen)
     expect(decoded.values).to all(satisfy { |value| !value.is_a?(String) || value.frozen? })
+  end
+
+  it 'rejects Symbol job arguments during snapshot encoding' do
+    job = Karya::Job.new(
+      id: 'job-symbol',
+      queue: 'billing',
+      handler: 'billing_sync',
+      arguments: { 'kind' => :symbol_value },
+      state: :submission,
+      created_at:
+    )
+
+    expect do
+      json_codec.send(:encode_value, job)
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis queue-store snapshots do not support Symbol job arguments; use String values instead'
+    )
+  end
+
+  it 'rejects non-finite Float job arguments during snapshot encoding' do
+    job = Karya::Job.new(
+      id: 'job-nan',
+      queue: 'billing',
+      handler: 'billing_sync',
+      arguments: { 'value' => Float::NAN },
+      state: :submission,
+      created_at:
+    )
+
+    expect do
+      json_codec.send(:encode_value, job)
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis queue-store snapshots do not support non-finite Float job arguments'
+    )
+  end
+
+  it 'rejects Symbol job arguments nested inside arrays' do
+    job = Karya::Job.new(
+      id: 'job-symbol-array',
+      queue: 'billing',
+      handler: 'billing_sync',
+      arguments: { 'items' => [:manual] },
+      state: :submission,
+      created_at:
+    )
+
+    expect do
+      json_codec.send(:encode_value, job)
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis queue-store snapshots do not support Symbol job arguments; use String values instead'
+    )
   end
 
   it 'rejects unsupported object payloads during generic object encoding' do

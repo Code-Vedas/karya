@@ -35,7 +35,7 @@ module Karya
       def normalize_url: (String? value) -> String
       def normalize_namespace: (String? value) -> String
       def load_persisted_state: () -> void
-      def persist_state: () -> String
+      def dump_state_payload: () -> String
       def redis_client: () -> Internal::_RedisClient
       def state_key: () -> String
       def lock_key: () -> String

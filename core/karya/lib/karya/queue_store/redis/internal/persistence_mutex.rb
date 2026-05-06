@@ -24,6 +24,14 @@ module Karya
             end
             return 0
           LUA
+          PERSIST_SCRIPT = <<~LUA
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+              redis.call("set", KEYS[2], ARGV[2])
+              redis.call("expire", KEYS[1], ARGV[3])
+              return 1
+            end
+            return 0
+          LUA
           EXTEND_SCRIPT = <<~LUA
             if redis.call("get", KEYS[1]) == ARGV[1] then
               return redis.call("expire", KEYS[1], ARGV[2])
@@ -47,9 +55,10 @@ module Karya
           end
           private_constant :LockAcquisitionDeadline
 
-          def initialize(redis:, owner:, lock_key:)
+          def initialize(redis:, owner:, state_key:, lock_key:)
             @redis = redis
             @owner = owner
+            @state_key = state_key
             @lock_key = lock_key
             @local_mutex = Thread::Mutex.new
             @current_lock_token = nil
@@ -67,7 +76,7 @@ module Karya
 
           private
 
-          attr_reader :lock_key, :local_mutex, :owner, :redis
+          attr_reader :lock_key, :local_mutex, :owner, :redis, :state_key
 
           def synchronize_owned_state(persist:)
             local_mutex.synchronize do
@@ -75,8 +84,7 @@ module Karya
                 owner.send(:load_persisted_state)
                 result = yield
                 raise_lock_loss if lock_lost?
-                verify_lock_still_held
-                owner.send(:persist_state) if persist
+                persist_state_if_owned if persist
                 result
               end
             end
@@ -140,6 +148,24 @@ module Karya
             redis.eval(RELEASE_SCRIPT, keys: [lock_key], argv: [token])
           rescue StandardError
             nil
+          end
+
+          def persist_state_if_owned
+            payload = owner.send(:dump_state_payload)
+            script_result = redis.eval(
+              PERSIST_SCRIPT,
+              keys: [lock_key, state_key],
+              argv: [@current_lock_token, payload, LOCK_TTL_SECONDS.to_s]
+            )
+            return payload if script_result == 1
+
+            record_lock_loss
+            raise_lock_loss
+          rescue InvalidQueueStoreOperationError
+            raise
+          rescue StandardError => e
+            record_lock_loss(e)
+            raise_lock_loss
           end
 
           def record_lock_loss(cause = nil)

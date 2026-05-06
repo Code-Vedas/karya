@@ -5,6 +5,7 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     described_class.new(
       redis:,
       owner:,
+      state_key: 'redis:test:state',
       lock_key: 'redis:test:lock'
     )
   end
@@ -149,13 +150,13 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     allow(redis).to receive(:get).with('redis:test:lock').and_return('token-read-only')
     allow(redis).to receive(:eval).and_return(1)
     allow(owner).to receive(:load_persisted_state)
-    allow(owner).to receive(:persist_state)
+    allow(owner).to receive(:dump_state_payload)
 
     result = mutex.read_only_synchronize { :snapshot }
 
     expect(result).to eq(:snapshot)
     expect(owner).to have_received(:load_persisted_state)
-    expect(owner).not_to have_received(:persist_state)
+    expect(owner).not_to have_received(:dump_state_payload)
   end
 
   it 'aborts persistence when the renewal loop loses the distributed lock' do
@@ -165,7 +166,7 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     )
     allow(redis).to receive(:get).with('redis:test:lock').and_return('different-token')
     allow(owner).to receive(:load_persisted_state)
-    allow(owner).to receive(:persist_state)
+    allow(owner).to receive(:dump_state_payload)
 
     expect do
       mutex.synchronize do
@@ -175,7 +176,7 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation: eval failed')
 
     expect(owner).to have_received(:load_persisted_state)
-    expect(owner).not_to have_received(:persist_state)
+    expect(owner).not_to have_received(:dump_state_payload)
   end
 
   it 'resets prior lock-loss state before a new distributed-lock acquisition' do
@@ -204,16 +205,63 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     allow(redis).to receive(:set).with('redis:test:lock', 'token-recheck', nx: true, ex: described_class::LOCK_TTL_SECONDS).and_return('OK')
     allow(Thread).to receive(:new).and_return(fake_thread)
     allow(redis).to receive(:get).with('redis:test:lock').and_return(nil)
-    allow(redis).to receive(:eval).and_return(1)
+    allow(redis).to receive(:eval).and_return(0, 1)
     allow(owner).to receive(:load_persisted_state)
-    allow(owner).to receive(:persist_state)
+    allow(owner).to receive(:dump_state_payload).and_return('payload')
 
     expect do
       mutex.synchronize { :done }
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
 
     expect(owner).to have_received(:load_persisted_state)
-    expect(owner).not_to have_received(:persist_state)
+    expect(owner).to have_received(:dump_state_payload)
+  end
+
+  it 'records lock loss when atomic persistence script execution raises' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-persist-error')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-persist-error', nx: true, ex: described_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:eval).and_raise(RuntimeError, 'persist boom')
+    allow(owner).to receive(:load_persisted_state)
+    allow(owner).to receive(:dump_state_payload).and_return('payload')
+
+    expect do
+      mutex.synchronize { :done }
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation: persist boom')
+  end
+
+  it 'returns when verify_lock_still_held sees the current token' do
+    mutex.instance_variable_set(:@current_lock_token, 'token-held')
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-held')
+
+    expect(mutex.send(:verify_lock_still_held)).to be_nil
+  end
+
+  it 'raises when verify_lock_still_held sees a stolen lock' do
+    mutex.instance_variable_set(:@current_lock_token, 'token-lost')
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('other-token')
+
+    expect do
+      mutex.send(:verify_lock_still_held)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
+  end
+
+  it 'persists state only when the distributed lock still matches the current token' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-persist')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-persist', nx: true, ex: described_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:eval).and_return(1)
+    allow(owner).to receive(:load_persisted_state)
+    allow(owner).to receive(:dump_state_payload).and_return('payload')
+
+    expect(mutex.synchronize { :done }).to eq(:done)
+    expect(redis).to have_received(:eval).with(
+      described_class::PERSIST_SCRIPT,
+      keys: ['redis:test:lock', 'redis:test:state'],
+      argv: ['token-persist', 'payload', described_class::LOCK_TTL_SECONDS.to_s]
+    )
   end
 
   it 'raises a generic lock-loss message when the lock disappears without a recorded cause' do

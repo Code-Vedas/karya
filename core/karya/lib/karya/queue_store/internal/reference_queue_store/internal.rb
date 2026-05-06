@@ -6,6 +6,8 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative 'backpressure_support'
+require_relative '../../../internal/bulk_mutation'
+require_relative '../../../internal/retry_policy_normalizer'
 require_relative 'backpressure_snapshot_support'
 require_relative 'batch_support'
 require_relative 'child_workflow_support'
