@@ -5,6 +5,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+require_relative '../queue_store/base'
+require_relative '../queue_store/internal'
+require_relative '../queue_store/in_memory/internal'
+
 module Karya
   module Internal
     # Shared reference queue-store behavior used by concrete store implementations.
@@ -16,7 +20,7 @@ module Karya
       DEFAULT_MAX_BATCH_SIZE = 1000
       RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
 
-      InitializerOptions = Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:InitializerOptions, false)
+      InitializerOptions = Karya::QueueStore::Internal.const_get(:InitializerOptions, false)
 
       # Neutral aliases for the shared reference-store internals.
       module Internal; end

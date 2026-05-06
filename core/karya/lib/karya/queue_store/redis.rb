@@ -5,10 +5,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require 'redis'
-
-require_relative 'in_memory'
+require_relative 'redis/internal/dependency_loader'
+require_relative '../internal/reference_queue_store'
 require_relative 'redis/internal'
+
+Karya::QueueStore::Redis::Internal::DependencyLoader.require_redis!
 
 module Karya
   module QueueStore
@@ -50,7 +51,7 @@ module Karya
         raise InvalidQueueStoreOperationError, 'token_generator is managed internally by Karya::QueueStore::Redis' if options.key?(:token_generator)
 
         configure_reference_queue_store(
-          initializer_options_class: Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:InitializerOptions, false),
+          initializer_options_class: Karya::QueueStore::Internal::InitializerOptions,
           store_state_class: Internal::StoreState,
           **options,
           token_generator: -> { SecureRandom.uuid }
@@ -58,7 +59,6 @@ module Karya
         @mutex = Internal::PersistenceMutex.new(
           redis: redis_client,
           owner: self,
-          state_key:,
           lock_key:
         )
       end

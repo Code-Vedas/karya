@@ -19,6 +19,35 @@ RSpec.describe Karya::Backend::Redis do
     expect(stdout).to eq("redis\n")
   end
 
+  it 'raises an actionable load error when the redis gem is not available' do
+    lib_path = File.expand_path('../../../lib', __dir__)
+    script = <<~RUBY
+      module Kernel
+        alias_method :__karya_original_require_for_redis_spec, :require
+
+        def require(name)
+          raise LoadError, 'cannot load such file -- redis' if name == 'redis'
+
+          __karya_original_require_for_redis_spec(name)
+        end
+      end
+
+      begin
+        require 'karya/backend/redis'
+      rescue LoadError => e
+        warn e.message
+        exit 0
+      end
+
+      exit 1
+    RUBY
+
+    _stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status.success?).to be(true)
+    expect(stderr).to include("Add `gem 'redis', '~> 5.4'` to your Gemfile to use Karya::Backend::Redis and Karya::QueueStore::Redis.")
+  end
+
   it 'exposes the backend identifier' do
     expect(backend.identifier).to eq('redis')
   end

@@ -11,7 +11,7 @@ module Karya
           RELEASE_SCRIPT: String
           EXTEND_SCRIPT: String
 
-          def initialize: (redis: _RedisClient, owner: Karya::QueueStore::Redis, state_key: String, lock_key: String) -> void
+          def initialize: (redis: _RedisClient, owner: Karya::QueueStore::Redis, lock_key: String) -> void
           def synchronize: [A] () { () -> A } -> A
 
           private
@@ -20,7 +20,6 @@ module Karya
           attr_reader local_mutex: Thread::Mutex
           attr_reader owner: Karya::QueueStore::Redis
           attr_reader redis: _RedisClient
-          attr_reader state_key: String
 
           def with_distributed_lock: [A] () { () -> A } -> A
           def acquire_lock?: (String token) -> bool

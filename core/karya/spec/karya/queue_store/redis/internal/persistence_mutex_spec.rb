@@ -5,7 +5,6 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     described_class.new(
       redis:,
       owner:,
-      state_key: 'redis:test:state',
       lock_key: 'redis:test:lock'
     )
   end

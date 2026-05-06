@@ -51,7 +51,7 @@ module Karya
 
       def initialize(**)
         configure_reference_queue_store(
-          initializer_options_class: Internal::InitializerOptions,
+          initializer_options_class: Karya::QueueStore::Internal::InitializerOptions,
           store_state_class: Internal::StoreState,
           **
         )

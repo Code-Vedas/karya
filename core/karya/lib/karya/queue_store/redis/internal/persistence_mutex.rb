@@ -47,10 +47,9 @@ module Karya
           end
           private_constant :LockAcquisitionDeadline
 
-          def initialize(redis:, owner:, state_key:, lock_key:)
+          def initialize(redis:, owner:, lock_key:)
             @redis = redis
             @owner = owner
-            @state_key = state_key
             @lock_key = lock_key
             @local_mutex = Thread::Mutex.new
             @lock_lost = false
@@ -71,7 +70,7 @@ module Karya
 
           private
 
-          attr_reader :lock_key, :local_mutex, :owner, :redis, :state_key
+          attr_reader :lock_key, :local_mutex, :owner, :redis
 
           def with_distributed_lock
             token = SecureRandom.uuid

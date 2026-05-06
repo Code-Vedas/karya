@@ -22,10 +22,10 @@ module Karya
       DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: 1024
       DEFAULT_MAX_BATCH_SIZE: 1000
       RESERVE_QUEUES_ERROR_MESSAGE: String
-      InitializerOptions: singleton(Karya::QueueStore::InMemory::Internal::InitializerOptions)
+      InitializerOptions: singleton(Karya::QueueStore::Internal::InitializerOptions)
 
       def configure_reference_queue_store: (
-        initializer_options_class: singleton(Karya::QueueStore::InMemory::Internal::InitializerOptions),
+        initializer_options_class: singleton(Karya::QueueStore::Internal::InitializerOptions),
         store_state_class: singleton(Karya::QueueStore::Internal::StoreState),
         **Karya::backend_option_value options
       ) -> void

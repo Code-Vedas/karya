@@ -13,6 +13,8 @@ module Karya
         module StateSnapshot
           require 'json'
           require 'time'
+          require_relative '../../internal'
+          require_relative '../../../job_lifecycle'
 
           # Owner-local JSON codec that restores only Karya-owned queue-store objects.
           module JsonCodec
