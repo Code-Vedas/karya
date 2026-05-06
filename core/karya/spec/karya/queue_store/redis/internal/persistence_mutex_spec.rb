@@ -146,6 +146,44 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     expect(owner).not_to have_received(:persist_state)
   end
 
+  it 'resets prior lock-loss state before a new distributed-lock acquisition' do
+    fake_thread = instance_double(Thread, kill: nil, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-reset')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-reset', nx: true, ex: described_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:eval).and_return(1)
+
+    mutex.send(:record_lock_loss, RuntimeError.new('stale loss'))
+
+    mutex.send(:with_distributed_lock) do
+      expect(mutex.send(:lock_lost?)).to be(false)
+    end
+
+    expect(redis).to have_received(:eval).with(
+      described_class::RELEASE_SCRIPT,
+      keys: ['redis:test:lock'],
+      argv: ['token-reset']
+    )
+  end
+
+  it 're-checks lock ownership immediately before persisting state' do
+    fake_thread = instance_double(Thread, kill: nil, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-recheck')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-recheck', nx: true, ex: described_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return(nil)
+    allow(redis).to receive(:eval).and_return(1)
+    allow(owner).to receive(:load_persisted_state)
+    allow(owner).to receive(:persist_state)
+
+    expect do
+      mutex.synchronize { :done }
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
+
+    expect(owner).to have_received(:load_persisted_state)
+    expect(owner).not_to have_received(:persist_state)
+  end
+
   it 'raises a generic lock-loss message when the lock disappears without a recorded cause' do
     mutex.send(:record_lock_loss)
 

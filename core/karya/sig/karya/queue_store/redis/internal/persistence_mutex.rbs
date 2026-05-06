@@ -27,7 +27,9 @@ module Karya
           def extend_lock: (String token) -> bool
           def release_lock: (String token) -> Integer?
           def record_lock_loss: (?Exception cause) -> void
+          def reset_lock_loss_state: () -> void
           def lock_lost?: () -> bool
+          def verify_lock_still_held: () -> void
           def raise_lock_loss: () -> void
         end
       end

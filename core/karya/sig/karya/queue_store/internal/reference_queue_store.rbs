@@ -9,6 +9,10 @@ module Karya
       module ReferenceQueueStore
         include Karya::QueueStore::Base
 
+        interface _MutexLike
+          def synchronize: [A] () { () -> A } -> A
+        end
+
       @token_generator: Karya::callable_value
       @policy_set: Backpressure::PolicySet
       @circuit_breaker_policy_set: CircuitBreaker::PolicySet
@@ -16,7 +20,7 @@ module Karya
       @completed_batch_retention_limit: Integer
       @max_batch_size: Integer
       @reservation_token_sequence: Integer
-      @mutex: Thread::Mutex
+      @mutex: _MutexLike
       @state: Karya::QueueStore::Internal::StoreState
 
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024

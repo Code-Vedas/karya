@@ -52,6 +52,7 @@ module Karya
             @owner = owner
             @lock_key = lock_key
             @local_mutex = Thread::Mutex.new
+            @current_lock_token = nil
             @lock_lost = false
             @lock_loss_cause = nil
           end
@@ -62,6 +63,7 @@ module Karya
                 owner.send(:load_persisted_state)
                 result = yield
                 raise_lock_loss if lock_lost?
+                verify_lock_still_held
                 owner.send(:persist_state)
                 result
               end
@@ -75,11 +77,14 @@ module Karya
           def with_distributed_lock
             token = SecureRandom.uuid
             lock_acquired = acquire_lock?(token)
+            reset_lock_loss_state
+            @current_lock_token = token
             renewal_thread = start_lock_renewal(token)
 
             yield
           ensure
             renewal_thread&.kill&.join
+            @current_lock_token = nil
             release_lock(token) if token && lock_acquired
           end
 
@@ -135,8 +140,20 @@ module Karya
             nil
           end
 
+          def reset_lock_loss_state
+            @lock_lost = false
+            @lock_loss_cause = nil
+          end
+
           def lock_lost?
             @lock_lost
+          end
+
+          def verify_lock_still_held
+            return if redis.get(lock_key) == @current_lock_token
+
+            record_lock_loss
+            raise_lock_loss
           end
 
           def raise_lock_loss

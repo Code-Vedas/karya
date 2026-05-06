@@ -256,7 +256,9 @@ RSpec.describe Karya::QueueStore::Redis do
     allow(guarded_client).to receive(:get).and_call_original
     allow(guarded_client).to receive(:get).with('guarded:queue_store:lock').and_return('different-token')
 
-    guarded_store.enqueue(job: submission_job(id: 'job-guarded'), now: created_at + 1)
+    expect do
+      guarded_store.enqueue(job: submission_job(id: 'job-guarded'), now: created_at + 1)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
 
     expect(guarded_client).not_to have_received(:del).with('guarded:queue_store:lock')
   end
