@@ -12,7 +12,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::WorkflowChildState' do
     Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:WorkflowChildState, false)
   end
   let(:store_state) do
-    Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:StoreState, false).new(expired_tombstone_limit: 16)
+    Karya::QueueStore::Internal.const_get(:StoreState, false).new(expired_tombstone_limit: 16)
   end
   let(:captured_at) { Time.utc(2026, 4, 25, 12, 0, 0) }
 

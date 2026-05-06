@@ -2,7 +2,7 @@
 
 RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
   let(:json_codec) { described_class.const_get(:JsonCodec, false) }
-  let(:store_state_class) { Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:StoreState, false) }
+  let(:store_state_class) { Karya::QueueStore::Internal.const_get(:StoreState, false) }
   let(:created_at) { Time.utc(2026, 5, 5, 12, 0, 0) }
 
   def build_store
@@ -39,6 +39,12 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
   it 'rejects invalid JSON payloads' do
     expect do
       described_class.load('not-json')
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid Redis state snapshot/)
+  end
+
+  it 'rejects valid JSON payloads with invalid decode shape' do
+    expect do
+      described_class.load('{"__karya_type__":"array","items":"not-an-array"}')
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid Redis state snapshot/)
   end
 

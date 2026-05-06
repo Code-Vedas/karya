@@ -15,7 +15,12 @@ module Karya
     class InMemory
       include Base
 
-      def initialize
+      def initialize(**options)
+        unless options.empty?
+          raise InvalidBackendConfigurationError,
+                "Karya::Backend::InMemory does not accept backend options: #{options.keys.map(&:inspect).join(', ')}"
+        end
+
         @identifier = 'in_memory'
         @queue_store_class = QueueStore::InMemory
       end

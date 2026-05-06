@@ -23,6 +23,15 @@ RSpec.describe Karya::Backend::InMemory do
     expect(backend.identifier).to eq('in_memory')
   end
 
+  it 'rejects unexpected backend options' do
+    expect do
+      described_class.new(url: 'redis://example.test:6379/0')
+    end.to raise_error(
+      Karya::InvalidBackendConfigurationError,
+      'Karya::Backend::InMemory does not accept backend options: :url'
+    )
+  end
+
   it 'builds the queue store provider owned by the backend definition' do
     queue_store = backend.build_queue_store
 

@@ -32,7 +32,7 @@ module Karya
 
         def to_report: () {
           (String job_id, Array[Karya::Job] changed_jobs, Array[Karya::bulk_skipped_job] skipped_jobs) -> void
-        } -> Karya::QueueStore::BulkMutationReport
+        } -> Karya::QueueStore::Internal::BulkMutationReport
       end
     end
   end

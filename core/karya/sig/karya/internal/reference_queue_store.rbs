@@ -1,0 +1,15 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module ReferenceQueueStore
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: 1024
+      DEFAULT_MAX_BATCH_SIZE: 1000
+      RESERVE_QUEUES_ERROR_MESSAGE: String
+    end
+  end
+end

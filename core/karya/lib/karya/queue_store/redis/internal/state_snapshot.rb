@@ -7,7 +7,7 @@
 
 module Karya
   module QueueStore
-    class Redis < InMemory
+    class Redis
       module Internal
         # Encodes the durable queue-store state payload stored in Redis.
         module StateSnapshot
@@ -35,7 +35,7 @@ module Karya
 
             def load(payload)
               decode_value(JSON.parse(payload))
-            rescue JSON::ParserError => e
+            rescue JSON::ParserError, KeyError, TypeError, NoMethodError, ArgumentError => e
               raise InvalidQueueStoreOperationError, "invalid Redis state snapshot: #{e.message}"
             end
 
@@ -230,7 +230,7 @@ module Karya
 
           module_function
 
-          STORE_STATE_CLASS = Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:StoreState, false)
+          STORE_STATE_CLASS = Karya::QueueStore::Internal.const_get(:StoreState, false)
           private_constant :STORE_STATE_CLASS
 
           def dump(state:, reservation_token_sequence:)

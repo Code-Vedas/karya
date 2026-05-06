@@ -25,7 +25,7 @@ module Karya
                 action: :pause_requested,
                 occurred_at: normalized_now
               )
-              BulkMutationReport.new(
+              Karya::QueueStore::Internal::BulkMutationReport.new(
                 action: :pause_workflow,
                 performed_at: normalized_now,
                 requested_job_ids: [],
@@ -49,7 +49,7 @@ module Karya
                 action: :resumed,
                 occurred_at: normalized_now
               )
-              BulkMutationReport.new(
+              Karya::QueueStore::Internal::BulkMutationReport.new(
                 action: :resume_workflow,
                 performed_at: normalized_now,
                 requested_job_ids: [],

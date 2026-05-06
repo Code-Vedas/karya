@@ -1,14 +1,14 @@
 module Karya
   module QueueStore
-    class Redis < InMemory
+    class Redis
       module Internal
         module StateSnapshot
           type snapshot = {
-            state: Karya::QueueStore::InMemory::Internal::StoreState,
+            state: Karya::QueueStore::Internal::StoreState,
             reservation_token_sequence: Integer
           }
 
-          def self.dump: (state: Karya::QueueStore::InMemory::Internal::StoreState, reservation_token_sequence: Integer) -> String
+          def self.dump: (state: Karya::QueueStore::Internal::StoreState, reservation_token_sequence: Integer) -> String
           def self.load: (String payload) -> snapshot
         end
       end

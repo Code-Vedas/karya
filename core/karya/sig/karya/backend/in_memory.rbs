@@ -3,7 +3,7 @@ module Karya
     class InMemory
       include Base
 
-      def initialize: () -> void
+      def initialize: (**Karya::backend_option_value options) -> void
       def identifier: () -> "in_memory"
       def build_queue_store: () -> QueueStore::InMemory
     end

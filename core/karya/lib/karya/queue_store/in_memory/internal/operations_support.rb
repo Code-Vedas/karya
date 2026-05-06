@@ -105,7 +105,7 @@ module Karya
               expire_reservations_locked(normalized_now)
               queued_jobs = validated_jobs.map { |job| enqueue_validated_job(job, normalized_now) }
               store_optional_batch(batch)
-              BulkMutationReport.new(
+              Karya::QueueStore::Internal::BulkMutationReport.new(
                 action: :enqueue_many,
                 performed_at: normalized_now,
                 requested_job_ids: validated_jobs.map(&:id),
@@ -151,7 +151,8 @@ module Karya
 
             @mutex.synchronize do
               changed = state.mark_queue_paused(normalized_queue, normalized_now) == :changed
-              QueueControlResult.new(action: :pause_queue, performed_at: normalized_now, queue: normalized_queue, paused: true, changed:)
+              Karya::QueueStore::Internal::QueueControlResult.new(action: :pause_queue, performed_at: normalized_now, queue: normalized_queue, paused: true,
+                                                                  changed:)
             end
           end
 
@@ -161,7 +162,8 @@ module Karya
 
             @mutex.synchronize do
               changed = state.unmark_queue_paused(normalized_queue) == :changed
-              QueueControlResult.new(action: :resume_queue, performed_at: normalized_now, queue: normalized_queue, paused: false, changed:)
+              Karya::QueueStore::Internal::QueueControlResult.new(action: :resume_queue, performed_at: normalized_now, queue: normalized_queue, paused: false,
+                                                                  changed:)
             end
           end
 
@@ -241,7 +243,12 @@ module Karya
             end
 
             state.delete_retry_pending(job_id)
-            changed_jobs << store_and_requeue_if_needed(retried_job)
+            changed_jobs << store_and_requeue_if_needed(
+              retried_job,
+              queue: retried_job.queue,
+              job_id: retried_job.id,
+              state_name: retried_job.state
+            )
           end
 
           def cancel_requested_job(job_id, now, changed_jobs, skipped_jobs)

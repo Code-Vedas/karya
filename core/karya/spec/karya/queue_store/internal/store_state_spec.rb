@@ -5,12 +5,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
+RSpec.describe Karya::QueueStore::Internal::StoreState do
   subject(:store_state) { described_class.new(expired_tombstone_limit: 16) }
 
-  let(:described_class) do
-    Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:StoreState, false)
-  end
   let(:created_at) { Time.utc(2026, 4, 1, 12, 0, 0) }
 
   def batch(id, job_ids)
@@ -26,9 +23,7 @@ RSpec.describe 'Karya::QueueStore::InMemory::Internal::StoreState' do
   end
 
   def rollback_batch_id(batch_id)
-    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
-    workflow_support = internal.const_get(:WorkflowSupport, false)
-    workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
+    "__karya_workflow_rollback_v1__#{batch_id.unpack1('H*')}"
   end
 
   def interaction_snapshot(kind: :signal, name: :manager_approved, payload: {})

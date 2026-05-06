@@ -3,19 +3,19 @@ module Karya
     class InMemory
       module Internal
         module WorkflowCheckpointSupport
-          def pause_workflow: (batch_id: Karya::state_name, now: Time) -> BulkMutationReport
-          def resume_workflow: (batch_id: Karya::state_name, now: Time) -> BulkMutationReport
+          def pause_workflow: (batch_id: Karya::state_name, now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+          def resume_workflow: (batch_id: Karya::state_name, now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
           def approve_workflow_checkpoints: (
             batch_id: Karya::state_name,
             step_ids: Array[Karya::state_name],
             now: Time
-          ) -> BulkMutationReport
+          ) -> Karya::QueueStore::Internal::BulkMutationReport
           def reject_workflow_checkpoints: (
             batch_id: Karya::state_name,
             step_ids: Array[Karya::state_name],
             now: Time,
             reason: String
-          ) -> BulkMutationReport
+          ) -> Karya::QueueStore::Internal::BulkMutationReport
 
         private
 
@@ -26,10 +26,10 @@ module Karya
             Karya::state_name batch_id,
             Array[Karya::state_name] step_ids,
             now: Time
-          ) -> [String, InMemory::Internal::StoreState::WorkflowRegistration, Array[String]]
+          ) -> [String, Karya::QueueStore::Internal::StoreState::WorkflowRegistration, Array[String]]
           def validate_workflow_approval_targets: (
             Karya::Workflow::Snapshot snapshot,
-            InMemory::Internal::StoreState::WorkflowRegistration registration,
+            Karya::QueueStore::Internal::StoreState::WorkflowRegistration registration,
             Array[String] job_ids
           ) -> nil
           def workflow_approval_satisfied?: (Job job) -> bool

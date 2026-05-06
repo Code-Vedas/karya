@@ -27,7 +27,7 @@ detectors:
     enabled: true
     max_instance_variables: 10
     exclude:
-      - Karya::QueueStore::InMemory::Internal::StoreState
+      - Karya::QueueStore::Internal::StoreState
       - Karya::WorkerSupervisor::Configuration
   DataClump:
     enabled: false

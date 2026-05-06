@@ -5,7 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-RSpec.describe Karya::QueueStore::RecoveryReport do
+RSpec.describe Karya::QueueStore::Internal::RecoveryReport do
   let(:recovered_at) { Time.utc(2026, 3, 27, 12, 0, 0) }
   let(:expired_job) { job(id: 'expired') }
   let(:reserved_job) { job(id: 'reserved') }

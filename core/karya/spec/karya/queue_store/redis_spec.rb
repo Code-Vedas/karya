@@ -130,6 +130,10 @@ RSpec.describe Karya::QueueStore::Redis do
     )
   end
 
+  it 'does not inherit from the in-memory concrete store' do
+    expect(described_class.superclass).not_to eq(Karya::QueueStore::InMemory)
+  end
+
   it 'persists queued, reserved, and succeeded job state across instances' do
     store.enqueue(
       job: submission_job(

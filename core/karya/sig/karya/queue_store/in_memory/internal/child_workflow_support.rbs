@@ -11,8 +11,8 @@ module Karya
             batch_id: Karya::state_name,
             now: Time,
             ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
-          ) -> BulkMutationReport
-          def sync_child_workflows: (parent_batch_id: Karya::state_name, now: Time) -> BulkMutationReport
+          ) -> Karya::QueueStore::Internal::BulkMutationReport
+          def sync_child_workflows: (parent_batch_id: Karya::state_name, now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
 
           private
 
@@ -52,7 +52,7 @@ module Karya
             attr_reader parent_job_id: String
 
             def self.from_registration: (
-              InMemory::Internal::StoreState::WorkflowRegistration parent_registration,
+              Karya::QueueStore::Internal::StoreState::WorkflowRegistration parent_registration,
               String parent_batch_id,
               String parent_step_id
             ) -> ParentChildWorkflow
@@ -72,24 +72,24 @@ module Karya
           end
 
           class ChildWorkflowMetadata
-            @state: InMemory::Internal::StoreState
+            @state: Karya::QueueStore::Internal::StoreState
             @parent: ParentChildWorkflow
             @parent_step_id: String
             @binding: Karya::Workflow::ExecutionBinding
             @definition: Karya::Workflow::Definition
 
             def initialize: (
-              state: InMemory::Internal::StoreState,
+              state: Karya::QueueStore::Internal::StoreState,
               parent: ParentChildWorkflow,
               parent_step_id: String,
               binding: Karya::Workflow::ExecutionBinding,
               definition: Karya::Workflow::Definition
             ) -> void
-            def register: () -> InMemory::Internal::StoreState::WorkflowChildren::Relationship
+            def register: () -> Karya::QueueStore::Internal::StoreState::WorkflowChildren::Relationship
 
           private
 
-            attr_reader state: InMemory::Internal::StoreState
+            attr_reader state: Karya::QueueStore::Internal::StoreState
             attr_reader parent: ParentChildWorkflow
             attr_reader parent_step_id: String
             attr_reader binding: Karya::Workflow::ExecutionBinding
@@ -102,7 +102,7 @@ module Karya
             @now: Time
 
             def initialize: (binding: Karya::Workflow::ExecutionBinding, queued_jobs: Array[Job], now: Time) -> void
-            def to_report: () -> BulkMutationReport
+            def to_report: () -> Karya::QueueStore::Internal::BulkMutationReport
 
           private
 
@@ -117,7 +117,7 @@ module Karya
             binding: Karya::Workflow::ExecutionBinding,
             definition: Karya::Workflow::Definition,
             now: Time
-          ) -> BulkMutationReport
+          ) -> Karya::QueueStore::Internal::BulkMutationReport
           def prepare_child_workflow_parent: (
             parent_batch_id: String,
             parent_step_id: String,
@@ -131,13 +131,13 @@ module Karya
           ) -> void
           def validate_child_workflow_not_registered: (String parent_batch_id, String parent_step_id) -> void
           def validate_child_workflow_parent_job: (
-            InMemory::Internal::StoreState::WorkflowRegistration parent_registration,
+            Karya::QueueStore::Internal::StoreState::WorkflowRegistration parent_registration,
             String parent_step_id,
             String parent_batch_id
           ) -> ParentChildWorkflow
           def validate_child_batch_identity: (parent_batch_id: String, child_batch_id: String) -> void
-          def child_relationship: (String parent_batch_id, String parent_step_id) -> InMemory::Internal::StoreState::WorkflowChildren::Relationship?
-          def child_relationships_for_parent_batch: (String parent_batch_id) -> Array[InMemory::Internal::StoreState::WorkflowChildren::Relationship]
+          def child_relationship: (String parent_batch_id, String parent_step_id) -> Karya::QueueStore::Internal::StoreState::WorkflowChildren::Relationship?
+          def child_relationships_for_parent_batch: (String parent_batch_id) -> Array[Karya::QueueStore::Internal::StoreState::WorkflowChildren::Relationship]
           def sync_child_workflow_job: (
             parent_batch_id: String,
             job_id: String,

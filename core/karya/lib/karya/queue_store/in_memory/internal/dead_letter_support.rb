@@ -216,7 +216,12 @@ module Karya
             end
 
             state.register_retry_pending(job_id) if next_state == :retry_pending
-            changed_jobs << store_and_requeue_if_needed(recovered_job)
+            changed_jobs << store_and_requeue_if_needed(
+              recovered_job,
+              queue: recovered_job.queue,
+              job_id: recovered_job.id,
+              state_name: recovered_job.state
+            )
           end
 
           def cleanup_dead_letter_indexes(job)

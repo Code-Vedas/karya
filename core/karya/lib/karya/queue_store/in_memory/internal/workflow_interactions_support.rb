@@ -87,7 +87,7 @@ module Karya
                   decided_at: normalized_now
                 )
               end
-              BulkMutationReport.new(
+              Karya::QueueStore::Internal::BulkMutationReport.new(
                 action:,
                 performed_at: normalized_now,
                 requested_job_ids: [],

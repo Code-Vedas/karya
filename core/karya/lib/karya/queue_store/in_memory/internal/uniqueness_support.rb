@@ -394,7 +394,15 @@ module Karya
           end
 
           def resolve_reentry_and_store(job, now: nil)
-            store_and_requeue_if_needed(resolve_reentry_uniqueness(job, now:))
+            reentry_job = resolve_reentry_uniqueness(job, now:)
+            reentry_attributes = reentry_job.send(:marshal_dump)
+            queue, job_id, state_name = reentry_attributes.values_at(:queue, :id, :state)
+            store_and_requeue_if_needed(
+              reentry_job,
+              queue:,
+              job_id:,
+              state_name:
+            )
           end
 
           def reentry_conflict_job(job)

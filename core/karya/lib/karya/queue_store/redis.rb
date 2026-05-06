@@ -13,11 +13,18 @@ require_relative 'redis/internal'
 module Karya
   module QueueStore
     # Redis-backed durable queue store that persists canonical queue state in Redis.
-    class Redis < InMemory
+    class Redis
+      include Karya::Internal::ReferenceQueueStore
+
+      module Internal
+        StoreState = Karya::QueueStore::Internal::StoreState
+      end
+
       DEFAULT_NAMESPACE = 'karya'
-      DEFAULT_EXPIRED_TOMBSTONE_LIMIT = InMemory::DEFAULT_EXPIRED_TOMBSTONE_LIMIT
-      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = InMemory::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT
-      DEFAULT_MAX_BATCH_SIZE = InMemory::DEFAULT_MAX_BATCH_SIZE
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT = Karya::Internal::ReferenceQueueStore::DEFAULT_EXPIRED_TOMBSTONE_LIMIT
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = Karya::Internal::ReferenceQueueStore::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT
+      DEFAULT_MAX_BATCH_SIZE = Karya::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE
+      RESERVE_QUEUES_ERROR_MESSAGE = Karya::Internal::ReferenceQueueStore::RESERVE_QUEUES_ERROR_MESSAGE
 
       # Normalizes required non-empty Redis string configuration values.
       class PresentString
@@ -42,7 +49,12 @@ module Karya
         @namespace = normalize_namespace(namespace)
         raise InvalidQueueStoreOperationError, 'token_generator is managed internally by Karya::QueueStore::Redis' if options.key?(:token_generator)
 
-        super(**options, token_generator: -> { SecureRandom.uuid })
+        configure_reference_queue_store(
+          initializer_options_class: Karya::QueueStore::InMemory.const_get(:Internal, false).const_get(:InitializerOptions, false),
+          store_state_class: Internal::StoreState,
+          **options,
+          token_generator: -> { SecureRandom.uuid }
+        )
         @mutex = Internal::PersistenceMutex.new(
           redis: redis_client,
           owner: self,

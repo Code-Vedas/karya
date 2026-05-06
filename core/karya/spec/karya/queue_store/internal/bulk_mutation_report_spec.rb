@@ -5,7 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-RSpec.describe Karya::QueueStore::BulkMutationReport do
+RSpec.describe Karya::QueueStore::Internal::BulkMutationReport do
   let(:performed_at) { Time.utc(2026, 4, 1, 12, 0, 0) }
   let(:job) { Karya::Job.new(id: 'job-1', queue: 'billing', handler: 'billing_sync', state: :queued, created_at: performed_at) }
 

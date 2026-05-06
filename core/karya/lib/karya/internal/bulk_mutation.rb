@@ -5,7 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require_relative '../queue_store/bulk_mutation_report'
+require_relative '../queue_store/internal/bulk_mutation_report'
 
 module Karya
   module Internal
@@ -71,7 +71,7 @@ module Karya
               yield job_id, changed_jobs, skipped_jobs
             end
           end
-          QueueStore::BulkMutationReport.new(action:, performed_at: now, requested_job_ids: job_ids, changed_jobs:, skipped_jobs:)
+          QueueStore::Internal::BulkMutationReport.new(action:, performed_at: now, requested_job_ids: job_ids, changed_jobs:, skipped_jobs:)
         end
 
         private

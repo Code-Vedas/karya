@@ -11,12 +11,12 @@ module Karya
 
           def record_workflow_registration_history: (
             batch_id: String,
-            registration: InMemory::Internal::StoreState::WorkflowRegistration,
+            registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration,
             occurred_at: Time
           ) -> void
           def record_workflow_step_control: (
             batch_id: String,
-            registration: InMemory::Internal::StoreState::WorkflowRegistration,
+            registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration,
             action: Karya::bulk_mutation_action,
             job_id: String,
             occurred_at: Time
@@ -31,24 +31,24 @@ module Karya
 
           class WorkflowHistoryBuilder
             @batch: Karya::Workflow::Batch
-            @registration: InMemory::Internal::StoreState::WorkflowRegistration
+            @registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
             @now: Time
-            @state: InMemory::Internal::StoreState
+            @state: Karya::QueueStore::Internal::StoreState
 
             def initialize: (
               batch: Karya::Workflow::Batch,
-              registration: InMemory::Internal::StoreState::WorkflowRegistration,
+              registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration,
               now: Time,
-              state: InMemory::Internal::StoreState
+              state: Karya::QueueStore::Internal::StoreState
             ) -> void
             def to_snapshot: () -> Karya::Workflow::HistorySnapshot
 
           private
 
             attr_reader batch: Karya::Workflow::Batch
-            attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
+            attr_reader registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
             attr_reader now: Time
-            attr_reader state: InMemory::Internal::StoreState
+            attr_reader state: Karya::QueueStore::Internal::StoreState
           end
 
           class CompensationJobDetails

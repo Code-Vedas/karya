@@ -208,7 +208,7 @@ module Karya
             end
 
             def to_report
-              BulkMutationReport.new(
+              Karya::QueueStore::Internal::BulkMutationReport.new(
                 action: :enqueue_child_workflow,
                 performed_at: now,
                 requested_job_ids: binding.jobs.map(&:id),

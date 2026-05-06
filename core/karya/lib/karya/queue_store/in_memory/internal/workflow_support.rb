@@ -36,7 +36,7 @@ module Karya
                 step_job_ids:,
                 occurred_at: normalized_now
               )
-              BulkMutationReport.new(
+              Karya::QueueStore::Internal::BulkMutationReport.new(
                 action: :enqueue_many,
                 performed_at: normalized_now,
                 requested_job_ids: jobs.map(&:id),
@@ -77,7 +77,7 @@ module Karya
                 reason: normalized_reason,
                 occurred_at: normalized_now
               )
-              BulkMutationReport.new(
+              Karya::QueueStore::Internal::BulkMutationReport.new(
                 action: :rollback_workflow,
                 performed_at: normalized_now,
                 requested_job_ids: queued_job_ids,

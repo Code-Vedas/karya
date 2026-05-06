@@ -30,15 +30,15 @@ module Karya
           end
 
           class RollbackPlan
-            @registration: InMemory::Internal::StoreState::WorkflowRegistration
+            @registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
             @jobs_by_id: Hash[String, Job]
 
-            def initialize: (registration: InMemory::Internal::StoreState::WorkflowRegistration, jobs: Array[Job]) -> void
+            def initialize: (registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration, jobs: Array[Job]) -> void
             def to_plan: () -> RollbackPlan::Plan
 
           private
 
-            attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
+            attr_reader registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
             attr_reader jobs_by_id: Hash[String, Job]
             def ordered_compensation_jobs: () -> Array[Job]
 
@@ -89,42 +89,42 @@ module Karya
           end
 
           class WorkflowControlTargets
-            @registration: InMemory::Internal::StoreState::WorkflowRegistration
+            @registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
             @step_ids: Array[String]
 
-            def initialize: (registration: InMemory::Internal::StoreState::WorkflowRegistration, step_ids: Array[Karya::state_name]) -> void
+            def initialize: (registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration, step_ids: Array[Karya::state_name]) -> void
             def job_ids: () -> Array[String]
 
           private
 
-            attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
+            attr_reader registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
             attr_reader step_ids: Array[String]
             def step_job_ids: () -> Hash[String, String]
           end
 
           class WorkflowSnapshotBuilder
             @batch: Karya::Workflow::Batch
-            @registration: InMemory::Internal::StoreState::WorkflowRegistration
+            @registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
             @jobs: Array[Job]
             @now: Time
-            @state: InMemory::Internal::StoreState
+            @state: Karya::QueueStore::Internal::StoreState
 
             def initialize: (
               batch: Karya::Workflow::Batch,
-              registration: InMemory::Internal::StoreState::WorkflowRegistration,
+              registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration,
               jobs: Array[Job],
               now: Time,
-              state: InMemory::Internal::StoreState
+              state: Karya::QueueStore::Internal::StoreState
             ) -> void
             def to_snapshot: () -> Karya::Workflow::Snapshot
 
           private
 
             attr_reader batch: Karya::Workflow::Batch
-            attr_reader registration: InMemory::Internal::StoreState::WorkflowRegistration
+            attr_reader registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
             attr_reader jobs: Array[Job]
             attr_reader now: Time
-            attr_reader state: InMemory::Internal::StoreState
+            attr_reader state: Karya::QueueStore::Internal::StoreState
             def rollback_snapshot: () -> Karya::Workflow::RollbackSnapshot?
             def child_workflow_snapshots: () -> Array[Karya::Workflow::ChildWorkflowSnapshot]
             def interaction_snapshots: () -> Array[Karya::Workflow::InteractionSnapshot]

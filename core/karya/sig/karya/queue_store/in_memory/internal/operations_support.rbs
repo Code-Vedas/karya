@@ -30,11 +30,11 @@ module Karya
             def retry_pending_job_retry: () -> Job
           end
 
-          def enqueue_many: (jobs: Array[Job], now: Time, ?batch_id: Karya::state_name?) -> BulkMutationReport
-          def retry_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-          def cancel_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-          def pause_queue: (queue: String, now: Time) -> QueueControlResult
-          def resume_queue: (queue: String, now: Time) -> QueueControlResult
+          def enqueue_many: (jobs: Array[Job], now: Time, ?batch_id: Karya::state_name?) -> Karya::QueueStore::Internal::BulkMutationReport
+          def retry_jobs: (job_ids: Array[String], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+          def cancel_jobs: (job_ids: Array[String], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+          def pause_queue: (queue: String, now: Time) -> Karya::QueueStore::Internal::QueueControlResult
+          def resume_queue: (queue: String, now: Time) -> Karya::QueueStore::Internal::QueueControlResult
 
           private
 
