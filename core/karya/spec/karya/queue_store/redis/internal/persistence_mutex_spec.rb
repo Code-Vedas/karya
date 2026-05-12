@@ -133,7 +133,13 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
       fake_thread
     end
     stop_signal = instance_double(Queue)
-    allow(stop_signal).to receive(:pop).with(timeout: described_class::LOCK_RENEW_INTERVAL).and_raise(ThreadError)
+    pop_calls = 0
+    allow(stop_signal).to receive(:pop).with(timeout: described_class::LOCK_RENEW_INTERVAL) do
+      pop_calls += 1
+      raise ThreadError if pop_calls == 1
+
+      true
+    end
     allow(redis).to receive(:eval).with(
       described_class::EXTEND_SCRIPT,
       keys: ['redis:test:lock'],
@@ -143,6 +149,7 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     renewal_thread = mutex.send(:start_lock_renewal, 'token-timeout', stop_signal)
 
     expect(renewal_thread).to eq(fake_thread)
+    expect(stop_signal).to have_received(:pop).with(timeout: described_class::LOCK_RENEW_INTERVAL).twice
     expect(mutex.send(:lock_lost?)).to be(false)
   end
 
