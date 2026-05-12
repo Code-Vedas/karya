@@ -30,6 +30,7 @@ module Karya
       private
 
       attr_reader namespace: String
+      attr_reader reservation_token_sequence: Integer
       attr_reader url: String
 
       def normalize_url: (String? value) -> String

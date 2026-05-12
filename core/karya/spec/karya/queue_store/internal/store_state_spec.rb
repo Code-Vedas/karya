@@ -23,7 +23,9 @@ RSpec.describe Karya::QueueStore::Internal::StoreState do
   end
 
   def rollback_batch_id(batch_id)
-    "__karya_workflow_rollback_v1__#{batch_id.unpack1('H*')}"
+    internal = Karya::QueueStore::Internal::ReferenceQueueStore.const_get(:Internal, false)
+    workflow_support = internal.const_get(:WorkflowSupport, false)
+    workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
   end
 
   def interaction_snapshot(kind: :signal, name: :manager_approved, payload: {})
