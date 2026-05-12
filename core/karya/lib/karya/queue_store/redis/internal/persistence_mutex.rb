@@ -129,7 +129,11 @@ module Karya
           def start_lock_renewal(token, stop_signal)
             Thread.new do
               loop do
-                break if stop_signal.pop(timeout: LOCK_RENEW_INTERVAL)
+                begin
+                  break if stop_signal.pop(timeout: LOCK_RENEW_INTERVAL)
+                rescue ThreadError
+                  nil
+                end
                 next if extend_lock?(token)
 
                 record_lock_loss

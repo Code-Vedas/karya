@@ -126,6 +126,26 @@ RSpec.describe Karya::QueueStore::Redis::Internal::PersistenceMutex do
     expect(mutex.send(:lock_lost?)).to be(true)
   end
 
+  it 'treats renewal wait timeouts as the normal path to the next extension attempt' do
+    fake_thread = instance_double(Thread, join: nil, alive?: false)
+    allow(Thread).to receive(:new) do |&block|
+      block.call
+      fake_thread
+    end
+    stop_signal = instance_double(Queue)
+    allow(stop_signal).to receive(:pop).with(timeout: described_class::LOCK_RENEW_INTERVAL).and_raise(ThreadError)
+    allow(redis).to receive(:eval).with(
+      described_class::EXTEND_SCRIPT,
+      keys: ['redis:test:lock'],
+      argv: ['token-timeout', described_class::LOCK_TTL_SECONDS.to_s]
+    ).and_return(1)
+
+    renewal_thread = mutex.send(:start_lock_renewal, 'token-timeout', stop_signal)
+
+    expect(renewal_thread).to eq(fake_thread)
+    expect(mutex.send(:lock_lost?)).to be(false)
+  end
+
   it 'swallows renewal thread errors after attempting an extension' do
     stop_signal = instance_double(Queue)
     allow(stop_signal).to receive(:pop).with(timeout: described_class::LOCK_RENEW_INTERVAL).and_return(nil)

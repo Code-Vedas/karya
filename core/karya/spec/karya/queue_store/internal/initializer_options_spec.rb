@@ -5,7 +5,7 @@ require 'rbconfig'
 
 RSpec.describe Karya::QueueStore::Internal::InitializerOptions do
   it 'loads as a standalone file and provides the default token generator' do
-    lib_path = File.expand_path('../../../lib', __dir__)
+    lib_path = File.expand_path('../../../../lib', __dir__)
     script = <<~RUBY
       require 'karya/queue_store/internal/initializer_options'
       puts Karya::QueueStore::Internal::InitializerOptions.new({}).token_generator.call.class
