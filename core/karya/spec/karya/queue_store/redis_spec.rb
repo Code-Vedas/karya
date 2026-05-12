@@ -236,23 +236,24 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(fallback_client.data).to have_key('fallback:queue_store:lock')
   end
 
-  it 'rejects Symbol job arguments when Redis persistence is required' do
-    expect do
-      store.enqueue(
-        job: Karya::Job.new(
-          id: 'job-symbol-arg',
-          queue: 'billing',
-          handler: 'billing_sync',
-          arguments: { 'kind' => :manual },
-          state: :submission,
-          created_at:
-        ),
-        now: created_at + 1
-      )
-    end.to raise_error(
-      Karya::InvalidQueueStoreOperationError,
-      'Redis queue-store snapshots do not support Symbol job arguments; use String values instead'
+  it 'persists Symbol job arguments when Redis persistence is required' do
+    store.enqueue(
+      job: Karya::Job.new(
+        id: 'job-symbol-arg',
+        queue: 'billing',
+        handler: 'billing_sync',
+        arguments: { 'kind' => :manual },
+        state: :submission,
+        created_at:
+      ),
+      now: created_at + 1
     )
+
+    restored_store = described_class.new(url: redis_url, namespace:)
+    reservation = restored_store.reserve(queue: 'billing', worker_id: 'worker-symbol', lease_duration: 60, now: created_at + 2)
+    restored_job = restored_store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+    expect(restored_job.arguments).to include('kind' => :manual)
   end
 
   it 'rejects non-finite Float job arguments when Redis persistence is required' do

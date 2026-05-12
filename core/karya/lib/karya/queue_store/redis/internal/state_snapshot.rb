@@ -170,9 +170,6 @@ module Karya
                 recurse_argument_values(value.each_value)
               when Array
                 recurse_argument_values(value)
-              when Symbol
-                raise InvalidQueueStoreOperationError,
-                      'Redis queue-store snapshots do not support Symbol job arguments; use String values instead'
               when Float
                 validate_supported_float!(value)
               end
