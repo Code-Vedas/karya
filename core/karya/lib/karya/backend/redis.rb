@@ -31,11 +31,33 @@ module Karya
 
       def build_queue_store
         QueueStore::Redis.new(**queue_store_options)
+      rescue ArgumentError, TypeError => e
+        raise InvalidBackendConfigurationError, "#{queue_store_configuration_error_message}: #{e.message}", cause: e
       end
 
       private
 
       attr_reader :queue_store_options
+
+      def queue_store_configuration_error_message
+        invalid_keys = queue_store_options.keys - valid_queue_store_option_keys
+        return "invalid Redis backend queue-store configuration: unexpected option keys #{invalid_keys.map(&:inspect).join(', ')}" unless invalid_keys.empty?
+
+        'invalid Redis backend queue-store configuration'
+      end
+
+      def valid_queue_store_option_keys
+        %i[
+          url
+          namespace
+          max_batch_size
+          expired_tombstone_limit
+          completed_batch_retention_limit
+          policy_set
+          circuit_breaker_policy_set
+          fairness_policy
+        ]
+      end
     end
   end
 end

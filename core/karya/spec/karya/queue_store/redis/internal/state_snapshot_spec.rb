@@ -104,13 +104,20 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
   it 'rejects invalid JSON payloads' do
     expect do
       described_class.load('not-json')
-    end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid Redis state snapshot/)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid Redis state snapshot: JSON::ParserError:/)
   end
 
   it 'rejects valid JSON payloads with invalid decode shape' do
     expect do
       described_class.load('{"__karya_type__":"array","items":"not-an-array"}')
-    end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid Redis state snapshot/)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid Redis state snapshot: NoMethodError:/)
+  end
+
+  it 'preserves the original decode error as the cause' do
+    described_class.load('{"__karya_type__":"array","items":"not-an-array"}')
+    raise 'expected load to fail'
+  rescue Karya::InvalidQueueStoreOperationError => e
+    expect(e.cause).to be_a(NoMethodError)
   end
 
   it 'rejects tampered payloads that request unsupported classes' do

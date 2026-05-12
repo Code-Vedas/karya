@@ -41,7 +41,7 @@ module Karya
             def load(payload)
               decode_value(JSON.parse(payload))
             rescue JSON::ParserError, KeyError, TypeError, NoMethodError, ArgumentError => e
-              raise InvalidQueueStoreOperationError, "invalid Redis state snapshot: #{e.message}"
+              raise InvalidQueueStoreOperationError, "invalid Redis state snapshot: #{e.class}: #{e.message}", cause: e
             end
 
             def encode_value(value)

@@ -69,6 +69,32 @@ RSpec.describe Karya::Backend::Redis do
     expect(queue_store.send(:max_batch_size)).to eq(50)
   end
 
+  it 'normalizes invalid queue-store keyword errors into backend configuration errors' do
+    backend = described_class.new(
+      url: 'redis://example.test:6379/0',
+      namespace: 'payments',
+      unsupported_option: true
+    )
+
+    expect do
+      backend.build_queue_store
+    end.to raise_error(
+      Karya::InvalidBackendConfigurationError,
+      /invalid Redis backend queue-store configuration: unexpected option keys :unsupported_option: unknown keywords: unsupported_option/
+    ) { |error| expect(error.cause).to be_a(ArgumentError) }
+  end
+
+  it 'normalizes valid-key queue-store construction failures into backend configuration errors' do
+    allow(Karya::QueueStore::Redis).to receive(:new).and_raise(TypeError, 'coercion failure')
+
+    expect do
+      backend.build_queue_store
+    end.to raise_error(
+      Karya::InvalidBackendConfigurationError,
+      /invalid Redis backend queue-store configuration: coercion failure/
+    ) { |error| expect(error.cause).to be_a(TypeError) }
+  end
+
   it 'declares no-op lifecycle hooks around queue-store usage' do
     queue_store = backend.build_queue_store
 

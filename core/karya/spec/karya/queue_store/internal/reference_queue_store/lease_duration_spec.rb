@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require 'open3'
+require 'rbconfig'
+
 # Copyright Codevedas Inc. 2025-present
 #
 # This source code is licensed under the MIT license found in the
@@ -18,5 +21,19 @@ RSpec.describe 'Karya::QueueStore::Internal::ReferenceQueueStore::Internal::Leas
     expect do
       described_class.new(Float::INFINITY).normalize
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /lease_duration must be a positive number/)
+  end
+
+  it 'loads as a standalone file and accepts BigDecimal durations' do
+    lib_path = File.expand_path('../../../../../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/queue_store/internal/reference_queue_store/lease_duration'
+      lease_duration = Karya::QueueStore::Internal::ReferenceQueueStore::Internal.const_get(:LeaseDuration, false)
+      puts lease_duration.new(BigDecimal('1.5')).normalize
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status.success?).to be(true), stderr
+    expect(stdout).to eq("0.15e1\n")
   end
 end
