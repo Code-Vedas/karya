@@ -2,8 +2,10 @@
 
 require 'bigdecimal'
 
-RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
-  let(:json_codec) { described_class.const_get(:JsonCodec, false) }
+RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapshot do
+  subject(:state_snapshot) { described_class }
+
+  let(:json_codec) { state_snapshot.const_get(:JsonCodec, false) }
   let(:store_state_class) { Karya::QueueStore::Internal.const_get(:StoreState, false) }
   let(:created_at) { Time.utc(2026, 5, 5, 12, 0, 0) }
   let(:redis_url) { 'redis://example.test:6379/0' }
@@ -81,12 +83,12 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
 
   it 'round-trips a persisted queue-store snapshot through the JSON codec' do
     store = build_store
-    payload = described_class.dump(
+    payload = state_snapshot.dump(
       state: store.instance_variable_get(:@state),
       reservation_token_sequence: 7
     )
 
-    snapshot = described_class.load(payload)
+    snapshot = state_snapshot.load(payload)
     restored_job = snapshot.fetch(:state).jobs_by_id.fetch('job-1')
 
     expect(snapshot.fetch(:state)).to be_a(store_state_class)
@@ -103,18 +105,18 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
 
   it 'rejects invalid JSON payloads' do
     expect do
-      described_class.load('not-json')
+      state_snapshot.load('not-json')
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid Redis state snapshot: JSON::ParserError:/)
   end
 
   it 'rejects valid JSON payloads with invalid decode shape' do
     expect do
-      described_class.load('{"__karya_type__":"array","items":"not-an-array"}')
+      state_snapshot.load('{"__karya_type__":"array","items":"not-an-array"}')
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid Redis state snapshot: NoMethodError:/)
   end
 
   it 'preserves the original decode error as the cause' do
-    described_class.load('{"__karya_type__":"array","items":"not-an-array"}')
+    state_snapshot.load('{"__karya_type__":"array","items":"not-an-array"}')
     raise 'expected load to fail'
   rescue Karya::InvalidQueueStoreOperationError => e
     expect(e.cause).to be_a(NoMethodError)
@@ -126,7 +128,7 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
     JSON
 
     expect do
-      described_class.load(payload)
+      state_snapshot.load(payload)
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis state snapshot class/)
   end
 
@@ -250,13 +252,13 @@ RSpec.describe Karya::QueueStore::Redis::Internal::StateSnapshot do
 
   it 'rejects invalid snapshot shapes' do
     expect do
-      described_class.send(:validate_snapshot, [])
+      state_snapshot.send(:validate_snapshot, [])
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'invalid Redis state snapshot')
   end
 
   it 'rejects snapshot hashes missing required keys' do
     expect do
-      described_class.send(:validate_snapshot, { state: build_store.instance_variable_get(:@state) })
+      state_snapshot.send(:validate_snapshot, { state: build_store.instance_variable_get(:@state) })
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'invalid Redis state snapshot')
   end
 end

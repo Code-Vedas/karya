@@ -6,6 +6,7 @@ RSpec.describe Karya::QueueStore::Redis do
   let(:redis_url) { 'redis://example.test:6379/0' }
   let(:created_at) { Time.utc(2026, 5, 5, 12, 0, 0) }
   let(:namespace) { 'redis-unit' }
+  let(:persistence_mutex_class) { described_class.const_get(:Internal, false).const_get(:PersistenceMutex, false) }
   let(:fake_redis_client_class) do
     Class.new do
       attr_reader :data
@@ -223,7 +224,7 @@ RSpec.describe Karya::QueueStore::Redis do
     fallback_client = fake_redis_client_class.new
     allow(Redis).to receive(:new).with(url: redis_url).and_return(fallback_client)
     allow(fallback_client).to receive(:eval).and_wrap_original do |original, script, keys:, argv:|
-      raise 'boom' if script == Karya::QueueStore::Redis::Internal::PersistenceMutex::RELEASE_SCRIPT
+      raise 'boom' if script == persistence_mutex_class::RELEASE_SCRIPT
 
       original.call(script, keys:, argv:)
     end
@@ -304,7 +305,7 @@ RSpec.describe Karya::QueueStore::Redis do
     allow(Redis).to receive(:new).with(url: redis_url).and_return(guarded_client)
     guarded_store = described_class.new(url: redis_url, namespace: 'guarded')
     allow(guarded_client).to receive(:eval).and_wrap_original do |original, script, keys:, argv:|
-      raise 'boom' if script == Karya::QueueStore::Redis::Internal::PersistenceMutex::RELEASE_SCRIPT
+      raise 'boom' if script == persistence_mutex_class::RELEASE_SCRIPT
 
       original.call(script, keys:, argv:)
     end

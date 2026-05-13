@@ -27,6 +27,8 @@ module Karya
       DEFAULT_MAX_BATCH_SIZE = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE
       RESERVE_QUEUES_ERROR_MESSAGE = Karya::QueueStore::Internal::ReferenceQueueStore::RESERVE_QUEUES_ERROR_MESSAGE
 
+      private_constant :Internal
+
       # Normalizes required non-empty Redis string configuration values.
       class PresentString
         def initialize(value)

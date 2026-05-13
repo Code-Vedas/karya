@@ -146,8 +146,9 @@ depend on worker objects, process-local queues, or thread state.
 `recover_in_flight(now:)` is the backend-facing recovery pass. It expires
 already-expired queued or retry-pending jobs, requeues expired reserved and
 running leases, tombstones recovered lease tokens, and returns a
-`Karya::QueueStore::RecoveryReport` with separate expired, recovered reserved,
-and recovered running job lists. `recover_orphaned_jobs(worker_id:, now:)` is
+`Karya::QueueStore::Internal::RecoveryReport` with separate expired, recovered
+reserved, and recovered running job lists. `recover_orphaned_jobs(worker_id:,
+now:)` is
 the startup/takeover hook used by workers to recover expired leases owned by
 that worker id. Backends that persist worker liveness may also classify leases
 from dead workers as orphaned; otherwise orphan recovery is lease-expiry based.
