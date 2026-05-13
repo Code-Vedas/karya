@@ -187,6 +187,24 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     expect(owner).not_to have_received(:dump_state_payload)
   end
 
+  it 'raises for read-only synchronized operations when the lock is no longer held after the block' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-read-only-lost')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-read-only-lost', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return(nil)
+    allow(redis).to receive(:eval).and_return(1)
+    allow(owner).to receive(:load_persisted_state)
+    allow(owner).to receive(:dump_state_payload)
+
+    expect do
+      mutex.read_only_synchronize { :snapshot }
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
+
+    expect(owner).to have_received(:load_persisted_state)
+    expect(owner).not_to have_received(:dump_state_payload)
+  end
+
   it 'aborts persistence when the renewal loop loses the distributed lock' do
     allow(redis).to receive_messages(
       set: 'OK',
@@ -242,7 +260,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
 
     expect(owner).to have_received(:load_persisted_state)
-    expect(owner).to have_received(:dump_state_payload)
+    expect(owner).not_to have_received(:dump_state_payload)
   end
 
   it 'records lock loss when atomic persistence script execution raises' do
@@ -250,6 +268,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     allow(SecureRandom).to receive(:uuid).and_return('token-persist-error')
     allow(redis).to receive(:set).with('redis:test:lock', 'token-persist-error', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
     allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-persist-error')
     allow(redis).to receive(:eval).and_raise(RuntimeError, 'persist boom')
     allow(owner).to receive(:load_persisted_state)
     allow(owner).to receive(:dump_state_payload).and_return('payload')
@@ -280,6 +299,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     allow(SecureRandom).to receive(:uuid).and_return('token-persist')
     allow(redis).to receive(:set).with('redis:test:lock', 'token-persist', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
     allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-persist')
     allow(redis).to receive(:eval).and_return(1)
     allow(owner).to receive(:load_persisted_state)
     allow(owner).to receive(:dump_state_payload).and_return('payload')
@@ -290,6 +310,20 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
       keys: ['redis:test:lock', 'redis:test:state'],
       argv: ['token-persist', 'payload', persistence_mutex_class::LOCK_TTL_SECONDS.to_s]
     )
+  end
+
+  it 'raises lock loss when atomic persistence reports that the lock is no longer owned' do
+    mutex.instance_variable_set(:@current_lock_token, 'token-stale')
+    allow(owner).to receive(:dump_state_payload).and_return('payload')
+    allow(redis).to receive(:eval).with(
+      persistence_mutex_class::PERSIST_SCRIPT,
+      keys: ['redis:test:lock', 'redis:test:state'],
+      argv: ['token-stale', 'payload', persistence_mutex_class::LOCK_TTL_SECONDS.to_s]
+    ).and_return(0)
+
+    expect do
+      mutex.send(:persist_state_if_owned)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
   end
 
   it 'raises a generic lock-loss message when the lock disappears without a recorded cause' do

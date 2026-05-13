@@ -84,6 +84,7 @@ module Karya
                 owner.send(:load_persisted_state)
                 result = yield
                 raise_lock_loss if lock_lost?
+                verify_lock_still_held
                 persist_state_if_owned if persist
                 result
               end
