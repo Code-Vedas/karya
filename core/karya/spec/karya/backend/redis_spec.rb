@@ -95,6 +95,17 @@ RSpec.describe Karya::Backend::Redis do
     ) { |error| expect(error.cause).to be_a(TypeError) }
   end
 
+  it 'normalizes queue-store validation failures into backend configuration errors' do
+    backend = described_class.new(url: ' ', namespace: 'payments')
+
+    expect do
+      backend.build_queue_store
+    end.to raise_error(
+      Karya::InvalidBackendConfigurationError,
+      /invalid Redis backend queue-store configuration: url must be a non-empty String/
+    ) { |error| expect(error.cause).to be_a(Karya::InvalidQueueStoreOperationError) }
+  end
+
   it 'declares no-op lifecycle hooks around queue-store usage' do
     queue_store = backend.build_queue_store
 

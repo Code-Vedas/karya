@@ -88,7 +88,11 @@ module Karya
 
       def load_persisted_state
         payload = redis_client.get(state_key)
-        return unless payload
+        unless payload
+          @state = Internal::StoreState.new(expired_tombstone_limit:)
+          @reservation_token_sequence = 0
+          return
+        end
 
         snapshot = Internal::StateSnapshot.load(payload)
         @state = snapshot.fetch(:state)

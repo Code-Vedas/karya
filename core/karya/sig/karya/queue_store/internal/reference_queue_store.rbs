@@ -18,6 +18,7 @@ module Karya
       @policy_set: Backpressure::PolicySet
       @circuit_breaker_policy_set: CircuitBreaker::PolicySet
       @fairness_policy: Fairness::Policy
+      @expired_tombstone_limit: Integer
       @completed_batch_retention_limit: Integer
       @max_batch_size: Integer
       @reservation_token_sequence: Integer
@@ -33,7 +34,13 @@ module Karya
       def configure_reference_queue_store: (
         initializer_options_class: singleton(Karya::QueueStore::Internal::InitializerOptions),
         store_state_class: singleton(Karya::QueueStore::Internal::StoreState),
-        **Karya::backend_option_value options
+        ?token_generator: Karya::callable_value,
+        ?expired_tombstone_limit: Integer,
+        ?completed_batch_retention_limit: Integer,
+        ?max_batch_size: Integer,
+        ?policy_set: Backpressure::PolicySet,
+        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
+        ?fairness_policy: Fairness::Policy
       ) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
@@ -67,6 +74,7 @@ module Karya
 
       attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
       attr_reader completed_batch_retention_limit: Integer
+      attr_reader expired_tombstone_limit: Integer
       attr_reader fairness_policy: Fairness::Policy
       attr_reader max_batch_size: Integer
       attr_reader policy_set: Backpressure::PolicySet

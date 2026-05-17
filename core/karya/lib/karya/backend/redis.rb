@@ -31,7 +31,7 @@ module Karya
 
       def build_queue_store
         QueueStore::Redis.new(**queue_store_options)
-      rescue ArgumentError, TypeError => e
+      rescue ArgumentError, TypeError, InvalidQueueStoreOperationError => e
         raise InvalidBackendConfigurationError, "#{queue_store_configuration_error_message}: #{e.message}", cause: e
       end
 

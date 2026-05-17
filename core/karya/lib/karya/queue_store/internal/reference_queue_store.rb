@@ -70,6 +70,7 @@ module Karya
           end
 
           @token_generator = token_generator
+          @expired_tombstone_limit = expired_tombstone_limit
           @completed_batch_retention_limit = completed_batch_retention_limit
           @max_batch_size = max_batch_size
           @policy_set = policy_set
@@ -215,6 +216,7 @@ module Karya
 
         attr_reader :circuit_breaker_policy_set,
                     :completed_batch_retention_limit,
+                    :expired_tombstone_limit,
                     :fairness_policy,
                     :max_batch_size,
                     :policy_set,

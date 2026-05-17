@@ -257,6 +257,20 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(restored_job.arguments).to include('kind' => :manual)
   end
 
+  it 'reloads an empty durable state when the Redis snapshot key is missing' do
+    store.enqueue(job: submission_job(id: 'job-stale'), now: created_at + 1)
+    redis_client.data.delete("#{namespace}:queue_store:state")
+
+    store.enqueue(job: submission_job(id: 'job-fresh'), now: created_at + 2)
+
+    restored_store = described_class.new(url: redis_url, namespace:)
+    reservation = restored_store.reserve(queue: 'billing', worker_id: 'worker-reset', lease_duration: 60, now: created_at + 3)
+    restored_job = restored_store.start_execution(reservation_token: reservation.token, now: created_at + 4)
+
+    expect(restored_job.id).to eq('job-fresh')
+    expect(restored_store.reserve(queue: 'billing', worker_id: 'worker-reset', lease_duration: 60, now: created_at + 5)).to be_nil
+  end
+
   it 'rejects non-finite Float job arguments when Redis persistence is required' do
     expect do
       store.enqueue(
