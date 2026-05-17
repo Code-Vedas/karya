@@ -24,7 +24,25 @@ module Karya
             end
             return 0
           LUA
-          PERSIST_SCRIPT = <<~LUA
+          PERSIST_SNAPSHOT_SCRIPT = <<~LUA
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+              local version = redis.call("incr", KEYS[2])
+              redis.call("set", KEYS[3], ARGV[2])
+              redis.call("expire", KEYS[1], ARGV[3])
+              return version
+            end
+            return 0
+          LUA
+          APPEND_EVENT_SCRIPT = <<~LUA
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+              local version = redis.call("incr", KEYS[2])
+              redis.call("set", ARGV[2] .. version, ARGV[3])
+              redis.call("expire", KEYS[1], ARGV[4])
+              return version
+            end
+            return 0
+          LUA
+          COMPACT_SNAPSHOT_SCRIPT = <<~LUA
             if redis.call("get", KEYS[1]) == ARGV[1] then
               redis.call("set", KEYS[2], ARGV[2])
               redis.call("expire", KEYS[1], ARGV[3])
@@ -55,11 +73,12 @@ module Karya
           end
           private_constant :LockAcquisitionDeadline
 
-          def initialize(redis:, owner:, state_key:, lock_key:)
+          def initialize(redis:, owner:, state_key:, lock_key:, version_key:)
             @redis = redis
             @owner = owner
             @state_key = state_key
             @lock_key = lock_key
+            @version_key = version_key
             @local_mutex = Thread::Mutex.new
             @current_lock_token = nil
             @lock_lost = false
@@ -67,25 +86,39 @@ module Karya
           end
 
           def synchronize(&)
-            synchronize_owned_state(persist: true, &)
+            synchronize_owned_state(mode: :snapshot, &)
+          end
+
+          def synchronize_with_event(event_builder:, &)
+            synchronize_owned_state(mode: :event, event_builder:, &)
           end
 
           def read_only_synchronize(&)
-            synchronize_owned_state(persist: false, &)
+            synchronize_owned_state(mode: :read_only, &)
+          end
+
+          def compact_snapshot(payload:)
+            redis.eval(
+              COMPACT_SNAPSHOT_SCRIPT,
+              keys: [lock_key, state_key],
+              argv: [@current_lock_token, payload, LOCK_TTL_SECONDS.to_s]
+            ) == 1
+          rescue StandardError
+            false
           end
 
           private
 
-          attr_reader :lock_key, :local_mutex, :owner, :redis, :state_key
+          attr_reader :lock_key, :local_mutex, :owner, :redis, :state_key, :version_key
 
-          def synchronize_owned_state(persist:)
+          def synchronize_owned_state(mode:, event_builder: nil)
             local_mutex.synchronize do
               with_distributed_lock do
                 owner.send(:load_persisted_state)
                 result = yield
                 raise_lock_loss if lock_lost?
                 verify_lock_still_held
-                persist_state_if_owned if persist
+                persist_if_owned(mode:, event_builder:, result:)
                 result
               end
             end
@@ -155,14 +188,47 @@ module Karya
             nil
           end
 
-          def persist_state_if_owned
-            payload = owner.send(:dump_state_payload)
+          def persist_if_owned(mode:, event_builder:, result:)
+            case mode
+            when :read_only
+              result
+            when :snapshot
+              persist_snapshot_if_owned
+            when :event
+              persist_event_if_owned(event_builder.call(result))
+            else
+              raise InvalidQueueStoreOperationError, "unsupported Redis persistence mode: #{mode.inspect}"
+            end
+          end
+
+          def persist_snapshot_if_owned
+            current_version = redis.get(version_key)
+            next_version = current_version ? Integer(current_version, 10) + 1 : 1
+            payload = owner.send(:dump_state_payload, applied_version: next_version)
             script_result = redis.eval(
-              PERSIST_SCRIPT,
-              keys: [lock_key, state_key],
+              PERSIST_SNAPSHOT_SCRIPT,
+              keys: [lock_key, version_key, state_key],
               argv: [@current_lock_token, payload, LOCK_TTL_SECONDS.to_s]
             )
-            return payload if script_result == 1
+            return owner.send(:snapshot_persisted, script_result) if script_result.is_a?(Integer) && script_result.positive?
+
+            record_lock_loss
+            raise_lock_loss
+          rescue InvalidQueueStoreOperationError
+            raise
+          rescue StandardError => e
+            record_lock_loss(e)
+            raise_lock_loss
+          end
+
+          def persist_event_if_owned(event)
+            payload = owner.send(:dump_event_payload, event)
+            script_result = redis.eval(
+              APPEND_EVENT_SCRIPT,
+              keys: [lock_key, version_key],
+              argv: [@current_lock_token, event_key_prefix, payload, LOCK_TTL_SECONDS.to_s]
+            )
+            return owner.send(:event_persisted, script_result) if script_result.is_a?(Integer) && script_result.positive?
 
             record_lock_loss
             raise_lock_loss
@@ -179,6 +245,10 @@ module Karya
             @lock_lost = true
             @lock_loss_cause = cause
             nil
+          end
+
+          def event_key_prefix
+            "#{owner.send(:namespace)}:queue_store:event:"
           end
 
           def reset_lock_loss_state

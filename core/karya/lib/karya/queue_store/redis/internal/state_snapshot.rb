@@ -22,12 +22,14 @@ module Karya
             'Karya::Workflow::'
           ].freeze
           SUPPORTED_KARYA_CLASS_NAMES = [
+            'Karya::Backpressure::Scope',
             'Karya::Reservation',
             'Karya::RetryPolicy'
           ].freeze
           SUPPORTED_SYMBOLS = {
             'state' => :state,
             'reservation_token_sequence' => :reservation_token_sequence,
+            'applied_version' => :applied_version,
             'id' => :id,
             'queue' => :queue,
             'handler' => :handler,
@@ -89,6 +91,8 @@ module Karya
             'control' => :control,
             'rollback' => :rollback,
             'child_workflow' => :child_workflow,
+            'tenant' => :tenant,
+            'custom' => :custom,
             'active' => :active,
             'until_terminal' => :until_terminal
           }.freeze
@@ -381,11 +385,16 @@ module Karya
           STORE_STATE_CLASS = Karya::QueueStore::Internal.const_get(:StoreState, false)
           private_constant :STORE_STATE_CLASS
 
-          def dump(state:, reservation_token_sequence:)
+          def dump(state:, reservation_token_sequence:, applied_version:)
             JsonCodec.dump(
               state:,
-              reservation_token_sequence:
+              reservation_token_sequence:,
+              applied_version:
             )
+          end
+
+          def dump_payload(payload)
+            JsonCodec.dump(payload)
           end
 
           def load(payload)
@@ -393,10 +402,15 @@ module Karya
             validate_snapshot(snapshot)
           end
 
+          def load_payload(payload)
+            JsonCodec.load(payload)
+          end
+
           def validate_snapshot(snapshot)
             unless snapshot.is_a?(Hash) &&
                    snapshot.fetch(:state).is_a?(STORE_STATE_CLASS) &&
-                   snapshot.fetch(:reservation_token_sequence).is_a?(Integer)
+                   snapshot.fetch(:reservation_token_sequence).is_a?(Integer) &&
+                   snapshot.fetch(:applied_version).is_a?(Integer)
               invalid_snapshot!
             end
 

@@ -6,22 +6,8 @@ require 'rbconfig'
 RSpec.describe Karya::Backend::Redis do
   subject(:backend) { described_class.new(url: 'redis://example.test:6379/0') }
 
-  it 'loads as a standalone backend file' do
-    lib_path = File.expand_path('../../../lib', __dir__)
-    script = <<~RUBY
-      require 'karya/backend/redis'
-      puts Karya::Backend::Redis.new(url: 'redis://example.test:6379/0').identifier
-    RUBY
-
-    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
-
-    expect(status.success?).to be(true), stderr
-    expect(stdout).to eq("redis\n")
-  end
-
-  it 'loads Redis queue-store execution paths as a standalone file' do
-    lib_path = File.expand_path('../../../lib', __dir__)
-    script = <<~RUBY
+  def standalone_queue_store_script
+    <<~RUBY
       require 'karya/queue_store/redis'
 
       FakeRedis = Class.new do
@@ -46,20 +32,42 @@ RSpec.describe Karya::Backend::Redis do
           @data.delete(key) ? 1 : 0
         end
 
+        def incr(key)
+          current_value = @data[key]
+          next_value = current_value ? Integer(current_value, 10) + 1 : 1
+          @data[key] = next_value.to_s
+          next_value
+        end
+
         def expire(key, _seconds)
           @data.key?(key) ? 1 : 0
         end
 
-        def eval(_script, keys:, argv:)
+        def eval(script, keys:, argv:)
           key = keys.fetch(0)
           token = argv.fetch(0)
           return 0 unless get(key) == token
 
-          if keys.length == 2
+          if script.include?('return redis.call("del", KEYS[1])')
+            del(key)
+          elsif script.include?('return redis.call("expire", KEYS[1], ARGV[2])')
+            expire(key, argv.fetch(1))
+          elsif script.include?('local version = redis.call("incr", KEYS[2])') && keys.length == 3
+            version = incr(keys.fetch(1))
+            @data[keys.fetch(2)] = argv.fetch(1)
+            expire(key, argv.fetch(2))
+            version
+          elsif script.include?('local version = redis.call("incr", KEYS[2])') && keys.length == 2
+            version = incr(keys.fetch(1))
+            @data["\#{argv.fetch(1)}\#{version}"] = argv.fetch(2)
+            expire(key, argv.fetch(3))
+            version
+          elsif script.include?('redis.call("set", KEYS[2], ARGV[2])') && keys.length == 2
             @data[keys.fetch(1)] = argv.fetch(1)
+            expire(key, argv.fetch(2))
             1
           else
-            del(key)
+            raise "unsupported script: \#{script}"
           end
         end
       end
@@ -81,6 +89,24 @@ RSpec.describe Karya::Backend::Redis do
       failed = store.fail_execution(reservation_token: reservation.token, now: now + 4, failure_classification: :error)
       puts failed.state
     RUBY
+  end
+
+  it 'loads as a standalone backend file' do
+    lib_path = File.expand_path('../../../lib', __dir__)
+    script = <<~RUBY
+      require 'karya/backend/redis'
+      puts Karya::Backend::Redis.new(url: 'redis://example.test:6379/0').identifier
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status.success?).to be(true), stderr
+    expect(stdout).to eq("redis\n")
+  end
+
+  it 'loads Redis queue-store execution paths as a standalone file' do
+    lib_path = File.expand_path('../../../lib', __dir__)
+    script = standalone_queue_store_script
 
     stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
 

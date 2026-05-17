@@ -6,13 +6,34 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
       redis:,
       owner:,
       state_key: 'redis:test:state',
-      lock_key: 'redis:test:lock'
+      lock_key: 'redis:test:lock',
+      version_key: 'redis:test:version'
     )
   end
 
   let(:persistence_mutex_class) { described_class }
   let(:redis) { instance_double(Redis) }
-  let(:owner) { Object.new }
+  let(:owner_class) do
+    Class.new do
+      def load_persisted_state; end
+      def dump_state_payload(applied_version:); end
+      def snapshot_persisted(version); end
+      def dump_event_payload(event); end
+      def event_persisted(version); end
+      def namespace; end
+    end
+  end
+  let(:owner) do
+    instance_double(
+      owner_class,
+      load_persisted_state: nil,
+      dump_state_payload: 'payload',
+      snapshot_persisted: nil,
+      dump_event_payload: 'event-payload',
+      event_persisted: nil,
+      namespace: 'redis:test'
+    )
+  end
 
   it 'does not attempt lock cleanup when token allocation fails before acquisition starts' do
     allow(SecureRandom).to receive(:uuid).and_raise(RuntimeError, 'uuid failure')
@@ -269,6 +290,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     allow(redis).to receive(:set).with('redis:test:lock', 'token-persist-error', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
     allow(Thread).to receive(:new).and_return(fake_thread)
     allow(redis).to receive(:get).with('redis:test:lock').and_return('token-persist-error')
+    allow(redis).to receive(:get).with('redis:test:version').and_return('0')
     allow(redis).to receive(:eval).and_raise(RuntimeError, 'persist boom')
     allow(owner).to receive(:load_persisted_state)
     allow(owner).to receive(:dump_state_payload).and_return('payload')
@@ -300,14 +322,15 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     allow(redis).to receive(:set).with('redis:test:lock', 'token-persist', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
     allow(Thread).to receive(:new).and_return(fake_thread)
     allow(redis).to receive(:get).with('redis:test:lock').and_return('token-persist')
+    allow(redis).to receive(:get).with('redis:test:version').and_return('0')
     allow(redis).to receive(:eval).and_return(1)
     allow(owner).to receive(:load_persisted_state)
     allow(owner).to receive(:dump_state_payload).and_return('payload')
 
     expect(mutex.synchronize { :done }).to eq(:done)
     expect(redis).to have_received(:eval).with(
-      persistence_mutex_class::PERSIST_SCRIPT,
-      keys: ['redis:test:lock', 'redis:test:state'],
+      persistence_mutex_class::PERSIST_SNAPSHOT_SCRIPT,
+      keys: ['redis:test:lock', 'redis:test:version', 'redis:test:state'],
       argv: ['token-persist', 'payload', persistence_mutex_class::LOCK_TTL_SECONDS.to_s]
     )
   end
@@ -315,14 +338,15 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
   it 'raises lock loss when atomic persistence reports that the lock is no longer owned' do
     mutex.instance_variable_set(:@current_lock_token, 'token-stale')
     allow(owner).to receive(:dump_state_payload).and_return('payload')
+    allow(redis).to receive(:get).with('redis:test:version').and_return('0')
     allow(redis).to receive(:eval).with(
-      persistence_mutex_class::PERSIST_SCRIPT,
-      keys: ['redis:test:lock', 'redis:test:state'],
+      persistence_mutex_class::PERSIST_SNAPSHOT_SCRIPT,
+      keys: ['redis:test:lock', 'redis:test:version', 'redis:test:state'],
       argv: ['token-stale', 'payload', persistence_mutex_class::LOCK_TTL_SECONDS.to_s]
     ).and_return(0)
 
     expect do
-      mutex.send(:persist_state_if_owned)
+      mutex.send(:persist_snapshot_if_owned)
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
   end
 
@@ -354,5 +378,42 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     expect(mutex.send(:release_lock, 'token-release')).to be_nil
     expect(redis).not_to have_received(:get)
     expect(redis).not_to have_received(:del)
+  end
+
+  it 'returns false when compact_snapshot script execution raises' do
+    mutex.instance_variable_set(:@current_lock_token, 'token-compact')
+    allow(redis).to receive(:eval).and_raise(RuntimeError, 'compact boom')
+
+    expect(mutex.compact_snapshot(payload: 'snapshot')).to be(false)
+  end
+
+  it 'raises for unsupported persistence modes' do
+    expect do
+      mutex.send(:persist_if_owned, mode: :mystery, event_builder: nil, result: nil)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis persistence mode/)
+  end
+
+  it 'raises lock loss when atomic event persistence reports that the lock is no longer owned' do
+    mutex.instance_variable_set(:@current_lock_token, 'token-event-stale')
+    allow(owner).to receive(:dump_event_payload).with({ 'name' => 'enqueue' }).and_return('event-payload')
+    allow(redis).to receive(:eval).with(
+      persistence_mutex_class::APPEND_EVENT_SCRIPT,
+      keys: ['redis:test:lock', 'redis:test:version'],
+      argv: ['token-event-stale', 'redis:test:queue_store:event:', 'event-payload', persistence_mutex_class::LOCK_TTL_SECONDS.to_s]
+    ).and_return(0)
+
+    expect do
+      mutex.send(:persist_event_if_owned, { 'name' => 'enqueue' })
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation')
+  end
+
+  it 'records lock loss when atomic event persistence script execution raises' do
+    mutex.instance_variable_set(:@current_lock_token, 'token-event-error')
+    allow(owner).to receive(:dump_event_payload).with({ 'name' => 'enqueue' }).and_return('event-payload')
+    allow(redis).to receive(:eval).and_raise(RuntimeError, 'event boom')
+
+    expect do
+      mutex.send(:persist_event_if_owned, { 'name' => 'enqueue' })
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation: event boom')
   end
 end

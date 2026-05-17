@@ -38,21 +38,72 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
         data.delete(key) ? 1 : 0
       end
 
+      def incr(key)
+        current_value = data[key]
+        next_value = current_value ? Integer(current_value, 10) + 1 : 1
+        data[key] = next_value.to_s
+        next_value
+      end
+
       def expire(key, _seconds)
         data.key?(key) ? 1 : 0
       end
 
-      def eval(_script, keys:, argv:)
+      def eval(script, keys:, argv:)
         key = keys.fetch(0)
         token = argv.fetch(0)
         return 0 unless get(key) == token
 
-        if keys.length == 2
-          data[keys.fetch(1)] = argv.fetch(1)
-          1
-        else
+        if release_script?(script)
           del(key)
+        elsif extend_script?(script)
+          expire(key, argv.fetch(1))
+        elsif increment_version_script?(script)
+          persist_versioned_script(keys:, argv:)
+        elsif compact_snapshot_script?(script)
+          compact_snapshot(keys:, argv:)
+        else
+          raise "unsupported script: #{script}"
         end
+      end
+
+      private
+
+      def release_script?(script)
+        script.include?('return redis.call("del", KEYS[1])')
+      end
+
+      def extend_script?(script)
+        script.include?('return redis.call("expire", KEYS[1], ARGV[2])')
+      end
+
+      def increment_version_script?(script)
+        script.include?('local version = redis.call("incr", KEYS[2])')
+      end
+
+      def compact_snapshot_script?(script)
+        script.include?('redis.call("set", KEYS[2], ARGV[2])')
+      end
+
+      def persist_versioned_script(keys:, argv:)
+        version = incr(keys.fetch(1))
+        return persist_snapshot_version(keys:, argv:, version:) if keys.length == 3
+
+        data["#{argv.fetch(1)}#{version}"] = argv.fetch(2)
+        expire(keys.fetch(0), argv.fetch(3))
+        version
+      end
+
+      def persist_snapshot_version(keys:, argv:, version:)
+        data[keys.fetch(2)] = argv.fetch(1)
+        expire(keys.fetch(0), argv.fetch(2))
+        version
+      end
+
+      def compact_snapshot(keys:, argv:)
+        data[keys.fetch(1)] = argv.fetch(1)
+        expire(keys.fetch(0), argv.fetch(2))
+        1
       end
     end
   end
@@ -85,7 +136,8 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     store = build_store
     payload = state_snapshot.dump(
       state: store.instance_variable_get(:@state),
-      reservation_token_sequence: 7
+      reservation_token_sequence: 7,
+      applied_version: 3
     )
 
     snapshot = state_snapshot.load(payload)
@@ -93,6 +145,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
 
     expect(snapshot.fetch(:state)).to be_a(store_state_class)
     expect(snapshot.fetch(:reservation_token_sequence)).to eq(7)
+    expect(snapshot.fetch(:applied_version)).to eq(3)
     expect(restored_job).to be_a(Karya::Job)
     expect(restored_job.state).to eq(:reserved)
     expect(restored_job.can_transition_to?(:running)).to be(true)

@@ -71,6 +71,11 @@ Karya.configure_backend(
 )
 ```
 
+Redis-backed queue-store persistence rejects job arguments containing `Symbol`
+values or non-finite `Float` values (`Float::NAN`, `Float::INFINITY`, and
+`-Float::INFINITY`). Normalize those payload values before enqueueing jobs that
+must persist through Redis.
+
 Choose Postgres when:
 
 - worker processes must share durable state through PostgreSQL
