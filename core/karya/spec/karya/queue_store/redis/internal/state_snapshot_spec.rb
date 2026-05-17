@@ -283,6 +283,27 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis state snapshot payload: Object/)
   end
 
+  it 'round-trips jobs that use a custom lifecycle registry' do
+    lifecycle = Karya::JobLifecycle::Registry.new
+    lifecycle.register_state('archived', terminal: true)
+    lifecycle.register_transition(from: :queued, to: 'archived')
+    job = Karya::Job.new(
+      id: 'job-custom-lifecycle',
+      queue: 'billing',
+      handler: 'billing_sync',
+      lifecycle:,
+      state: :queued,
+      created_at:
+    ).transition_to('archived', updated_at: created_at + 60)
+
+    payload = json_codec.dump(job)
+    restored_job = json_codec.load(payload)
+
+    expect(restored_job.state).to eq('archived')
+    expect(restored_job.terminal?).to be(true)
+    expect(restored_job.can_transition_to?(:queued)).to be(false)
+  end
+
   it 'rejects unsupported struct payloads during generic struct encoding' do
     anonymous_struct = Struct.new(:value).new(1)
 
@@ -303,7 +324,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis state snapshot payload type/)
   end
 
-  it 'rejects forbidden Karya classes during restore' do
+  it 'rejects forbidden non-queue-store Karya classes during restore' do
     expect do
       json_codec.send(:resolve_karya_class, 'Karya::JobLifecycle::Registry')
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis state snapshot class/)

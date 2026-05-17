@@ -520,4 +520,32 @@ RSpec.describe Karya::QueueStore::Redis do
 
     expect(redis_client.data).to have_key("#{namespace}:queue_store:event:1")
   end
+
+  it 'deletes only the journal range created since the previous snapshot baseline' do
+    mutex = store.instance_variable_get(:@mutex)
+    journal_support = store.send(:journal_support)
+
+    previous_snapshot_version = described_class::HOT_PATH_COMPACTION_THRESHOLD
+    journal_support.instance_variable_set(:@loaded_version, previous_snapshot_version + described_class::HOT_PATH_COMPACTION_THRESHOLD)
+    journal_support.instance_variable_set(:@snapshot_version, previous_snapshot_version)
+    mutex.instance_variable_set(:@current_lock_token, 'token-compact-range')
+    redis_client.data["#{namespace}:queue_store:lock"] = 'token-compact-range'
+    redis_client.data["#{namespace}:queue_store:event:1"] = 'event-1'
+    redis_client.data["#{namespace}:queue_store:event:#{previous_snapshot_version + 1}"] = 'event-new'
+
+    store.send(:compact_snapshot_if_needed)
+
+    expect(redis_client.data).to have_key("#{namespace}:queue_store:event:1")
+    expect(redis_client.data).not_to have_key("#{namespace}:queue_store:event:#{previous_snapshot_version + 1}")
+  end
+
+  it 'skips journal deletion when the computed prune range is empty' do
+    journal_support = store.send(:journal_support)
+
+    allow(redis_client).to receive(:del).and_call_original
+
+    journal_support.send(:delete_journal_events_between, 2, 1)
+
+    expect(redis_client).not_to have_received(:del)
+  end
 end

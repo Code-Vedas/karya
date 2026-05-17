@@ -17,7 +17,7 @@ module Karya
             def failure_classification: () -> Karya::failure_classification?
             def handler_names: () -> Array[String]?
             def job: () -> Karya::Job?
-            def lease_duration: () -> Integer?
+            def lease_duration: () -> Karya::lease_duration_value?
             def now: () -> Time?
             def queue: () -> String?
             def queues: () -> Array[String]?
@@ -44,7 +44,7 @@ module Karya
           def apply_persisted_events: (Range[Integer] versions) -> void
           def apply_persisted_event: (StateSnapshot::event_payload event) -> void
           def with_journal_replay: [A] (?reservation_token: String) { () -> A } -> A
-          def delete_journal_events_through: (Integer version) -> void
+          def delete_journal_events_between: (Integer start_version, Integer end_version) -> void
           def persist_with_event: [A] (event_builder: ^(A) -> StateSnapshot::event_payload) { () -> A } -> A
         end
       end

@@ -13,10 +13,9 @@ module Karya
             Karya::Job |
             Karya::RetryPolicy |
             Karya::failure_classification |
+            Karya::lease_duration_value |
             String |
             Time |
-            Integer |
-            Float |
             bool |
             nil |
             Array[String]

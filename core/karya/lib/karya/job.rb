@@ -19,6 +19,69 @@ module Karya
   class Job
     # Serializes jobs without persisting the runtime lifecycle registry object.
     module MarshalSupport
+      # Captures custom lifecycle extensions so marshaled jobs can restore them safely.
+      class LifecycleExtensionsSnapshot
+        def initialize(state_names:, terminal_state_names:, transitions:)
+          @state_names = state_names
+          @terminal_state_names = terminal_state_names
+          @transitions = transitions
+        end
+
+        def self.dump(lifecycle)
+          new(
+            state_names: lifecycle.send(:extension_state_names),
+            terminal_state_names: lifecycle.send(:extension_terminal_state_names),
+            transitions: lifecycle.send(:extension_transitions)
+          ).to_h
+        end
+
+        def self.load(snapshot)
+          new(
+            state_names: snapshot.fetch(:state_names),
+            terminal_state_names: snapshot.fetch(:terminal_state_names),
+            transitions: snapshot.fetch(:transitions)
+          ).restore
+        end
+
+        def to_h
+          {
+            state_names:,
+            terminal_state_names:,
+            transitions:
+          }
+        end
+
+        def restore
+          Karya::JobLifecycle::Registry.new.tap do |registry|
+            register_states(registry)
+            register_transitions(registry)
+          end
+        end
+
+        private
+
+        attr_reader :state_names, :terminal_state_names, :transitions
+
+        def register_states(registry)
+          state_names.each do |state_name|
+            registry.register_state(state_name, terminal: terminal_state_names.include?(state_name))
+          end
+        end
+
+        def register_transitions(registry)
+          transitions.each_key do |from_state|
+            register_transition_targets(registry, from_state)
+          end
+        end
+
+        def register_transition_targets(registry, from_state)
+          transitions.fetch(from_state).each do |to_state|
+            registry.register_transition(from: from_state, to: to_state)
+          end
+        end
+      end
+      private_constant :LifecycleExtensionsSnapshot
+
       def marshal_dump
         {
           id:,
@@ -34,6 +97,7 @@ module Karya
           idempotency_key:,
           uniqueness_key:,
           uniqueness_scope:,
+          lifecycle_extensions: lifecycle_extensions_snapshot,
           state:,
           attempt:,
           created_at:,
@@ -47,12 +111,21 @@ module Karya
       end
 
       def marshal_load(attributes)
-        reloaded_job = self.class.new(**attributes)
+        reloaded_job = self.class.new(
+          **attributes,
+          lifecycle: LifecycleExtensionsSnapshot.load(attributes.fetch(:lifecycle_extensions))
+        )
 
         @identity = reloaded_job.send(:identity)
         @scheduling = reloaded_job.send(:scheduling)
         @lifecycle_state = reloaded_job.send(:lifecycle_state)
         freeze
+      end
+
+      private
+
+      def lifecycle_extensions_snapshot
+        LifecycleExtensionsSnapshot.dump(lifecycle)
       end
     end
     private_constant :MarshalSupport

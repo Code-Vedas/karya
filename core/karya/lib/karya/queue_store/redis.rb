@@ -110,9 +110,10 @@ module Karya
           end
 
           def snapshot_persisted(version)
+            previous_snapshot_version = @snapshot_version || 0
             @loaded_version = version
             @snapshot_version = version
-            delete_journal_events_through(version)
+            delete_journal_events_between(previous_snapshot_version + 1, version)
           end
 
           def compact_snapshot_if_needed
@@ -125,8 +126,9 @@ module Karya
             payload = owner.send(:dump_state_payload, applied_version: loaded_version)
             return unless owner.send(:mutex).compact_snapshot(payload:)
 
+            previous_snapshot_version = snapshot_version
             @snapshot_version = loaded_version
-            delete_journal_events_through(@snapshot_version)
+            delete_journal_events_between(previous_snapshot_version + 1, @snapshot_version)
           end
 
           def replaying?
@@ -196,8 +198,10 @@ module Karya
             @replaying = false
           end
 
-          def delete_journal_events_through(version)
-            (1..version).each do |event_version|
+          def delete_journal_events_between(start_version, end_version)
+            return if start_version > end_version
+
+            (start_version..end_version).each do |event_version|
               owner.send(:redis_client).del(owner.send(:event_key, event_version))
             end
           end

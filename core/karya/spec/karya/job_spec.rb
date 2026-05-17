@@ -436,7 +436,7 @@ RSpec.describe Karya::Job do
   end
 
   describe 'marshal hooks' do
-    it 'round-trips job state without persisting the lifecycle registry object' do
+    it 'round-trips job state while preserving custom lifecycle extensions' do
       lifecycle = Karya::JobLifecycle::Registry.new
       lifecycle.register_state('archived', terminal: true)
       lifecycle.register_transition(from: :queued, to: 'archived')
@@ -454,8 +454,9 @@ RSpec.describe Karya::Job do
 
       expect(restored_job.id).to eq('job-123')
       expect(restored_job.state).to eq(:queued)
-      expect(restored_job.send(:lifecycle)).to equal(Karya::JobLifecycle.default_registry)
-      expect(restored_job.can_transition_to?('archived')).to be(false)
+      expect(restored_job.send(:lifecycle)).not_to equal(lifecycle)
+      expect(restored_job.can_transition_to?('archived')).to be(true)
+      expect(restored_job.transition_to('archived', updated_at:).terminal?).to be(true)
     end
   end
 end

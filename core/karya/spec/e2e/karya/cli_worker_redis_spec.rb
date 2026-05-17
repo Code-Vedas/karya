@@ -3,6 +3,12 @@
 require_relative '../spec_helper'
 
 RSpec.describe Karya::CLI, :e2e, :integration do
+  def delete_redis_namespace(redis_url:, namespace:)
+    client = Redis.new(url: redis_url)
+    keys = client.scan_each(match: "#{namespace}:queue_store:*").to_a
+    client.del(*keys) unless keys.empty?
+  end
+
   def redis_boot_file(redis_url:, namespace:, marker_file:)
     <<~RUBY
       # frozen_string_literal: true
@@ -73,7 +79,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
       expect(JSON.parse(File.read(marker_file))).to include('account_id' => 42)
       expect(read_runtime_state(state_file).fetch('snapshot').fetch('phase')).to eq('stopped')
     ensure
-      Redis.new(url: redis_url).del("#{namespace}:queue_store:state", "#{namespace}:queue_store:lock")
+      delete_redis_namespace(redis_url:, namespace:)
     end
   end
 end
