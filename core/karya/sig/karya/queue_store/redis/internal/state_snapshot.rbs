@@ -12,7 +12,7 @@ module Karya
           type event_payload_value =
             Karya::Job |
             Karya::RetryPolicy |
-            Karya::failure_classification |
+            Karya::failure_classification_input |
             Karya::lease_duration_value |
             String |
             Time |

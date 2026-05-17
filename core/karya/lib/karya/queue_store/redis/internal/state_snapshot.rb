@@ -70,6 +70,7 @@ module Karya
             'value' => :value,
             'decided_at' => :decided_at,
             'reason' => :reason,
+            'cooldown_until' => :cooldown_until,
             'submission' => :submission,
             'queued' => :queued,
             'reserved' => :reserved,
@@ -97,6 +98,8 @@ module Karya
             'child_workflow' => :child_workflow,
             'tenant' => :tenant,
             'custom' => :custom,
+            'open' => :open,
+            'half_open' => :half_open,
             'active' => :active,
             'until_terminal' => :until_terminal
           }.freeze

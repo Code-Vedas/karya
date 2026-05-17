@@ -87,6 +87,9 @@ module Karya
             return owner.send(:with_reference_queue_store_mutex, &) if replaying?
 
             persist_with_event(event_builder:, &)
+          rescue StandardError
+            restore_authoritative_state_after_failure
+            raise
           end
 
           def load_persisted_state
@@ -210,6 +213,15 @@ module Karya
             owner.send(:mutex).synchronize_with_event(event_builder:) do
               owner.send(:with_reference_queue_store_mutex, &)
             end
+          end
+
+          def restore_authoritative_state_after_failure
+            @loaded_version = nil
+            @snapshot_version = nil
+            load_persisted_state
+            nil
+          rescue StandardError
+            nil
           end
         end
       end

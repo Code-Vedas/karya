@@ -10,6 +10,38 @@ module Karya
 
   # Immutable value object for the canonical queued job model.
   class Job
+    type lifecycle_extensions_snapshot = {
+      state_names: Karya::normalized_state_name_array,
+      terminal_state_names: Karya::normalized_state_name_array,
+      transitions: Karya::normalized_transition_map
+    }
+
+    type marshaled_attributes = {
+      id: String,
+      queue: String,
+      handler: String,
+      arguments: Karya::job_arguments,
+      priority: Integer,
+      concurrency_scope: Backpressure::Scope?,
+      rate_limit_scope: Backpressure::Scope?,
+      retry_policy: RetryPolicy?,
+      execution_timeout: Numeric?,
+      expires_at: Time?,
+      idempotency_key: String?,
+      uniqueness_key: String?,
+      uniqueness_scope: Karya::uniqueness_scope?,
+      lifecycle_extensions: lifecycle_extensions_snapshot,
+      state: Karya::state_name,
+      attempt: Integer,
+      created_at: Time,
+      updated_at: Time,
+      next_retry_at: Time?,
+      failure_classification: Karya::failure_classification?,
+      dead_letter_reason: String?,
+      dead_lettered_at: Time?,
+      dead_letter_source_state: Karya::state_name?
+    }
+
     class Identity
       @id: String
       @queue: String
@@ -180,7 +212,7 @@ module Karya
 
     def lifecycle: () -> JobLifecycle::Registry
 
-    def marshal_dump: () -> Hash[Symbol, Karya::job_arguments | Karya::job_attribute_value]
-    def marshal_load: (Hash[Symbol, Karya::job_arguments | Karya::job_attribute_value] attributes) -> void
+    def marshal_dump: () -> marshaled_attributes
+    def marshal_load: (marshaled_attributes attributes) -> void
   end
 end

@@ -4,6 +4,8 @@ require_relative '../spec_helper'
 
 RSpec.describe Karya::CLI, :e2e, :integration do
   def delete_redis_namespace(redis_url:, namespace:)
+    require 'redis'
+
     client = Redis.new(url: redis_url)
     keys = client.scan_each(match: "#{namespace}:queue_store:*").to_a
     client.del(*keys) unless keys.empty?

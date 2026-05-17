@@ -304,6 +304,25 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     expect(restored_job.can_transition_to?(:queued)).to be(false)
   end
 
+  it 'round-trips persisted circuit-breaker states that use open and half_open symbols' do
+    state = store_state_class.new(expired_tombstone_limit: 10)
+    state.breaker_states_by_scope['queue:billing'] = { state: :open, cooldown_until: created_at + 30 }.freeze
+    state.breaker_states_by_scope['handler:sync'] = { state: :half_open, cooldown_until: nil }.freeze
+
+    snapshot = state_snapshot.load(
+      state_snapshot.dump(
+        state:,
+        reservation_token_sequence: 0,
+        applied_version: 1
+      )
+    )
+
+    expect(snapshot.fetch(:state).breaker_states_by_scope).to eq(
+      'queue:billing' => { state: :open, cooldown_until: created_at + 30 }.freeze,
+      'handler:sync' => { state: :half_open, cooldown_until: nil }.freeze
+    )
+  end
+
   it 'rejects unsupported struct payloads during generic struct encoding' do
     anonymous_struct = Struct.new(:value).new(1)
 

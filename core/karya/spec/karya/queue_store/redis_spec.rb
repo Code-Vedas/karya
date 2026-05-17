@@ -415,6 +415,39 @@ RSpec.describe Karya::QueueStore::Redis do
     )
   end
 
+  it 'reloads local state after a Redis event payload validation failure' do
+    expect do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-invalid',
+          queue: 'billing',
+          handler: 'billing_sync',
+          arguments: { 'kind' => :symbol_value },
+          state: :submission,
+          created_at:
+        ),
+        now: created_at + 1
+      )
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis queue-store snapshots do not support Symbol job arguments'
+    )
+
+    store.enqueue(job: submission_job(id: 'job-valid'), now: created_at + 2)
+
+    reservation = store.reserve(queue: 'billing', worker_id: 'worker-after-failure', lease_duration: 60, now: created_at + 3)
+
+    expect(reservation&.job_id).to eq('job-valid')
+  end
+
+  it 'swallows reload errors while restoring authoritative state after a persistence failure' do
+    journal_support = store.send(:journal_support)
+
+    allow(journal_support).to receive(:load_persisted_state).and_raise(StandardError, 'reload failed')
+
+    expect(journal_support.send(:restore_authoritative_state_after_failure)).to be_nil
+  end
+
   it 'retries distributed lock acquisition until Redis grants the lock' do
     polling_client = Class.new(fake_redis_client_class) do
       def set(key, value, **options)
