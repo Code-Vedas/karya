@@ -140,6 +140,12 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     expect(json_codec.send(:decode_tagged_value, { 'state' => { '__karya_type__' => 'symbol', 'value' => 'queued' } })).to eq('state' => :queued)
   end
 
+  it 'rejects tagged symbols that are not already interned' do
+    expect do
+      json_codec.send(:decode_tagged_value, { '__karya_type__' => 'symbol', 'value' => 'karya_uninterned_snapshot_symbol' })
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis state snapshot symbol/)
+  end
+
   it 'round-trips supported Numeric payloads without losing precision' do
     payload = json_codec.dump(
       'amount' => BigDecimal('999999999999999999.1234'),

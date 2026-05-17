@@ -3,14 +3,6 @@ module Karya
     class Redis
       include Base
 
-      module Internal
-        interface _RedisClient
-          def get: (String key) -> String?
-          def set: (String key, String value, ?nx: bool, ?ex: Integer) -> String?
-          def eval: (String script, keys: Array[String], argv: Array[String]) -> Integer
-        end
-      end
-
       DEFAULT_NAMESPACE: String
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: Integer
       DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: Integer
@@ -29,6 +21,14 @@ module Karya
       ) -> void
 
       private
+
+      module Internal
+        interface _RedisClient
+          def get: (String key) -> String?
+          def set: (String key, String value, ?nx: bool, ?ex: Integer) -> String?
+          def eval: (String script, keys: Array[String], argv: Array[String]) -> Integer
+        end
+      end
 
       attr_reader namespace: String
       attr_reader reservation_token_sequence: Integer

@@ -150,10 +150,14 @@ module Karya
             end
 
             def decode_scalar_tag(type, value)
-              return value.to_sym if type == 'symbol'
+              return decode_supported_symbol(value) if type == 'symbol'
               return BigDecimal(value) if type == 'bigdecimal'
 
               Time.iso8601(value)
+            end
+
+            def decode_supported_symbol(value)
+              Symbol.all_symbols.find { |symbol| symbol.name == value } || unsupported_symbol!(value)
             end
 
             def encode_string_scalar(type, value)
@@ -268,6 +272,10 @@ module Karya
 
             def unsupported_class!(class_name)
               raise InvalidQueueStoreOperationError, "unsupported Redis state snapshot class: #{class_name.inspect}"
+            end
+
+            def unsupported_symbol!(value)
+              raise InvalidQueueStoreOperationError, "unsupported Redis state snapshot symbol: #{value.inspect}"
             end
 
             def with_supported_class_name(class_name)
