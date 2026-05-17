@@ -1,7 +1,7 @@
 module Karya
   module QueueStore
     class Redis
-      include Base
+      include Karya::QueueStore::Internal::ReferenceQueueStore
 
       DEFAULT_NAMESPACE: String
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: Integer

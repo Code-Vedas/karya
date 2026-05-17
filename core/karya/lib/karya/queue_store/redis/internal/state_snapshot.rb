@@ -17,6 +17,82 @@ module Karya
           require_relative '../../internal'
           require_relative '../../../job_lifecycle'
 
+          SUPPORTED_KARYA_CLASS_PREFIXES = [
+            'Karya::QueueStore::Internal::',
+            'Karya::Workflow::'
+          ].freeze
+          SUPPORTED_KARYA_CLASS_NAMES = [
+            'Karya::Reservation',
+            'Karya::RetryPolicy'
+          ].freeze
+          SUPPORTED_SYMBOLS = {
+            'state' => :state,
+            'reservation_token_sequence' => :reservation_token_sequence,
+            'id' => :id,
+            'queue' => :queue,
+            'handler' => :handler,
+            'arguments' => :arguments,
+            'priority' => :priority,
+            'concurrency_scope' => :concurrency_scope,
+            'rate_limit_scope' => :rate_limit_scope,
+            'retry_policy' => :retry_policy,
+            'execution_timeout' => :execution_timeout,
+            'expires_at' => :expires_at,
+            'idempotency_key' => :idempotency_key,
+            'uniqueness_key' => :uniqueness_key,
+            'uniqueness_scope' => :uniqueness_scope,
+            'attempt' => :attempt,
+            'created_at' => :created_at,
+            'updated_at' => :updated_at,
+            'next_retry_at' => :next_retry_at,
+            'failure_classification' => :failure_classification,
+            'dead_letter_reason' => :dead_letter_reason,
+            'dead_lettered_at' => :dead_lettered_at,
+            'dead_letter_source_state' => :dead_letter_source_state,
+            'token' => :token,
+            'job_id' => :job_id,
+            'worker_id' => :worker_id,
+            'reserved_at' => :reserved_at,
+            'max_attempts' => :max_attempts,
+            'base_delay' => :base_delay,
+            'multiplier' => :multiplier,
+            'max_delay' => :max_delay,
+            'jitter_strategy' => :jitter_strategy,
+            'escalate_on' => :escalate_on,
+            'name' => :name,
+            'kind' => :kind,
+            'value' => :value,
+            'decided_at' => :decided_at,
+            'reason' => :reason,
+            'submission' => :submission,
+            'queued' => :queued,
+            'reserved' => :reserved,
+            'running' => :running,
+            'succeeded' => :succeeded,
+            'failed' => :failed,
+            'retry_pending' => :retry_pending,
+            'dead_letter' => :dead_letter,
+            'cancelled' => :cancelled,
+            'error' => :error,
+            'timeout' => :timeout,
+            'expired' => :expired,
+            'none' => :none,
+            'full' => :full,
+            'equal' => :equal,
+            'approved' => :approved,
+            'rejected' => :rejected,
+            'signal' => :signal,
+            'event' => :event,
+            'workflow' => :workflow,
+            'step' => :step,
+            'interaction' => :interaction,
+            'control' => :control,
+            'rollback' => :rollback,
+            'child_workflow' => :child_workflow,
+            'active' => :active,
+            'until_terminal' => :until_terminal
+          }.freeze
+
           # Owner-local JSON codec that restores only Karya-owned queue-store objects.
           module JsonCodec
             TYPE_KEY = '__karya_type__'
@@ -30,7 +106,6 @@ module Karya
             NUMERATOR_KEY = 'numerator'
             DENOMINATOR_KEY = 'denominator'
             SCALAR_CLASSES = [NilClass, TrueClass, FalseClass, Integer, Float, String].freeze
-            FORBIDDEN_KARYA_CLASSES = [Karya::JobLifecycle::Registry, Karya::JobLifecycle::StateManager].freeze
 
             module_function
 
@@ -157,7 +232,7 @@ module Karya
             end
 
             def decode_supported_symbol(value)
-              value.to_sym
+              StateSnapshot::SUPPORTED_SYMBOLS.fetch(value) { unsupported_symbol!(value) }
             end
 
             def encode_string_scalar(type, value)
@@ -174,6 +249,9 @@ module Karya
                 recurse_argument_values(value.each_value)
               when Array
                 recurse_argument_values(value)
+              when Symbol
+                raise InvalidQueueStoreOperationError,
+                      'Redis queue-store snapshots do not support Symbol job arguments'
               when Float
                 validate_supported_float!(value)
               end
@@ -243,7 +321,7 @@ module Karya
                 klass = class_name.split('::').drop(1).reduce(Karya) do |namespace, name|
                   namespace.const_get(name, false)
                 end
-                unsupported_class!(class_name) if forbidden_karya_class?(klass)
+                unsupported_class!(class_name) unless supported_karya_class?(klass)
 
                 klass
               end
@@ -251,11 +329,17 @@ module Karya
 
             def karya_object?(object_class)
               class_name = object_class.name
-              class_name&.start_with?('Karya::') && !forbidden_karya_class?(object_class)
+              class_name && supported_karya_class_name?(class_name)
             end
 
-            def forbidden_karya_class?(klass)
-              FORBIDDEN_KARYA_CLASSES.include?(klass)
+            def supported_karya_class?(klass)
+              class_name = klass.name
+              class_name && supported_karya_class_name?(class_name)
+            end
+
+            def supported_karya_class_name?(class_name)
+              StateSnapshot::SUPPORTED_KARYA_CLASS_NAMES.include?(class_name) ||
+                StateSnapshot::SUPPORTED_KARYA_CLASS_PREFIXES.any? { |prefix| class_name.start_with?(prefix) }
             end
 
             def restore_frozen(value, frozen)
@@ -272,6 +356,10 @@ module Karya
 
             def unsupported_class!(class_name)
               raise InvalidQueueStoreOperationError, "unsupported Redis state snapshot class: #{class_name.inspect}"
+            end
+
+            def unsupported_symbol!(value)
+              raise InvalidQueueStoreOperationError, "unsupported Redis state snapshot symbol: #{value.inspect}"
             end
 
             def with_supported_class_name(class_name)

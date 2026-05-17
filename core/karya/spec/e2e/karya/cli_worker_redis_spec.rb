@@ -72,6 +72,8 @@ RSpec.describe Karya::CLI, :e2e, :integration do
       expect(status.exitstatus).to eq(0), -> { "stdout:\n#{stdout}\n\nstderr:\n#{stderr}" }
       expect(JSON.parse(File.read(marker_file))).to include('account_id' => 42)
       expect(read_runtime_state(state_file).fetch('snapshot').fetch('phase')).to eq('stopped')
+    ensure
+      Redis.new(url: redis_url).del("#{namespace}:queue_store:state", "#{namespace}:queue_store:lock")
     end
   end
 end

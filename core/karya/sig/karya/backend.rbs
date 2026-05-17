@@ -8,6 +8,13 @@ module Karya
   end
 
   module Backend
-    type backend_class = ::Class
+    interface _BackendClass
+      def new: (**Karya::backend_option_value options) -> Base
+    end
+
+    type backend_class =
+      singleton(InMemory) |
+      singleton(Redis) |
+      (::Class & _BackendClass)
   end
 end

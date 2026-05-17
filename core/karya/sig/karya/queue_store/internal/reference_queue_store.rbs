@@ -69,6 +69,7 @@ module Karya
       def reliability_snapshot: (now: Time) -> Karya::reliability_snapshot
       def uniqueness_decision: (job: Job, now: Time) -> Karya::uniqueness_decision
       def uniqueness_snapshot: (now: Time) -> Karya::uniqueness_snapshot
+      def dead_letter_snapshot: (now: Time) -> Karya::dead_letter_snapshot
 
       private
 
@@ -97,7 +98,12 @@ module Karya
       def perform_reserve_maintenance: (Time now) -> Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ReserveScanState
       def normalize_identifier: (Symbol name, String value, error_class: Karya::error_class) -> String
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
-      def store_and_requeue_if_needed: (job: Job, queue: String, job_id: String, state_name: Karya::state_name) -> Job
+      def store_and_requeue_if_needed: (
+        job: Job,
+        queue: String,
+        job_id: String,
+        state_name: Karya::state_name
+      ) -> Job
       def requeue_job_if_needed: (String queue, String job_id, Karya::state_name state_name) -> Array[String]?
       def reserve_matching_job: (
         handler_matcher: Karya::QueueStore::Internal::ReferenceQueueStore::Internal::HandlerMatcher,

@@ -140,10 +140,10 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     expect(json_codec.send(:decode_tagged_value, { 'state' => { '__karya_type__' => 'symbol', 'value' => 'queued' } })).to eq('state' => :queued)
   end
 
-  it 'decodes tagged symbols even when they are not already interned in the current process' do
-    decoded = json_codec.send(:decode_tagged_value, { '__karya_type__' => 'symbol', 'value' => 'karya_uninterned_snapshot_symbol' })
-
-    expect(decoded).to eq(:karya_uninterned_snapshot_symbol)
+  it 'rejects tagged symbols outside the bounded Redis snapshot symbol set' do
+    expect do
+      json_codec.send(:decode_tagged_value, { '__karya_type__' => 'symbol', 'value' => 'karya_uninterned_snapshot_symbol' })
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis state snapshot symbol/)
   end
 
   it 'round-trips supported Numeric payloads without losing precision' do
@@ -170,7 +170,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     expect(decoded.values).to all(satisfy { |value| !value.is_a?(String) || value.frozen? })
   end
 
-  it 'round-trips Symbol job arguments during snapshot encoding' do
+  it 'rejects Symbol job arguments during snapshot encoding' do
     job = Karya::Job.new(
       id: 'job-symbol',
       queue: 'billing',
@@ -180,9 +180,12 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
       created_at:
     )
 
-    restored_job = json_codec.send(:decode_value, json_codec.send(:encode_value, job))
-
-    expect(restored_job.arguments.fetch('kind')).to eq(:symbol_value)
+    expect do
+      json_codec.send(:encode_value, job)
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis queue-store snapshots do not support Symbol job arguments'
+    )
   end
 
   it 'rejects non-finite Float job arguments during snapshot encoding' do
@@ -203,7 +206,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     )
   end
 
-  it 'round-trips Symbol job arguments nested inside arrays' do
+  it 'rejects Symbol job arguments nested inside arrays' do
     job = Karya::Job.new(
       id: 'job-symbol-array',
       queue: 'billing',
@@ -213,9 +216,12 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
       created_at:
     )
 
-    restored_job = json_codec.send(:decode_value, json_codec.send(:encode_value, job))
-
-    expect(restored_job.arguments.fetch('items')).to eq([:manual])
+    expect do
+      json_codec.send(:encode_value, job)
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis queue-store snapshots do not support Symbol job arguments'
+    )
   end
 
   it 'rejects unsupported object payloads during generic object encoding' do
@@ -253,6 +259,12 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
   it 'rejects missing Karya classes during restore' do
     expect do
       json_codec.send(:resolve_karya_class, 'Karya::MissingSnapshotClass')
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis state snapshot class/)
+  end
+
+  it 'rejects unrelated Karya classes during restore' do
+    expect do
+      json_codec.send(:resolve_karya_class, 'Karya::Backend::InMemory')
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis state snapshot class/)
   end
 
