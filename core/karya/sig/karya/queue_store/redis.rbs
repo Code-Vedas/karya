@@ -7,6 +7,8 @@ module Karya
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT: Integer
       DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: Integer
       DEFAULT_MAX_BATCH_SIZE: Integer
+      RESERVE_QUEUES_ERROR_MESSAGE: String
+      HOT_PATH_COMPACTION_THRESHOLD: Integer
 
       def initialize: (
         url: String,
@@ -21,25 +23,49 @@ module Karya
 
       private
 
+      class PresentString
+        def initialize: (String? value) -> void
+        def normalize: () -> String?
+
+        private
+
+        attr_reader value: String?
+      end
+
       module Internal
         interface _RedisClient
           def get: (String key) -> String?
           def set: (String key, String value, ?nx: bool, ?ex: Integer) -> String?
           def eval: (String script, keys: Array[String], argv: Array[String]) -> Integer
+          def del: (String key) -> Integer
         end
       end
 
+      attr_reader mutex: Internal::PersistenceMutex
       attr_reader namespace: String
       attr_reader reservation_token_sequence: Integer
+      attr_reader token_generator: ^() -> String
       attr_reader url: String
 
       def normalize_url: (String? value) -> String
       def normalize_namespace: (String? value) -> String
       def load_persisted_state: () -> void
-      def dump_state_payload: () -> String
+      def dump_state_payload: (applied_version: Integer) -> String
+      def dump_event_payload: (Internal::StateSnapshot::event_payload event) -> String
+      def with_reference_queue_store_mutex: [A] () { () -> A } -> A
+      def can_replay_incrementally?: (Integer current_version) -> bool
+      def apply_persisted_events: (Range[Integer] versions) -> void
+      def apply_persisted_event: (Internal::StateSnapshot::event_payload event) -> void
+      def with_journal_replay: [A] (?reservation_token: String) { () -> A } -> A
+      def event_persisted: (Integer version) -> void
+      def snapshot_persisted: (Integer version) -> void
+      def compact_snapshot_if_needed: () -> void
       def redis_client: () -> Internal::_RedisClient
       def state_key: () -> String
       def lock_key: () -> String
+      def version_key: () -> String
+      def event_key: (Integer version) -> String
+      def journal_support: () -> Internal::JournalSupport
     end
   end
 end

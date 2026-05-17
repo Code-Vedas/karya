@@ -5,11 +5,36 @@ module Karya
         module StateSnapshot
           type snapshot = {
             state: Karya::QueueStore::Internal::StoreState,
-            reservation_token_sequence: Integer
+            reservation_token_sequence: Integer,
+            applied_version: Integer
           }
 
-          def self.dump: (state: Karya::QueueStore::Internal::StoreState, reservation_token_sequence: Integer) -> String
+          type event_payload_value =
+            Karya::Job |
+            Karya::RetryPolicy |
+            Karya::failure_classification |
+            String |
+            Time |
+            Integer |
+            Float |
+            bool |
+            nil |
+            Array[String]
+
+          type event_payload = {
+            "name" => String,
+            "arguments" => Hash[String, event_payload_value]
+          }
+
+          def self.dump: (
+            state: Karya::QueueStore::Internal::StoreState,
+            reservation_token_sequence: Integer,
+            applied_version: Integer
+          ) -> String
+          def self.dump_payload: (event_payload payload) -> String
           def self.load: (String payload) -> snapshot
+          def self.load_payload: (String payload) -> event_payload
+          def self.validate_snapshot: (snapshot snapshot) -> snapshot
         end
       end
     end

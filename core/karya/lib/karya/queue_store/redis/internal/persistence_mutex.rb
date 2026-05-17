@@ -191,7 +191,7 @@ module Karya
           def persist_if_owned(mode:, event_builder:, result:)
             case mode
             when :read_only
-              result
+              nil
             when :snapshot
               persist_snapshot_if_owned
             when :event

@@ -475,6 +475,15 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(redis_client.data).not_to have_key("#{namespace}:queue_store:event:1")
   end
 
+  it 'compacts hot-path journal entries automatically after event persistence reaches the threshold' do
+    stub_const("#{described_class}::HOT_PATH_COMPACTION_THRESHOLD", 1)
+
+    store.enqueue(job: submission_job(id: 'job-compact-auto'), now: created_at + 1)
+
+    expect(redis_client.data).to have_key("#{namespace}:queue_store:state")
+    expect(redis_client.data).not_to have_key("#{namespace}:queue_store:event:1")
+  end
+
   it 'returns early from journal compaction when the hot-path backlog is below the compaction threshold' do
     mutex = store.instance_variable_get(:@mutex)
     journal_support = store.send(:journal_support)

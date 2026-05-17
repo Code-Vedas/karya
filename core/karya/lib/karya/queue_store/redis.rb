@@ -106,6 +106,7 @@ module Karya
 
           def event_persisted(version)
             @loaded_version = version
+            compact_snapshot_if_needed
           end
 
           def snapshot_persisted(version)
