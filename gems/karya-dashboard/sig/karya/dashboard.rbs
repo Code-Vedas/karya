@@ -25,7 +25,7 @@ module Karya
     ASSET_MANIFEST_PATH: String
     DEFAULT_TITLE: String
     DEFAULT_MOUNT_ID: String
-    ASSET_MANIFEST_MUTEX: ::Mutex
+    ASSET_MANIFEST_MUTEX: Thread::Mutex
 
     class AssetManifestError < StandardError
     end
