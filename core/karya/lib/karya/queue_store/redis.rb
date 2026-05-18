@@ -80,11 +80,10 @@ module Karya
             @owner = owner
             @loaded_version = nil
             @snapshot_version = nil
-            @replaying = false
           end
 
           def persist(event_builder:, persist_if: nil, &)
-            return owner.send(:with_reference_queue_store_mutex, &) if replaying?
+            return owner.send(:with_reference_queue_store_mutex, &) if owner.send(:replay_context).replaying?
 
             persist_with_event(event_builder:, persist_if:, &)
           end
@@ -129,10 +128,6 @@ module Karya
             previous_snapshot_version = snapshot_version
             @snapshot_version = loaded_version
             delete_journal_events_between(previous_snapshot_version + 1, @snapshot_version)
-          end
-
-          def replaying?
-            @replaying == true
           end
 
           private
@@ -186,11 +181,8 @@ module Karya
           end
 
           def with_journal_replay(reservation_token: nil, &)
-            @replaying = true
             replay_token_base = reservation_token&.sub(/:\d+\z/, '')
-            owner.send(:replay_context).with_bypass(reservation_token_base: replay_token_base, &)
-          ensure
-            @replaying = false
+            owner.send(:replay_context).with_replay(reservation_token_base: replay_token_base, &)
           end
 
           def delete_journal_events_between(start_version, end_version)

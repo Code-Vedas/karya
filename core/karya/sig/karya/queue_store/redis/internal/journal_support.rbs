@@ -34,7 +34,6 @@ module Karya
           def event_persisted: (Integer version) -> void
           def snapshot_persisted: (Integer version) -> void
           def compact_snapshot_if_needed: () -> void
-          def replaying?: () -> bool
 
           private
 

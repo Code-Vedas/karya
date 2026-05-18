@@ -24,7 +24,7 @@ module Karya
                 registration = fetch_workflow_registration(batch.id)
                 {
                   snapshot: WorkflowHistoryBuilder.new(batch:, registration:, now: normalized_now, state:).to_snapshot,
-                  persist: !recovery_report.jobs.empty?
+                  persist: recovery_report.changed?
                 }
               end
               snapshot_outcome.fetch(:snapshot)

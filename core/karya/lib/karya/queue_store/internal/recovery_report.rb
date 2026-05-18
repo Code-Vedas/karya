@@ -34,7 +34,24 @@ module Karya
           attr_reader :jobs, :name
         end
 
-        def initialize(recovered_at:, expired_jobs:, recovered_reserved_jobs:, recovered_running_jobs:)
+        # Normalizes the persisted-state change marker for one recovery pass.
+        class ChangedFlag
+          def initialize(changed)
+            @changed = changed
+          end
+
+          def to_bool
+            raise InvalidQueueStoreOperationError, 'changed must be true or false' unless [true, false].include?(changed)
+
+            changed
+          end
+
+          private
+
+          attr_reader :changed
+        end
+
+        def initialize(recovered_at:, expired_jobs:, recovered_reserved_jobs:, recovered_running_jobs:, changed:)
           raise InvalidQueueStoreOperationError, 'recovered_at must be a Time' unless recovered_at.is_a?(Time)
 
           @recovered_at = recovered_at.dup.freeze
@@ -43,10 +60,16 @@ module Karya
           @recovered_running_jobs = JobGroup.new(:recovered_running_jobs, recovered_running_jobs).to_a
           @jobs = (@expired_jobs + @recovered_reserved_jobs + @recovered_running_jobs).freeze
           @recovered_jobs = (@recovered_reserved_jobs + @recovered_running_jobs).freeze
+          @changed = ChangedFlag.new(changed).to_bool
 
           freeze
         end
         private_constant :JobGroup
+        private_constant :ChangedFlag
+
+        def changed?
+          @changed
+        end
       end
     end
   end

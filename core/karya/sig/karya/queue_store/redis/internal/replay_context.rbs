@@ -3,9 +3,11 @@ module Karya
     class Redis
       module Internal
         class ReplayContext
-          def initialize: (?mutex_bypass_key: Symbol, ?token_base_key: Symbol) -> void
+          def initialize: (?mutex_bypass_key: Symbol, ?token_base_key: Symbol, ?replaying_key: Symbol) -> void
           def with_bypass: [A] (?reservation_token_base: String?) { () -> A } -> A
+          def with_replay: [A] (?reservation_token_base: String?) { () -> A } -> A
           def bypass?: () -> bool
+          def replaying?: () -> bool
           def token_base: () -> String?
         end
       end

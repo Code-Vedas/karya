@@ -14,6 +14,7 @@ module Karya
         @recovered_running_jobs: Array[Job]
         @jobs: Array[Job]
         @recovered_jobs: Array[Job]
+        @changed: bool
 
         attr_reader recovered_at: Time
         attr_reader expired_jobs: Array[Job]
@@ -24,11 +25,13 @@ module Karya
           recovered_at: Time,
           expired_jobs: Array[Job],
           recovered_reserved_jobs: Array[Job],
-          recovered_running_jobs: Array[Job]
+          recovered_running_jobs: Array[Job],
+          changed: bool
         ) -> void
 
         def jobs: () -> Array[Job]
         def recovered_jobs: () -> Array[Job]
+        def changed?: () -> bool
       end
     end
   end

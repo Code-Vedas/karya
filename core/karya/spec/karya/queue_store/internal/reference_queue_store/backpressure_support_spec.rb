@@ -56,4 +56,27 @@ RSpec.describe 'Karya::QueueStore::Internal::ReferenceQueueStore::Internal::Back
 
     expect(state.rate_limit_admissions_by_key).to eq({})
   end
+
+  it 'prunes every rate-limit key even after an earlier key changes state' do
+    policy_store = Karya::QueueStore::InMemory.new(
+      policy_set: Karya::Backpressure::PolicySet.new(
+        rate_limits: {
+          { kind: :handler, value: 'billing_sync' } => { limit: 1, period: 10 }
+        }
+      )
+    )
+    policy_state = policy_store.instance_variable_get(:@state)
+    policy_state.rate_limit_admissions_by_key['orphan'] = [Time.utc(2026, 3, 27, 12, 0, 0)]
+    policy_state.rate_limit_admissions_by_key['handler:billing_sync'] = [
+      Time.utc(2026, 3, 27, 12, 0, 0),
+      Time.utc(2026, 3, 27, 12, 0, 15)
+    ]
+
+    changed = policy_store.send(:prune_stale_rate_limit_admissions, Time.utc(2026, 3, 27, 12, 0, 20))
+
+    expect(changed).to be(true)
+    expect(policy_state.rate_limit_admissions_by_key).to eq(
+      'handler:billing_sync' => [Time.utc(2026, 3, 27, 12, 0, 15)]
+    )
+  end
 end

@@ -343,6 +343,45 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(redis_client.data.keys.grep(/\Aredis-unit:queue_store:event:/)).to be_empty
   end
 
+  it 'persists workflow inspection reads when maintenance promotes due retry-pending jobs' do
+    retry_policy = Karya::RetryPolicy.new(max_attempts: 2, base_delay: 5, multiplier: 1)
+    definition = Karya::Workflow.define(:retrying_query_flow) do
+      step :review, handler: :review
+    end
+
+    store.enqueue_workflow(
+      definition:,
+      jobs_by_step_id: { review: workflow_job(:review, handler: :review) },
+      batch_id: :retry_query_batch,
+      now: created_at + 1
+    )
+
+    reservation = store.reserve(queue: 'billing', worker_id: 'worker-query-maintenance', lease_duration: 60, now: created_at + 2)
+    store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+    failed_job = store.fail_execution(
+      reservation_token: reservation.token,
+      now: created_at + 4,
+      failure_classification: :error,
+      retry_policy:
+    )
+    expect(failed_job.state).to eq(:retry_pending)
+
+    version_before_query = redis_client.data.fetch('redis-unit:queue_store:version')
+    result = store.query_workflow(batch_id: :retry_query_batch, query: :state, now: created_at + 10)
+
+    expect(result.value).to eq(:pending)
+    expect(redis_client.data.fetch('redis-unit:queue_store:version')).not_to eq(version_before_query)
+
+    restored_store = described_class.new(url: redis_url, namespace:)
+    restored_snapshot = restored_store.workflow_snapshot(batch_id: :retry_query_batch, now: created_at + 11)
+    restored_batch = restored_store.batch_snapshot(batch_id: :retry_query_batch, now: created_at + 11)
+    restored_history = restored_store.workflow_history(batch_id: :retry_query_batch, now: created_at + 11)
+
+    expect(restored_snapshot.step_states).to eq('review' => :queued)
+    expect(restored_batch.jobs.map(&:state)).to eq([:queued])
+    expect(restored_history.entries.map(&:action)).to include('retry_pending')
+  end
+
   it 'persists recovery and dead-letter flows across instances' do
     retry_policy = Karya::RetryPolicy.new(max_attempts: 2, base_delay: 5, multiplier: 1)
     store.enqueue(job: submission_job(id: 'job-retry', retry_policy:), now: created_at + 1)

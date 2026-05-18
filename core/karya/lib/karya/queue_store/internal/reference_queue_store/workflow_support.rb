@@ -100,7 +100,7 @@ module Karya
                 jobs = fetch_batch_jobs(batch)
                 {
                   snapshot: build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now),
-                  persist: !recovery_report.jobs.empty?
+                  persist: recovery_report.changed?
                 }
               end
               snapshot_outcome.fetch(:snapshot)

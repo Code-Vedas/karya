@@ -16,6 +16,7 @@ module Karya
 
             def promote_due_retry_pending_jobs(now)
               jobs_by_id = state.jobs_by_id
+              changed = false
 
               state.retry_pending_job_ids.dup.each do |job_id|
                 retry_pending_job = jobs_by_id.fetch(job_id)
@@ -30,7 +31,10 @@ module Karya
                 )
                 resolve_reentry_and_store(queued_job, now:)
                 state.delete_retry_pending(job_id)
+                changed = true
               end
+
+              changed
             end
 
             def retry_pending_job(running_job, now, retry_policy, failure_classification, next_retry_at)

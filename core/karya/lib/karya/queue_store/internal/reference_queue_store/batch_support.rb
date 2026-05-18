@@ -28,7 +28,7 @@ module Karya
                     job_ids:,
                     jobs:
                   ),
-                  persist: !recovery_report.jobs.empty?
+                  persist: recovery_report.changed?
                 }
               end
               snapshot_outcome.fetch(:snapshot)

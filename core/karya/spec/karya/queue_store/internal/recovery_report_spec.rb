@@ -27,7 +27,8 @@ RSpec.describe Karya::QueueStore::Internal::RecoveryReport do
       recovered_at:,
       expired_jobs:,
       recovered_reserved_jobs: [reserved_job],
-      recovered_running_jobs: [running_job]
+      recovered_running_jobs: [running_job],
+      changed: true
     )
     expired_jobs.clear
 
@@ -40,6 +41,7 @@ RSpec.describe Karya::QueueStore::Internal::RecoveryReport do
     expect(report.recovered_jobs).to be_frozen
     expect(report.jobs).to eq([expired_job, reserved_job, running_job])
     expect(report.recovered_jobs).to eq([reserved_job, running_job])
+    expect(report.changed?).to be(true)
     combined_jobs = report.jobs
     combined_recovered_jobs = report.recovered_jobs
     expect(report.jobs.object_id).to eq(combined_jobs.object_id)
@@ -52,7 +54,8 @@ RSpec.describe Karya::QueueStore::Internal::RecoveryReport do
         recovered_at: 'later',
         expired_jobs: [],
         recovered_reserved_jobs: [],
-        recovered_running_jobs: []
+        recovered_running_jobs: [],
+        changed: false
       )
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'recovered_at must be a Time')
   end
@@ -63,7 +66,8 @@ RSpec.describe Karya::QueueStore::Internal::RecoveryReport do
         recovered_at:,
         expired_jobs: nil,
         recovered_reserved_jobs: [],
-        recovered_running_jobs: []
+        recovered_running_jobs: [],
+        changed: false
       )
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'expired_jobs must be an Array')
   end
@@ -74,8 +78,21 @@ RSpec.describe Karya::QueueStore::Internal::RecoveryReport do
         recovered_at:,
         expired_jobs: ['not-a-job'],
         recovered_reserved_jobs: [],
-        recovered_running_jobs: []
+        recovered_running_jobs: [],
+        changed: false
       )
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'expired_jobs entries must be Karya::Job')
+  end
+
+  it 'rejects invalid changed flags' do
+    expect do
+      described_class.new(
+        recovered_at:,
+        expired_jobs: [],
+        recovered_reserved_jobs: [],
+        recovered_running_jobs: [],
+        changed: nil
+      )
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'changed must be true or false')
   end
 end

@@ -249,19 +249,26 @@ module Karya
           expired_reservations = collect_expired_leases(state.reservations_by_token, state.reservation_tokens_in_order, now, worker_id:)
           expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now, worker_id:)
           expired_jobs = []
+          promoted_retry_pending = false
+          pruned_rate_limit_admissions = false
           if include_global_maintenance
             expired_jobs = expire_jobs_locked(now)
-            promote_due_retry_pending_jobs(now)
+            promoted_retry_pending = promote_due_retry_pending_jobs(now)
           end
 
           recovered_reserved_jobs = expired_reservations.map { |reservation| requeue_expired_reservation(reservation, now) }
           recovered_running_jobs = expired_executions.map { |reservation| requeue_expired_execution(reservation, now) }
-          prune_stale_rate_limit_admissions(now) if include_global_maintenance
+          pruned_rate_limit_admissions = prune_stale_rate_limit_admissions(now) if include_global_maintenance
           QueueStore::Internal::RecoveryReport.new(
             recovered_at: now,
             expired_jobs:,
             recovered_reserved_jobs:,
-            recovered_running_jobs:
+            recovered_running_jobs:,
+            changed: expired_jobs.any? ||
+              recovered_reserved_jobs.any? ||
+              recovered_running_jobs.any? ||
+              promoted_retry_pending ||
+              pruned_rate_limit_admissions
           )
         end
 

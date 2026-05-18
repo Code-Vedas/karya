@@ -24,7 +24,7 @@ module Karya
                 snapshot = build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now)
                 {
                   snapshot: WorkflowQuery.new(snapshot:, query:, queried_at: normalized_now).to_result,
-                  persist: !recovery_report.jobs.empty?
+                  persist: recovery_report.changed?
                 }
               end
               snapshot_outcome.fetch(:snapshot)

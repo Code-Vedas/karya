@@ -64,7 +64,8 @@ module Karya
                   next
                 end
 
-                changed ||= prune_rate_limit_admissions(rate_limit_key, policy, now, delete_empty: true).fetch(:changed)
+                changed_for_key = prune_rate_limit_admissions(rate_limit_key, policy, now, delete_empty: true).fetch(:changed)
+                changed ||= changed_for_key
               end
               changed
             end
