@@ -10,10 +10,9 @@ Backend choice shapes durability, operator workflows, scheduling behavior,
 failure recovery, and the overall fit between Karya and the rest of the stack.
 This page helps teams make that choice with intent.
 
-Karya supports both local development backends and production backends, but
-they are not interchangeable. The right choice depends on whether the goal is
-fast local iteration, production-like local evaluation, or a durable
-production deployment.
+Karya supports local backends for development and shared backends for durable
+deployments. Backend choice is an operational decision: where state lives, what
+survives process restarts, and what infrastructure the team is prepared to run.
 
 ## Backend Positions
 
@@ -53,18 +52,43 @@ Choose SQLite when:
 
 Choose Redis when:
 
-- you want a production backend
-- Redis is the backend you intend to operate
+- worker processes must share queue and workflow state through Redis
+- jobs and workflows must survive worker restarts
+- the deployment already uses Redis as shared runtime infrastructure
+
+Add the Redis client gem before configuring the backend:
+
+```ruby
+# Gemfile
+gem 'redis', '~> 5.4'
+```
+
+```ruby
+Karya.configure_backend(
+  Karya::Backend::Redis,
+  url: 'redis://127.0.0.1:6379/0',
+  namespace: 'karya'
+)
+```
+
+Redis-backed queue-store persistence rejects job arguments containing `Symbol`
+values or non-finite `Float` values (`Float::NAN`, `Float::INFINITY`, and
+`-Float::INFINITY`). Normalize those payload values before enqueueing jobs that
+must persist through Redis. Redis-backed persistence also requires
+`Karya::JobLifecycle::Registry` lifecycles; jobs using other lifecycle
+implementations must normalize to a registry-backed lifecycle before enqueue.
 
 Choose Postgres when:
 
-- you want a production backend
-- Postgres is the backend you intend to operate
+- worker processes must share durable state through PostgreSQL
+- the deployment is centered on PostgreSQL operations
+- queue, workflow, and operator state should live in the primary SQL system
 
 Choose MySQL when:
 
-- you want a production backend
-- MySQL is the backend you intend to operate
+- worker processes must share durable state through MySQL
+- the deployment is centered on MySQL operations
+- queue, workflow, and operator state should live in the primary SQL system
 
 ## What Backends Influence
 
@@ -75,9 +99,9 @@ Backend choice affects more than persistence:
 - what adapter path and operational posture fit the deployment best
 - what troubleshooting guidance applies in production
 
-Configure Karya with a backend class and any backend options that backend
-requires. Karya uses the selected backend to initialize the queue storage used
-by workers and supervisors.
+Configure Karya with a backend class and the backend options required for that
+deployment. Karya uses the backend to initialize the queue store used by
+workers and supervisors.
 
 ## Common Scenarios
 

@@ -17,6 +17,127 @@ module Karya
 
   # Immutable value object for the canonical queued job model.
   class Job
+    # Serializes jobs without persisting the runtime lifecycle registry object.
+    module MarshalSupport
+      # Captures custom lifecycle extensions so marshaled jobs can restore them safely.
+      class LifecycleExtensionsSnapshot
+        def initialize(state_names:, terminal_state_names:, transitions:)
+          @state_names = state_names
+          @terminal_state_names = terminal_state_names
+          @transitions = transitions
+        end
+
+        def self.dump(lifecycle)
+          unless lifecycle.is_a?(Karya::JobLifecycle::Registry)
+            raise InvalidQueueStoreOperationError,
+                  'Redis-backed queue-store persistence requires JobLifecycle::Registry lifecycles'
+          end
+
+          new(
+            state_names: lifecycle.send(:extension_state_names),
+            terminal_state_names: lifecycle.send(:extension_terminal_state_names),
+            transitions: lifecycle.send(:extension_transitions)
+          ).to_h
+        end
+
+        def self.load(snapshot)
+          new(
+            state_names: snapshot.fetch(:state_names),
+            terminal_state_names: snapshot.fetch(:terminal_state_names),
+            transitions: snapshot.fetch(:transitions)
+          ).restore
+        end
+
+        def to_h
+          {
+            state_names:,
+            terminal_state_names:,
+            transitions:
+          }
+        end
+
+        def restore
+          Karya::JobLifecycle::Registry.new.tap do |registry|
+            register_states(registry)
+            register_transitions(registry)
+          end
+        end
+
+        private
+
+        attr_reader :state_names, :terminal_state_names, :transitions
+
+        def register_states(registry)
+          state_names.each do |state_name|
+            registry.register_state(state_name, terminal: terminal_state_names.include?(state_name))
+          end
+        end
+
+        def register_transitions(registry)
+          transitions.each_key do |from_state|
+            register_transition_targets(registry, from_state)
+          end
+        end
+
+        def register_transition_targets(registry, from_state)
+          transitions.fetch(from_state).each do |to_state|
+            registry.register_transition(from: from_state, to: to_state)
+          end
+        end
+      end
+      private_constant :LifecycleExtensionsSnapshot
+
+      def marshal_dump
+        {
+          id:,
+          queue:,
+          handler:,
+          arguments:,
+          priority:,
+          concurrency_scope:,
+          rate_limit_scope:,
+          retry_policy:,
+          execution_timeout:,
+          expires_at:,
+          idempotency_key:,
+          uniqueness_key:,
+          uniqueness_scope:,
+          lifecycle_extensions: lifecycle_extensions_snapshot,
+          state:,
+          attempt:,
+          created_at:,
+          updated_at:,
+          next_retry_at:,
+          failure_classification:,
+          dead_letter_reason:,
+          dead_lettered_at:,
+          dead_letter_source_state:
+        }
+      end
+
+      def marshal_load(attributes)
+        reloaded_job = self.class.new(
+          **attributes,
+          lifecycle: LifecycleExtensionsSnapshot.load(attributes.fetch(:lifecycle_extensions))
+        )
+
+        @identity = reloaded_job.send(:identity)
+        @scheduling = reloaded_job.send(:scheduling)
+        @lifecycle_state = reloaded_job.send(:lifecycle_state)
+        freeze
+      end
+
+      private
+
+      def lifecycle_extensions_snapshot
+        LifecycleExtensionsSnapshot.dump(lifecycle)
+      end
+    end
+    private_constant :MarshalSupport
+    include MarshalSupport
+
+    private :marshal_dump, :marshal_load
+
     # Canonical immutable routing payload for one job instance.
     Identity = Struct.new(:id, :queue, :handler, :arguments)
     # Canonical immutable scheduling metadata for job selection policies.

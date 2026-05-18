@@ -34,8 +34,8 @@ thinking into Karya’s workflow and operator surfaces.
 
 ## Related Concepts
 
-- [Backends](/backends/): choose the production backend that matches the
-  target SQL runtime
+- [Backends](/backends/): choose the backend that matches the target SQL
+  runtime and deployment model
 - [Workflow Basics](/workflows/basics/): this is usually the biggest product
   expansion
 - [Cutover And Rollback](/adoption/cutover-rollback/): backend continuity does not

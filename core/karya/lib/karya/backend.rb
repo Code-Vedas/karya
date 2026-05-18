@@ -13,5 +13,6 @@ module Karya
   module Backend
     autoload :Base, 'karya/backend/base'
     autoload :InMemory, 'karya/backend/in_memory'
+    autoload :Redis, 'karya/backend/redis'
   end
 end

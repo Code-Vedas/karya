@@ -1,0 +1,21 @@
+module Karya
+  module QueueStore
+    module Internal
+      module ReferenceQueueStore
+        module Internal
+          module ValidationSupport
+            private
+
+            def validate_initializer_limits: (
+              expired_tombstone_limit: Integer?,
+              completed_batch_retention_limit: Integer?,
+              max_batch_size: Integer?
+            ) -> nil
+            def normalize_identifier: (Symbol name, String value, error_class: Karya::error_class) -> String
+            def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
+          end
+        end
+      end
+    end
+  end
+end

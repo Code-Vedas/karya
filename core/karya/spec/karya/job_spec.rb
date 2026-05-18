@@ -434,4 +434,53 @@ RSpec.describe Karya::Job do
       )
     end
   end
+
+  describe 'marshal hooks' do
+    it 'round-trips job state while preserving custom lifecycle extensions' do
+      lifecycle = Karya::JobLifecycle::Registry.new
+      lifecycle.register_state('archived', terminal: true)
+      lifecycle.register_transition(from: :queued, to: 'archived')
+
+      job = described_class.new(
+        id: 'job-123',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :queued,
+        lifecycle:,
+        created_at:
+      )
+
+      restored_job = Marshal.load(Marshal.dump(job))
+
+      expect(restored_job.id).to eq('job-123')
+      expect(restored_job.state).to eq(:queued)
+      expect(restored_job.send(:lifecycle)).not_to equal(lifecycle)
+      expect(restored_job.can_transition_to?('archived')).to be(true)
+      expect(restored_job.transition_to('archived', updated_at:).terminal?).to be(true)
+    end
+
+    it 'rejects marshal_dump for non-registry lifecycle implementations' do
+      lifecycle = Object.new
+      allow(lifecycle).to receive(:normalize_state, &:to_s)
+      allow(lifecycle).to receive(:validate_state!, &:to_s)
+      allow(lifecycle).to receive(:validate_transition!) { |_from:, to:| to.to_s }
+      allow(lifecycle).to receive_messages(valid_transition?: true, terminal?: false)
+
+      job = described_class.new(
+        id: 'job-unsupported-lifecycle',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :queued,
+        lifecycle:,
+        created_at:
+      )
+
+      expect do
+        Marshal.dump(job)
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        'Redis-backed queue-store persistence requires JobLifecycle::Registry lifecycles'
+      )
+    end
+  end
 end

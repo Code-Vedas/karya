@@ -28,7 +28,7 @@ RSpec.describe Karya do
 
     it 'stores the configured backend class and backend options' do
       backend_class = Karya::Backend::InMemory
-      options = { queue_store_class: Karya::QueueStore::InMemory, enabled: true }
+      options = { adapter_class: String, enabled: true }
 
       expect(
         described_class.configure_backend(backend_class, **options)
@@ -38,14 +38,14 @@ RSpec.describe Karya do
     end
 
     it 'returns a defensive copy of backend options' do
-      described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: Karya::QueueStore::InMemory)
+      described_class.configure_backend(Karya::Backend::InMemory, adapter_class: String)
 
       first_read = described_class.backend_options
       second_read = described_class.backend_options
-      first_read[:queue_store_class] = Object
+      first_read[:adapter_class] = Object
 
-      expect(second_read).to eq(queue_store_class: Karya::QueueStore::InMemory)
-      expect(described_class.backend_options).to eq(queue_store_class: Karya::QueueStore::InMemory)
+      expect(second_read).to eq(adapter_class: String)
+      expect(described_class.backend_options).to eq(adapter_class: String)
     end
 
     it 'snapshots nested backend options immutably' do
@@ -89,7 +89,6 @@ RSpec.describe Karya do
 
     it 'accepts nested backend options built from supported values' do
       options = {
-        queue_store_class: Karya::QueueStore::InMemory,
         token_generator: -> { 'token' },
         policy_set: Karya::Backpressure::PolicySet.new,
         circuit_breaker_policy_set: Karya::CircuitBreaker::PolicySet.new,
@@ -132,31 +131,12 @@ RSpec.describe Karya do
       expect(described_class.backend_options).to eq(adapter_class: String)
     end
 
-    it 'rejects queue_store_class when it is only a generic callable' do
-      callable = Object.new
-      callable.define_singleton_method(:call) { Karya::QueueStore::InMemory.new }
+    it 'accepts queue store instances when a backend class owns that option' do
+      queue_store = Karya::QueueStore::InMemory.new
 
-      expect do
-        described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: callable)
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
-    end
+      described_class.configure_backend(Karya::Backend::InMemory, queue_store:)
 
-    it 'rejects queue_store_class when it is a queue store instance' do
-      expect do
-        described_class.configure_backend(
-          Karya::Backend::InMemory,
-          queue_store_class: Karya::QueueStore::InMemory.new
-        )
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
-    end
-
-    it 'rejects queue_store_class factory objects that are not classes' do
-      queue_store_factory = Object.new
-      queue_store_factory.define_singleton_method(:new) { |**| Karya::QueueStore::InMemory.new }
-
-      expect do
-        described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: queue_store_factory)
-      end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
+      expect(described_class.backend_options).to eq(queue_store:)
     end
 
     it 'rejects non-callable backend options that are not queue store factories' do
@@ -207,13 +187,13 @@ RSpec.describe Karya do
 
     it 'rejects a configured backend option with an unsupported value' do
       expect do
-        described_class.configure_backend(Karya::Backend::InMemory, queue_store_class: Object.new)
+        described_class.configure_backend(Karya::Backend::InMemory, adapter_class: Object.new)
       end.to raise_error(Karya::InvalidBackendConfigurationError, /unsupported value/)
     end
 
     it 'rejects a configured backend option with a non-symbol top-level key' do
       described_class.instance_variable_set(:@backend_class, Karya::Backend::InMemory)
-      described_class.instance_variable_set(:@backend_options, { 'queue_store_class' => Karya::QueueStore::InMemory })
+      described_class.instance_variable_set(:@backend_options, { 'adapter_class' => String })
 
       expect do
         described_class.backend_options
@@ -277,44 +257,14 @@ RSpec.describe Karya do
     end
   end
 
-  describe '.queue_store_factory_option?' do
-    it 'accepts a queue store class through the factory helper' do
-      expect(
-        described_class.send(:queue_store_factory_option?, :queue_store_class, Karya::QueueStore::InMemory)
-      ).to be(true)
-    end
-
-    it 'rejects queue store classes that fail the QueueStore::Base subclass check' do
-      invalid_queue_store_class = Class.new
-      invalid_queue_store_class.define_singleton_method(:<) do |_other|
-        raise NameError, 'broken subclass check'
-      end
-
-      expect(
-        described_class.send(:queue_store_factory_option?, :queue_store_class, invalid_queue_store_class)
-      ).to be(false)
-    end
-
-    it 'rejects queue store classes when the subclass check raises a different error' do
-      invalid_queue_store_class = Class.new
-      invalid_queue_store_class.define_singleton_method(:<) do |_other|
-        raise TypeError, 'broken subclass check'
-      end
-
-      expect(
-        described_class.send(:queue_store_factory_option?, :queue_store_class, invalid_queue_store_class)
-      ).to be(false)
-    end
-  end
-
   describe '.generic_backend_option?' do
-    it 'does not treat queue_store_class as a generic callable option' do
+    it 'treats queue_store_class like any other generic callable option' do
       callable = Object.new
       callable.define_singleton_method(:call) { Karya::QueueStore::InMemory.new }
 
       expect(
         described_class.send(:generic_backend_option?, :queue_store_class, callable)
-      ).to be(false)
+      ).to be(true)
     end
   end
 end

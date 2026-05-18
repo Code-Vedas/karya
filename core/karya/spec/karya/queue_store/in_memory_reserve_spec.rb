@@ -46,6 +46,30 @@ RSpec.describe Karya::QueueStore::InMemory do
       ).to be_nil
     end
 
+    it 'does not reject custom lifecycle jobs during empty reserve polls' do
+      lifecycle = Object.new
+      allow(lifecycle).to receive(:normalize_state, &:to_sym)
+      allow(lifecycle).to receive(:validate_state!, &:to_sym)
+      allow(lifecycle).to receive(:validate_transition!) { |**kwargs| kwargs.fetch(:to).to_sym }
+      allow(lifecycle).to receive_messages(valid_transition?: true, terminal?: false)
+
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-custom-lifecycle',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :submission,
+          lifecycle:,
+          created_at:
+        ),
+        now: created_at + 1
+      )
+
+      expect(
+        store.reserve(queue: 'shipping', worker_id: 'worker-1', lease_duration: 30, now: created_at + 2)
+      ).to be_nil
+    end
+
     it 'only reserves from the requested queue' do
       store.enqueue(job: submission_job(id: 'billing-1', queue: 'billing', created_at:), now: created_at + 1)
       store.enqueue(job: submission_job(id: 'email-1', queue: 'email', created_at:), now: created_at + 2)

@@ -1,0 +1,79 @@
+module Karya
+  module QueueStore
+    class Redis
+      module Internal
+        class PersistenceMutex
+          LOCK_TTL_SECONDS: Integer
+          LOCK_POLL_INTERVAL: Float
+          LOCK_ACQUIRE_TIMEOUT_SECONDS: Float
+          LOCK_MAX_POLL_INTERVAL: Float
+          LOCK_RENEW_INTERVAL: Float
+          RELEASE_SCRIPT: String
+          PERSIST_SNAPSHOT_SCRIPT: String
+          APPEND_EVENT_SCRIPT: String
+          COMPACT_SNAPSHOT_SCRIPT: String
+          EXTEND_SCRIPT: String
+
+          def initialize: (
+            redis: _RedisClient,
+            owner: Karya::QueueStore::Redis,
+            state_key: String,
+            lock_key: String,
+            version_key: String
+          ) -> void
+          def synchronize: [A] (?persist_if: ^(A) -> bool) { () -> A } -> A
+          def synchronize_with_event: [A] (
+            event_builder: ^(A) -> StateSnapshot::event_payload,
+            ?persist_if: ^(A) -> bool
+          ) { () -> A } -> A
+          def read_only_synchronize: [A] () { () -> A } -> A
+          def compact_snapshot: (payload: String) -> bool
+
+          private
+
+          class LockAcquisitionDeadline
+            def initialize: (Float timeout_seconds) -> void
+            def expired?: () -> bool
+
+            private
+
+            attr_reader deadline: Float
+          end
+
+          attr_reader lock_key: String
+          attr_reader local_mutex: Thread::Mutex
+          attr_reader owner: Karya::QueueStore::Redis
+          attr_reader redis: _RedisClient
+          attr_reader state_key: String
+          attr_reader version_key: String
+
+          def synchronize_owned_state: [A] (
+            mode: :snapshot | :event | :read_only,
+            ?event_builder: ^(A) -> StateSnapshot::event_payload,
+            ?persist_if: ^(A) -> bool
+          ) { () -> A } -> A
+          def with_distributed_lock: [A] () { () -> A } -> A
+          def acquire_lock?: (String token) -> bool
+          def start_lock_renewal: (String token, Thread::Queue stop_signal) -> Thread
+          def extend_lock?: (String token) -> bool
+          def release_lock: (String token) -> Integer?
+          def persist_if_owned: [A] (
+            mode: :snapshot | :event | :read_only,
+            ?event_builder: ^(A) -> StateSnapshot::event_payload,
+            ?persist_if: ^(A) -> bool,
+            result: A
+          ) -> void
+          def persist_snapshot_if_owned: () -> void
+          def persist_event_if_owned: (StateSnapshot::event_payload event) -> void
+          def record_lock_loss: (?Exception cause) -> nil
+          def event_key_prefix: () -> String
+          def reset_lock_loss_state: () -> nil
+          def lock_lost?: () -> bool
+          def verify_lock_still_held: () -> void
+          def raise_lock_loss: () -> void
+          def restore_owner_state_after_failure: () -> nil
+        end
+      end
+    end
+  end
+end

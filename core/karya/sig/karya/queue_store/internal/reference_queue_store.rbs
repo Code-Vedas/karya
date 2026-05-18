@@ -1,0 +1,134 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    module Internal
+      module ReferenceQueueStore
+        include Karya::QueueStore::Base
+
+        interface _MutexLike
+          def synchronize: [A] (?persist_if: ^(A) -> bool) { () -> A } -> A
+          def read_only_synchronize: [A] () { () -> A } -> A
+        end
+
+      @token_generator: Karya::callable_value
+      @policy_set: Backpressure::PolicySet
+      @circuit_breaker_policy_set: CircuitBreaker::PolicySet
+      @fairness_policy: Fairness::Policy
+      @expired_tombstone_limit: Integer
+      @completed_batch_retention_limit: Integer
+      @max_batch_size: Integer
+      @reservation_token_sequence: Integer
+      @mutex: _MutexLike
+      @state: Karya::QueueStore::Internal::StoreState
+
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT: 1024
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: 1024
+      DEFAULT_MAX_BATCH_SIZE: 1000
+      RESERVE_QUEUES_ERROR_MESSAGE: String
+      InitializerOptions: singleton(Karya::QueueStore::Internal::InitializerOptions)
+
+      def configure_reference_queue_store: (
+        initializer_options_class: singleton(Karya::QueueStore::Internal::InitializerOptions),
+        store_state_class: singleton(Karya::QueueStore::Internal::StoreState),
+        ?token_generator: Karya::callable_value,
+        ?expired_tombstone_limit: Integer,
+        ?completed_batch_retention_limit: Integer,
+        ?max_batch_size: Integer,
+        ?policy_set: Backpressure::PolicySet,
+        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
+        ?fairness_policy: Fairness::Policy
+      ) -> void
+
+      def enqueue: (job: Job, now: Time) -> Job
+      def reserve: (
+        worker_id: String,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        ?queue: String?,
+        ?queues: Array[String]?,
+        ?handler_names: Array[String]?
+      ) -> Reservation?
+      def release: (reservation_token: String, now: Time) -> Job
+      def start_execution: (reservation_token: String, now: Time) -> Job
+      def complete_execution: (reservation_token: String, now: Time) -> Job
+      def fail_execution: (
+        reservation_token: String,
+        now: Time,
+        failure_classification: failure_classification_input,
+        ?retry_policy: RetryPolicy?
+      ) -> Job
+      def recover_orphaned_jobs: (worker_id: String, now: Time) -> Array[Job]
+      def recover_in_flight: (now: Time) -> Karya::QueueStore::Internal::RecoveryReport
+      def expire_reservations: (now: Time) -> Array[Job]
+      def expire_jobs: (now: Time) -> Array[Job]
+      def backpressure_snapshot: (now: Time) -> Karya::backpressure_snapshot
+      def reliability_snapshot: (now: Time) -> Karya::reliability_snapshot
+      def uniqueness_decision: (job: Job, now: Time) -> Karya::uniqueness_decision
+      def uniqueness_snapshot: (now: Time) -> Karya::uniqueness_snapshot
+      def dead_letter_snapshot: (now: Time) -> Karya::dead_letter_snapshot
+
+      private
+
+      attr_reader circuit_breaker_policy_set: CircuitBreaker::PolicySet
+      attr_reader completed_batch_retention_limit: Integer
+      attr_reader expired_tombstone_limit: Integer
+      attr_reader fairness_policy: Fairness::Policy
+      attr_reader max_batch_size: Integer
+      attr_reader policy_set: Backpressure::PolicySet
+      attr_reader state: Karya::QueueStore::Internal::StoreState
+      attr_reader token_generator: Karya::callable_value
+
+      def validate_initializer_limits: (
+        expired_tombstone_limit: Integer?,
+        completed_batch_retention_limit: Integer?,
+        max_batch_size: Integer?
+      ) -> nil
+      def validate_enqueue: (Job job) -> nil
+      def expire_reservations_locked: (Time now) -> Array[Job]
+      def prepare_backpressure_snapshot: (Time now) -> bool
+      def recover_in_flight_locked: (
+        Time now,
+        ?worker_id: String?,
+        ?include_global_maintenance: bool
+      ) -> Karya::QueueStore::Internal::RecoveryReport
+      def perform_reserve_maintenance: (Time now) -> {
+        reserve_scan_state: Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ReserveScanState,
+        persist: bool
+      }
+      def normalize_identifier: (Symbol name, String value, error_class: Karya::error_class) -> String
+      def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
+      def store_and_requeue_if_needed: (
+        job: Job,
+        queue: String,
+        job_id: String,
+        state_name: Karya::state_name
+      ) -> Job
+      def requeue_job_if_needed: (String queue, String job_id, Karya::state_name state_name) -> Array[String]?
+      def reserve_matching_job: (
+        handler_matcher: Karya::QueueStore::Internal::ReferenceQueueStore::Internal::HandlerMatcher,
+        lease_duration: Karya::lease_duration_value,
+        now: Time,
+        queues: Array[String],
+        subscription_key: [Array[String], Array[String]?],
+        worker_id: String
+      ) -> { reservation: Reservation?, persist: bool }
+      def reserve_job: (
+        matched_queue: String,
+        matched_job_id: String,
+        matched_job_index: Integer,
+        worker_id: String,
+        lease_duration: Karya::lease_duration_value,
+        queues: Array[String],
+        subscription_key: [Array[String], Array[String]?],
+        now: Time
+      ) -> Reservation
+      def track_fairness_history?: (Array[String] queues) -> bool
+      def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
+    end
+  end
+end
+end

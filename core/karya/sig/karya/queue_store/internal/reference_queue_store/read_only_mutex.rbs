@@ -1,0 +1,19 @@
+module Karya
+  module QueueStore
+    module Internal
+      module ReferenceQueueStore
+        module Internal
+          class ReadOnlyMutex
+            def initialize: () -> void
+            def synchronize: [A] (?persist_if: ^(A) -> bool) { () -> A } -> A
+            def read_only_synchronize: [A] () { () -> A } -> A
+
+            private
+
+            attr_reader mutex: Thread::Mutex
+          end
+        end
+      end
+    end
+  end
+end

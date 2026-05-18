@@ -35,9 +35,8 @@ module Karya
   # Namespace for queue store implementations.
   module QueueStore
     autoload :Base, 'karya/queue_store/base'
-    autoload :BulkMutationReport, 'karya/queue_store/bulk_mutation_report'
     autoload :InMemory, 'karya/queue_store/in_memory'
-    autoload :QueueControlResult, 'karya/queue_store/queue_control_result'
-    autoload :RecoveryReport, 'karya/queue_store/recovery_report'
+    autoload :Internal, 'karya/queue_store/internal'
+    autoload :Redis, 'karya/queue_store/redis'
   end
 end

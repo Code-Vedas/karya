@@ -51,7 +51,7 @@ RSpec.describe Karya::QueueStore::InMemory do
   end
 
   def rollback_batch_id(batch_id)
-    internal = Karya::QueueStore::InMemory.const_get(:Internal, false)
+    internal = Karya::QueueStore::Internal::ReferenceQueueStore.const_get(:Internal, false)
     workflow_support = internal.const_get(:WorkflowSupport, false)
     workflow_support.const_get(:RollbackBatchId, false).new(batch_id).to_s
   end

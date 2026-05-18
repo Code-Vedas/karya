@@ -147,7 +147,7 @@ RSpec.describe Karya::QueueStore::InMemory do
 
       report = store.recover_in_flight(now: created_at + 10)
 
-      expect(report).to be_a(Karya::QueueStore::RecoveryReport)
+      expect(report).to be_a(Karya::QueueStore::Internal::RecoveryReport)
       expect(report.recovered_at).to eq(created_at + 10)
       expect(report.expired_jobs.map(&:id)).to eq(['job-expired'])
       expect(report.recovered_reserved_jobs.map(&:id)).to eq([reserved.job_id])

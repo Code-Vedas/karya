@@ -35,7 +35,7 @@ RSpec.describe Karya::QueueStore::InMemory do
         now: created_at + 1
       )
 
-      expect(report).to be_a(Karya::QueueStore::BulkMutationReport)
+      expect(report).to be_a(Karya::QueueStore::Internal::BulkMutationReport)
       expect(report.action).to eq(:enqueue_many)
       expect(report.requested_count).to eq(2)
       expect(report.requested_job_ids).to eq(%w[job-1 job-2])

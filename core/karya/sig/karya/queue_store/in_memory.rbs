@@ -15,7 +15,7 @@ module Karya
       @max_batch_size: Integer
       @reservation_token_sequence: Integer
       @mutex: Thread::Mutex
-      @state: Internal::StoreState
+      @state: Karya::QueueStore::Internal::StoreState
 
       include Base
 
@@ -35,7 +35,7 @@ module Karya
       ) -> void
 
       def enqueue: (job: Job, now: Time) -> Job
-      def enqueue_many: (jobs: Array[Job], now: Time, ?batch_id: Karya::state_name?) -> BulkMutationReport
+      def enqueue_many: (jobs: Array[Job], now: Time, ?batch_id: Karya::state_name?) -> Karya::QueueStore::Internal::BulkMutationReport
       def batch_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::BatchSnapshot
       def enqueue_workflow: (
         definition: Karya::Workflow::Definition,
@@ -43,7 +43,7 @@ module Karya
         batch_id: Karya::state_name,
         now: Time,
         ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
-      ) -> BulkMutationReport
+      ) -> Karya::QueueStore::Internal::BulkMutationReport
       def workflow_snapshot: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::Snapshot
       def workflow_history: (batch_id: Karya::state_name, now: Time) -> Karya::Workflow::HistorySnapshot
       def query_workflow: (
@@ -56,26 +56,26 @@ module Karya
         signal: Karya::state_name,
         payload: Karya::interaction_payload,
         now: Time
-      ) -> BulkMutationReport
+      ) -> Karya::QueueStore::Internal::BulkMutationReport
       def deliver_workflow_event: (
         batch_id: Karya::state_name,
         event: Karya::state_name,
         payload: Karya::interaction_payload,
         now: Time
-      ) -> BulkMutationReport
-      def pause_workflow: (batch_id: Karya::state_name, now: Time) -> BulkMutationReport
-      def resume_workflow: (batch_id: Karya::state_name, now: Time) -> BulkMutationReport
+      ) -> Karya::QueueStore::Internal::BulkMutationReport
+      def pause_workflow: (batch_id: Karya::state_name, now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+      def resume_workflow: (batch_id: Karya::state_name, now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
       def approve_workflow_checkpoints: (
         batch_id: Karya::state_name,
         step_ids: Array[Karya::state_name],
         now: Time
-      ) -> BulkMutationReport
+      ) -> Karya::QueueStore::Internal::BulkMutationReport
       def reject_workflow_checkpoints: (
         batch_id: Karya::state_name,
         step_ids: Array[Karya::state_name],
         now: Time,
         reason: String
-      ) -> BulkMutationReport
+      ) -> Karya::QueueStore::Internal::BulkMutationReport
       def enqueue_child_workflow: (
         parent_batch_id: Karya::state_name,
         parent_step_id: Karya::state_name,
@@ -84,24 +84,24 @@ module Karya
         batch_id: Karya::state_name,
         now: Time,
         ?compensation_jobs_by_step_id: Hash[Karya::state_name, Job]
-      ) -> BulkMutationReport
-      def sync_child_workflows: (parent_batch_id: Karya::state_name, now: Time) -> BulkMutationReport
-      def rollback_workflow: (batch_id: Karya::state_name, now: Time, reason: String) -> BulkMutationReport
-      def retry_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> BulkMutationReport
+      ) -> Karya::QueueStore::Internal::BulkMutationReport
+      def sync_child_workflows: (parent_batch_id: Karya::state_name, now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+      def rollback_workflow: (batch_id: Karya::state_name, now: Time, reason: String) -> Karya::QueueStore::Internal::BulkMutationReport
+      def retry_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
       def dead_letter_workflow_steps: (
         batch_id: Karya::state_name,
         step_ids: Array[Karya::state_name],
         now: Time,
         reason: String
-      ) -> BulkMutationReport
-      def replay_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> BulkMutationReport
+      ) -> Karya::QueueStore::Internal::BulkMutationReport
+      def replay_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
       def retry_dead_letter_workflow_steps: (
         batch_id: Karya::state_name,
         step_ids: Array[Karya::state_name],
         now: Time,
         next_retry_at: Time
-      ) -> BulkMutationReport
-      def discard_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> BulkMutationReport
+      ) -> Karya::QueueStore::Internal::BulkMutationReport
+      def discard_workflow_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
       def reserve: (
         worker_id: String,
         lease_duration: Karya::lease_duration_value,
@@ -119,16 +119,16 @@ module Karya
         failure_classification: failure_classification_input,
         ?retry_policy: RetryPolicy?
       ) -> Job
-      def retry_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-      def cancel_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-      def dead_letter_jobs: (job_ids: Array[String], now: Time, reason: String) -> BulkMutationReport
-      def replay_dead_letter_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-      def retry_dead_letter_jobs: (job_ids: Array[String], now: Time, next_retry_at: Time) -> BulkMutationReport
-      def discard_dead_letter_jobs: (job_ids: Array[String], now: Time) -> BulkMutationReport
-      def pause_queue: (queue: String, now: Time) -> QueueControlResult
-      def resume_queue: (queue: String, now: Time) -> QueueControlResult
+      def retry_jobs: (job_ids: Array[String], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+      def cancel_jobs: (job_ids: Array[String], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+      def dead_letter_jobs: (job_ids: Array[String], now: Time, reason: String) -> Karya::QueueStore::Internal::BulkMutationReport
+      def replay_dead_letter_jobs: (job_ids: Array[String], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+      def retry_dead_letter_jobs: (job_ids: Array[String], now: Time, next_retry_at: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+      def discard_dead_letter_jobs: (job_ids: Array[String], now: Time) -> Karya::QueueStore::Internal::BulkMutationReport
+      def pause_queue: (queue: String, now: Time) -> Karya::QueueStore::Internal::QueueControlResult
+      def resume_queue: (queue: String, now: Time) -> Karya::QueueStore::Internal::QueueControlResult
       def recover_orphaned_jobs: (worker_id: String, now: Time) -> Array[Job]
-      def recover_in_flight: (now: Time) -> RecoveryReport
+      def recover_in_flight: (now: Time) -> Karya::QueueStore::Internal::RecoveryReport
       def expire_reservations: (now: Time) -> Array[Job]
       def expire_jobs: (now: Time) -> Array[Job]
 
@@ -169,7 +169,7 @@ module Karya
       attr_reader fairness_policy: Fairness::Policy
       attr_reader max_batch_size: Integer
       attr_reader policy_set: Backpressure::PolicySet
-      attr_reader state: Internal::StoreState
+      attr_reader state: Karya::QueueStore::Internal::StoreState
       attr_reader token_generator: Karya::callable_value
 
       def validate_initializer_limits: (
@@ -179,20 +179,23 @@ module Karya
       ) -> nil
       def validate_enqueue: (Job job) -> nil
       def expire_reservations_locked: (Time now) -> Array[Job]
-      def prepare_backpressure_snapshot: (Time now) -> void
-      def recover_in_flight_locked: (Time now, ?worker_id: String?, ?include_global_maintenance: bool) -> RecoveryReport
-      def perform_reserve_maintenance: (Time now) -> Internal::ReserveScanState
+      def prepare_backpressure_snapshot: (Time now) -> bool
+      def recover_in_flight_locked: (Time now, ?worker_id: String?, ?include_global_maintenance: bool) -> Karya::QueueStore::Internal::RecoveryReport
+      def perform_reserve_maintenance: (Time now) -> {
+        reserve_scan_state: Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ReserveScanState,
+        persist: bool
+      }
       def normalize_identifier: (Symbol name, String value, error_class: Karya::error_class) -> String
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
       def store_and_requeue_if_needed: (Job job) -> Job
       def reserve_matching_job: (
-        handler_matcher: Internal::HandlerMatcher,
+        handler_matcher: Karya::QueueStore::Internal::ReferenceQueueStore::Internal::HandlerMatcher,
         lease_duration: Karya::lease_duration_value,
         now: Time,
         queues: Array[String],
         subscription_key: [Array[String], Array[String]?],
         worker_id: String
-      ) -> Reservation?
+      ) -> { reservation: Reservation?, persist: bool }
       def reserve_job: (
         matched_queue: String,
         matched_job_id: String,
@@ -205,13 +208,13 @@ module Karya
       ) -> Reservation
       def track_fairness_history?: (Array[String] queues) -> bool
       def raise_expired_reservation_error: (String reservation_token, String reservation_label) -> nil
-      def fetch_workflow_registration: (String batch_id) -> Internal::StoreState::WorkflowRegistration
+      def fetch_workflow_registration: (String batch_id) -> Karya::QueueStore::Internal::StoreState::WorkflowRegistration
       def workflow_control_report: (
         action: Karya::bulk_mutation_action,
         batch_id: Karya::state_name,
         step_ids: Array[Karya::state_name],
         now: Time
-      ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> BulkMutationReport
+      ) { (String, Array[Job], Array[Karya::bulk_skipped_job]) -> void } -> Karya::QueueStore::Internal::BulkMutationReport
       def workflow_control_job_ids: (Karya::state_name batch_id, Array[Karya::state_name] step_ids) -> Array[String]
       def workflow_dependencies_satisfied?: (Job job, now: Time) -> bool
       def workflow_child_satisfied?: (Job job, now: Time) -> bool
