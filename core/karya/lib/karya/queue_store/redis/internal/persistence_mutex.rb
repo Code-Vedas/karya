@@ -130,7 +130,12 @@ module Karya
 
                 raise_lock_loss if lock_lost?
                 verify_lock_still_held
-                persist_snapshot_if_owned
+                begin
+                  persist_snapshot_if_owned
+                rescue StandardError
+                  restore_owner_state_after_failure
+                  raise
+                end
                 raise
               rescue StandardError
                 restore_owner_state_after_failure

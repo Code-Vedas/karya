@@ -28,6 +28,8 @@ module Karya
         end
 
         def self.dump(lifecycle)
+          raise TypeError, 'Karya::Job marshal_dump only supports JobLifecycle::Registry lifecycles' unless lifecycle.is_a?(Karya::JobLifecycle::Registry)
+
           new(
             state_names: lifecycle.send(:extension_state_names),
             terminal_state_names: lifecycle.send(:extension_terminal_state_names),

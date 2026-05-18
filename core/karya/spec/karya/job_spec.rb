@@ -458,5 +458,26 @@ RSpec.describe Karya::Job do
       expect(restored_job.can_transition_to?('archived')).to be(true)
       expect(restored_job.transition_to('archived', updated_at:).terminal?).to be(true)
     end
+
+    it 'rejects marshal_dump for non-registry lifecycle implementations' do
+      lifecycle = Object.new
+      allow(lifecycle).to receive(:normalize_state, &:to_s)
+      allow(lifecycle).to receive(:validate_state!, &:to_s)
+      allow(lifecycle).to receive(:validate_transition!) { |_from:, to:| to.to_s }
+      allow(lifecycle).to receive_messages(valid_transition?: true, terminal?: false)
+
+      job = described_class.new(
+        id: 'job-unsupported-lifecycle',
+        queue: 'billing',
+        handler: 'billing_sync',
+        state: :queued,
+        lifecycle:,
+        created_at:
+      )
+
+      expect do
+        Marshal.dump(job)
+      end.to raise_error(TypeError, 'Karya::Job marshal_dump only supports JobLifecycle::Registry lifecycles')
+    end
   end
 end

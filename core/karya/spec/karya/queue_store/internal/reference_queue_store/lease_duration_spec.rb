@@ -36,4 +36,23 @@ RSpec.describe 'Karya::QueueStore::Internal::ReferenceQueueStore::Internal::Leas
     expect(status.success?).to be(true), stderr
     expect(stdout).to eq("0.15e1\n")
   end
+
+  it 'loads as a standalone file and raises InvalidQueueStoreOperationError for invalid durations' do
+    lib_path = File.expand_path('../../../../../lib', __dir__)
+    script = <<~RUBY
+      begin
+      require 'karya/queue_store/internal/reference_queue_store/lease_duration'
+      lease_duration = Karya::QueueStore::Internal::ReferenceQueueStore::Internal.const_get(:LeaseDuration, false)
+      lease_duration.new(0).normalize
+      rescue => e
+        puts e.class.name
+        puts e.message
+      end
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, '-I', lib_path, '-e', script)
+
+    expect(status.success?).to be(true), stderr
+    expect(stdout).to eq("Karya::InvalidQueueStoreOperationError\nlease_duration must be a positive number\n")
+  end
 end
