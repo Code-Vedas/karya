@@ -9,7 +9,6 @@ require 'securerandom'
 
 require_relative 'internal/reference_queue_store'
 require_relative 'postgres/internal'
-require_relative 'postgres/internal/dependency_loader'
 
 Karya::QueueStore::Postgres::Internal::DependencyLoader.require_pg!
 

@@ -30,4 +30,9 @@ RSpec.describe Karya::Hanami do
   it 'builds a prefixed mount path' do
     expect(described_class.mount_path(prefix: 'admin')).to eq('/admin/karya')
   end
+
+  it 'strips repeated slashes and falls back to the default mount path for blank scopes' do
+    expect(described_class.mount_path(prefix: '//ops//')).to eq('/ops/karya')
+    expect(described_class.mount_path(prefix: '///')).to eq('/karya')
+  end
 end

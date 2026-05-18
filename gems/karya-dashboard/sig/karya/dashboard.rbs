@@ -1,12 +1,19 @@
 module Karya
   module Dashboard
-    type asset_entrypoint = {
+    type asset_entrypoint_required = {
       "source" => String,
       "html" => String,
       "scripts" => Array[String],
-      "styles" => Array[String],
-      ? "mount_id" => String
+      "styles" => Array[String]
     }
+
+    type asset_entrypoint_with_mount_id =
+      asset_entrypoint_required &
+      { "mount_id" => String }
+
+    type asset_entrypoint =
+      asset_entrypoint_required |
+      asset_entrypoint_with_mount_id
 
     type asset_manifest = {
       "version" => Integer,

@@ -35,7 +35,13 @@ module Karya
     end
 
     def normalize_migration_name(name)
-      normalized = name.to_s.strip.downcase.gsub(/[^a-z0-9]+/, '_').gsub(/\A_+|_+\z/, '')
+      normalized = name.to_s.each_char.with_object(+'') do |char, buffer|
+        if letter?(char) || digit?(char)
+          buffer << char.downcase
+        elsif !buffer.empty? && !buffer.end_with?('_')
+          buffer << '_'
+        end
+      end.delete_suffix('_')
       return normalized unless normalized.empty?
 
       'create_karya_postgres_backend'
@@ -43,6 +49,14 @@ module Karya
 
     def timestamp
       Time.now.utc.strftime('%Y%m%d%H%M%S')
+    end
+
+    def letter?(char)
+      char.between?('a', 'z') || char.between?('A', 'Z')
+    end
+
+    def digit?(char)
+      char.between?('0', '9')
     end
   end
 end

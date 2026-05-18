@@ -13,14 +13,16 @@ RSpec.describe Karya::Rails, :integration do
   end
 
   around do |example|
-    original_backend_class = Karya.instance_variable_defined?(:@backend_class) ? Karya.instance_variable_get(:@backend_class) : :__undefined__
-    original_backend_options = Karya.instance_variable_defined?(:@backend_options) ? Karya.instance_variable_get(:@backend_options) : :__undefined__
+    original_backend_class = :__undefined__
+    original_backend_options = :__undefined__
+    original_backend_class = Karya.instance_variable_get(:@backend_class) if Karya.instance_variable_defined?(:@backend_class)
+    original_backend_options = Karya.instance_variable_get(:@backend_options) if Karya.instance_variable_defined?(:@backend_options)
 
     with_postgres_database(prefix: 'karya_rails_e2e') do |database_url|
       migration_dir = Dir.mktmpdir('karya-rails-migrations-')
       migration_name = "Create Karya Postgres Backend #{SecureRandom.hex(4)}"
       migration_path = described_class.install_postgres_migration(target_dir: migration_dir, migration_name:)
-      migration_class_name = migration_name.gsub(/[^A-Za-z0-9]+/, ' ').split.map(&:capitalize).join
+      migration_class_name = Karya::ActiveRecord.normalize_migration_name(migration_name)
       ActiveRecord::Base.establish_connection(database_url)
       ActiveRecord::Migration.verbose = false
       load migration_path

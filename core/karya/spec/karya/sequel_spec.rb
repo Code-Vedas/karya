@@ -25,6 +25,11 @@ RSpec.describe Karya::Sequel do
     end
   end
 
+  it 'normalizes punctuation-heavy migration names into snake case' do
+    expect(described_class.normalize_migration_name('create karya/API v2 backend')).to eq('create_karya_api_v2_backend')
+    expect(described_class.normalize_migration_name('create!! karya')).to eq('create_karya')
+  end
+
   it 'raises an actionable load error when sequel is unavailable' do
     allow(described_class).to receive(:require).with('sequel').and_raise(LoadError, 'cannot load such file -- sequel')
 

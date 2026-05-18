@@ -42,21 +42,30 @@ module Karya
     end
 
     def normalize_migration_name(name)
-      normalized = name.to_s.gsub(/[^A-Za-z0-9]+/, ' ').split.map(&:capitalize).join
+      normalized = name.to_s.each_char.with_object(+'') do |char, buffer|
+        if alphanumeric?(char)
+          buffer << char
+        elsif !buffer.empty? && !buffer.end_with?(' ')
+          buffer << ' '
+        end
+      end.split.map!(&:capitalize).join
       return normalized unless normalized.empty?
 
       'CreateKaryaPostgresBackend'
     end
 
     def underscore(value)
-      value
-        .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
-        .gsub(/([a-z\d])([A-Z])/, '\1_\2')
-        .downcase
+      ::ActiveSupport::Inflector.underscore(value)
     end
 
     def timestamp
       Time.now.utc.strftime('%Y%m%d%H%M%S')
+    end
+
+    def alphanumeric?(char)
+      char.between?('a', 'z') ||
+        char.between?('A', 'Z') ||
+        char.between?('0', '9')
     end
   end
 end

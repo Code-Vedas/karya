@@ -9,6 +9,7 @@ module Karya
   module Rails
     # Base controller for the mounted Karya Rails engine.
     class ApplicationController < ActionController::Base
+      protect_from_forgery with: :exception
     end
   end
 end

@@ -22,6 +22,12 @@ RSpec.describe Karya::ActiveRecord do
     end
   end
 
+  it 'normalizes punctuation-heavy migration names into Rails class and file names' do
+    expect(described_class.normalize_migration_name('create karya/API v2 backend')).to eq('CreateKaryaApiV2Backend')
+    expect(described_class.normalize_migration_name('create!! karya')).to eq('CreateKarya')
+    expect(described_class.underscore('CreateKaryaAPIBackend')).to eq('create_karya_api_backend')
+  end
+
   it 'raises an actionable load error when active_record is unavailable' do
     allow(described_class).to receive(:require).with('active_record').and_raise(LoadError, 'cannot load such file -- active_record')
 

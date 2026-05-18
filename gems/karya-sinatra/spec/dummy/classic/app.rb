@@ -9,7 +9,6 @@ require 'karya/sinatra'
 require 'securerandom'
 
 set :root, File.expand_path(__dir__)
-disable :protection
 
 get '/karya' do
   content_type 'text/html'

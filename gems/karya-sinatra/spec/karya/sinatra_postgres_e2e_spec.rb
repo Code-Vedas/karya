@@ -24,8 +24,10 @@ RSpec.describe Karya::Sinatra, :integration do
   end
 
   around do |example|
-    original_backend_class = Karya.instance_variable_defined?(:@backend_class) ? Karya.instance_variable_get(:@backend_class) : :__undefined__
-    original_backend_options = Karya.instance_variable_defined?(:@backend_options) ? Karya.instance_variable_get(:@backend_options) : :__undefined__
+    original_backend_class = :__undefined__
+    original_backend_options = :__undefined__
+    original_backend_class = Karya.instance_variable_get(:@backend_class) if Karya.instance_variable_defined?(:@backend_class)
+    original_backend_options = Karya.instance_variable_get(:@backend_options) if Karya.instance_variable_defined?(:@backend_options)
 
     source_dir = File.expand_path('../dummy/modular', __dir__)
     with_dummy_app(source_dir) do |rack_app|

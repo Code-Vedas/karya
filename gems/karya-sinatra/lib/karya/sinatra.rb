@@ -31,11 +31,19 @@ module Karya
     end
 
     def normalize_scope(value)
-      scope = value.to_s.strip.gsub(%r{\A/+|/+\z}, '')
+      scope = trim_scope_delimiters(value.to_s.strip)
       return nil if scope.empty?
 
       scope
     end
     private_class_method :normalize_scope
+
+    def trim_scope_delimiters(value)
+      trimmed = value.dup
+      trimmed = trimmed.delete_prefix('/') while trimmed.start_with?('/')
+      trimmed = trimmed.delete_suffix('/') while trimmed.end_with?('/')
+      trimmed
+    end
+    private_class_method :trim_scope_delimiters
   end
 end

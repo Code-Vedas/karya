@@ -10,7 +10,6 @@ require 'securerandom'
 
 class KaryaSinatraDummyApp < Sinatra::Base
   set :root, File.expand_path(__dir__)
-  disable :protection
 
   get '/karya' do
     content_type 'text/html'

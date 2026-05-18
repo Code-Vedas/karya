@@ -13,8 +13,10 @@ RSpec.describe Karya::Roda, :integration do
   end
 
   around do |example|
-    original_backend_class = Karya.instance_variable_defined?(:@backend_class) ? Karya.instance_variable_get(:@backend_class) : :__undefined__
-    original_backend_options = Karya.instance_variable_defined?(:@backend_options) ? Karya.instance_variable_get(:@backend_options) : :__undefined__
+    original_backend_class = :__undefined__
+    original_backend_options = :__undefined__
+    original_backend_class = Karya.instance_variable_get(:@backend_class) if Karya.instance_variable_defined?(:@backend_class)
+    original_backend_options = Karya.instance_variable_get(:@backend_options) if Karya.instance_variable_defined?(:@backend_options)
 
     KaryaRodaDummyAppSupport.with_dummy_app do |_app_root, rack_app|
       self.current_rack_app = rack_app

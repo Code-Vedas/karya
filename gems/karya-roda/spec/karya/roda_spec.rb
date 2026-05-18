@@ -30,4 +30,9 @@ RSpec.describe Karya::Roda do
   it 'builds a scoped mount path' do
     expect(described_class.mount_path(scope: 'internal')).to eq('/internal/karya')
   end
+
+  it 'strips repeated slashes and falls back to the default mount path for blank scopes' do
+    expect(described_class.mount_path(scope: '//ops//')).to eq('/ops/karya')
+    expect(described_class.mount_path(scope: '///')).to eq('/karya')
+  end
 end

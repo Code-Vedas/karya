@@ -6,5 +6,6 @@
 # LICENSE file in the root directory of this source tree.
 KaryaRailsDummy::Application.routes.draw do
   get 'up' => 'rails/health#show', as: :rails_health_check
+  get '/karya/runtime-probe', to: 'runtime_probe#show'
   mount Karya::Rails::Engine => '/karya'
 end

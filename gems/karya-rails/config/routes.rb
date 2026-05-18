@@ -6,5 +6,4 @@
 # LICENSE file in the root directory of this source tree.
 Karya::Rails::Engine.routes.draw do
   root to: 'dashboard#show'
-  get 'runtime-probe', to: 'dashboard#runtime_probe'
 end
