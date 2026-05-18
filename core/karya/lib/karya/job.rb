@@ -28,7 +28,10 @@ module Karya
         end
 
         def self.dump(lifecycle)
-          raise TypeError, 'Karya::Job marshal_dump only supports JobLifecycle::Registry lifecycles' unless lifecycle.is_a?(Karya::JobLifecycle::Registry)
+          unless lifecycle.is_a?(Karya::JobLifecycle::Registry)
+            raise InvalidQueueStoreOperationError,
+                  'Redis-backed queue-store persistence requires JobLifecycle::Registry lifecycles'
+          end
 
           new(
             state_names: lifecycle.send(:extension_state_names),

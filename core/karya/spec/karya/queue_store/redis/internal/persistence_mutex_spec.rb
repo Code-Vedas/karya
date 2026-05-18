@@ -210,6 +210,43 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     expect(owner).not_to have_received(:dump_state_payload)
   end
 
+  it 'skips snapshot persistence when persist_if rejects the block result' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-skip-snapshot')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-skip-snapshot', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-skip-snapshot')
+    allow(redis).to receive(:eval).and_return(1)
+    allow(owner).to receive(:load_persisted_state)
+    allow(owner).to receive(:dump_state_payload)
+
+    result = mutex.synchronize(persist_if: ->(_result) { false }) { :snapshot }
+
+    expect(result).to eq(:snapshot)
+    expect(owner).to have_received(:load_persisted_state)
+    expect(owner).not_to have_received(:dump_state_payload)
+  end
+
+  it 'skips event persistence when persist_if rejects the block result' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-skip-event')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-skip-event', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-skip-event')
+    allow(redis).to receive(:eval).and_return(1)
+    allow(owner).to receive(:load_persisted_state)
+    allow(owner).to receive(:dump_event_payload)
+
+    result = mutex.synchronize_with_event(
+      event_builder: ->(_result) { { 'name' => 'enqueue' } },
+      persist_if: ->(_result) { false }
+    ) { :event }
+
+    expect(result).to eq(:event)
+    expect(owner).to have_received(:load_persisted_state)
+    expect(owner).not_to have_received(:dump_event_payload)
+  end
+
   it 'raises for read-only synchronized operations when the lock is no longer held after the block' do
     fake_thread = instance_double(Thread, join: nil)
     allow(SecureRandom).to receive(:uuid).and_return('token-read-only-lost')
@@ -488,7 +525,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
 
   it 'raises for unsupported persistence modes' do
     expect do
-      mutex.send(:persist_if_owned, mode: :mystery, event_builder: nil, result: nil)
+      mutex.send(:persist_if_owned, mode: :mystery, event_builder: nil, persist_if: nil, result: nil)
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /unsupported Redis persistence mode/)
   end
 

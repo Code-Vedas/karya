@@ -18,12 +18,15 @@ module Karya
               normalized_now = normalize_time(:now, now, error_class: Workflow::InvalidExecutionError)
               normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
 
-              @mutex.synchronize do
-                recover_in_flight_locked(normalized_now)
-                batch = fetch_batch(normalized_batch_id)
-                registration = fetch_workflow_registration(batch.id)
-                WorkflowHistoryBuilder.new(batch:, registration:, now: normalized_now, state:).to_snapshot
+              snapshot_outcome = @mutex.synchronize(persist_if: ->(outcome) { outcome.fetch(:persist) }) do
+                inspection_snapshot_outcome do
+                  recover_in_flight_locked(normalized_now)
+                  batch = fetch_batch(normalized_batch_id)
+                  registration = fetch_workflow_registration(batch.id)
+                  WorkflowHistoryBuilder.new(batch:, registration:, now: normalized_now, state:).to_snapshot
+                end
               end
+              snapshot_outcome.fetch(:snapshot)
             end
 
             private

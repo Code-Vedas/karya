@@ -233,6 +233,12 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(second_reservation.job_id).to eq('job-2')
   end
 
+  it 'does not persist empty reserve polls when maintenance is a no-op' do
+    expect(store.reserve(queue: 'billing', worker_id: 'worker-idle', lease_duration: 60, now: created_at + 1)).to be_nil
+    expect(redis_client.data).not_to have_key('redis-unit:queue_store:version')
+    expect(redis_client.data.keys.grep(/\Aredis-unit:queue_store:event:/)).to be_empty
+  end
+
   it 'persists workflow control state across instances' do
     definition = Karya::Workflow.define(:approval_flow) do
       step :review, handler: :review, wait_for_approval: :manager_approved
@@ -258,6 +264,28 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(approval_report.action).to eq(:approve_workflow_checkpoints)
     expect(snapshot.step_states).to eq('review' => :queued)
     expect(history.entries.map(&:action)).to include('pause_requested', 'resumed', 'approval_approved')
+  end
+
+  it 'does not persist workflow inspection reads when no recovery is due' do
+    definition = Karya::Workflow.define(:snapshot_flow) do
+      step :review, handler: :review
+    end
+
+    store.enqueue_workflow(
+      definition:,
+      jobs_by_step_id: { review: workflow_job(:review, handler: :review) },
+      batch_id: :snapshot_batch,
+      now: created_at + 1
+    )
+
+    initial_version = redis_client.data.fetch('redis-unit:queue_store:version')
+
+    store.batch_snapshot(batch_id: :snapshot_batch, now: created_at + 2)
+    store.workflow_snapshot(batch_id: :snapshot_batch, now: created_at + 3)
+    store.workflow_history(batch_id: :snapshot_batch, now: created_at + 4)
+
+    expect(redis_client.data.fetch('redis-unit:queue_store:version')).to eq(initial_version)
+    expect(redis_client.data.keys.grep(/\Aredis-unit:queue_store:event:/)).to be_empty
   end
 
   it 'persists recovery and dead-letter flows across instances' do
@@ -333,6 +361,33 @@ RSpec.describe Karya::QueueStore::Redis do
       Karya::InvalidQueueStoreOperationError,
       'Redis queue-store snapshots do not support Symbol job arguments'
     )
+  end
+
+  it 'raises an actionable lifecycle error for unsupported Redis persistence lifecycles' do
+    lifecycle = Object.new
+    allow(lifecycle).to receive(:normalize_state, &:to_sym)
+    allow(lifecycle).to receive(:validate_state!, &:to_sym)
+    allow(lifecycle).to receive(:validate_transition!) { |**kwargs| kwargs.fetch(:to).to_sym }
+    allow(lifecycle).to receive_messages(valid_transition?: true, terminal?: false)
+
+    expect do
+      store.enqueue(
+        job: Karya::Job.new(
+          id: 'job-unsupported-lifecycle',
+          queue: 'billing',
+          handler: 'billing_sync',
+          state: :submission,
+          lifecycle:,
+          created_at:
+        ),
+        now: created_at + 1
+      )
+    end.to raise_error(
+      Karya::InvalidQueueStoreOperationError,
+      'Redis-backed queue-store persistence requires JobLifecycle::Registry lifecycles'
+    )
+
+    expect(redis_client.data).not_to have_key('redis-unit:queue_store:version')
   end
 
   it 'replays durable state from journal entries when the Redis snapshot key is missing' do

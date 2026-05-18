@@ -21,8 +21,11 @@ module Karya
             lock_key: String,
             version_key: String
           ) -> void
-          def synchronize: [A] () { () -> A } -> A
-          def synchronize_with_event: [A] (event_builder: ^(A) -> StateSnapshot::event_payload) { () -> A } -> A
+          def synchronize: [A] (?persist_if: ^(A) -> bool) { () -> A } -> A
+          def synchronize_with_event: [A] (
+            event_builder: ^(A) -> StateSnapshot::event_payload,
+            ?persist_if: ^(A) -> bool
+          ) { () -> A } -> A
           def read_only_synchronize: [A] () { () -> A } -> A
           def compact_snapshot: (payload: String) -> bool
 
@@ -46,7 +49,8 @@ module Karya
 
           def synchronize_owned_state: [A] (
             mode: :snapshot | :event | :read_only,
-            ?event_builder: ^(A) -> StateSnapshot::event_payload
+            ?event_builder: ^(A) -> StateSnapshot::event_payload,
+            ?persist_if: ^(A) -> bool
           ) { () -> A } -> A
           def with_distributed_lock: [A] () { () -> A } -> A
           def acquire_lock?: (String token) -> bool
@@ -56,6 +60,7 @@ module Karya
           def persist_if_owned: [A] (
             mode: :snapshot | :event | :read_only,
             ?event_builder: ^(A) -> StateSnapshot::event_payload,
+            ?persist_if: ^(A) -> bool,
             result: A
           ) -> void
           def persist_snapshot_if_owned: () -> void

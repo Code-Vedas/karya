@@ -36,6 +36,7 @@ module Karya
           ExecutionSupport
           ExpirationSupport
           OperationsSupport
+          PersistenceOutcomeSupport
           ReliabilitySupport
           ReliabilitySnapshotSupport
           RecoverySupport
@@ -105,7 +106,10 @@ module Karya
             handler_names:
           )
 
-          @mutex.synchronize { reserve_matching_job(**reserve_request) }
+          reserve_outcome = @mutex.synchronize(persist_if: ->(outcome) { outcome.fetch(:persist) }) do
+            reserve_with_persistence_outcome(**reserve_request)
+          end
+          reserve_outcome.fetch(:reservation)
         end
 
         def release(reservation_token:, now:)
@@ -180,19 +184,25 @@ module Karya
         def backpressure_snapshot(now:)
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
-          @mutex.synchronize do
-            prepare_backpressure_snapshot(normalized_now)
-            build_backpressure_snapshot(normalized_now)
+          snapshot_outcome = @mutex.synchronize(persist_if: ->(outcome) { outcome.fetch(:persist) }) do
+            inspection_snapshot_outcome do
+              prepare_backpressure_snapshot(normalized_now)
+              build_backpressure_snapshot(normalized_now)
+            end
           end
+          snapshot_outcome.fetch(:snapshot)
         end
 
         def reliability_snapshot(now:)
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
-          @mutex.synchronize do
-            prepare_reliability_snapshot(normalized_now)
-            build_reliability_snapshot(normalized_now)
+          snapshot_outcome = @mutex.synchronize(persist_if: ->(outcome) { outcome.fetch(:persist) }) do
+            inspection_snapshot_outcome do
+              prepare_reliability_snapshot(normalized_now)
+              build_reliability_snapshot(normalized_now)
+            end
           end
+          snapshot_outcome.fetch(:snapshot)
         end
 
         def uniqueness_decision(job:, now:)

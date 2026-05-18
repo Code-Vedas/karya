@@ -477,7 +477,10 @@ RSpec.describe Karya::Job do
 
       expect do
         Marshal.dump(job)
-      end.to raise_error(TypeError, 'Karya::Job marshal_dump only supports JobLifecycle::Registry lifecycles')
+      end.to raise_error(
+        Karya::InvalidQueueStoreOperationError,
+        'Redis-backed queue-store persistence requires JobLifecycle::Registry lifecycles'
+      )
     end
   end
 end

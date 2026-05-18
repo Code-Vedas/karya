@@ -83,10 +83,10 @@ module Karya
             @replaying = false
           end
 
-          def persist(event_builder:, &)
+          def persist(event_builder:, persist_if: nil, &)
             return owner.send(:with_reference_queue_store_mutex, &) if replaying?
 
-            persist_with_event(event_builder:, &)
+            persist_with_event(event_builder:, persist_if:, &)
           end
 
           def load_persisted_state
@@ -206,8 +206,8 @@ module Karya
             end
           end
 
-          def persist_with_event(event_builder:, &)
-            owner.send(:mutex).synchronize_with_event(event_builder:) do
+          def persist_with_event(event_builder:, persist_if: nil, &)
+            owner.send(:mutex).synchronize_with_event(event_builder:, persist_if:) do
               owner.send(:with_reference_queue_store_mutex, &)
             end
           end
@@ -264,6 +264,7 @@ module Karya
       end
 
       def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: nil)
+        initial_fingerprint = persistence_relevant_state_fingerprint
         event_builder = lambda do |result|
           {
             'name' => 'reserve',
@@ -279,7 +280,10 @@ module Karya
           }
         end
 
-        journal_support.persist(event_builder:) do
+        journal_support.persist(
+          event_builder:,
+          persist_if: ->(result) { result || initial_fingerprint != persistence_relevant_state_fingerprint }
+        ) do
           super
         end
       end

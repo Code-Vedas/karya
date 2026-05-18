@@ -85,12 +85,12 @@ module Karya
             @lock_loss_cause = nil
           end
 
-          def synchronize(&)
-            synchronize_owned_state(mode: :snapshot, &)
+          def synchronize(persist_if: nil, &)
+            synchronize_owned_state(mode: :snapshot, persist_if:, &)
           end
 
-          def synchronize_with_event(event_builder:, &)
-            synchronize_owned_state(mode: :event, event_builder:, &)
+          def synchronize_with_event(event_builder:, persist_if: nil, &)
+            synchronize_owned_state(mode: :event, event_builder:, persist_if:, &)
           end
 
           def read_only_synchronize(&)
@@ -111,7 +111,7 @@ module Karya
 
           attr_reader :lock_key, :local_mutex, :owner, :redis, :state_key, :version_key
 
-          def synchronize_owned_state(mode:, event_builder: nil)
+          def synchronize_owned_state(mode:, event_builder: nil, persist_if: nil)
             event_mode = mode == :event
 
             local_mutex.synchronize do
@@ -120,7 +120,7 @@ module Karya
                 result = yield
                 raise_lock_loss if lock_lost?
                 verify_lock_still_held
-                persist_if_owned(mode:, event_builder:, result:)
+                persist_if_owned(mode:, event_builder:, persist_if:, result:)
                 result
               rescue ExpiredReservationError
                 unless event_mode
@@ -208,7 +208,9 @@ module Karya
             nil
           end
 
-          def persist_if_owned(mode:, event_builder:, result:)
+          def persist_if_owned(mode:, event_builder:, persist_if:, result:)
+            return nil if persist_if && !persist_if.call(result)
+
             case mode
             when :read_only
               nil

@@ -16,7 +16,8 @@ module Karya
               @mutex = Thread::Mutex.new
             end
 
-            def synchronize(&)
+            def synchronize(persist_if: nil, &)
+              _persist_if = persist_if
               mutex.synchronize(&)
             end
 
