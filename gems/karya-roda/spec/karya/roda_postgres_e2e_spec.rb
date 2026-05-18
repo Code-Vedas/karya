@@ -21,14 +21,15 @@ RSpec.describe Karya::Roda, :integration do
     KaryaRodaDummyAppSupport.with_dummy_app do |_app_root, rack_app|
       self.current_rack_app = rack_app
       with_postgres_database(prefix: 'karya_roda_e2e') do |database_url|
-        migration_dir = Dir.mktmpdir('karya-roda-migrations-')
-        described_class.install_postgres_migration(target_dir: migration_dir)
-        db = Sequel.connect(database_url)
-        Sequel::Migrator.run(db, migration_dir)
-        Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace: 'roda_e2e')
-        example.run
-      ensure
-        db&.disconnect
+        Dir.mktmpdir('karya-roda-migrations-') do |migration_dir|
+          described_class.install_postgres_migration(target_dir: migration_dir)
+          db = Sequel.connect(database_url)
+          Sequel::Migrator.run(db, migration_dir)
+          Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace: 'roda_e2e')
+          example.run
+        ensure
+          db&.disconnect
+        end
       end
     end
   ensure

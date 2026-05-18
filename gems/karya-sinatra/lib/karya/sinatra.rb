@@ -24,26 +24,7 @@ module Karya
     end
 
     def mount_path(scope: nil)
-      normalized_scope = normalize_scope(scope)
-      return DEFAULT_MOUNT_PATH unless normalized_scope
-
-      "/#{normalized_scope}#{DEFAULT_MOUNT_PATH}"
+      Karya::Internal::MountPath.build(DEFAULT_MOUNT_PATH, scope:)
     end
-
-    def normalize_scope(value)
-      scope = trim_scope_delimiters(value.to_s.strip)
-      return nil if scope.empty?
-
-      scope
-    end
-    private_class_method :normalize_scope
-
-    def trim_scope_delimiters(value)
-      trimmed = value.dup
-      trimmed = trimmed.delete_prefix('/') while trimmed.start_with?('/')
-      trimmed = trimmed.delete_suffix('/') while trimmed.end_with?('/')
-      trimmed
-    end
-    private_class_method :trim_scope_delimiters
   end
 end

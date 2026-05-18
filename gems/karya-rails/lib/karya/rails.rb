@@ -24,11 +24,13 @@ module Karya
     end
 
     def render_dashboard_page(
+      scope: nil,
       mount_path: DEFAULT_MOUNT_PATH,
       title: Karya::Dashboard::DEFAULT_TITLE,
       asset_prefix: nil,
       name: 'dashboard'
     )
+      mount_path = Karya::Internal::MountPath.build(DEFAULT_MOUNT_PATH, scope:) if scope
       Karya::Dashboard.render_document(title:, mount_path:, asset_prefix:, name:)
     end
   end

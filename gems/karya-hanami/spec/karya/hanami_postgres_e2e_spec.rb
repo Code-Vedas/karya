@@ -21,14 +21,15 @@ RSpec.describe Karya::Hanami, :integration do
     KaryaHanamiDummyAppSupport.with_dummy_app do |_app_root, rack_app|
       self.current_rack_app = rack_app
       with_postgres_database(prefix: 'karya_hanami_e2e') do |database_url|
-        migration_dir = Dir.mktmpdir('karya-hanami-migrations-')
-        described_class.install_postgres_migration(target_dir: migration_dir)
-        db = Sequel.connect(database_url)
-        Sequel::Migrator.run(db, migration_dir)
-        Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace: 'hanami_e2e')
-        example.run
-      ensure
-        db&.disconnect
+        Dir.mktmpdir('karya-hanami-migrations-') do |migration_dir|
+          described_class.install_postgres_migration(target_dir: migration_dir)
+          db = Sequel.connect(database_url)
+          Sequel::Migrator.run(db, migration_dir)
+          Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace: 'hanami_e2e')
+          example.run
+        ensure
+          db&.disconnect
+        end
       end
     end
   ensure

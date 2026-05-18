@@ -35,6 +35,7 @@ module Karya
 
     def require_activerecord!
       require 'active_record'
+      require 'active_support/inflector'
     rescue LoadError => e
       raise LoadError,
             "#{e.message}. Add `gem 'activerecord'` to your Gemfile to use Karya::ActiveRecord Postgres migration support.",
@@ -55,6 +56,7 @@ module Karya
     end
 
     def underscore(value)
+      require_activerecord!
       ::ActiveSupport::Inflector.underscore(value)
     end
 

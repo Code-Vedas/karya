@@ -24,4 +24,10 @@ RSpec.describe Karya::Rails do
 
     expect_dashboard_document(document, mount_path: '/karya', title: 'Karya Dashboard')
   end
+
+  it 'builds a scoped mount path when scope is provided' do
+    document = described_class.render_dashboard_page(scope: '//ops//')
+
+    expect_dashboard_document(document, mount_path: '/ops/karya', title: 'Karya Dashboard')
+  end
 end

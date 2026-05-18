@@ -49,6 +49,16 @@ RSpec.describe Karya::Backend::Postgres do
 
   def standalone_queue_store_script
     <<~RUBY
+      module Kernel
+        alias_method :__karya_original_require_for_standalone_pg, :require
+
+        def require(name)
+          return true if name == 'pg'
+
+          __karya_original_require_for_standalone_pg(name)
+        end
+      end
+
       require 'karya/queue_store/postgres'
 
       module PG
@@ -147,6 +157,7 @@ RSpec.describe Karya::Backend::Postgres do
 
       begin
         require 'karya/backend/postgres'
+        Karya::Backend::Postgres.new(url: 'postgres://example.test/karya').build_queue_store
       rescue LoadError => e
         warn e.message
         exit 0
@@ -178,6 +189,8 @@ RSpec.describe Karya::Backend::Postgres do
   end
 
   it 'builds the Postgres queue store owned by the backend definition' do
+    allow(Karya::QueueStore::Postgres.send(:const_get, :Internal).const_get(:DependencyLoader)).to receive(:require_pg!).and_return(true)
+    stub_const('PG', Module.new) unless defined?(PG)
     allow(PG).to receive(:connect).with('postgres://example.test/karya').and_return(fake_connection)
 
     queue_store = backend.build_queue_store
@@ -186,6 +199,8 @@ RSpec.describe Karya::Backend::Postgres do
   end
 
   it 'forwards namespace and queue-store options to the queue store' do
+    allow(Karya::QueueStore::Postgres.send(:const_get, :Internal).const_get(:DependencyLoader)).to receive(:require_pg!).and_return(true)
+    stub_const('PG', Module.new) unless defined?(PG)
     allow(PG).to receive(:connect).with('postgres://example.test/karya').and_return(fake_connection)
 
     queue_store = described_class.new(
@@ -199,6 +214,8 @@ RSpec.describe Karya::Backend::Postgres do
   end
 
   it 'normalizes invalid queue-store keyword errors into backend configuration errors' do
+    allow(Karya::QueueStore::Postgres.send(:const_get, :Internal).const_get(:DependencyLoader)).to receive(:require_pg!).and_return(true)
+    stub_const('PG', Module.new) unless defined?(PG)
     allow(PG).to receive(:connect).with('postgres://example.test/karya').and_return(fake_connection)
 
     backend = described_class.new(
@@ -227,6 +244,8 @@ RSpec.describe Karya::Backend::Postgres do
   end
 
   it 'declares no-op lifecycle hooks around queue-store usage' do
+    allow(Karya::QueueStore::Postgres.send(:const_get, :Internal).const_get(:DependencyLoader)).to receive(:require_pg!).and_return(true)
+    stub_const('PG', Module.new) unless defined?(PG)
     allow(PG).to receive(:connect).with('postgres://example.test/karya').and_return(fake_connection)
     queue_store = backend.build_queue_store
 

@@ -21,30 +21,11 @@ module Karya
     end
 
     def mount_path(prefix: nil)
-      scope = normalize_scope(prefix)
-      return DEFAULT_MOUNT_PATH unless scope
-
-      "/#{scope}#{DEFAULT_MOUNT_PATH}"
+      Karya::Internal::MountPath.build(DEFAULT_MOUNT_PATH, scope: prefix)
     end
 
     def render_dashboard_page(prefix: nil, title: Karya::Dashboard::DEFAULT_TITLE, asset_prefix: nil, name: 'dashboard')
       Karya::Dashboard.render_document(title:, mount_path: mount_path(prefix:), asset_prefix:, name:)
     end
-
-    def normalize_scope(value)
-      scope = trim_scope_delimiters(value.to_s.strip)
-      return nil if scope.empty?
-
-      scope
-    end
-    private_class_method :normalize_scope
-
-    def trim_scope_delimiters(value)
-      trimmed = value.dup
-      trimmed = trimmed.delete_prefix('/') while trimmed.start_with?('/')
-      trimmed = trimmed.delete_suffix('/') while trimmed.end_with?('/')
-      trimmed
-    end
-    private_class_method :trim_scope_delimiters
   end
 end

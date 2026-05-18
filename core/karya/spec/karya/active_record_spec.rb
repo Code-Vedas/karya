@@ -38,4 +38,11 @@ RSpec.describe Karya::ActiveRecord do
       /Add `gem 'activerecord'` to your Gemfile to use Karya::ActiveRecord Postgres migration support\./
     )
   end
+
+  it 'loads ActiveSupport inflector before calling underscore' do
+    allow(described_class).to receive(:require_activerecord!).and_call_original
+
+    expect(described_class.underscore('CreateKaryaAPIBackend')).to eq('create_karya_api_backend')
+    expect(described_class).to have_received(:require_activerecord!)
+  end
 end

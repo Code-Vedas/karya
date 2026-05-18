@@ -56,8 +56,11 @@ RSpec.describe Karya::QueueStore::Postgres do
     end
   end
   let(:connection) { fake_connection_class.new }
+  let(:dependency_loader) { internal_namespace.const_get(:DependencyLoader) }
 
   before do
+    stub_const('PG', Module.new) unless defined?(PG)
+    allow(dependency_loader).to receive(:require_pg!).and_return(true)
     allow(PG).to receive(:connect).with(postgres_url).and_return(connection)
   end
 

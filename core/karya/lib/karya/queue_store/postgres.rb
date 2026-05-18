@@ -10,8 +10,6 @@ require 'securerandom'
 require_relative 'internal/reference_queue_store'
 require_relative 'postgres/internal'
 
-Karya::QueueStore::Postgres::Internal::DependencyLoader.require_pg!
-
 module Karya
   module QueueStore
     # Postgres-backed durable queue store that persists canonical queue state in Postgres.
@@ -50,6 +48,7 @@ module Karya
       def initialize(url:, namespace: DEFAULT_NAMESPACE, **options)
         raise InvalidQueueStoreOperationError, 'token_generator is managed internally by Karya::QueueStore::Postgres' if options.key?(:token_generator)
 
+        Internal::DependencyLoader.require_pg!
         @url = normalize_url(url)
         @namespace = normalize_namespace(namespace)
         @connection = PG.connect(@url)

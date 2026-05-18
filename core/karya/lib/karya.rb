@@ -7,6 +7,7 @@
 
 require_relative 'karya/base'
 require_relative 'karya/internal/immutable_argument_graph'
+require_relative 'karya/internal/mount_path'
 require_relative 'karya/internal/null_logger'
 require_relative 'karya/version'
 

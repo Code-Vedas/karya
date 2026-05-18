@@ -33,14 +33,15 @@ RSpec.describe Karya::Sinatra, :integration do
     with_dummy_app(source_dir) do |rack_app|
       self.current_rack_app = rack_app
       with_postgres_database(prefix: 'karya_sinatra_e2e') do |database_url|
-        migration_dir = Dir.mktmpdir('karya-sinatra-migrations-')
-        described_class.install_postgres_migration(target_dir: migration_dir)
-        db = Sequel.connect(database_url)
-        Sequel::Migrator.run(db, migration_dir)
-        Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace: 'sinatra_e2e')
-        example.run
-      ensure
-        db&.disconnect
+        Dir.mktmpdir('karya-sinatra-migrations-') do |migration_dir|
+          described_class.install_postgres_migration(target_dir: migration_dir)
+          db = Sequel.connect(database_url)
+          Sequel::Migrator.run(db, migration_dir)
+          Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace: 'sinatra_e2e')
+          example.run
+        ensure
+          db&.disconnect
+        end
       end
     end
   ensure

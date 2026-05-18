@@ -8,6 +8,7 @@ module Karya
     ) -> String
 
     def self.render_dashboard_page: (
+      ?scope: String?,
       ?mount_path: String,
       ?title: String,
       ?asset_prefix: String?,
