@@ -24,17 +24,23 @@ run_suite() {
   gemfiles=$(suite_gemfiles "${suite_dir}" || true)
   if [ "${gemfiles}" != "" ]; then
     for gemfile in ${gemfiles}; do
-      RUN_ALL_EXPECT_RAILS=1 \
-      RUN_ALL_BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
-      run_cmd_env \
-        "${suite_label}-$(gemfile_label "${gemfile}")-rbs" \
-        BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
-        sh -c "cd \"${REPO_ROOT}/${suite_dir}\" && rbs -I sig validate"
+      (
+        cd "${REPO_ROOT}/${suite_dir}"
+        RUN_ALL_EXPECT_RAILS=1 \
+        RUN_ALL_BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
+        run_cmd_env \
+          "${suite_label}-$(gemfile_label "${gemfile}")-rbs" \
+          BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
+          rbs -I sig validate
+      )
     done
     return 0
   fi
 
-  run_cmd "${suite_label}-rbs" sh -c "cd \"${REPO_ROOT}/${suite_dir}\" && rbs -I sig validate"
+  (
+    cd "${REPO_ROOT}/${suite_dir}"
+    run_cmd "${suite_label}-rbs" rbs -I sig validate
+  )
 }
 
 ruby_suites | while IFS= read -r suite_dir; do

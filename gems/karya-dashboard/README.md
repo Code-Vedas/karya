@@ -30,11 +30,11 @@ This package defines the optional dashboard layer for the Karya platform:
 
 - coupled to the core Karya runtime model
 - added optionally by framework integrations that want the operator UI
-- paired indirectly with `karya-activerecord` or `karya-sequel` through the
-  framework package that includes it
+- hosted through the framework package that includes it
+- compatible with any backend supported by the host runtime
 
-In practice, Rails hosts bring it in with the Active Record path, while Hanami,
-Roda, and Sinatra hosts bring it in with the Sequel path.
+In practice, Rails, Hanami, Roda, and Sinatra hosts expose the same packaged
+dashboard surface through their framework-specific routing and rendering model.
 
 ## Distribution Contract
 

@@ -1,0 +1,55 @@
+module Karya
+  module Dashboard
+    type asset_entrypoint = {
+      "source" => String,
+      "html" => String,
+      "scripts" => Array[String],
+      "styles" => Array[String],
+      ? "mount_id" => String
+    }
+
+    type asset_manifest = {
+      "version" => Integer,
+      "entrypoints" => Hash[String, asset_entrypoint]
+    }
+
+    ROOT: String
+    DIST_PATH: String
+    ASSET_MANIFEST_PATH: String
+    DEFAULT_TITLE: String
+    DEFAULT_MOUNT_ID: String
+    ASSET_MANIFEST_MUTEX: ::Mutex
+
+    class AssetManifestError < StandardError
+    end
+
+    class AssetManifestMissingError < AssetManifestError
+    end
+
+    class AssetManifestInvalidError < AssetManifestError
+    end
+
+    def self.dist_path: () -> String
+    def self.asset_manifest_path: () -> String
+    def self.asset_manifest: () -> asset_manifest
+    def self.reload_asset_manifest!: (?String manifest_path) -> asset_manifest
+    def self.load_asset_manifest!: (String manifest_path) -> asset_manifest
+    def self.entrypoint: (?String name) -> asset_entrypoint
+    def self.javascript_paths: (?String name) -> Array[String]
+    def self.stylesheet_paths: (?String name) -> Array[String]
+    def self.mount_id: (?String name) -> String
+    def self.render_tags: (?name: String, ?asset_prefix: String?) -> String
+    def self.render_document: (
+      ?title: String,
+      ?mount_path: String,
+      ?asset_prefix: String?,
+      ?name: String
+    ) -> String
+    def self.asset_url: (String asset_path, String asset_prefix) -> String
+    def self.normalize_asset_prefix: (String? asset_prefix) -> String
+    def self.escape_html: (String value) -> String
+    def self.cached_asset_manifest: (String current_manifest_path) -> asset_manifest?
+    def self.synchronized_asset_manifest: (String current_manifest_path) -> asset_manifest
+    def self.deep_freeze: [A] (A value) -> A
+  end
+end

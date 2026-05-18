@@ -1,7 +1,7 @@
 # Karya::Hanami
 
 `karya-hanami` provides the Hanami host integration for Karya and composes the
-core runtime with the Sequel adapter. It can also include the optional
+core runtime with Sequel integration. It can also include the optional
 `karya-dashboard` addon for hosts that want the robust operator UI, the
 dashboard-owned internal API surface, and Kaal-facing operator workflows.
 
@@ -25,7 +25,7 @@ aligns Hanami with the documented contracts for:
 ## Recommended Pairings
 
 - `core/karya`
-- `core/karya-sequel`
+- `Karya::Sequel`
 - `gems/karya-dashboard` when the host includes the optional dashboard addon
 - `Postgres` as the default production backend recommendation
 

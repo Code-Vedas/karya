@@ -1,7 +1,7 @@
 # Karya::Rails
 
 `karya-rails` provides the Rails host integration for Karya and composes the
-core runtime with the Active Record adapter. It can also include the optional
+core runtime with Active Record integration. It can also include the optional
 `karya-dashboard` addon for hosts that want the robust operator UI and the
 dashboard-owned internal API surface.
 
@@ -25,7 +25,7 @@ and participates in the documented contracts for:
 ## Recommended Pairings
 
 - `core/karya`
-- `core/karya-activerecord`
+- `Karya::ActiveRecord`
 - `gems/karya-dashboard` when the host includes the optional dashboard addon
 - `Postgres` as the default production backend recommendation
 

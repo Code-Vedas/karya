@@ -134,11 +134,11 @@ the place to describe host-specific mounting and auth/session behavior.
 
 - coupled to the shared Karya runtime model
 - added optionally by framework packages
-- paired with `karya-activerecord` or `karya-sequel` through the framework that
-  includes it
+- hosted through the framework package that includes it
+- compatible with any backend supported by the host runtime
 
-Rails uses the Active Record path. Hanami, Roda, and Sinatra use the Sequel
-path.
+Rails, Hanami, Roda, and Sinatra each mount the same packaged dashboard
+surface through their host-specific routing and rendering model.
 
 ## Framework Examples
 

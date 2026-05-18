@@ -1,0 +1,12 @@
+module Karya
+  module ActiveRecord
+    def self.install_postgres_migration: (
+      target_dir: String,
+      ?migration_name: String
+    ) -> String
+    def self.require_activerecord!: () -> void
+    def self.normalize_migration_name: (String? name) -> String
+    def self.underscore: (String value) -> String
+    def self.timestamp: () -> String
+  end
+end

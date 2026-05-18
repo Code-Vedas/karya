@@ -12,7 +12,7 @@ Hanami is a first-class Karya host with the Sequel integration path.
 ## Position
 
 - first-class supported framework
-- pairs with `karya-sequel`
+- uses `Karya::Sequel`
 - can optionally include `karya-dashboard`
 
 ## Integration Shape

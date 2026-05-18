@@ -150,8 +150,6 @@ run_cmd_env() {
 ruby_suites() {
   cat <<'EOF'
 core/karya
-core/karya-activerecord
-core/karya-sequel
 gems/karya-dashboard
 gems/karya-hanami
 gems/karya-rails
@@ -172,7 +170,7 @@ suite_name() {
 
 suite_uses_rails() {
   case "$1" in
-    core/karya-activerecord|gems/karya-rails)
+    gems/karya-rails)
       return 0
       ;;
     *)
@@ -193,7 +191,7 @@ suite_gemfiles() {
   suite_dir="$1"
 
   case "${suite_dir}" in
-    core/karya-activerecord|gems/karya-rails)
+    gems/karya-rails)
       printf '%s\n' "gemfiles/rails_7_2.gemfile"
       printf '%s\n' "gemfiles/rails_8_0.gemfile"
       printf '%s\n' "gemfiles/rails_8_1.gemfile"

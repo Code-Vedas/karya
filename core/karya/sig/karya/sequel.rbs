@@ -1,0 +1,11 @@
+module Karya
+  module Sequel
+    def self.install_postgres_migration: (
+      target_dir: String,
+      ?migration_name: String
+    ) -> String
+    def self.require_sequel!: () -> void
+    def self.normalize_migration_name: (String? name) -> String
+    def self.timestamp: () -> String
+  end
+end

@@ -1,0 +1,17 @@
+module Karya
+  module Rails
+    DEFAULT_MOUNT_PATH: String
+
+    def self.install_postgres_migration: (
+      target_dir: String,
+      ?migration_name: String
+    ) -> String
+
+    def self.render_dashboard_page: (
+      ?mount_path: String,
+      ?title: String,
+      ?asset_prefix: String?,
+      ?name: String
+    ) -> String
+  end
+end

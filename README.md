@@ -30,10 +30,9 @@ multiple tools into one platform:
 ### Core Packages
 
 - `core/karya`: canonical runtime, CLI, execution model, operator contracts,
-  workflow engine, and shared integration boundaries
-- `core/karya-activerecord`: Active Record adapter surface for SQL-backed Karya
-  deployments
-- `core/karya-sequel`: Sequel adapter surface for SQL-backed Karya deployments
+  workflow engine, Postgres/Redis/MySQL/SQLite/`InMemory` backend support, and
+  shared SQL integration surfaces including Active Record and Sequel migration
+  support
 
 ### Framework And UI Packages
 
@@ -86,9 +85,8 @@ When included, it publishes a packaged dashboard distribution:
 
 Framework hosts render the shared bundle from the asset manifest instead of
 forking the UI per framework. The selected framework package determines whether
-the dashboard is included and which adapter path backs it: Rails pairs with
-`karya-activerecord`, while Hanami, Roda, and Sinatra pair with
-`karya-sequel`.
+the dashboard is included and how it is mounted, authenticated, and rendered
+inside the host application.
 
 The full hosting contract, internal API positioning, asset-prefix behavior, and
 mount expectations are documented in

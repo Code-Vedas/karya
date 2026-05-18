@@ -24,9 +24,7 @@ The table below provides an overview of all possible modules/components:
 
 | Module/Component           | Description                           | Related Language/Framework |
 | -------------------------- | ------------------------------------- | -------------------------- |
-| `core/karya/`              | Canonical core gem and CLI root       | Ruby                       |
-| `core/karya-activerecord/` | Active Record adapter addon for Karya | Ruby / Active Record       |
-| `core/karya-sequel/`       | Sequel adapter addon for Karya        | Ruby / Sequel              |
+| `core/karya/`              | Canonical core gem, CLI root, backends, and shared SQL integration surfaces | Ruby |
 | `gems/karya-dashboard/`    | Dashboard UI package and Ruby wrapper | Ruby / React / TypeScript  |
 | `gems/karya-rails/`        | Rails integration scaffold            | Ruby / Rails               |
 | `gems/karya-sinatra/`      | Sinatra integration scaffold          | Ruby / Sinatra             |

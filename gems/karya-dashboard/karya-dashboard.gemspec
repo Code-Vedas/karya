@@ -30,7 +30,7 @@ Gem::Specification.new do |spec|
   spec.metadata['rubygems_uri'] = 'https://rubygems.org/gems/karya-dashboard'
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
-    Dir['{bin,dist,lib}/**/*', 'LICENSE', 'Rakefile', 'README.md']
+    Dir['{bin,dist,lib,sig}/**/*', 'LICENSE', 'Rakefile', 'README.md']
   end
   spec.require_paths = ['lib']
   spec.required_ruby_version = '>= 3.2'

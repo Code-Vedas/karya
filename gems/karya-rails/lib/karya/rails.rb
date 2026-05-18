@@ -6,7 +6,8 @@
 # LICENSE file in the root directory of this source tree.
 require 'rails'
 require 'action_controller/railtie'
-require 'karya/activerecord'
+require 'karya'
+require 'karya/dashboard'
 
 require_relative 'rails/version'
 require_relative 'rails/engine'
@@ -14,5 +15,21 @@ require_relative 'rails/engine'
 module Karya
   # Karya::Rails module serves as the main namespace for all Rails-specific integrations and functionalities related to the Karya gem.
   module Rails
+    module_function
+
+    DEFAULT_MOUNT_PATH = '/karya'
+
+    def install_postgres_migration(target_dir:, migration_name: 'Create Karya Postgres Backend')
+      Karya::ActiveRecord.install_postgres_migration(target_dir:, migration_name:)
+    end
+
+    def render_dashboard_page(
+      mount_path: DEFAULT_MOUNT_PATH,
+      title: Karya::Dashboard::DEFAULT_TITLE,
+      asset_prefix: nil,
+      name: 'dashboard'
+    )
+      Karya::Dashboard.render_document(title:, mount_path:, asset_prefix:, name:)
+    end
   end
 end

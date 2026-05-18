@@ -1,0 +1,11 @@
+module Karya
+  module QueueStore
+    class Postgres
+      module Internal
+        module DependencyLoader
+          def self.require_pg!: () -> void
+        end
+      end
+    end
+  end
+end

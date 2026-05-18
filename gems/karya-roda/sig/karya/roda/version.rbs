@@ -1,0 +1,5 @@
+module Karya
+  module Roda
+    VERSION: String
+  end
+end

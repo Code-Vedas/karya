@@ -31,7 +31,6 @@ runtime and operator workflows:
 ```ruby
 # Gemfile
 gem "karya"
-gem "karya-activerecord"
 gem "karya-rails"
 ```
 
