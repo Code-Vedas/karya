@@ -323,6 +323,31 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::StateSnapsh
     )
   end
 
+  it 'round-trips stuck-job recovery metadata' do
+    state = store_state_class.new(expired_tombstone_limit: 10)
+    state.stuck_job_recoveries_by_id['job-1'] = {
+      recovery_count: 2,
+      last_recovered_at: created_at + 45,
+      last_recovery_reason: 'running_lease_expired'
+    }.freeze
+
+    snapshot = state_snapshot.load(
+      state_snapshot.dump(
+        state:,
+        reservation_token_sequence: 0,
+        applied_version: 1
+      )
+    )
+
+    expect(snapshot.fetch(:state).stuck_job_recoveries_by_id).to eq(
+      'job-1' => {
+        recovery_count: 2,
+        last_recovered_at: created_at + 45,
+        last_recovery_reason: 'running_lease_expired'
+      }.freeze
+    )
+  end
+
   it 'rejects unsupported struct payloads during generic struct encoding' do
     anonymous_struct = Struct.new(:value).new(1)
 
