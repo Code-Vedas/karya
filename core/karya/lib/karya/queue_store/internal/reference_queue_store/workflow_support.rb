@@ -93,14 +93,15 @@ module Karya
               normalized_batch_id = Workflow.send(:normalize_batch_identifier, :batch_id, batch_id)
 
               snapshot_outcome = @mutex.synchronize(persist_if: ->(outcome) { outcome.fetch(:persist) }) do
-                inspection_snapshot_outcome do
-                  recover_in_flight_locked(normalized_now)
-                  batch = fetch_batch(normalized_batch_id)
-                  workflow_batch_id = batch.id
-                  registration = fetch_workflow_registration(workflow_batch_id)
-                  jobs = fetch_batch_jobs(batch)
-                  build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now)
-                end
+                recovery_report = recover_in_flight_locked(normalized_now)
+                batch = fetch_batch(normalized_batch_id)
+                workflow_batch_id = batch.id
+                registration = fetch_workflow_registration(workflow_batch_id)
+                jobs = fetch_batch_jobs(batch)
+                {
+                  snapshot: build_workflow_snapshot(batch:, registration:, jobs:, now: normalized_now),
+                  persist: !recovery_report.jobs.empty?
+                }
               end
               snapshot_outcome.fetch(:snapshot)
             end

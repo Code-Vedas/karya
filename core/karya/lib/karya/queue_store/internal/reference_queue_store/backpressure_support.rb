@@ -33,7 +33,13 @@ module Karya
             def build_scope_key(prefix, value)
               "#{prefix}#{value}"
             end
-            module_function :each_scope_key, :build_scope_key
+
+            def prune_admissions_changed?(admissions, cutoff_time)
+              original_admissions = admissions.dup
+              admissions.reject! { |admission_time| admission_time <= cutoff_time }
+              admissions != original_admissions
+            end
+            module_function :each_scope_key, :build_scope_key, :prune_admissions_changed?
 
             private
 
@@ -42,21 +48,25 @@ module Karya
                 policy = policy_set.rate_limits[scope_key]
                 next unless policy
 
-                prune_rate_limit_admissions(scope_key, policy, now, delete_empty: false) << now
+                prune_rate_limit_admissions(scope_key, policy, now, delete_empty: false).fetch(:admissions) << now
               end
             end
 
             def prune_stale_rate_limit_admissions(now)
-              rate_limit_keys = state.rate_limit_admissions_by_key.keys
+              rate_limit_admissions_by_key = state.rate_limit_admissions_by_key
+              rate_limit_keys = rate_limit_admissions_by_key.keys
+              changed = false
               rate_limit_keys.each do |rate_limit_key|
                 policy = policy_set.rate_limits[rate_limit_key]
                 unless policy
+                  changed = true
                   state.delete_rate_limit_key(rate_limit_key)
                   next
                 end
 
-                prune_rate_limit_admissions(rate_limit_key, policy, now, delete_empty: true)
+                changed ||= prune_rate_limit_admissions(rate_limit_key, policy, now, delete_empty: true).fetch(:changed)
               end
+              changed
             end
 
             def build_reserve_scan_state
@@ -66,13 +76,18 @@ module Karya
             def prune_rate_limit_admissions(rate_limit_key, policy, now, delete_empty:)
               admissions = state.rate_limit_admissions_for(rate_limit_key)
               cutoff_time = now - policy.period
-              admissions.reject! { |admission_time| admission_time <= cutoff_time }
+              changed = BackpressureSupport.prune_admissions_changed?(admissions, cutoff_time)
+              deleted_empty_key = false
               if delete_empty && admissions.empty?
+                deleted_empty_key = state.rate_limit_admissions_by_key.key?(rate_limit_key)
                 state.delete_rate_limit_key(rate_limit_key)
                 admissions = []
               end
 
-              admissions
+              {
+                admissions:,
+                changed: changed || deleted_empty_key
+              }
             end
           end
         end

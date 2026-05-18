@@ -13,9 +13,14 @@ module Karya
           private
 
           def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
-          def prune_stale_rate_limit_admissions: (Time now) -> void
+          def prune_stale_rate_limit_admissions: (Time now) -> bool
           def build_reserve_scan_state: () -> Internal::ReserveScanState
-          def prune_rate_limit_admissions: (String rate_limit_key, Backpressure::RateLimitPolicy policy, Time now, delete_empty: bool) -> Array[Time]
+          def prune_rate_limit_admissions: (
+            String rate_limit_key,
+            Backpressure::RateLimitPolicy policy,
+            Time now,
+            delete_empty: bool
+          ) -> { admissions: Array[Time], changed: bool }
         end
       end
     end

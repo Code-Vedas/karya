@@ -6,10 +6,14 @@
 # LICENSE file in the root directory of this source tree.
 
 RSpec.describe 'Karya::QueueStore::Internal::ReferenceQueueStore::Internal::BackpressureSupport' do
-  let(:described_class) do
-    Karya::QueueStore::Internal::ReferenceQueueStore.const_get(:Internal, false).const_get(:BackpressureSupport, false)
-  end
   let(:store) { Karya::QueueStore::InMemory.new }
+  let(:described_class) do
+    store.class
+         .ancestors
+         .find { |ancestor| ancestor.respond_to?(:name) && ancestor.name == 'Karya::QueueStore::Internal::ReferenceQueueStore' }
+         .const_get(:Internal, false)
+         .const_get(:BackpressureSupport, false)
+  end
   let(:state) { store.instance_variable_get(:@state) }
 
   def stored_job
@@ -27,6 +31,22 @@ RSpec.describe 'Karya::QueueStore::Internal::ReferenceQueueStore::Internal::Back
     expect do
       described_class.each_scope_key(stored_job, nil)
     end.to raise_error(ArgumentError, 'each_scope_key requires a block')
+  end
+
+  it 'yields a distinct explicit scope key after queue and handler keys' do
+    explicit_scope = Karya::Backpressure::Scope.new(kind: :custom, value: 'tenant-acme')
+
+    keys = []
+    described_class.each_scope_key(stored_job, explicit_scope) { |scope_key| keys << scope_key }
+
+    expect(keys).to eq(['queue:billing', 'handler:billing_sync', explicit_scope.key])
+  end
+
+  it 'skips the explicit scope key when no distinct scope is provided' do
+    keys = []
+    described_class.each_scope_key(stored_job, nil) { |scope_key| keys << scope_key }
+
+    expect(keys).to eq(['queue:billing', 'handler:billing_sync'])
   end
 
   it 'removes orphaned rate-limit admission keys during stale-pruning maintenance' do

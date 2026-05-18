@@ -20,12 +20,9 @@ module Karya
         DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = 1024
         DEFAULT_MAX_BATCH_SIZE = 1000
         RESERVE_QUEUES_ERROR_MESSAGE = 'provide exactly one of queue or queues'
-
         InitializerOptions = Karya::QueueStore::Internal.const_get(:InitializerOptions, false)
-
         # Neutral aliases for the shared reference-store internals.
         module Internal; end
-
         Internal.const_set(:StoreState, Karya::QueueStore::Internal.const_get(:StoreState, false))
         %i[
           BatchSupport
@@ -36,7 +33,6 @@ module Karya
           ExecutionSupport
           ExpirationSupport
           OperationsSupport
-          PersistenceOutcomeSupport
           ReliabilitySupport
           ReliabilitySnapshotSupport
           RecoverySupport
@@ -44,6 +40,7 @@ module Karya
           ReserveSelectionSupport
           RetrySupport
           UniquenessSupport
+          ValidationSupport
           WorkflowCheckpointSupport
           WorkflowHistorySupport
           WorkflowSupport
@@ -84,14 +81,11 @@ module Karya
 
         def enqueue(job:, now:)
           normalized_now = normalize_time(:now, now, error_class: InvalidEnqueueError)
-
           @mutex.synchronize do
             validate_enqueue(job)
-
             duplicate_decision = build_uniqueness_decision(job, normalized_now)
             raise_duplicate_enqueue_error(duplicate_decision) if duplicate_decision.fetch(:action) == :reject
             expire_reservations_locked(normalized_now)
-
             enqueue_validated_job(job, normalized_now)
           end
         end
@@ -105,9 +99,8 @@ module Karya
             queues:,
             handler_names:
           )
-
           reserve_outcome = @mutex.synchronize(persist_if: ->(outcome) { outcome.fetch(:persist) }) do
-            reserve_with_persistence_outcome(**reserve_request)
+            reserve_matching_job(**reserve_request)
           end
           reserve_outcome.fetch(:reservation)
         end
@@ -185,10 +178,11 @@ module Karya
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
           snapshot_outcome = @mutex.synchronize(persist_if: ->(outcome) { outcome.fetch(:persist) }) do
-            inspection_snapshot_outcome do
-              prepare_backpressure_snapshot(normalized_now)
-              build_backpressure_snapshot(normalized_now)
-            end
+            persist = prepare_backpressure_snapshot(normalized_now)
+            {
+              snapshot: build_backpressure_snapshot(normalized_now),
+              persist:
+            }
           end
           snapshot_outcome.fetch(:snapshot)
         end
@@ -197,10 +191,11 @@ module Karya
           normalized_now = normalize_time(:now, now, error_class: InvalidQueueStoreOperationError)
 
           snapshot_outcome = @mutex.synchronize(persist_if: ->(outcome) { outcome.fetch(:persist) }) do
-            inspection_snapshot_outcome do
-              prepare_reliability_snapshot(normalized_now)
-              build_reliability_snapshot(normalized_now)
-            end
+            persist = prepare_reliability_snapshot(normalized_now)
+            {
+              snapshot: build_reliability_snapshot(normalized_now),
+              persist:
+            }
           end
           snapshot_outcome.fetch(:snapshot)
         end
@@ -233,19 +228,6 @@ module Karya
                     :state,
                     :token_generator
 
-        def validate_initializer_limits(expired_tombstone_limit:, completed_batch_retention_limit:, max_batch_size:)
-          valid_tombstone_limit = expired_tombstone_limit.is_a?(Integer) && expired_tombstone_limit >= 0
-          raise InvalidQueueStoreOperationError, 'expired_tombstone_limit must be a finite non-negative Integer' unless valid_tombstone_limit
-
-          valid_batch_retention_limit = completed_batch_retention_limit.is_a?(Integer) &&
-                                        completed_batch_retention_limit >= 0
-          raise InvalidQueueStoreOperationError, 'completed_batch_retention_limit must be a finite non-negative Integer' unless valid_batch_retention_limit
-
-          return if max_batch_size.is_a?(Integer) && max_batch_size.positive?
-
-          raise InvalidQueueStoreOperationError, 'max_batch_size must be a positive Integer'
-        end
-
         def validate_enqueue(job)
           raise InvalidEnqueueError, 'job must be a Karya::Job' unless job.is_a?(Job)
           raise InvalidEnqueueError, 'job must be in :submission state before enqueue' unless job.state == :submission
@@ -260,8 +242,7 @@ module Karya
           expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
           expired_reservations.each { |reservation| requeue_expired_reservation(reservation, now) }
           expired_executions.each { |reservation| requeue_expired_execution(reservation, now) }
-          prune_stale_rate_limit_admissions(now)
-          nil
+          expired_reservations.any? || expired_executions.any? || prune_stale_rate_limit_admissions(now)
         end
 
         def recover_in_flight_locked(now, worker_id: nil, include_global_maintenance: true)
@@ -285,26 +266,11 @@ module Karya
         end
 
         def perform_reserve_maintenance(now)
-          expire_reservations_locked(now)
-          build_reserve_scan_state
-        end
-
-        def normalize_identifier(name, value, error_class:)
-          value_class = value.class
-
-          if value_class <= String
-            Primitives::Identifier.new(name, value, error_class:).normalize
-          elsif value_class <= NilClass
-            raise error_class, "#{name} must be present"
-          else
-            raise error_class, "#{name} must be a String"
-          end
-        end
-
-        def normalize_time(name, value, error_class:)
-          return value if value.is_a?(Time)
-
-          raise error_class, "#{name} must be a Time"
+          recovered_jobs = expire_reservations_locked(now)
+          {
+            reserve_scan_state: build_reserve_scan_state,
+            persist: !recovered_jobs.empty?
+          }
         end
 
         def store_and_requeue_if_needed(job, queue:, job_id:, state_name:)
@@ -320,7 +286,8 @@ module Karya
         end
 
         def reserve_matching_job(handler_matcher:, lease_duration:, now:, queues:, subscription_key:, worker_id:)
-          reserve_scan_state = perform_reserve_maintenance(now)
+          maintenance = perform_reserve_maintenance(now)
+          reserve_scan_state = maintenance.fetch(:reserve_scan_state)
           matched_queue, matched_job_index, matched_job_id =
             find_reserved_job(
               queues,
@@ -329,18 +296,21 @@ module Karya
               reserve_scan_state,
               now
             )
-          return nil unless matched_job_id
+          return { reservation: nil, persist: maintenance.fetch(:persist) } unless matched_job_id
 
-          reserve_job(
-            matched_queue:,
-            matched_job_id:,
-            matched_job_index:,
-            lease_duration:,
-            now:,
-            queues:,
-            subscription_key:,
-            worker_id:
-          )
+          {
+            reservation: reserve_job(
+              matched_queue:,
+              matched_job_id:,
+              matched_job_index:,
+              lease_duration:,
+              now:,
+              queues:,
+              subscription_key:,
+              worker_id:
+            ),
+            persist: true
+          }
         end
 
         def reserve_job(matched_queue:, matched_job_id:, matched_job_index:, worker_id:, lease_duration:, queues:, subscription_key:, now:)

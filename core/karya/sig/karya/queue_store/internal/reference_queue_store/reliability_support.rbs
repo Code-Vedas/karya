@@ -10,8 +10,8 @@ module Karya
 
           private
 
-          def prepare_reliability_snapshot: (Time now) -> nil
-          def synchronize_circuit_breakers: (Time now) -> nil
+          def prepare_reliability_snapshot: (Time now) -> bool
+          def synchronize_circuit_breakers_changed?: (Time now) -> bool
           def circuit_breaker_blocked?: (Job job, Time now) -> bool
           def circuit_breaker_scope_blocked?: (String scope_key, CircuitBreaker::Policy policy, Time now) -> bool
           def circuit_breaker_state_for: (String scope_key, Time now) -> Karya::circuit_breaker_runtime_state

@@ -89,13 +89,16 @@ module Karya
       ) -> nil
       def validate_enqueue: (Job job) -> nil
       def expire_reservations_locked: (Time now) -> Array[Job]
-      def prepare_backpressure_snapshot: (Time now) -> void
+      def prepare_backpressure_snapshot: (Time now) -> bool
       def recover_in_flight_locked: (
         Time now,
         ?worker_id: String?,
         ?include_global_maintenance: bool
       ) -> Karya::QueueStore::Internal::RecoveryReport
-      def perform_reserve_maintenance: (Time now) -> Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ReserveScanState
+      def perform_reserve_maintenance: (Time now) -> {
+        reserve_scan_state: Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ReserveScanState,
+        persist: bool
+      }
       def normalize_identifier: (Symbol name, String value, error_class: Karya::error_class) -> String
       def normalize_time: (Symbol name, Time value, error_class: Karya::error_class) -> Time
       def store_and_requeue_if_needed: (
@@ -112,7 +115,7 @@ module Karya
         queues: Array[String],
         subscription_key: [Array[String], Array[String]?],
         worker_id: String
-      ) -> Reservation?
+      ) -> { reservation: Reservation?, persist: bool }
       def reserve_job: (
         matched_queue: String,
         matched_job_id: String,

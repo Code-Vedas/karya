@@ -1,0 +1,14 @@
+module Karya
+  module QueueStore
+    class Redis
+      module Internal
+        class ReplayContext
+          def initialize: (?mutex_bypass_key: Symbol, ?token_base_key: Symbol) -> void
+          def with_bypass: [A] (?reservation_token_base: String?) { () -> A } -> A
+          def bypass?: () -> bool
+          def token_base: () -> String?
+        end
+      end
+    end
+  end
+end

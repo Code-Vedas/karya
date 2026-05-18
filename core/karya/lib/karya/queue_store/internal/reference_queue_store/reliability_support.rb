@@ -22,14 +22,26 @@ module Karya
               expired_executions = collect_expired_leases(state.executions_by_token, state.execution_tokens_in_order, now)
               expired_reservations.each { |reservation| requeue_expired_reservation(reservation, now) }
               expired_executions.each { |reservation| requeue_expired_execution(reservation, now) }
-              prune_stale_rate_limit_admissions(now)
-              synchronize_circuit_breakers(now)
-              nil
+              rate_limit_changed = prune_stale_rate_limit_admissions(now)
+              breaker_changed = synchronize_circuit_breakers_changed?(now)
+              expired_reservations.any? || expired_executions.any? || rate_limit_changed || breaker_changed
             end
 
-            def synchronize_circuit_breakers(now)
+            def synchronize_circuit_breakers_changed?(now)
+              breaker_states_by_scope = state.breaker_states_by_scope
+              breaker_failures_by_scope = state.breaker_failures_by_scope
+              half_open_probe_admissions_by_scope = state.half_open_probe_admissions_by_scope
+              before = [
+                breaker_states_by_scope.dup,
+                breaker_failures_by_scope.transform_values(&:dup),
+                half_open_probe_admissions_by_scope.transform_values(&:dup)
+              ]
               circuit_breaker_policy_set.policies.each_key { |scope_key| circuit_breaker_state_for(scope_key, now) }
-              nil
+              before != [
+                breaker_states_by_scope,
+                breaker_failures_by_scope,
+                half_open_probe_admissions_by_scope
+              ]
             end
 
             def circuit_breaker_blocked?(job, now)

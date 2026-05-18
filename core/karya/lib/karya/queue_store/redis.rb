@@ -185,16 +185,11 @@ module Karya
             with_journal_replay(reservation_token: persisted_event.reservation_token) { persisted_event.replay_on(owner) }
           end
 
-          def with_journal_replay(reservation_token: nil)
-            original_mutex = owner.send(:mutex)
-            original_token_generator = owner.send(:token_generator)
+          def with_journal_replay(reservation_token: nil, &)
             @replaying = true
-            owner.instance_variable_set(:@mutex, Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ReadOnlyMutex.new)
-            owner.instance_variable_set(:@token_generator, -> { reservation_token.sub(/:\d+\z/, '') }) if reservation_token
-            yield
+            replay_token_base = reservation_token&.sub(/:\d+\z/, '')
+            owner.send(:replay_context).with_bypass(reservation_token_base: replay_token_base, &)
           ensure
-            owner.instance_variable_set(:@token_generator, original_token_generator)
-            owner.instance_variable_set(:@mutex, original_mutex)
             @replaying = false
           end
 
@@ -280,7 +275,7 @@ module Karya
         end
 
         reserve_outcome = journal_support.persist(event_builder:, persist_if: ->(outcome) { outcome.fetch(:persist) }) do
-          reserve_with_persistence_outcome(
+          reserve_matching_job(
             **normalize_reserve_request(
               worker_id:,
               lease_duration:,
@@ -361,20 +356,22 @@ module Karya
           initializer_options_class: Karya::QueueStore::Internal::InitializerOptions,
           store_state_class: Internal::StoreState,
           **options,
-          token_generator: -> { SecureRandom.uuid }
+          token_generator: Internal::TokenGenerator.new(owner: self)
         )
-        @mutex = Internal::PersistenceMutex.new(
+        @persistence_mutex = Internal::PersistenceMutex.new(
           redis: redis_client,
           owner: self,
           state_key:,
           lock_key:,
           version_key:
         )
+        @replay_context = Internal::ReplayContext.new
+        @mutex = Internal::ReferenceQueueStoreMutex.new(owner: self, persistence_mutex: @persistence_mutex)
       end
 
       private
 
-      attr_reader :mutex, :namespace, :reservation_token_sequence, :token_generator, :url
+      attr_reader :mutex, :namespace, :persistence_mutex, :replay_context, :reservation_token_sequence, :token_generator, :url
 
       private_constant :PresentString
 
@@ -410,12 +407,14 @@ module Karya
 
       def dump_event_payload(event) = self.class.send(:dump_event_payload, event)
 
-      def with_reference_queue_store_mutex
-        original_mutex = @mutex
-        @mutex = Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ReadOnlyMutex.new
-        yield
-      ensure
-        @mutex = original_mutex
+      def with_reference_queue_store_mutex(&) = @replay_context.with_bypass(&)
+
+      def bypass_reference_queue_persistence?
+        @replay_context.bypass?
+      end
+
+      def journal_replay_token_base
+        @replay_context.token_base
       end
 
       def can_replay_incrementally?(current_version) = journal_support.send(:can_replay_incrementally?, current_version)

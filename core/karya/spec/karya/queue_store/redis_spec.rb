@@ -323,6 +323,26 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(redis_client.data.keys.grep(/\Aredis-unit:queue_store:event:/)).to be_empty
   end
 
+  it 'does not persist workflow queries when no recovery is due' do
+    definition = Karya::Workflow.define(:query_flow) do
+      step :review, handler: :review
+    end
+
+    store.enqueue_workflow(
+      definition:,
+      jobs_by_step_id: { review: workflow_job(:review, handler: :review) },
+      batch_id: :query_batch,
+      now: created_at + 1
+    )
+
+    initial_version = redis_client.data.fetch('redis-unit:queue_store:version')
+    result = store.query_workflow(batch_id: :query_batch, query: :state, now: created_at + 2)
+
+    expect(result.value).to eq(:pending)
+    expect(redis_client.data.fetch('redis-unit:queue_store:version')).to eq(initial_version)
+    expect(redis_client.data.keys.grep(/\Aredis-unit:queue_store:event:/)).to be_empty
+  end
+
   it 'persists recovery and dead-letter flows across instances' do
     retry_policy = Karya::RetryPolicy.new(max_attempts: 2, base_delay: 5, multiplier: 1)
     store.enqueue(job: submission_job(id: 'job-retry', retry_policy:), now: created_at + 1)
@@ -601,7 +621,7 @@ RSpec.describe Karya::QueueStore::Redis do
   end
 
   it 'compacts hot-path journal entries into a snapshot baseline' do
-    mutex = store.instance_variable_get(:@mutex)
+    mutex = store.instance_variable_get(:@persistence_mutex)
     journal_support = store.send(:journal_support)
 
     journal_support.instance_variable_set(:@loaded_version, described_class::HOT_PATH_COMPACTION_THRESHOLD)
@@ -664,7 +684,7 @@ RSpec.describe Karya::QueueStore::Redis do
   end
 
   it 'deletes only the journal range created since the previous snapshot baseline' do
-    mutex = store.instance_variable_get(:@mutex)
+    mutex = store.instance_variable_get(:@persistence_mutex)
     journal_support = store.send(:journal_support)
 
     previous_snapshot_version = described_class::HOT_PATH_COMPACTION_THRESHOLD
