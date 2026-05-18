@@ -21,6 +21,7 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
       def dump_event_payload(event); end
       def event_persisted(version); end
       def namespace; end
+      def restore_authoritative_state_after_failure; end
     end
   end
   let(:owner) do
@@ -31,7 +32,8 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
       snapshot_persisted: nil,
       dump_event_payload: 'event-payload',
       event_persisted: nil,
-      namespace: 'redis:test'
+      namespace: 'redis:test',
+      restore_authoritative_state_after_failure: nil
     )
   end
 
@@ -226,6 +228,35 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
     expect(owner).not_to have_received(:dump_state_payload)
   end
 
+  it 'restores owner state after read-only synchronization raises from the block' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-read-only-error')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-read-only-error', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:eval).and_return(1)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-read-only-error')
+
+    expect do
+      mutex.read_only_synchronize { raise Karya::InvalidQueueStoreOperationError, 'boom' }
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'boom')
+
+    expect(owner).to have_received(:restore_authoritative_state_after_failure)
+  end
+
+  it 'restores owner state after read-only synchronization raises ExpiredReservationError' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-read-only-expired')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-read-only-expired', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:eval).and_return(1)
+
+    expect do
+      mutex.read_only_synchronize { raise Karya::ExpiredReservationError, 'reservation "lease-1" has expired' }
+    end.to raise_error(Karya::ExpiredReservationError, 'reservation "lease-1" has expired')
+
+    expect(owner).to have_received(:restore_authoritative_state_after_failure)
+  end
+
   it 'aborts persistence when the renewal loop loses the distributed lock' do
     allow(redis).to receive_messages(
       set: 'OK',
@@ -244,6 +275,50 @@ RSpec.describe Karya::QueueStore::Redis.const_get(:Internal, false)::Persistence
 
     expect(owner).to have_received(:load_persisted_state)
     expect(owner).not_to have_received(:dump_state_payload)
+  end
+
+  it 'persists a snapshot before re-raising expired reservation errors in event mode' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-expired-event')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-expired-event', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:get).with('redis:test:lock').and_return('token-expired-event')
+    allow(redis).to receive(:get).with('redis:test:version').and_return(nil)
+    allow(redis).to receive(:eval).and_return(1, 1)
+    allow(owner).to receive(:dump_state_payload).with(applied_version: 1).and_return('payload')
+
+    expect do
+      mutex.synchronize_with_event(event_builder: ->(_result) { raise 'unused' }) do
+        raise Karya::ExpiredReservationError, 'reservation "lease-1" has expired'
+      end
+    end.to raise_error(Karya::ExpiredReservationError, 'reservation "lease-1" has expired')
+
+    expect(owner).to have_received(:dump_state_payload).with(applied_version: 1)
+    expect(owner).to have_received(:snapshot_persisted).with(1)
+    expect(owner).not_to have_received(:restore_authoritative_state_after_failure)
+  end
+
+  it 'raises lock loss instead of persisting expired event recovery after the lock is lost' do
+    fake_thread = instance_double(Thread, join: nil)
+    allow(SecureRandom).to receive(:uuid).and_return('token-expired-event-lost')
+    allow(redis).to receive(:set).with('redis:test:lock', 'token-expired-event-lost', nx: true, ex: persistence_mutex_class::LOCK_TTL_SECONDS).and_return('OK')
+    allow(Thread).to receive(:new).and_return(fake_thread)
+    allow(redis).to receive(:eval).and_return(1)
+
+    expect do
+      mutex.synchronize_with_event(event_builder: ->(_result) { raise 'unused' }) do
+        mutex.send(:record_lock_loss, RuntimeError.new('renewal failed'))
+        raise Karya::ExpiredReservationError, 'reservation "lease-2" has expired'
+      end
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'lost Redis queue-store lock during mutation: renewal failed')
+
+    expect(owner).not_to have_received(:snapshot_persisted)
+  end
+
+  it 'swallows owner restore failures while reverting local state' do
+    allow(owner).to receive(:restore_authoritative_state_after_failure).and_raise(StandardError, 'reload failed')
+
+    expect(mutex.send(:restore_owner_state_after_failure)).to be_nil
   end
 
   it 'resets prior lock-loss state before a new distributed-lock acquisition' do

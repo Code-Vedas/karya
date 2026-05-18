@@ -112,6 +112,8 @@ module Karya
           attr_reader :lock_key, :local_mutex, :owner, :redis, :state_key, :version_key
 
           def synchronize_owned_state(mode:, event_builder: nil)
+            event_mode = mode == :event
+
             local_mutex.synchronize do
               with_distributed_lock do
                 owner.send(:load_persisted_state)
@@ -120,6 +122,19 @@ module Karya
                 verify_lock_still_held
                 persist_if_owned(mode:, event_builder:, result:)
                 result
+              rescue ExpiredReservationError
+                unless event_mode
+                  restore_owner_state_after_failure
+                  raise
+                end
+
+                raise_lock_loss if lock_lost?
+                verify_lock_still_held
+                persist_snapshot_if_owned
+                raise
+              rescue StandardError
+                restore_owner_state_after_failure
+                raise
               end
             end
           end
@@ -270,6 +285,13 @@ module Karya
           def raise_lock_loss
             raise InvalidQueueStoreOperationError,
                   "lost Redis queue-store lock during mutation#{": #{@lock_loss_cause.message}" if @lock_loss_cause}"
+          end
+
+          def restore_owner_state_after_failure
+            owner.send(:restore_authoritative_state_after_failure)
+            nil
+          rescue StandardError
+            nil
           end
         end
       end

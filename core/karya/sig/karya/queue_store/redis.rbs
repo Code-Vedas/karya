@@ -60,6 +60,7 @@ module Karya
       def event_persisted: (Integer version) -> void
       def snapshot_persisted: (Integer version) -> void
       def compact_snapshot_if_needed: () -> void
+      def restore_authoritative_state_after_failure: () -> nil
       def redis_client: () -> Internal::_RedisClient
       def state_key: () -> String
       def lock_key: () -> String

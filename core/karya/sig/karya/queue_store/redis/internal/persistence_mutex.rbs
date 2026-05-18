@@ -66,6 +66,7 @@ module Karya
           def lock_lost?: () -> bool
           def verify_lock_still_held: () -> void
           def raise_lock_loss: () -> void
+          def restore_owner_state_after_failure: () -> nil
         end
       end
     end

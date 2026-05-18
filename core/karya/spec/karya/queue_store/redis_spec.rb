@@ -440,6 +440,25 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(reservation&.job_id).to eq('job-valid')
   end
 
+  it 'persists expired release recovery before re-raising the reservation error' do
+    store.enqueue(job: submission_job(id: 'job-expired-release'), now: created_at + 1)
+    reservation = store.reserve(queue: 'billing', worker_id: 'worker-expired-release', lease_duration: 1, now: created_at + 2)
+
+    expect do
+      store.release(reservation_token: reservation.token, now: created_at + 4)
+    end.to raise_error(Karya::ExpiredReservationError, /has expired/)
+
+    restored_store = described_class.new(url: redis_url, namespace:)
+    replayed_reservation = restored_store.reserve(
+      queue: 'billing',
+      worker_id: 'worker-replayed-release',
+      lease_duration: 60,
+      now: created_at + 5
+    )
+
+    expect(replayed_reservation&.job_id).to eq('job-expired-release')
+  end
+
   it 'swallows reload errors while restoring authoritative state after a persistence failure' do
     journal_support = store.send(:journal_support)
 

@@ -87,9 +87,6 @@ module Karya
             return owner.send(:with_reference_queue_store_mutex, &) if replaying?
 
             persist_with_event(event_builder:, &)
-          rescue StandardError
-            restore_authoritative_state_after_failure
-            raise
           end
 
           def load_persisted_state
@@ -418,6 +415,7 @@ module Karya
       def event_persisted(version) = journal_support.event_persisted(version)
       def snapshot_persisted(version) = journal_support.snapshot_persisted(version)
       def compact_snapshot_if_needed = journal_support.compact_snapshot_if_needed
+      def restore_authoritative_state_after_failure = journal_support.send(:restore_authoritative_state_after_failure)
 
       def redis_client
         @redis_client ||= ::Redis.new(url:)
