@@ -8,7 +8,7 @@ module Karya
 
             def reserve_with_persistence_outcome: (
               handler_matcher: HandlerMatcher,
-              lease_duration: Time,
+              lease_duration: Karya::lease_duration_value,
               now: Time,
               queues: Array[String],
               subscription_key: String,

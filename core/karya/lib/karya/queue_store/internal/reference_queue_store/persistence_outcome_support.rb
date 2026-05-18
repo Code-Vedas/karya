@@ -26,7 +26,7 @@ module Karya
               )
               {
                 reservation:,
-                persist: reservation || initial_fingerprint != persistence_relevant_state_fingerprint
+                persist: reservation ? true : initial_fingerprint != persistence_relevant_state_fingerprint
               }
             end
 

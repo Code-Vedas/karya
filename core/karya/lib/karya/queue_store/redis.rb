@@ -264,8 +264,7 @@ module Karya
       end
 
       def reserve(worker_id:, lease_duration:, now:, queue: nil, queues: nil, handler_names: nil)
-        initial_fingerprint = persistence_relevant_state_fingerprint
-        event_builder = lambda do |result|
+        event_builder = lambda do |outcome|
           {
             'name' => 'reserve',
             'arguments' => {
@@ -275,17 +274,24 @@ module Karya
               'queue' => queue,
               'queues' => queues,
               'handler_names' => handler_names,
-              'reservation_token' => result&.token
+              'reservation_token' => outcome.fetch(:reservation)&.token
             }
           }
         end
 
-        journal_support.persist(
-          event_builder:,
-          persist_if: ->(result) { result || initial_fingerprint != persistence_relevant_state_fingerprint }
-        ) do
-          super
+        reserve_outcome = journal_support.persist(event_builder:, persist_if: ->(outcome) { outcome.fetch(:persist) }) do
+          reserve_with_persistence_outcome(
+            **normalize_reserve_request(
+              worker_id:,
+              lease_duration:,
+              now:,
+              queue:,
+              queues:,
+              handler_names:
+            )
+          )
         end
+        reserve_outcome.fetch(:reservation)
       end
 
       def release(reservation_token:, now:)

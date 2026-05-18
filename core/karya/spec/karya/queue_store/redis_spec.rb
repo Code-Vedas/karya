@@ -239,6 +239,41 @@ RSpec.describe Karya::QueueStore::Redis do
     expect(redis_client.data.keys.grep(/\Aredis-unit:queue_store:event:/)).to be_empty
   end
 
+  it 'does not persist an empty reserve poll from a stale store instance' do
+    stale_store = described_class.new(url: redis_url, namespace:)
+    store.enqueue(job: submission_job(id: 'job-stale'), now: created_at + 1)
+    reservation = store.reserve(queue: 'billing', worker_id: 'worker-stale', lease_duration: 60, now: created_at + 2)
+    store.start_execution(reservation_token: reservation.token, now: created_at + 3)
+
+    current_version = redis_client.data.fetch('redis-unit:queue_store:version')
+    expect(
+      stale_store.reserve(queue: 'billing', worker_id: 'worker-stale-idle', lease_duration: 60, now: created_at + 4)
+    ).to be_nil
+    expect(redis_client.data.fetch('redis-unit:queue_store:version')).to eq(current_version)
+  end
+
+  it 'persists an empty reserve poll when maintenance recovers expired state' do
+    store.enqueue(job: submission_job(id: 'job-expired-maintenance'), now: created_at + 1)
+    reservation = store.reserve(queue: 'billing', worker_id: 'worker-expired-maintenance', lease_duration: 1, now: created_at + 2)
+
+    current_version = redis_client.data.fetch('redis-unit:queue_store:version')
+    expect(
+      store.reserve(queue: 'shipping', worker_id: 'worker-expired-maintenance-idle', lease_duration: 60, now: created_at + 4)
+    ).to be_nil
+
+    expect(redis_client.data.fetch('redis-unit:queue_store:version')).not_to eq(current_version)
+    recovered_store = described_class.new(url: redis_url, namespace:)
+    recovered_reservation = recovered_store.reserve(
+      queue: 'billing',
+      worker_id: 'worker-expired-maintenance-recovered',
+      lease_duration: 60,
+      now: created_at + 5
+    )
+    expect(recovered_reservation.job_id).to eq('job-expired-maintenance')
+    expect(recovered_store.start_execution(reservation_token: recovered_reservation.token, now: created_at + 6).state).to eq(:running)
+    expect(reservation.job_id).to eq('job-expired-maintenance')
+  end
+
   it 'persists workflow control state across instances' do
     definition = Karya::Workflow.define(:approval_flow) do
       step :review, handler: :review, wait_for_approval: :manager_approved
