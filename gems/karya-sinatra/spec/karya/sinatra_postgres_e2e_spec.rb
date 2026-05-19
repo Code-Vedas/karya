@@ -5,7 +5,7 @@ require 'json'
 require 'fileutils'
 require 'tmpdir'
 
-RSpec.describe Karya::Sinatra, :integration do
+RSpec.describe Karya::Sinatra, :dashboard_manifest_fixture, :integration do
   if ENV['E2E'] == '1'
     require 'rack'
     require 'rack/test'

@@ -4,7 +4,7 @@ require 'spec_helper'
 require 'json'
 require 'tmpdir'
 
-RSpec.describe Karya::Hanami, :integration do
+RSpec.describe Karya::Hanami, :dashboard_manifest_fixture, :integration do
   if ENV['E2E'] == '1'
     require 'rack/test'
     require 'sequel'

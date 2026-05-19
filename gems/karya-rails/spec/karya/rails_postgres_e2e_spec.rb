@@ -5,7 +5,7 @@ require 'json'
 require 'securerandom'
 require 'tmpdir'
 
-RSpec.describe Karya::Rails, :integration do
+RSpec.describe Karya::Rails, :dashboard_manifest_fixture, :integration do
   if ENV['E2E'] == '1'
     require 'rails_helper'
     require 'rack/test'

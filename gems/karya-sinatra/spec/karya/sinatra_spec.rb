@@ -7,7 +7,7 @@
 
 require 'tmpdir'
 
-RSpec.describe Karya::Sinatra do
+RSpec.describe Karya::Sinatra, :dashboard_manifest_fixture do
   it 'exposes the version' do
     expect(described_class::VERSION).to eq('0.1.0')
   end

@@ -5,7 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-RSpec.describe Karya::Rails do
+RSpec.describe Karya::Rails, :dashboard_manifest_fixture do
   it 'exposes the version' do
     expect(described_class::VERSION).to eq('0.1.0')
   end
