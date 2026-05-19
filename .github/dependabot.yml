@@ -14,14 +14,6 @@ updates:
     schedule:
       interval: daily
   - package-ecosystem: bundler
-    directory: /core/karya-activerecord
-    schedule:
-      interval: daily
-  - package-ecosystem: bundler
-    directory: /core/karya-sequel
-    schedule:
-      interval: daily
-  - package-ecosystem: bundler
     directory: /gems/karya-dashboard
     schedule:
       interval: daily

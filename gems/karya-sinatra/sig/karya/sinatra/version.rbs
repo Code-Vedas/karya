@@ -1,0 +1,5 @@
+module Karya
+  module Sinatra
+    VERSION: String
+  end
+end

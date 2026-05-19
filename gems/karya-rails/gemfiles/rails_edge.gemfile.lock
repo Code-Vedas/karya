@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/rails/rails.git
-  revision: 11417bac09d616fdbc1fdbfe8bedf7faf8db5fc3
+  revision: 127183d8fc44a9fb52542f7650c1ccc2eaa97f29
   branch: main
   specs:
     actioncable (8.2.0.alpha)
@@ -101,13 +101,6 @@ GIT
       zeitwerk (~> 2.6)
 
 PATH
-  remote: ../../../core/karya-activerecord
-  specs:
-    karya-activerecord (0.1.0)
-      activerecord (>= 7.1, < 9.0)
-      karya (= 0.1.0)
-
-PATH
   remote: ../../../core/karya
   specs:
     karya (0.1.0)
@@ -123,7 +116,6 @@ PATH
   specs:
     karya-rails (0.1.0)
       karya (= 0.1.0)
-      karya-activerecord (= 0.1.0)
       karya-dashboard (= 0.1.0)
       rails (>= 7.1, < 9.0)
 
@@ -232,6 +224,13 @@ GEM
     parser (3.3.11.1)
       ast (~> 2.4.1)
       racc
+    pg (1.6.3)
+    pg (1.6.3-aarch64-linux)
+    pg (1.6.3-aarch64-linux-musl)
+    pg (1.6.3-arm64-darwin)
+    pg (1.6.3-x86_64-darwin)
+    pg (1.6.3-x86_64-linux)
+    pg (1.6.3-x86_64-linux-musl)
     pp (0.6.3)
       prettyprint
     prettyprint (0.2.0)
@@ -374,9 +373,9 @@ PLATFORMS
 
 DEPENDENCIES
   karya!
-  karya-activerecord!
   karya-dashboard!
   karya-rails!
+  pg
   rack-test
   rails!
   rake

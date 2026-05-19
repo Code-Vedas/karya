@@ -1,0 +1,5 @@
+module Karya
+  module Hanami
+    VERSION: String
+  end
+end

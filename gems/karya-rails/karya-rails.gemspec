@@ -12,10 +12,10 @@ Gem::Specification.new do |spec|
   spec.version = version
   spec.authors = ['Nitesh Purohit', 'Codevedas Inc.']
   spec.email = ['nitesh.purohit.it@gmail.com', 'team@codevedas.com']
-  spec.summary = 'Rails integration for Karya with Active Record support.'
+  spec.summary = 'Rails integration for Karya with built-in Active Record support.'
   spec.description = <<~DESC
     Karya-Rails provides the Rails integration surface for Karya. It composes
-    the core Karya runtime, the Active Record adapter package, and the
+    the core Karya runtime, the built-in Active Record support, and the
     dashboard addon for Rails hosts.
   DESC
   spec.homepage = 'https://github.com/Code-Vedas/karya'
@@ -30,11 +30,10 @@ Gem::Specification.new do |spec|
   spec.metadata['rubygems_uri'] = 'https://rubygems.org/gems/karya-rails'
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
-    Dir['{app,bin,config,lib}/**/*', 'LICENSE', 'Rakefile', 'README.md']
+    Dir['{app,bin,config,lib,sig}/**/*', 'LICENSE', 'Rakefile', 'README.md']
   end
   spec.require_paths = ['lib']
   spec.add_dependency 'karya', "= #{version}"
-  spec.add_dependency 'karya-activerecord', "= #{version}"
   spec.add_dependency 'karya-dashboard', "= #{version}"
   spec.add_dependency 'rails', '>= 7.1', '< 9.0'
   spec.required_ruby_version = '>= 3.2'

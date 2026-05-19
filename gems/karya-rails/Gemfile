@@ -8,11 +8,11 @@
 source 'https://rubygems.org'
 
 gem 'karya', path: '../../core/karya'
-gem 'karya-activerecord', path: '../../core/karya-activerecord'
 gem 'karya-dashboard', path: '../karya-dashboard'
 
 gemspec
 
+gem 'pg'
 gem 'rack-test', require: false
 gem 'rake', require: false
 gem 'reek', require: false

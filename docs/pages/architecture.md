@@ -16,9 +16,7 @@ and operator surfaces each have a clear role and are meant to compose cleanly.
 
 | Package                   | Role                                                                          |
 | ------------------------- | ----------------------------------------------------------------------------- |
-| `core/karya`              | Core runtime, CLI, execution model, workflow engine, and shared contracts     |
-| `core/karya-activerecord` | Active Record adapter for SQL-oriented hosts                                  |
-| `core/karya-sequel`       | Sequel adapter for SQL-oriented hosts                                         |
+| `core/karya`              | Core runtime, CLI, execution model, workflow engine, shared contracts, and SQL backend support |
 | `gems/karya-dashboard`    | Optional dashboard addon with shared UI, internal APIs, and rendering helpers |
 | `gems/karya-rails`        | Rails host integration                                                        |
 | `gems/karya-hanami`       | Hanami host integration                                                       |
@@ -36,8 +34,8 @@ Karya’s product model is built from these layers:
    approval checkpoints, replay, and version evolution.
 4. Persistence: backend adapters, shared backend contracts, and durable runtime
    state.
-5. Framework integration: host-native mounting, auth/session alignment, adapter
-   pairing, and operator API exposure.
+5. Framework integration: host-native mounting, auth/session alignment,
+   migration install plumbing, and operator API exposure.
 6. Operator experience: dashboard, APIs, CLI, search, drilldowns, activity,
    audit, and bulk actions.
 7. Governance and standards: identity, policies, rollout controls, observability,

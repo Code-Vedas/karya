@@ -17,7 +17,7 @@ Rails is a first-class Karya host and the natural Active Record pairing.
 
 ## Integration Shape
 
-- pairs with `karya-activerecord`
+- uses `Karya::ActiveRecord`
 - can optionally include `karya-dashboard`
 - exposes framework-native mounting, session behavior, and health integration
 
@@ -31,7 +31,6 @@ optional dashboard addon:
 ```ruby
 # Gemfile
 gem "karya"
-gem "karya-activerecord"
 gem "karya-rails"
 gem "karya-dashboard"
 ```

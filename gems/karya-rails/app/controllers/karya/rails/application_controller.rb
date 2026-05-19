@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Rails
+    # Base controller for the mounted Karya Rails engine.
+    class ApplicationController < ActionController::Base
+      protect_from_forgery with: :exception
+    end
+  end
+end

@@ -17,6 +17,10 @@ end
 
 require 'karya/sinatra'
 
+Dir[File.expand_path('support/**/*.rb', __dir__)].each { |file| require file }
+Dir[File.expand_path('e2e/support/**/*.rb', __dir__)].each { |file| require file }
+Dir[File.expand_path('../../../spec/support/**/*.rb', __dir__)].each { |file| require file }
+
 RSpec.configure do |config|
   config.disable_monkey_patching!
   config.expect_with(:rspec) { |c| c.syntax = :expect }

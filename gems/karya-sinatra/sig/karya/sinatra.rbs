@@ -1,0 +1,19 @@
+module Karya
+  module Sinatra
+    DEFAULT_MOUNT_PATH: String
+
+    def self.install_postgres_migration: (
+      target_dir: String,
+      ?migration_name: String
+    ) -> String
+
+    def self.render_dashboard_page: (
+      ?scope: String?,
+      ?title: String,
+      ?asset_prefix: String?,
+      ?name: String
+    ) -> String
+
+    def self.mount_path: (?scope: String?) -> String
+  end
+end

@@ -13,12 +13,15 @@ run_suite() {
   gemfiles=$(suite_gemfiles "${suite_dir}" || true)
   if [ "${gemfiles}" != "" ]; then
     for gemfile in ${gemfiles}; do
-      RUN_ALL_EXPECT_RAILS=1 \
-      RUN_ALL_BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
-      run_cmd_env \
-        "${suite_label}-$(gemfile_label "${gemfile}")-rubocop" \
-        BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
-        "${REPO_ROOT}/${suite_dir}/bin/rubocop"
+      (
+        cd "${REPO_ROOT}/${suite_dir}"
+        RUN_ALL_EXPECT_RAILS=1 \
+        RUN_ALL_BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
+        run_cmd_env \
+          "${suite_label}-$(gemfile_label "${gemfile}")-rubocop" \
+          BUNDLE_GEMFILE="${REPO_ROOT}/${suite_dir}/${gemfile}" \
+          "bin/rubocop"
+      )
     done
     return 0
   fi

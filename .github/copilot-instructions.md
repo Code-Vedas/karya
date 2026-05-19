@@ -12,8 +12,8 @@ reliably.
 ## Placement
 
 - `core/karya` owns canonical runtime semantics.
-- Backend adapters in `core/karya-activerecord` and `core/karya-sequel` should
-  adopt shared contracts, not invent them.
+- SQL backend and migration support in `core/karya` should adopt shared
+  contracts, not invent parallel runtime semantics.
 - Framework and dashboard packages under `gems/` should stay vocabulary-aligned
   with `core/karya`.
 - Put signatures in the mirrored `sig/` path for every changed Ruby surface.

@@ -12,10 +12,10 @@ Gem::Specification.new do |spec|
   spec.version = version
   spec.authors = ['Nitesh Purohit', 'Codevedas Inc.']
   spec.email = ['nitesh.purohit.it@gmail.com', 'team@codevedas.com']
-  spec.summary = 'Roda integration for Karya with Sequel support.'
+  spec.summary = 'Roda integration for Karya with built-in Sequel support.'
   spec.description = <<~DESC
     Karya-Roda provides the Roda-facing integration layer for Karya. It
-    composes the core Karya runtime, the Sequel adapter package, and the
+    composes the core Karya runtime, the built-in Sequel support, and the
     dashboard addon for Roda hosts.
   DESC
   spec.homepage = 'https://github.com/Code-Vedas/karya'
@@ -30,13 +30,13 @@ Gem::Specification.new do |spec|
   spec.metadata['rubygems_uri'] = 'https://rubygems.org/gems/karya-roda'
   spec.metadata['rubygems_mfa_required'] = 'true'
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
-    Dir['{bin,lib}/**/*', 'LICENSE', 'Rakefile', 'README.md']
+    Dir['{bin,lib,sig}/**/*', 'LICENSE', 'Rakefile', 'README.md']
   end
   spec.require_paths = ['lib']
   spec.add_dependency 'karya', "= #{version}"
   spec.add_dependency 'karya-dashboard', "= #{version}"
-  spec.add_dependency 'karya-sequel', "= #{version}"
   spec.add_dependency 'rack', '>= 2.2'
   spec.add_dependency 'roda', '>= 3.0', '< 5.0'
+  spec.add_dependency 'sequel', '~> 5.0'
   spec.required_ruby_version = '>= 3.2'
 end

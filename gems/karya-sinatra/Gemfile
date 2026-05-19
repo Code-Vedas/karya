@@ -9,10 +9,11 @@ source 'https://rubygems.org'
 
 gem 'karya', path: '../../core/karya'
 gem 'karya-dashboard', path: '../karya-dashboard'
-gem 'karya-sequel', path: '../../core/karya-sequel'
 
 gemspec
 
+gem 'pg'
+gem 'rack-test', require: false
 gem 'rake', require: false
 gem 'reek', require: false
 gem 'rspec', '~> 3.13'
@@ -20,4 +21,5 @@ gem 'rubocop', '~> 1.72', require: false
 gem 'rubocop-performance', require: false
 gem 'rubocop-rake', require: false
 gem 'rubocop-rspec', require: false
+gem 'sequel'
 gem 'simplecov', '~> 0.22', require: false

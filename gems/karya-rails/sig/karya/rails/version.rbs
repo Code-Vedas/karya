@@ -1,0 +1,5 @@
+module Karya
+  module Rails
+    VERSION: String
+  end
+end

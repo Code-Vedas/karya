@@ -18,7 +18,8 @@ module KaryaRodaDummyAppSupport
     Dir.mktmpdir('karya-roda-') do |root|
       app_root = File.join(root, 'app')
       FileUtils.copy_entry(DUMMY_SOURCE, app_root)
-      yield app_root, Rack::Builder.parse_file(File.join(app_root, 'config.ru'))
+      app, = Rack::Builder.parse_file(File.join(app_root, 'config.ru'))
+      yield app_root, app
     end
   end
 end

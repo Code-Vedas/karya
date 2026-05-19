@@ -2,14 +2,12 @@
   "folders": [
     { "name": "docs", "path": "docs" },
     { "name": "karya", "path": "core/karya" },
-    { "name": "karya-activerecord", "path": "core/karya-activerecord" },
-    { "name": "karya-sequel", "path": "core/karya-sequel" },
     { "name": "karya-dashboard", "path": "gems/karya-dashboard" },
     { "name": "karya-hanami", "path": "gems/karya-hanami" },
     { "name": "karya-rails", "path": "gems/karya-rails" },
     { "name": "karya-roda", "path": "gems/karya-roda" },
     { "name": "karya-sinatra", "path": "gems/karya-sinatra" },
-    { "name": "root", "path": "." }
+    { "name": "root", "path": "." },
   ],
   "settings": {
     "editor.formatOnSave": true,
@@ -21,10 +19,10 @@
       "*.ru": "ruby",
       "*.erb": "erb",
       "*.arb": "json",
-      "*.rb": "ruby"
+      "*.rb": "ruby",
     },
     "emmet.includeLanguages": {
-      "erb": "html"
+      "erb": "html",
     },
     "rubyLsp": {
       "enabledFeatures": {
@@ -45,20 +43,20 @@
         "definition": true,
         "workspaceSymbol": true,
         "signatureHelp": true,
-        "typeHierarchy": true
+        "typeHierarchy": true,
       },
       "erbSupport": true,
       "featureFlags": {
-        "all": true
+        "all": true,
       },
       "sigOpacityLevel": "1",
       "formatter": "auto",
       "addonSettings": {
         "Ruby LSP RSpec": {
           "enabled": true,
-          "debug": true
-        }
-      }
+          "debug": true,
+        },
+      },
     },
     "[ruby]": {
       "editor.formatOnSave": true,
@@ -70,28 +68,28 @@
       "files.insertFinalNewline": true,
       "files.trimFinalNewlines": true,
       "editor.rulers": [120],
-      "editor.semanticHighlighting.enabled": true
+      "editor.semanticHighlighting.enabled": true,
     },
     "[erb]": {
       "editor.formatOnSave": true,
       "editor.defaultFormatter": "elia.erb-formatter",
-      "editor.formatOnType": true
+      "editor.formatOnType": true,
     },
     "[gemfile]": {
-      "editor.formatOnSave": true
+      "editor.formatOnSave": true,
     },
     "[typescript]": {
       "editor.formatOnSave": true,
-      "editor.tabSize": 2
+      "editor.tabSize": 2,
     },
     "[typescriptreact]": {
       "editor.formatOnSave": true,
-      "editor.tabSize": 2
+      "editor.tabSize": 2,
     },
     "[json]": {
-      "editor.formatOnSave": true
+      "editor.formatOnSave": true,
     },
     "erb-formatter.commandPath": "wrapped-erb-formatter",
-    "erb-formatter.lineLength": 160
-  }
+    "erb-formatter.lineLength": 160,
+  },
 }
