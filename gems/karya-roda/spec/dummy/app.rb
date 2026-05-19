@@ -11,7 +11,8 @@ require 'securerandom'
 class KaryaRodaDummyApp < Roda
   route do |r|
     r.is 'karya', 'runtime-probe' do
-      queue_store = Karya.backend_class.new(**Karya.backend_options).build_queue_store
+      backend = Karya.backend_class.new(**Karya.backend_options)
+      queue_store = backend.build_queue_store
       now = Time.now.utc
       job = Karya::Job.new(
         id: "roda-probe-#{SecureRandom.uuid}",
@@ -23,7 +24,7 @@ class KaryaRodaDummyApp < Roda
       queue_store.enqueue(job:, now:)
       reservation = queue_store.reserve(queue: 'dashboard', worker_id: 'roda-probe-worker', lease_duration: 60, now: now + 1)
       response['content-type'] = 'application/json; charset=utf-8'
-      %({"backend":"#{Karya.backend_class.new(**Karya.backend_options).identifier}","job_id":"#{reservation.job_id}"})
+      %({"backend":"#{backend.identifier}","job_id":"#{reservation.job_id}"})
     end
 
     r.is 'karya' do

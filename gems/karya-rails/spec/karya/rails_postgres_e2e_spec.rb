@@ -13,12 +13,7 @@ RSpec.describe Karya::Rails, :dashboard_manifest_fixture, :integration do
   end
 
   around do |example|
-    original_backend_class = :__undefined__
-    original_backend_options = :__undefined__
-    original_backend_class = Karya.instance_variable_get(:@backend_class) if Karya.instance_variable_defined?(:@backend_class)
-    original_backend_options = Karya.instance_variable_get(:@backend_options) if Karya.instance_variable_defined?(:@backend_options)
-
-    with_postgres_database(prefix: 'karya_rails_e2e') do |database_url|
+    with_postgres_backend(prefix: 'karya_rails_e2e', namespace: 'rails_e2e') do |database_url|
       Dir.mktmpdir('karya-rails-migrations-') do |migration_dir|
         migration_name = "Create Karya Postgres Backend #{SecureRandom.hex(4)}"
         migration_path = described_class.install_postgres_migration(target_dir: migration_dir, migration_name:)
@@ -32,18 +27,6 @@ RSpec.describe Karya::Rails, :dashboard_manifest_fixture, :integration do
       ensure
         ActiveRecord::Base.connection_pool.disconnect!
       end
-    end
-  ensure
-    if original_backend_class == :__undefined__
-      Karya.remove_instance_variable(:@backend_class) if Karya.instance_variable_defined?(:@backend_class)
-    else
-      Karya.instance_variable_set(:@backend_class, original_backend_class)
-    end
-
-    if original_backend_options == :__undefined__
-      Karya.remove_instance_variable(:@backend_options) if Karya.instance_variable_defined?(:@backend_options)
-    else
-      Karya.instance_variable_set(:@backend_options, original_backend_options)
     end
   end
 

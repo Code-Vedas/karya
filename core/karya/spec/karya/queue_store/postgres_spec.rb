@@ -46,6 +46,14 @@ RSpec.describe Karya::QueueStore::Postgres do
         @fail_next_upsert = true
       end
 
+      def close
+        @closed = true
+      end
+
+      def closed?
+        @closed
+      end
+
       private
 
       def consume_fail_next_upsert
@@ -110,6 +118,7 @@ RSpec.describe Karya::QueueStore::Postgres do
     expect do
       described_class.new(url: postgres_url, max_batch_size: 0)
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /max_batch_size must be a positive Integer/)
+    expect(connection).to be_closed
 
     expect do
       described_class.new(url: postgres_url, token_generator: -> { 'manual-token' })

@@ -30,4 +30,10 @@ RSpec.describe Karya::Rails, :dashboard_manifest_fixture do
 
     expect_dashboard_document(document, mount_path: '/ops/karya', title: 'Karya Dashboard')
   end
+
+  it 'rejects combining scope and mount_path' do
+    expect do
+      described_class.render_dashboard_page(scope: 'ops', mount_path: '/custom/karya')
+    end.to raise_error(ArgumentError, 'scope and mount_path cannot be combined')
+  end
 end

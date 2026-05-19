@@ -30,7 +30,11 @@ module Karya
       asset_prefix: nil,
       name: 'dashboard'
     )
-      mount_path = Karya::Internal::MountPath.build(DEFAULT_MOUNT_PATH, scope:) if scope
+      if scope
+        raise ArgumentError, 'scope and mount_path cannot be combined' unless mount_path == DEFAULT_MOUNT_PATH
+
+        mount_path = Karya::Internal::MountPath.build(DEFAULT_MOUNT_PATH, scope:)
+      end
       Karya::Dashboard.render_document(title:, mount_path:, asset_prefix:, name:)
     end
   end

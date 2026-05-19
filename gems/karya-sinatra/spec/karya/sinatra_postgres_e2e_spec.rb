@@ -24,15 +24,10 @@ RSpec.describe Karya::Sinatra, :dashboard_manifest_fixture, :integration do
   end
 
   around do |example|
-    original_backend_class = :__undefined__
-    original_backend_options = :__undefined__
-    original_backend_class = Karya.instance_variable_get(:@backend_class) if Karya.instance_variable_defined?(:@backend_class)
-    original_backend_options = Karya.instance_variable_get(:@backend_options) if Karya.instance_variable_defined?(:@backend_options)
-
     source_dir = File.expand_path('../dummy/modular', __dir__)
     with_dummy_app(source_dir) do |rack_app|
       self.current_rack_app = rack_app
-      with_postgres_database(prefix: 'karya_sinatra_e2e') do |database_url|
+      with_postgres_backend(prefix: 'karya_sinatra_e2e', namespace: 'sinatra_e2e') do |database_url|
         Dir.mktmpdir('karya-sinatra-migrations-') do |migration_dir|
           described_class.install_postgres_migration(target_dir: migration_dir)
           db = Sequel.connect(database_url)
@@ -46,17 +41,6 @@ RSpec.describe Karya::Sinatra, :dashboard_manifest_fixture, :integration do
     end
   ensure
     self.current_rack_app = nil
-    if original_backend_class == :__undefined__
-      Karya.remove_instance_variable(:@backend_class) if Karya.instance_variable_defined?(:@backend_class)
-    else
-      Karya.instance_variable_set(:@backend_class, original_backend_class)
-    end
-
-    if original_backend_options == :__undefined__
-      Karya.remove_instance_variable(:@backend_options) if Karya.instance_variable_defined?(:@backend_options)
-    else
-      Karya.instance_variable_set(:@backend_options, original_backend_options)
-    end
   end
 
   def app

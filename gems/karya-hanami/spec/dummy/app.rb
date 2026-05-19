@@ -10,7 +10,8 @@ require 'securerandom'
 
 KaryaHanamiDummyApp = proc do |env|
   if env['PATH_INFO'] == '/karya/runtime-probe'
-    queue_store = Karya.backend_class.new(**Karya.backend_options).build_queue_store
+    backend = Karya.backend_class.new(**Karya.backend_options)
+    queue_store = backend.build_queue_store
     now = Time.now.utc
     job = Karya::Job.new(
       id: "hanami-probe-#{SecureRandom.uuid}",
@@ -24,7 +25,7 @@ KaryaHanamiDummyApp = proc do |env|
     [
       200,
       { 'content-type' => 'application/json; charset=utf-8' },
-      [%({"backend":"#{Karya.backend_class.new(**Karya.backend_options).identifier}","job_id":"#{reservation.job_id}"})]
+      [%({"backend":"#{backend.identifier}","job_id":"#{reservation.job_id}"})]
     ]
   elsif env['PATH_INFO'] == '/karya'
     [

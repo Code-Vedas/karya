@@ -62,6 +62,9 @@ module Karya
         @mutex = @persistence_mutex
         @persistence_mutex.ensure_schema
         load_persisted_state
+      rescue StandardError
+        @connection&.close
+        raise
       end
 
       attr_reader :connection, :mutex, :namespace, :persistence_mutex, :reservation_token_sequence, :url

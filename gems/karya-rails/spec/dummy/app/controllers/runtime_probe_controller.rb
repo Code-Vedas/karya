@@ -9,7 +9,8 @@ require 'securerandom'
 
 class RuntimeProbeController < ApplicationController
   def show
-    queue_store = Karya.backend_class.new(**Karya.backend_options).build_queue_store
+    backend = Karya.backend_class.new(**Karya.backend_options)
+    queue_store = backend.build_queue_store
     now = Time.now.utc
     job = Karya::Job.new(
       id: "rails-probe-#{SecureRandom.uuid}",
@@ -22,7 +23,7 @@ class RuntimeProbeController < ApplicationController
     reservation = queue_store.reserve(queue: 'dashboard', worker_id: 'rails-probe-worker', lease_duration: 60, now: now + 1)
 
     render json: {
-      backend: Karya.backend_class.new(**Karya.backend_options).identifier,
+      backend: backend.identifier,
       job_id: reservation.job_id,
       mount_path: '/karya'
     }

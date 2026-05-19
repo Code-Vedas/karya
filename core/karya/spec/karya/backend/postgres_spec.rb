@@ -44,6 +44,10 @@ RSpec.describe Karya::Backend::Postgres do
         @rows[namespace] = params.fetch(1) if sql.include?('INSERT INTO karya_queue_store_states')
         self.class.result_class.new([])
       end
+
+      def close
+        @closed = true
+      end
     end
   end
 
