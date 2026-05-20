@@ -90,6 +90,21 @@ Choose MySQL when:
 - the deployment is centered on MySQL operations
 - queue, workflow, and operator state should live in the primary SQL system
 
+Add the MySQL client gem before configuring the backend:
+
+```ruby
+# Gemfile
+gem 'mysql2', '~> 0.5'
+```
+
+```ruby
+Karya.configure_backend(
+  Karya::Backend::MySQL,
+  url: 'mysql2://app:secret@127.0.0.1:3306/karya',
+  namespace: 'karya'
+)
+```
+
 ## What Backends Influence
 
 Backend choice affects more than persistence:

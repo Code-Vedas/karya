@@ -4,6 +4,10 @@ module Karya
       target_dir: String,
       ?migration_name: String
     ) -> String
+    def self.install_mysql_migration: (
+      target_dir: String,
+      ?migration_name: String
+    ) -> String
     def self.require_activerecord!: () -> void
     def self.normalize_migration_name: (String? name) -> String
     def self.underscore: (String value) -> String

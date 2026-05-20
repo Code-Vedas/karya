@@ -26,6 +26,15 @@ module FrameworkPostgresBackendSupport
     end
   end
 
+  def with_mysql_backend(prefix:, namespace:)
+    preserve_backend_configuration do
+      with_mysql_database(prefix:) do |database_url|
+        yield database_url
+        Karya.configure_backend(Karya::Backend::MySQL, url: database_url, namespace:)
+      end
+    end
+  end
+
   def restore_backend_ivar(name, value)
     if value.equal?(UNDEFINED)
       Karya.remove_instance_variable(name) if Karya.instance_variable_defined?(name)

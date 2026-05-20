@@ -37,6 +37,7 @@ module Karya
     autoload :Base, 'karya/queue_store/base'
     autoload :InMemory, 'karya/queue_store/in_memory'
     autoload :Internal, 'karya/queue_store/internal'
+    autoload :MySQL, 'karya/queue_store/mysql'
     autoload :Postgres, 'karya/queue_store/postgres'
     autoload :Redis, 'karya/queue_store/redis'
   end

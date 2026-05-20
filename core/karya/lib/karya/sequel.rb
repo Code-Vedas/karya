@@ -7,10 +7,11 @@
 
 require 'fileutils'
 
+require_relative 'internal/mysql_schema_catalog'
 require_relative 'internal/postgres_schema_catalog'
 
 module Karya
-  # Sequel migration/install support for the Postgres backend.
+  # Sequel migration/install support for SQL-backed Karya backends.
   module Sequel
     module_function
 
@@ -23,6 +24,18 @@ module Karya
 
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, Karya::Internal::PostgresSchemaCatalog.render_sequel_migration)
+      path
+    end
+
+    def install_mysql_migration(target_dir:, migration_name: 'create_karya_mysql_backend')
+      require_sequel!
+
+      normalized_name = normalize_migration_name(migration_name)
+      file_name = "#{timestamp}_#{normalized_name}.rb"
+      path = File.expand_path(file_name, target_dir)
+
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, Karya::Internal::MySQLSchemaCatalog.render_sequel_migration)
       path
     end
 

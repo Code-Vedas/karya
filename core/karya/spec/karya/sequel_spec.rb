@@ -25,6 +25,21 @@ RSpec.describe Karya::Sequel do
     end
   end
 
+  it 'writes a Sequel migration for the MySQL backend' do
+    allow(Kernel).to receive(:require).and_call_original
+    allow(Kernel).to receive(:require).with('sequel').and_return(true)
+
+    Dir.mktmpdir('karya-sequel-mysql-migration-') do |dir|
+      path = described_class.install_mysql_migration(target_dir: dir)
+      contents = File.read(path)
+
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_mysql_backend\.rb\z/)
+      expect(contents).to include('Sequel.migration do')
+      expect(contents).to include('CREATE TABLE IF NOT EXISTS karya_queue_store_states')
+      expect(contents).to include('payload longtext NOT NULL')
+    end
+  end
+
   it 'normalizes punctuation-heavy migration names into snake case' do
     expect(described_class.normalize_migration_name('create karya/API v2 backend')).to eq('create_karya_api_v2_backend')
     expect(described_class.normalize_migration_name('create!! karya')).to eq('create_karya')

@@ -1,0 +1,34 @@
+module Karya
+  module QueueStore
+    class MySQL
+      module Internal
+        class PersistenceMutex
+          def initialize: (
+            connection: Karya::QueueStore::MySQL::Internal::_Connection,
+            owner: Karya::QueueStore::MySQL
+          ) -> void
+          def ensure_schema: () -> nil
+          def synchronize: [A] (?persist_if: ^(A) -> bool) { () -> A } -> A
+          def read_only_synchronize: [A] () { () -> A } -> A
+          def load_state_snapshot: () -> StateCodec::snapshot?
+
+          private
+
+          attr_reader connection: Karya::QueueStore::MySQL::Internal::_Connection
+          attr_reader local_mutex: Thread::Mutex
+          attr_reader owner: Karya::QueueStore::MySQL
+
+          def synchronize_owned_state: [A] (?read_only: bool, ?persist_if: ^(A) -> bool) { () -> A } -> A
+          def with_transaction: [A] () { () -> A } -> A
+          def lock_current_row: () -> nil
+          def persist_snapshot_if_needed: [A] (A result, (^ (A) -> bool)? persist_if) -> nil
+          def restore_owner_state_after_failure: () -> nil
+          def safe_rollback: () -> nil
+          def escaped_namespace: () -> String
+          def select_sql: (?lock: bool) -> String
+          def upsert_sql: (String payload) -> String
+        end
+      end
+    end
+  end
+end

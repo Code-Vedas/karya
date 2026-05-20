@@ -1,0 +1,21 @@
+module Karya
+  module QueueStore
+    class MySQL
+      module Internal
+        module StateCodec
+          type snapshot = {
+            state: Karya::QueueStore::Internal::StoreState,
+            reservation_token_sequence: Integer
+          }
+
+          def self.dump: (
+            state: Karya::QueueStore::Internal::StoreState,
+            reservation_token_sequence: Integer
+          ) -> String
+          def self.load: (String payload) -> snapshot
+          def self.validate_snapshot: (snapshot snapshot) -> snapshot
+        end
+      end
+    end
+  end
+end

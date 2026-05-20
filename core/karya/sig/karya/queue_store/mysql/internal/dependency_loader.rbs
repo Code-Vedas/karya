@@ -1,0 +1,11 @@
+module Karya
+  module QueueStore
+    class MySQL
+      module Internal
+        module DependencyLoader
+          def self.require_mysql2!: () -> void
+        end
+      end
+    end
+  end
+end
