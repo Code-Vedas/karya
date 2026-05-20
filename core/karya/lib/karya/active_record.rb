@@ -37,7 +37,7 @@ module Karya
     def install_mysql_migration(target_dir:, migration_name: 'Create Karya MySQL Backend')
       require_activerecord!
 
-      class_name = normalize_migration_name(migration_name, fallback: 'CreateKaryaMySQLBackend')
+      class_name = normalize_migration_name(migration_name, fallback: 'CreateKaryaMysqlBackend')
       migration_version = "#{::ActiveRecord::VERSION::MAJOR}.#{::ActiveRecord::VERSION::MINOR}"
       file_name = "#{timestamp}_#{underscore(class_name)}.rb"
       path = File.expand_path(file_name, target_dir)

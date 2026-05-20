@@ -38,7 +38,7 @@ RSpec.describe Karya::ActiveRecord do
     Dir.mktmpdir('karya-ar-mysql-migration-default-') do |dir|
       path = described_class.install_mysql_migration(target_dir: dir, migration_name: '')
 
-      expect(File.basename(path)).to match(/\A\d{14}_create_karya_my_sql_backend\.rb\z/)
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_mysql_backend\.rb\z/)
     end
   end
 
