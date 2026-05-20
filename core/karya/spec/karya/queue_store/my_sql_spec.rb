@@ -128,7 +128,15 @@ RSpec.describe Karya::QueueStore::MySQL do
 
     expect do
       described_class.new(url: mysql_url, namespace: 'n' * 256)
-    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'namespace must be at most 255 bytes')
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'namespace must be at most 255 characters')
+
+    expect do
+      described_class.new(url: mysql_url, namespace: 'あ' * 255)
+    end.not_to raise_error
+
+    expect do
+      described_class.new(url: mysql_url, namespace: 'あ' * 256)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'namespace must be at most 255 characters')
 
     expect do
       described_class.new(url: mysql_url, max_batch_size: 0)
@@ -283,6 +291,14 @@ RSpec.describe Karya::QueueStore::MySQL do
     expect(recorded_sql[0]).to include('INSERT IGNORE INTO karya_queue_store_states')
     expect(recorded_sql[1]).to include('SELECT payload')
     expect(recorded_sql[1]).to include('FOR UPDATE')
+  end
+
+  it 'uses alias-based MySQL upsert syntax for persisted snapshots' do
+    sql = internal_namespace.const_get(:PersistenceMutex).new(connection:, owner: store).send(:upsert_sql, 'payload')
+
+    expect(sql).to include('AS new')
+    expect(sql).to include('payload = new.payload')
+    expect(sql).to include('updated_at = new.updated_at')
   end
 
   it 'rejects malformed MySQL state payloads' do

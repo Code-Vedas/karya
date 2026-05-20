@@ -25,7 +25,7 @@ module Karya
       DEFAULT_EXPIRED_TOMBSTONE_LIMIT = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_EXPIRED_TOMBSTONE_LIMIT
       DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT
       DEFAULT_MAX_BATCH_SIZE = Karya::QueueStore::Internal::ReferenceQueueStore::DEFAULT_MAX_BATCH_SIZE
-      MAX_NAMESPACE_BYTES = 255
+      MAX_NAMESPACE_CHARACTERS = 255
       RESERVE_QUEUES_ERROR_MESSAGE = Karya::QueueStore::Internal::ReferenceQueueStore::RESERVE_QUEUES_ERROR_MESSAGE
       private_constant :Internal
 
@@ -162,9 +162,9 @@ module Karya
       def normalize_namespace(value)
         normalized = PresentString.new(value).normalize
         raise InvalidQueueStoreOperationError, 'namespace must be a non-empty String' unless normalized
-        return normalized if normalized.bytesize <= MAX_NAMESPACE_BYTES
+        return normalized if normalized.length <= MAX_NAMESPACE_CHARACTERS
 
-        raise InvalidQueueStoreOperationError, "namespace must be at most #{MAX_NAMESPACE_BYTES} bytes"
+        raise InvalidQueueStoreOperationError, "namespace must be at most #{MAX_NAMESPACE_CHARACTERS} characters"
       end
 
       def restore_state_snapshot(snapshot)

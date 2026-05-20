@@ -133,7 +133,8 @@ module Karya
             <<~SQL
               INSERT INTO #{Karya::Internal::MySQLSchemaCatalog::TABLE_NAME} (namespace, payload, updated_at)
               VALUES ('#{escaped_namespace}', '#{escaped_payload}', CURRENT_TIMESTAMP(6))
-              ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = VALUES(updated_at)
+              AS new
+              ON DUPLICATE KEY UPDATE payload = new.payload, updated_at = new.updated_at
             SQL
           end
         end
