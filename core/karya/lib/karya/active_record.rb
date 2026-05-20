@@ -9,6 +9,7 @@ require 'fileutils'
 
 require_relative 'internal/mysql_schema_catalog'
 require_relative 'internal/postgres_schema_catalog'
+require_relative 'internal/sqlite_schema_catalog'
 
 module Karya
   # Active Record migration/install support for SQL-backed Karya backends.
@@ -46,6 +47,25 @@ module Karya
       File.write(
         path,
         Karya::Internal::MySQLSchemaCatalog.render_active_record_migration(
+          class_name:,
+          migration_version:
+        )
+      )
+      path
+    end
+
+    def install_sqlite_migration(target_dir:, migration_name: 'Create Karya SQLite Backend')
+      require_activerecord!
+
+      class_name = normalize_migration_name(migration_name, fallback: 'CreateKaryaSqliteBackend')
+      migration_version = "#{::ActiveRecord::VERSION::MAJOR}.#{::ActiveRecord::VERSION::MINOR}"
+      file_name = "#{timestamp}_#{underscore(class_name)}.rb"
+      path = File.expand_path(file_name, target_dir)
+
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(
+        path,
+        Karya::Internal::SQLiteSchemaCatalog.render_active_record_migration(
           class_name:,
           migration_version:
         )

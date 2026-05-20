@@ -40,5 +40,6 @@ module Karya
     autoload :MySQL, 'karya/queue_store/mysql'
     autoload :Postgres, 'karya/queue_store/postgres'
     autoload :Redis, 'karya/queue_store/redis'
+    autoload :SQLite, 'karya/queue_store/sqlite'
   end
 end

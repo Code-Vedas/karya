@@ -50,6 +50,21 @@ Choose SQLite when:
   backend
 - the deployment is intentionally local or single-node
 
+Add the SQLite client gem before configuring the backend:
+
+```ruby
+# Gemfile
+gem 'sqlite3', '~> 2.6'
+```
+
+```ruby
+Karya.configure_backend(
+  Karya::Backend::SQLite,
+  url: 'sqlite3:///tmp/karya.sqlite3',
+  namespace: 'karya'
+)
+```
+
 Choose Redis when:
 
 - worker processes must share queue and workflow state through Redis

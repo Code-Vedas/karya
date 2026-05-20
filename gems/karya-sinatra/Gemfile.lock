@@ -150,6 +150,14 @@ GEM
       rack-protection (= 4.2.1)
       rack-session (>= 2.0.0, < 3)
       tilt (~> 2.0)
+    sqlite3 (2.9.4-aarch64-linux-gnu)
+    sqlite3 (2.9.4-aarch64-linux-musl)
+    sqlite3 (2.9.4-arm-linux-gnu)
+    sqlite3 (2.9.4-arm-linux-musl)
+    sqlite3 (2.9.4-arm64-darwin)
+    sqlite3 (2.9.4-x86_64-darwin)
+    sqlite3 (2.9.4-x86_64-linux-gnu)
+    sqlite3 (2.9.4-x86_64-linux-musl)
     thor (1.5.0)
     tilt (2.7.0)
     unicode-display_width (3.2.0)
@@ -183,6 +191,7 @@ DEPENDENCIES
   rubocop-rspec
   sequel
   simplecov (~> 0.22)
+  sqlite3 (~> 2.6)
 
 BUNDLED WITH
    2.7.2

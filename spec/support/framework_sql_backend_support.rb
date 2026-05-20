@@ -35,6 +35,15 @@ module FrameworkSQLBackendSupport
     end
   end
 
+  def with_sqlite_backend(prefix:, namespace:)
+    preserve_backend_configuration do
+      with_sqlite_database(prefix:) do |database_url|
+        Karya.configure_backend(Karya::Backend::SQLite, url: database_url, namespace:)
+        yield database_url
+      end
+    end
+  end
+
   def restore_backend_ivar(name, value)
     if value.equal?(UNDEFINED)
       Karya.remove_instance_variable(name) if Karya.instance_variable_defined?(name)

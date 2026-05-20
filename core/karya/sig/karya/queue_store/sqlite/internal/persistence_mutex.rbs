@@ -1,0 +1,31 @@
+module Karya
+  module QueueStore
+    class SQLite
+      module Internal
+        class PersistenceMutex
+          def initialize: (connection: SQLite::Internal::_Connection, owner: SQLite) -> void
+
+          def ensure_schema: () -> nil
+          def synchronize: [R] (?persist_if: ^(R result) -> bool?) { () -> R } -> R
+          def read_only_synchronize: [R] { () -> R } -> R
+          def load_state_snapshot: () -> StateCodec::snapshot?
+
+          private
+
+          attr_reader connection: SQLite::Internal::_Connection
+          attr_reader local_mutex: Thread::Mutex
+          attr_reader owner: SQLite
+
+          def synchronize_owned_state: [R] (
+            ?read_only: bool,
+            ?persist_if: ^(R result) -> bool?
+          ) { () -> R } -> R
+          def with_transaction: [R] { () -> R } -> R
+          def persist_snapshot_if_needed: [R] (R result, ^(R result) -> bool?) -> nil
+          def restore_owner_state_after_failure: () -> nil
+          def safe_rollback: () -> nil
+        end
+      end
+    end
+  end
+end

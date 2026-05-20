@@ -40,11 +40,33 @@ RSpec.describe Karya::Sequel do
     end
   end
 
+  it 'writes a Sequel migration for the SQLite backend' do
+    allow(Kernel).to receive(:require).and_call_original
+    allow(Kernel).to receive(:require).with('sequel').and_return(true)
+
+    Dir.mktmpdir('karya-sequel-sqlite-migration-') do |dir|
+      path = described_class.install_sqlite_migration(target_dir: dir)
+      contents = File.read(path)
+
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_sqlite_backend\.rb\z/)
+      expect(contents).to include('Sequel.migration do')
+      expect(contents).to include('CREATE TABLE IF NOT EXISTS karya_queue_store_states')
+    end
+  end
+
   it 'falls back to the default MySQL migration name when the requested name is blank' do
     Dir.mktmpdir('karya-sequel-default-mysql-migration-') do |dir|
       path = described_class.install_mysql_migration(target_dir: dir, migration_name: '')
 
       expect(File.basename(path)).to match(/\A\d{14}_create_karya_mysql_backend\.rb\z/)
+    end
+  end
+
+  it 'falls back to the default SQLite migration name when the requested name is blank' do
+    Dir.mktmpdir('karya-sequel-default-sqlite-migration-') do |dir|
+      path = described_class.install_sqlite_migration(target_dir: dir, migration_name: '')
+
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_sqlite_backend\.rb\z/)
     end
   end
 
