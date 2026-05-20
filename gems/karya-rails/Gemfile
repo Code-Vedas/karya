@@ -12,6 +12,7 @@ gem 'karya-dashboard', path: '../karya-dashboard'
 
 gemspec
 
+gem 'mysql2'
 gem 'pg'
 gem 'rack-test', require: false
 gem 'rake', require: false

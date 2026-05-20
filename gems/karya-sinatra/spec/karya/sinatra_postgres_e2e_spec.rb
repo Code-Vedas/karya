@@ -32,7 +32,6 @@ RSpec.describe Karya::Sinatra, :dashboard_manifest_fixture, :integration do
           described_class.install_postgres_migration(target_dir: migration_dir)
           db = Sequel.connect(database_url)
           Sequel::Migrator.run(db, migration_dir)
-          Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace: 'sinatra_e2e')
           example.run
         ensure
           db&.disconnect

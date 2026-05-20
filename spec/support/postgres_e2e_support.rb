@@ -29,10 +29,10 @@ module PostgresE2ESupport
     require 'pg'
 
     database_name = "#{prefix.tr('-', '_')}_#{SecureRandom.hex(6)}"
-    admin_url = admin_database_url
-    connection = PG.connect(admin_connection_params(admin_url))
+    admin_url = PostgresE2ESupport.admin_database_url
+    connection = PG.connect(PostgresE2ESupport.admin_connection_params(admin_url))
     connection.exec("CREATE DATABASE #{PG::Connection.quote_ident(database_name)}")
-    yield database_url_for(admin_url, database_name)
+    yield PostgresE2ESupport.database_url_for(admin_url, database_name)
   ensure
     connection&.exec("DROP DATABASE IF EXISTS #{PG::Connection.quote_ident(database_name)} WITH (FORCE)")
     connection&.close

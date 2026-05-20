@@ -6,6 +6,10 @@ module Karya
       target_dir: String,
       ?migration_name: String
     ) -> String
+    def self.install_mysql_migration: (
+      target_dir: String,
+      ?migration_name: String
+    ) -> String
 
     def self.mount_path: (?prefix: String?) -> String
 

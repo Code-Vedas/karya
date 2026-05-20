@@ -23,6 +23,10 @@ module Karya
       Karya::ActiveRecord.install_postgres_migration(target_dir:, migration_name:)
     end
 
+    def install_mysql_migration(target_dir:, migration_name: 'Create Karya MySQL Backend')
+      Karya::ActiveRecord.install_mysql_migration(target_dir:, migration_name:)
+    end
+
     def render_dashboard_page(
       scope: nil,
       mount_path: DEFAULT_MOUNT_PATH,

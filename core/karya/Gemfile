@@ -11,6 +11,7 @@ gemspec
 
 gem 'activerecord', '>= 7.1', '< 9.0'
 gem 'bundler-audit', require: false
+gem 'mysql2'
 gem 'pg'
 gem 'rake', require: false
 gem 'redis', '~> 5.4'

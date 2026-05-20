@@ -19,6 +19,15 @@ RSpec.describe Karya::Rails, :dashboard_manifest_fixture do
     end
   end
 
+  it 'delegates MySQL migration install through the folded Active Record support' do
+    Dir.mktmpdir('karya-rails-mysql-migration-') do |dir|
+      path = described_class.install_mysql_migration(target_dir: dir)
+
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_mysql_backend\.rb\z/)
+      expect(File.read(path)).to include('CREATE TABLE IF NOT EXISTS karya_queue_store_states')
+    end
+  end
+
   it 'renders the dashboard document for the mounted Rails path' do
     document = described_class.render_dashboard_page
 

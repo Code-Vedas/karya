@@ -20,6 +20,10 @@ module Karya
       Karya::Sequel.install_postgres_migration(target_dir:, migration_name:)
     end
 
+    def install_mysql_migration(target_dir:, migration_name: 'create_karya_mysql_backend')
+      Karya::Sequel.install_mysql_migration(target_dir:, migration_name:)
+    end
+
     def mount_path(prefix: nil)
       Karya::Internal::MountPath.build(DEFAULT_MOUNT_PATH, scope: prefix)
     end

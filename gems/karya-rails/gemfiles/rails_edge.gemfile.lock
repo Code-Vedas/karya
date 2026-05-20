@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/rails/rails.git
-  revision: 127183d8fc44a9fb52542f7650c1ccc2eaa97f29
+  revision: dea80f716790b2b5ec41c3c4356905e82d6a55d2
   branch: main
   specs:
     actioncable (8.2.0.alpha)
@@ -189,11 +189,13 @@ GEM
       net-imap
       net-pop
       net-smtp
-    marcel (1.1.0)
+    marcel (1.1.1)
     mini_mime (1.1.5)
     minitest (6.0.6)
       drb (~> 2.0)
       prism (~> 1.5)
+    mysql2 (0.5.7)
+      bigdecimal
     net-imap (0.6.4)
       date
       net-protocol
@@ -312,7 +314,7 @@ GEM
       lint_roller (~> 1.1)
       rubocop (>= 1.75.0, < 2.0)
       rubocop-ast (>= 1.47.1, < 2.0)
-    rubocop-rails (2.35.1)
+    rubocop-rails (2.35.2)
       activesupport (>= 4.2.0)
       lint_roller (~> 1.1)
       rack (>= 1.1)
@@ -359,7 +361,7 @@ GEM
       base64
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
-    zeitwerk (2.8.0)
+    zeitwerk (2.8.1)
 
 PLATFORMS
   aarch64-linux-gnu
@@ -375,6 +377,7 @@ DEPENDENCIES
   karya!
   karya-dashboard!
   karya-rails!
+  mysql2
   pg
   rack-test
   rails!
