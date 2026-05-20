@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'sqlite3'
 require 'tmpdir'
 
 RSpec.describe Karya::QueueStore::SQLite do

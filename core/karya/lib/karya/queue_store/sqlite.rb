@@ -63,7 +63,7 @@ module Karya
           host = normalize_string(uri.host)
           uri_path = uri.path.to_s
           raw_path = if host && host != 'localhost'
-                       File.join(host, uri_path)
+                       File.join(host, uri_path.sub(%r{\A/+}, ''))
                      else
                        uri_path
                      end

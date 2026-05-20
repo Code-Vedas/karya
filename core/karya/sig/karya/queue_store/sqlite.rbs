@@ -33,6 +33,10 @@ module Karya
         def self.build: (url: String, present_string_class: singleton(PresentString)) -> String
       end
 
+      class ConnectionBuilder
+        def self.build: (String path) -> Internal::_Connection
+      end
+
       module Internal
         interface _Connection
           def results_as_hash: () -> bool
