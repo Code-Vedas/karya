@@ -40,6 +40,14 @@ RSpec.describe Karya::Sequel do
     end
   end
 
+  it 'falls back to the default MySQL migration name when the requested name is blank' do
+    Dir.mktmpdir('karya-sequel-default-mysql-migration-') do |dir|
+      path = described_class.install_mysql_migration(target_dir: dir, migration_name: '')
+
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_mysql_backend\.rb\z/)
+    end
+  end
+
   it 'normalizes punctuation-heavy migration names into snake case' do
     expect(described_class.normalize_migration_name('create karya/API v2 backend')).to eq('create_karya_api_v2_backend')
     expect(described_class.normalize_migration_name('create!! karya')).to eq('create_karya')
@@ -52,7 +60,7 @@ RSpec.describe Karya::Sequel do
       described_class.require_sequel!
     end.to raise_error(
       LoadError,
-      /Add `gem 'sequel'` to your Gemfile to use Karya::Sequel Postgres migration support\./
+      /Add `gem 'sequel'` to your Gemfile to use Karya::Sequel SQL migration support\./
     )
   end
 end

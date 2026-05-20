@@ -69,6 +69,7 @@ module Karya
           end
 
           def lock_current_row
+            ensure_lockable_row
             connection.query(select_sql(lock: true), as: :hash, symbolize_keys: false)
             nil
           end
@@ -105,6 +106,26 @@ module Karya
               WHERE namespace = '#{escaped_namespace}'
             SQL
             lock ? "#{sql.rstrip} FOR UPDATE" : sql
+          end
+
+          def ensure_lockable_row
+            connection.query(insert_placeholder_sql)
+            nil
+          end
+
+          def insert_placeholder_sql
+            escaped_payload = connection.escape(initial_payload)
+            <<~SQL
+              INSERT IGNORE INTO #{Karya::Internal::MySQLSchemaCatalog::TABLE_NAME} (namespace, payload, updated_at)
+              VALUES ('#{escaped_namespace}', '#{escaped_payload}', CURRENT_TIMESTAMP(6))
+            SQL
+          end
+
+          def initial_payload
+            StateCodec.dump(
+              state: StoreState.new(expired_tombstone_limit: owner.send(:expired_tombstone_limit)),
+              reservation_token_sequence: 0
+            )
           end
 
           def upsert_sql(payload)

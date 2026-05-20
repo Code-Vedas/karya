@@ -18,7 +18,7 @@ module Karya
     def install_postgres_migration(target_dir:, migration_name: 'Create Karya Postgres Backend')
       require_activerecord!
 
-      class_name = normalize_migration_name(migration_name)
+      class_name = normalize_migration_name(migration_name, fallback: 'CreateKaryaPostgresBackend')
       migration_version = "#{::ActiveRecord::VERSION::MAJOR}.#{::ActiveRecord::VERSION::MINOR}"
       file_name = "#{timestamp}_#{underscore(class_name)}.rb"
       path = File.expand_path(file_name, target_dir)
@@ -37,7 +37,7 @@ module Karya
     def install_mysql_migration(target_dir:, migration_name: 'Create Karya MySQL Backend')
       require_activerecord!
 
-      class_name = normalize_migration_name(migration_name)
+      class_name = normalize_migration_name(migration_name, fallback: 'CreateKaryaMySQLBackend')
       migration_version = "#{::ActiveRecord::VERSION::MAJOR}.#{::ActiveRecord::VERSION::MINOR}"
       file_name = "#{timestamp}_#{underscore(class_name)}.rb"
       path = File.expand_path(file_name, target_dir)
@@ -58,11 +58,11 @@ module Karya
       require 'active_support/inflector'
     rescue LoadError => e
       raise LoadError,
-            "#{e.message}. Add `gem 'activerecord'` to your Gemfile to use Karya::ActiveRecord Postgres migration support.",
+            "#{e.message}. Add `gem 'activerecord'` to your Gemfile to use Karya::ActiveRecord SQL migration support.",
             cause: e
     end
 
-    def normalize_migration_name(name)
+    def normalize_migration_name(name, fallback: 'CreateKaryaPostgresBackend')
       normalized = name.to_s.each_char.with_object(+'') do |char, buffer|
         if alphanumeric?(char)
           buffer << char
@@ -72,7 +72,7 @@ module Karya
       end.split.map!(&:capitalize).join
       return normalized unless normalized.empty?
 
-      'CreateKaryaPostgresBackend'
+      fallback
     end
 
     def underscore(value)

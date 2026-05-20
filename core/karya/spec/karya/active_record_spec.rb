@@ -34,6 +34,14 @@ RSpec.describe Karya::ActiveRecord do
     end
   end
 
+  it 'falls back to the default MySQL migration name when the requested name is blank' do
+    Dir.mktmpdir('karya-ar-mysql-migration-default-') do |dir|
+      path = described_class.install_mysql_migration(target_dir: dir, migration_name: '')
+
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_my_sql_backend\.rb\z/)
+    end
+  end
+
   it 'normalizes punctuation-heavy migration names into Rails class and file names' do
     expect(described_class.normalize_migration_name('create karya/API v2 backend')).to eq('CreateKaryaApiV2Backend')
     expect(described_class.normalize_migration_name('create!! karya')).to eq('CreateKarya')
@@ -47,7 +55,7 @@ RSpec.describe Karya::ActiveRecord do
       described_class.require_activerecord!
     end.to raise_error(
       LoadError,
-      /Add `gem 'activerecord'` to your Gemfile to use Karya::ActiveRecord Postgres migration support\./
+      /Add `gem 'activerecord'` to your Gemfile to use Karya::ActiveRecord SQL migration support\./
     )
   end
 

@@ -5,7 +5,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-module FrameworkPostgresBackendSupport
+module FrameworkSQLBackendSupport
   UNDEFINED = Object.new.freeze
 
   def preserve_backend_configuration
@@ -46,5 +46,5 @@ module FrameworkPostgresBackendSupport
 end
 
 RSpec.configure do |config|
-  config.include FrameworkPostgresBackendSupport
+  config.include FrameworkSQLBackendSupport
 end

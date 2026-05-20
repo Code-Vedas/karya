@@ -115,12 +115,20 @@ RSpec.describe Karya::QueueStore::MySQL do
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid MySQL url:/)
 
     expect do
+      described_class.new(url: 'mysql2:///karya?socket=%zz', namespace:)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid MySQL url:/)
+
+    expect do
       described_class.new(url: 'mysql2://example.test', namespace:)
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'url must include a database name')
 
     expect do
       described_class.new(url: mysql_url, namespace: ' ')
     end.to raise_error(Karya::InvalidQueueStoreOperationError, 'namespace must be a non-empty String')
+
+    expect do
+      described_class.new(url: mysql_url, namespace: 'n' * 256)
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, 'namespace must be at most 255 bytes')
 
     expect do
       described_class.new(url: mysql_url, max_batch_size: 0)
@@ -250,6 +258,31 @@ RSpec.describe Karya::QueueStore::MySQL do
     mutex = internal_namespace.const_get(:PersistenceMutex).new(connection:, owner:)
 
     expect(mutex.send(:restore_owner_state_after_failure)).to be_nil
+  end
+
+  it 'creates a placeholder row before acquiring a FOR UPDATE lock on first write' do
+    recorded_sql = []
+    recording_connection = Class.new do
+      def initialize(recorded_sql)
+        @recorded_sql = recorded_sql
+      end
+
+      def query(sql, **_options)
+        @recorded_sql << sql
+        []
+      end
+
+      def escape(value)
+        value.gsub("'", "\\\\'")
+      end
+    end.new(recorded_sql)
+    mutex = internal_namespace.const_get(:PersistenceMutex).new(connection: recording_connection, owner: store)
+
+    mutex.send(:lock_current_row)
+
+    expect(recorded_sql[0]).to include('INSERT IGNORE INTO karya_queue_store_states')
+    expect(recorded_sql[1]).to include('SELECT payload')
+    expect(recorded_sql[1]).to include('FOR UPDATE')
   end
 
   it 'rejects malformed MySQL state payloads' do

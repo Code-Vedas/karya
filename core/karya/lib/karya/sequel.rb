@@ -18,7 +18,7 @@ module Karya
     def install_postgres_migration(target_dir:, migration_name: 'create_karya_postgres_backend')
       require_sequel!
 
-      normalized_name = normalize_migration_name(migration_name)
+      normalized_name = normalize_migration_name(migration_name, fallback: 'create_karya_postgres_backend')
       file_name = "#{timestamp}_#{normalized_name}.rb"
       path = File.expand_path(file_name, target_dir)
 
@@ -30,7 +30,7 @@ module Karya
     def install_mysql_migration(target_dir:, migration_name: 'create_karya_mysql_backend')
       require_sequel!
 
-      normalized_name = normalize_migration_name(migration_name)
+      normalized_name = normalize_migration_name(migration_name, fallback: 'create_karya_mysql_backend')
       file_name = "#{timestamp}_#{normalized_name}.rb"
       path = File.expand_path(file_name, target_dir)
 
@@ -43,11 +43,11 @@ module Karya
       require 'sequel'
     rescue LoadError => e
       raise LoadError,
-            "#{e.message}. Add `gem 'sequel'` to your Gemfile to use Karya::Sequel Postgres migration support.",
+            "#{e.message}. Add `gem 'sequel'` to your Gemfile to use Karya::Sequel SQL migration support.",
             cause: e
     end
 
-    def normalize_migration_name(name)
+    def normalize_migration_name(name, fallback: 'create_karya_postgres_backend')
       normalized = name.to_s.each_char.with_object(+'') do |char, buffer|
         if letter?(char) || digit?(char)
           buffer << char.downcase
@@ -57,7 +57,7 @@ module Karya
       end.delete_suffix('_')
       return normalized unless normalized.empty?
 
-      'create_karya_postgres_backend'
+      fallback
     end
 
     def timestamp
