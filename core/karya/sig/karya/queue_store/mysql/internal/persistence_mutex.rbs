@@ -8,7 +8,7 @@ module Karya
             owner: Karya::QueueStore::MySQL
           ) -> void
           def ensure_schema: () -> nil
-          def synchronize: [A] (?persist_if: ^(A) -> bool) { () -> A } -> A
+          def synchronize: [A] (?persist_if: (^ (A) -> bool)?) { () -> A } -> A
           def read_only_synchronize: [A] () { () -> A } -> A
           def load_state_snapshot: () -> StateCodec::snapshot?
 
@@ -18,7 +18,7 @@ module Karya
           attr_reader local_mutex: Thread::Mutex
           attr_reader owner: Karya::QueueStore::MySQL
 
-          def synchronize_owned_state: [A] (?read_only: bool, ?persist_if: ^(A) -> bool) { () -> A } -> A
+          def synchronize_owned_state: [A] (?read_only: bool, ?persist_if: (^ (A) -> bool)?) { () -> A } -> A
           def with_transaction: [A] () { () -> A } -> A
           def lock_current_row: () -> nil
           def persist_snapshot_if_needed: [A] (A result, (^ (A) -> bool)? persist_if) -> nil

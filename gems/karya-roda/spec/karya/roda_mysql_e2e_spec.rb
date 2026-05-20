@@ -22,7 +22,6 @@ RSpec.describe Karya::Roda, :dashboard_manifest_fixture, :integration do
           described_class.install_mysql_migration(target_dir: migration_dir)
           db = Sequel.connect(database_url)
           Sequel::Migrator.run(db, migration_dir)
-          Karya.configure_backend(Karya::Backend::MySQL, url: database_url, namespace: 'roda_mysql_e2e')
           example.run
         ensure
           db&.disconnect

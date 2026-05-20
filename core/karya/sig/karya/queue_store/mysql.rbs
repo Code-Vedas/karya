@@ -34,8 +34,12 @@ module Karya
       end
 
       module Internal
+        interface _Result
+          def to_a: () -> Array[Hash[String, String]]
+        end
+
         interface _Connection
-          def query: (String sql, ?as: Symbol, ?symbolize_keys: bool) -> Array[Hash[String, String]]
+          def query: (String sql, ?as: Symbol, ?symbolize_keys: bool) -> _Result
           def escape: (String value) -> String
           def close: () -> void
         end

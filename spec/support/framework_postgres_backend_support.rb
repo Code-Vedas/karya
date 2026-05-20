@@ -20,8 +20,8 @@ module FrameworkPostgresBackendSupport
   def with_postgres_backend(prefix:, namespace:)
     preserve_backend_configuration do
       with_postgres_database(prefix:) do |database_url|
-        yield database_url
         Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace:)
+        yield database_url
       end
     end
   end
@@ -29,8 +29,8 @@ module FrameworkPostgresBackendSupport
   def with_mysql_backend(prefix:, namespace:)
     preserve_backend_configuration do
       with_mysql_database(prefix:) do |database_url|
-        yield database_url
         Karya.configure_backend(Karya::Backend::MySQL, url: database_url, namespace:)
+        yield database_url
       end
     end
   end

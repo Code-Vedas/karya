@@ -24,7 +24,6 @@ RSpec.describe Karya::Rails, :dashboard_manifest_fixture, :integration do
         ActiveRecord::Migration.verbose = false
         load migration_path
         Object.const_get(migration_class_name).migrate(:up)
-        Karya.configure_backend(Karya::Backend::MySQL, url: database_url, namespace: 'rails_mysql_e2e')
         example.run
       ensure
         ActiveRecord::Base.connection_pool.disconnect!
