@@ -13,6 +13,8 @@ RSpec.describe Karya::Hanami, :dashboard_manifest_fixture, :integration do
   end
 
   around do |example|
+    skip 'set E2E=1 for SQLite e2e coverage' unless ENV['E2E'] == '1'
+
     KaryaHanamiDummyAppSupport.with_dummy_app do |_app_root, rack_app|
       self.current_rack_app = rack_app
       with_sqlite_backend(prefix: 'karya_hanami_sqlite_e2e', namespace: 'hanami_sqlite_e2e') do |database_url|

@@ -24,6 +24,8 @@ RSpec.describe Karya::Sinatra, :dashboard_manifest_fixture, :integration do
   end
 
   around do |example|
+    skip 'set E2E=1 for SQLite e2e coverage' unless ENV['E2E'] == '1'
+
     source_dir = File.expand_path('../dummy/modular', __dir__)
     with_dummy_app(source_dir) do |rack_app|
       self.current_rack_app = rack_app

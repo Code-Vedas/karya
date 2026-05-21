@@ -131,7 +131,7 @@ module Karya
       attr_reader :mutex, :namespace, :persistence_mutex, :reservation_token_sequence, :url
 
       def connection
-        reconnect_if_forked
+        reconnect_if_needed
         @connection
       end
 
@@ -181,9 +181,9 @@ module Karya
         end
       end
 
-      def reconnect_if_forked
+      def reconnect_if_needed
         current_pid = Process.pid
-        return if @connection_pid == current_pid
+        return if @connection_pid == current_pid && @connection
 
         @connection&.close
         @connection = build_connection

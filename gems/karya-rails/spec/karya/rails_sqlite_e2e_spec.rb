@@ -13,6 +13,8 @@ RSpec.describe Karya::Rails, :dashboard_manifest_fixture, :integration do
   end
 
   around do |example|
+    skip 'set E2E=1 for SQLite e2e coverage' unless ENV['E2E'] == '1'
+
     with_sqlite_backend(prefix: 'karya_rails_sqlite_e2e', namespace: 'rails_sqlite_e2e') do |database_url|
       Dir.mktmpdir('karya-rails-sqlite-migrations-') do |migration_dir|
         migration_name = "Create Karya SQLite Backend #{SecureRandom.hex(4)}"

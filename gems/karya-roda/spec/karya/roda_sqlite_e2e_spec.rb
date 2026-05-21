@@ -13,6 +13,8 @@ RSpec.describe Karya::Roda, :dashboard_manifest_fixture, :integration do
   end
 
   around do |example|
+    skip 'set E2E=1 for SQLite e2e coverage' unless ENV['E2E'] == '1'
+
     KaryaRodaDummyAppSupport.with_dummy_app do |_app_root, rack_app|
       self.current_rack_app = rack_app
       with_sqlite_backend(prefix: 'karya_roda_sqlite_e2e', namespace: 'roda_sqlite_e2e') do |database_url|

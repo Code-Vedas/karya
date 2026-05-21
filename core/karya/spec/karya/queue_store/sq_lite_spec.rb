@@ -252,6 +252,16 @@ RSpec.describe Karya::QueueStore::SQLite do
     end.to raise_error(StandardError, 'owner unavailable')
   end
 
+  it 'retries connection rebuild when a same-process reconnect previously failed' do
+    store.instance_variable_set(:@connection, nil)
+    store.instance_variable_set(:@connection_pid, Process.pid)
+
+    recovered_connection = instance_double(SQLite3::Database)
+    allow(described_class::ConnectionBuilder).to receive(:build).with(store.send(:connection_path)).and_return(recovered_connection)
+
+    expect(store.connection).to be(recovered_connection)
+  end
+
   it 'returns a configured SQLite connection even when busy_timeout is unavailable' do
     fake_connection = Object.new
     fake_connection.define_singleton_method(:results_as_hash=) { |_value| true }
