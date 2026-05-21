@@ -57,7 +57,7 @@ module Karya
 
           def synchronize_owned_state(read_only: false, persist_if: nil)
             local_mutex.synchronize do
-              with_transaction do
+              with_transaction(read_only:) do
                 owner.send(:restore_state_snapshot, load_state_snapshot)
                 result = yield
                 persist_snapshot_if_needed(result, persist_if) unless read_only
@@ -69,8 +69,8 @@ module Karya
             end
           end
 
-          def with_transaction
-            connection.execute('BEGIN IMMEDIATE TRANSACTION')
+          def with_transaction(read_only: false)
+            connection.execute(read_only ? 'BEGIN TRANSACTION' : 'BEGIN IMMEDIATE TRANSACTION')
             result = yield
             connection.execute('COMMIT')
             result

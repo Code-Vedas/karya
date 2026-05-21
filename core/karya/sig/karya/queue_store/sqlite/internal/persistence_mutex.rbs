@@ -20,7 +20,7 @@ module Karya
             ?read_only: bool,
             ?persist_if: ^(R result) -> bool?
           ) { () -> R } -> R
-          def with_transaction: [R] { () -> R } -> R
+          def with_transaction: [R] (?read_only: bool) { () -> R } -> R
           def persist_snapshot_if_needed: [R] (R result, ^(R result) -> bool?) -> nil
           def restore_owner_state_after_failure: () -> nil
           def safe_rollback: () -> nil

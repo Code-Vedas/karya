@@ -200,6 +200,28 @@ RSpec.describe Karya::QueueStore::SQLite do
     expect(mutex.send(:safe_rollback)).to be_nil
   end
 
+  it 'uses a deferred transaction for read-only synchronization' do
+    observed_sql = []
+    connection = Class.new do
+      def initialize(observed_sql)
+        @observed_sql = observed_sql
+      end
+
+      def execute(sql, _bind_vars = nil)
+        @observed_sql << sql
+        []
+      end
+    end.new(observed_sql)
+    owner = instance_double(described_class, namespace: namespace)
+    allow(owner).to receive(:connection).and_return(connection)
+    allow(owner).to receive(:restore_state_snapshot)
+    mutex = internal_namespace.const_get(:PersistenceMutex).new(connection:, owner:)
+
+    mutex.read_only_synchronize { :ok }
+
+    expect(observed_sql.first).to eq('BEGIN TRANSACTION')
+  end
+
   it 'returns nil when owner state restoration fails inside the persistence mutex' do
     owner = instance_double(described_class)
     allow(owner).to receive(:restore_authoritative_state_after_failure).and_raise(StandardError, 'restore failed')
@@ -293,6 +315,14 @@ RSpec.describe Karya::QueueStore::SQLite do
   it 'rejects malformed SQLite state payloads' do
     expect do
       internal_namespace.const_get(:StateCodec).load('not-base64')
+    end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid SQLite state snapshot/)
+  end
+
+  it 'rejects truncated SQLite state payloads' do
+    truncated_payload = [Marshal.dump({ state: store.send(:state), reservation_token_sequence: 1 })[0...2]].pack('m0')
+
+    expect do
+      internal_namespace.const_get(:StateCodec).load(truncated_payload)
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /invalid SQLite state snapshot/)
   end
 

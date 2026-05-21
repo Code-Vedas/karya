@@ -31,7 +31,7 @@ module Karya
             snapshot = Marshal.load(payload.unpack1('m0'))
             # rubocop:enable Security/MarshalLoad
             validate_snapshot(snapshot)
-          rescue ArgumentError, TypeError => e
+          rescue ArgumentError, EOFError, TypeError => e
             raise InvalidQueueStoreOperationError, "invalid SQLite state snapshot: #{e.class}: #{e.message}", cause: e
           end
 
