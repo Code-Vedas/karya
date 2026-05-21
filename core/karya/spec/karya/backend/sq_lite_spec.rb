@@ -6,7 +6,7 @@ require 'tmpdir'
 
 RSpec.describe Karya::Backend::SQLite do
   def sqlite_url_for(directory)
-    "sqlite3://#{File.join(directory, 'karya.sqlite3')}"
+    "sqlite3:///#{File.join(directory, 'karya.sqlite3').sub(%r{\A/+}, '')}"
   end
 
   def standalone_queue_store_script
@@ -15,7 +15,7 @@ RSpec.describe Karya::Backend::SQLite do
       require 'karya/queue_store/sqlite'
 
       Dir.mktmpdir('karya-standalone-sqlite-') do |directory|
-        url = "sqlite3://" + File.join(directory, 'karya.sqlite3')
+        url = "sqlite3:///" + File.join(directory, 'karya.sqlite3').sub(%r{\A/+}, '')
         now = Time.utc(2026, 5, 5, 12, 0, 0)
         store = Karya::QueueStore::SQLite.new(url:, namespace: 'standalone')
         job = Karya::Job.new(id: 'job-1', queue: 'billing', handler: 'billing_sync', state: :submission, created_at: now)

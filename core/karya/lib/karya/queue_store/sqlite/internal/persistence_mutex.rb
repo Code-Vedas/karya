@@ -102,7 +102,7 @@ module Karya
 
           def connection
             owner.send(:connection)
-          rescue StandardError
+          rescue NoMethodError
             fallback_connection
           end
         end

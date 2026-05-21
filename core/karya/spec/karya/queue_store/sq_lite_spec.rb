@@ -11,7 +11,7 @@ RSpec.describe Karya::QueueStore::SQLite do
   let(:internal_namespace) { described_class.send(:const_get, :Internal) }
   let(:namespace) { 'sqlite-unit' }
   let(:database_directory) { Dir.mktmpdir('karya-sqlite-unit-') }
-  let(:database_url) { "sqlite3://#{File.join(database_directory, 'karya.sqlite3')}" }
+  let(:database_url) { "sqlite3:///#{File.join(database_directory, 'karya.sqlite3').sub(%r{\A/+}, '')}" }
 
   after do
     FileUtils.rm_rf(database_directory)
@@ -211,10 +211,21 @@ RSpec.describe Karya::QueueStore::SQLite do
   it 'falls back to the bootstrap connection when the owner cannot provide one' do
     fallback_connection = instance_double(SQLite3::Database)
     owner = instance_double(described_class)
-    allow(owner).to receive(:connection).and_raise(StandardError, 'owner unavailable')
+    allow(owner).to receive(:connection).and_raise(NoMethodError, 'owner unavailable')
     mutex = internal_namespace.const_get(:PersistenceMutex).new(connection: fallback_connection, owner:)
 
     expect(mutex.send(:connection)).to be(fallback_connection)
+  end
+
+  it 're-raises connection failures instead of falling back to the bootstrap connection' do
+    fallback_connection = instance_double(SQLite3::Database)
+    owner = instance_double(described_class)
+    allow(owner).to receive(:connection).and_raise(StandardError, 'owner unavailable')
+    mutex = internal_namespace.const_get(:PersistenceMutex).new(connection: fallback_connection, owner:)
+
+    expect do
+      mutex.send(:connection)
+    end.to raise_error(StandardError, 'owner unavailable')
   end
 
   it 'returns a configured SQLite connection even when busy_timeout is unavailable' do

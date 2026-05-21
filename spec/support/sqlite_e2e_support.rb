@@ -17,7 +17,7 @@ module SQLiteE2ESupport
   end
 
   def database_url_for(path)
-    "sqlite3://#{File.expand_path(path)}"
+    "sqlite3:///#{File.expand_path(path).sub(%r{\A/+}, '')}"
   end
 
   def sequel_database_url_for(database_url)
