@@ -195,7 +195,9 @@ RSpec.describe Karya::QueueStore::SQLite do
         raise 'rollback failed'
       end
     end.new
-    mutex = internal_namespace.const_get(:PersistenceMutex).new(connection: failing_connection, owner: store)
+    owner = instance_double(described_class)
+    allow(owner).to receive(:connection).and_raise(NoMethodError, 'fallback connection only')
+    mutex = internal_namespace.const_get(:PersistenceMutex).new(connection: failing_connection, owner:)
 
     expect(mutex.send(:safe_rollback)).to be_nil
   end
