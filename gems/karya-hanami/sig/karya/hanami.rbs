@@ -10,6 +10,10 @@ module Karya
       target_dir: String,
       ?migration_name: String
     ) -> String
+    def self.install_sqlite_migration: (
+      target_dir: String,
+      ?migration_name: String
+    ) -> String
 
     def self.mount_path: (?prefix: String?) -> String
 

@@ -17,6 +17,7 @@ module Karya
       singleton(MySQL) |
       singleton(Postgres) |
       singleton(Redis) |
+      singleton(SQLite) |
       (::Class & _BackendClass)
   end
 end

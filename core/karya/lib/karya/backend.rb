@@ -16,5 +16,6 @@ module Karya
     autoload :MySQL, 'karya/backend/mysql'
     autoload :Postgres, 'karya/backend/postgres'
     autoload :Redis, 'karya/backend/redis'
+    autoload :SQLite, 'karya/backend/sqlite'
   end
 end

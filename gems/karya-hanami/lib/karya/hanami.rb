@@ -24,6 +24,10 @@ module Karya
       Karya::Sequel.install_mysql_migration(target_dir:, migration_name:)
     end
 
+    def install_sqlite_migration(target_dir:, migration_name: 'create_karya_sqlite_backend')
+      Karya::Sequel.install_sqlite_migration(target_dir:, migration_name:)
+    end
+
     def mount_path(prefix: nil)
       Karya::Internal::MountPath.build(DEFAULT_MOUNT_PATH, scope: prefix)
     end

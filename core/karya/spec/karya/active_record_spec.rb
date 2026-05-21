@@ -34,11 +34,30 @@ RSpec.describe Karya::ActiveRecord do
     end
   end
 
+  it 'writes an Active Record migration for the SQLite backend' do
+    Dir.mktmpdir('karya-ar-sqlite-migration-') do |dir|
+      path = described_class.install_sqlite_migration(target_dir: dir)
+      contents = File.read(path)
+
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_sqlite_backend\.rb\z/)
+      expect(contents).to include("class CreateKaryaSqliteBackend < ActiveRecord::Migration[#{ActiveRecord::VERSION::MAJOR}.#{ActiveRecord::VERSION::MINOR}]")
+      expect(contents).to include('CREATE TABLE IF NOT EXISTS karya_queue_store_states')
+    end
+  end
+
   it 'falls back to the default MySQL migration name when the requested name is blank' do
     Dir.mktmpdir('karya-ar-mysql-migration-default-') do |dir|
       path = described_class.install_mysql_migration(target_dir: dir, migration_name: '')
 
       expect(File.basename(path)).to match(/\A\d{14}_create_karya_mysql_backend\.rb\z/)
+    end
+  end
+
+  it 'falls back to the default SQLite migration name when the requested name is blank' do
+    Dir.mktmpdir('karya-ar-sqlite-migration-default-') do |dir|
+      path = described_class.install_sqlite_migration(target_dir: dir, migration_name: '')
+
+      expect(File.basename(path)).to match(/\A\d{14}_create_karya_sqlite_backend\.rb\z/)
     end
   end
 
