@@ -1,0 +1,14 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module FrameworkJob
+    module ArgumentCodec
+      def self.dump: (Array[Karya::job_argument] args, Karya::framework_job_keyword_arguments_input kwargs) -> Karya::framework_job_argument_payload
+      def self.load: (Karya::framework_job_argument_payload arguments) -> [Array[Karya::job_argument], Karya::framework_job_keyword_arguments]
+      def self.framework_job_arguments?: (Karya::framework_job_argument_payload arguments) -> bool
+    end
+  end
+end

@@ -1,0 +1,70 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Kaal
+  interface _Opaque
+  end
+
+  interface _TimeLike
+    def to_time: () -> Time
+  end
+
+  type backend =
+    Backend::MemoryAdapter |
+    Backend::RedisAdapter |
+    Backend::SQLite |
+    Backend::Postgres |
+    Backend::MySQL
+  type job_class_input = Module | String | Symbol
+  type delayed_job_scalar = nil | bool | Integer | Float | Rational | String | Symbol | Time
+  type delayed_job_hash_key = String | Symbol | Integer
+  type delayed_job_argument =
+    delayed_job_scalar |
+    _Opaque |
+    Array[delayed_job_argument] |
+    Hash[delayed_job_hash_key, delayed_job_argument]
+  type delayed_enqueue_receipt = {
+    job_id: String,
+    run_at: Time,
+    job_class: String,
+    args: Array[delayed_job_argument],
+    queue: String?,
+    created_at: Time
+  }
+
+  def self.configuration: () -> Configuration
+  def self.load_config_file!: (?path: String, ?runtime_context: Kaal::_Opaque?) -> Configuration
+  def self.load_scheduler_file!: (?runtime_context: Kaal::_Opaque?) -> Array[Kaal::_Opaque]
+  def self.enqueue_at: (
+    at: Time | _TimeLike,
+    job_class: job_class_input,
+    args: Array[delayed_job_argument],
+    job_id: String,
+    ?queue: String?,
+    ?connection: _Opaque?
+  ) -> delayed_enqueue_receipt
+  def self.reset_configuration!: () -> Configuration
+
+  class Configuration
+    attr_accessor backend: backend?
+  end
+
+  module Backend
+    class MemoryAdapter
+    end
+
+    class RedisAdapter
+    end
+
+    class SQLite
+    end
+
+    class Postgres
+    end
+
+    class MySQL
+    end
+  end
+end

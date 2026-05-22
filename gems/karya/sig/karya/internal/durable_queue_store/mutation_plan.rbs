@@ -1,0 +1,26 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class MutationPlan
+        def initialize: (
+          ?metadata_updates: metadata,
+          ?inserts: rows,
+          ?updates: rows,
+          ?deletes: rows
+        ) -> void
+
+        attr_reader metadata_updates: metadata
+        attr_reader inserts: rows
+        attr_reader updates: rows
+        attr_reader deletes: rows
+
+        def empty?: () -> bool
+      end
+    end
+  end
+end

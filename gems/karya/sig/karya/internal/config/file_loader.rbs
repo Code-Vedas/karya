@@ -1,0 +1,34 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module Config
+      class FileLoader
+        BACKEND_CLASS_NAMES: Hash[String, String]
+        ALLOWED_KEYS: Array[String]
+
+        def initialize: (configuration: FrameworkConfiguration, runtime_context: RuntimeContext) -> void
+        def load: (?path: String) -> FrameworkConfiguration
+
+        private
+
+        def parse_yaml: (String path) -> Hash[String, Karya::backend_option_value]
+        def merge_environment_config: (Hash[String, Karya::backend_option_value] payload) -> Hash[String, Karya::backend_option_value]
+        def apply_configuration: (Hash[String, Karya::backend_option_value] config) -> FrameworkConfiguration
+        def resolve_backend_class: (Karya::state_name backend_name) -> singleton(Karya::Backend::Base)
+        def hash_section: (Karya::backend_option_value? value, section_name: String) -> Hash[String, Karya::backend_option_value]
+        def array_section: (Karya::backend_option_value? value, section_name: String) -> Array[String]
+        def deep_merge: (
+          Hash[String, Karya::backend_option_value] left,
+          Hash[String, Karya::backend_option_value] right
+        ) -> Hash[String, Karya::backend_option_value]
+        def deep_dup: (Karya::backend_option_value value) -> Karya::backend_option_value
+        def stringify_keys: (Karya::backend_option_value value) -> Karya::backend_option_value
+        def symbolize_keys: (Karya::backend_option_value value) -> Karya::backend_option_value
+      end
+    end
+  end
+end

@@ -1,0 +1,23 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class PolicyStateRecord
+        def initialize: (
+          namespace: String,
+          policy_kind: String,
+          scope: Hash[Symbol, String],
+          state_payload: Hash[String | Symbol, durable_value],
+          updated_at: Time
+        ) -> void
+        def to_h: () -> durable_symbol_row
+        def self.scope_components: (String scope_key) -> [String, String]
+        def self.stringify_payload: (Hash[String | Symbol, durable_value] value) -> Hash[String, durable_value]
+      end
+    end
+  end
+end

@@ -1,0 +1,16 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module FrameworkRuntimeControl
+      RESPONSE_TIMEOUT_SECONDS: Integer
+
+      def self.inspect: (state_file: String) -> Karya::framework_runtime_payload
+      def self.drain: (state_file: String) -> Karya::framework_runtime_command_response
+      def self.force_stop: (state_file: String) -> Karya::framework_runtime_command_response
+    end
+  end
+end

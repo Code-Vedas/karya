@@ -1,0 +1,33 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Backend
+    class MySQL
+      include Base
+
+      def initialize: (
+        url: String,
+        ?namespace: String,
+        ?expired_tombstone_limit: Integer,
+        ?completed_batch_retention_limit: Integer,
+        ?max_batch_size: Integer,
+        ?policy_set: Backpressure::PolicySet,
+        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
+        ?fairness_policy: Fairness::Policy
+      ) -> void
+
+      attr_reader identifier: "mysql"
+
+      def build_queue_store: () -> QueueStore::MySQL
+
+      private
+
+      attr_reader queue_store_options: Hash[Symbol, Karya::backend_option_value]
+      def queue_store_configuration_error_message: () -> String
+      def valid_queue_store_option_keys: () -> Array[Symbol]
+    end
+  end
+end

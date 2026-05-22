@@ -7,5 +7,7 @@
 KaryaRailsDummy::Application.routes.draw do
   get 'up' => 'rails/health#show', as: :rails_health_check
   get '/karya/runtime-probe', to: 'runtime_probe#show'
+  get '/kaal/probe', to: 'runtime_probe#kaal'
+  get '/karya/active-job-probe', to: 'runtime_probe#active_job'
   mount Karya::Rails::Engine => '/karya'
 end

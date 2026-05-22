@@ -1,0 +1,46 @@
+{% assign tab_count = include.count | default: 0 | plus: 0 %}
+{% assign tabset_id = include.id | default: "tabs" %}
+<div class="vql-tabs" data-vql-tabs id="{{ tabset_id }}">
+  <div class="vql-tabs__list" role="tablist" aria-label="{{ include.label | default: 'Tabs' }}">
+    {% for index in (1..tab_count) %}
+      {% assign title_key = "title" | append: index %}
+      {% assign panel_id = tabset_id | append: "-panel-" | append: index %}
+      {% assign button_id = tabset_id | append: "-tab-" | append: index %}
+      {% assign selected = false %}
+      {% if forloop.first %}
+        {% assign selected = true %}
+      {% endif %}
+      <button
+        class="vql-tabs__tab"
+        id="{{ button_id }}"
+        type="button"
+        role="tab"
+        aria-selected="{% if selected %}true{% else %}false{% endif %}"
+        aria-controls="{{ panel_id }}"
+        data-vql-tab
+      >
+        {{ include[title_key] }}
+      </button>
+    {% endfor %}
+  </div>
+
+  {% for index in (1..tab_count) %}
+    {% assign content_key = "content" | append: index %}
+    {% assign panel_id = tabset_id | append: "-panel-" | append: index %}
+    {% assign button_id = tabset_id | append: "-tab-" | append: index %}
+    {% assign hidden = true %}
+    {% if forloop.first %}
+      {% assign hidden = false %}
+    {% endif %}
+    <section
+      class="vql-tabs__panel"
+      id="{{ panel_id }}"
+      role="tabpanel"
+      aria-labelledby="{{ button_id }}"
+      {% if hidden %}hidden{% endif %}
+      data-vql-panel
+    >
+      {{ include[content_key] | markdownify }}
+    </section>
+  {% endfor %}
+</div>

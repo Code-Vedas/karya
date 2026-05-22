@@ -1,0 +1,77 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module WorkflowRuntimeSupport
+        class WorkflowRegistration
+          attr_reader workflow_id: String
+          attr_reader workflow_family: String
+          attr_reader workflow_version: String
+          attr_reader step_job_ids: Hash[Symbol, String]
+          attr_reader step_id_by_job_id: Hash[String, Symbol]
+          attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+          attr_reader approval_requirements_by_job_id: workflow_requirement_map
+          attr_reader interaction_requirements_by_job_id: workflow_requirement_map
+          attr_reader interaction_supported_keys: Hash[workflow_interaction_key, bool]
+          attr_reader compensation_jobs_by_step_id: Hash[Symbol, String]
+          attr_reader child_workflow_ids_by_step_id: Hash[Symbol, String]
+
+          def initialize: (
+            String,
+            String,
+            String,
+            Hash[Symbol, String],
+            Hash[String, Symbol],
+            Hash[String, Array[String]],
+            workflow_requirement_map,
+            workflow_requirement_map,
+            Hash[workflow_interaction_key, bool],
+            Hash[Symbol, String],
+            Hash[Symbol, String]
+          ) -> void
+        end
+
+        class WorkflowApprovalDecision
+          attr_reader job_id: String
+          attr_reader state: Symbol
+          attr_reader decided_at: Time
+          attr_reader reason: String?
+
+          def self.approved: (job_id: String, decided_at: Time) -> WorkflowApprovalDecision
+          def self.rejected: (job_id: String, decided_at: Time, reason: String) -> WorkflowApprovalDecision
+          def to_snapshot_decision: () -> Hash[Symbol, durable_value]
+        end
+
+        class WorkflowChildRelationship
+          attr_reader parent_workflow_id: String
+          attr_reader parent_workflow_family: String
+          attr_reader parent_workflow_version: String
+          attr_reader parent_batch_id: String
+          attr_reader parent_step_id: String
+          attr_reader parent_job_id: String
+          attr_reader child_workflow_id: String
+          attr_reader child_workflow_family: String
+          attr_reader child_workflow_version: String
+          attr_reader child_batch_id: String
+
+          def initialize: (
+            parent_workflow_id: String,
+            parent_workflow_family: String,
+            parent_workflow_version: String,
+            parent_batch_id: String,
+            parent_step_id: String,
+            parent_job_id: String,
+            child_workflow_id: String,
+            child_workflow_family: String,
+            child_workflow_version: String,
+            child_batch_id: String
+          ) -> void
+        end
+      end
+    end
+  end
+end

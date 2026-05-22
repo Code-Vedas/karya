@@ -9,6 +9,14 @@ module Karya
     # Engine class is responsible for isolating the Karya::Rails namespace and integrating it with the Rails application.
     class Engine < ::Rails::Engine
       isolate_namespace Karya::Rails
+
+      initializer 'karya.load_config_file' do
+        Karya::Rails.load_config_file!
+      end
+
+      rake_tasks do
+        load File.expand_path('../../tasks/karya_rails_tasks.rake', __dir__)
+      end
     end
   end
 end

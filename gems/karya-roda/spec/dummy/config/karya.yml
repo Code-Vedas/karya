@@ -1,0 +1,22 @@
+<%
+backend = ENV.fetch('KARYA_FRAMEWORK_E2E_BACKEND', 'sqlite')
+default_database_url = "sqlite3://#{File.expand_path('../storage/test.sqlite3', __dir__)}"
+database_url = ENV['KARYA_FRAMEWORK_E2E_DATABASE_URL'] || default_database_url
+namespace = ENV.fetch('KARYA_FRAMEWORK_E2E_NAMESPACE', 'karya-roda-dummy')
+%>
+defaults:
+  backend: <%= backend %>
+<% if backend == 'in_memory' %>
+  backend_config: {}
+<% else %>
+  backend_config:
+    url: <%= database_url %>
+    namespace: <%= namespace %>
+<% end %>
+  job_paths:
+    - app/jobs
+  boot_files: []
+
+development: {}
+test: {}
+production: {}

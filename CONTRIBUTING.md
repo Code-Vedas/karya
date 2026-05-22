@@ -24,7 +24,7 @@ The table below provides an overview of all possible modules/components:
 
 | Module/Component           | Description                           | Related Language/Framework |
 | -------------------------- | ------------------------------------- | -------------------------- |
-| `core/karya/`              | Canonical core gem, CLI root, backends, and shared SQL integration surfaces | Ruby |
+| `gems/karya/`              | Canonical core gem, CLI root, backends, and shared SQL integration surfaces | Ruby |
 | `gems/karya-dashboard/`    | Dashboard UI package and Ruby wrapper | Ruby / React / TypeScript  |
 | `gems/karya-rails/`        | Rails integration scaffold            | Ruby / Rails               |
 | `gems/karya-sinatra/`      | Sinatra integration scaffold          | Ruby / Sinatra             |
@@ -67,10 +67,10 @@ Before creating a pull request, ensure the following:
 
 ### Gem development baseline
 
-The canonical core package lives under `core/karya/`. Other gems follow the same package-local workflow. Use Ruby `3.2+` and run gem-local commands from the package directory you are working in unless a guide explicitly says otherwise.
+The canonical core package lives under `gems/karya/`. Other gems follow the same package-local workflow. Use Ruby `3.2+` and run gem-local commands from the package directory you are working in unless a guide explicitly says otherwise.
 
 ```bash
-cd core/karya
+cd gems/karya
 bundle install
 bin/rspec-unit
 bin/rubocop
@@ -81,10 +81,10 @@ gitleaks dir --no-banner .
 bundle exec exe/karya --help
 ```
 
-The `core/karya/spec/support/` directory is reserved for shared gem-level test helpers. Framework dummy-app helpers will be added separately.
+The `gems/karya/spec/support/` directory is reserved for shared gem-level test helpers. Framework dummy-app helpers will be added separately.
 
-When `core/karya` code is split into responsibility-named files, mirror that
-split in unit specs under `core/karya/spec/` where the file owns direct
+When `gems/karya` code is split into responsibility-named files, mirror that
+split in unit specs under `gems/karya/spec/` where the file owns direct
 behavior. Keep broad owner specs focused on public APIs and integration flows.
 
 ### Issue
@@ -151,7 +151,7 @@ Pick the version number from draft release notes on the
    ```
 
 2. **Update the version**
-   Update the version in `core/karya/karya.gemspec` and `core/karya/lib/karya/version.rb` to `<version>`.
+   Update the version in `gems/karya/karya.gemspec` and `gems/karya/lib/karya/version.rb` to `<version>`.
 
 3. **Update CHANGELOG**
    Copy the draft release notes from the
@@ -160,7 +160,7 @@ Pick the version number from draft release notes on the
 
 4. **Docs sweep**
    Update all relevant docs to reflect this version (version number, features, fixes, usage):
-   - Root `README.md` and `core/karya/README.md`
+   - Root `README.md` and `gems/karya/README.md`
    - `CONTRIBUTING.md` (if contributor process changed)
 
 5. **Verify release notes**
@@ -170,7 +170,7 @@ Pick the version number from draft release notes on the
    Run lint and tests locally (CI will run them again):
 
    ```bash
-   cd core/karya
+   cd gems/karya
    bundle exec rubocop
    bundle exec rspec
    ```

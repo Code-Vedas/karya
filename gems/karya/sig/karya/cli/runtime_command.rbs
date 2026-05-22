@@ -1,0 +1,25 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  class CLI
+    class RuntimeCommand < Thor
+      def self.exit_on_failure?: () -> bool
+
+      def show: () -> nil
+
+      def drain: () -> nil
+
+      def force_stop: () -> nil
+
+      private
+
+      def runtime_control_state_file: () -> String
+      def raise_runtime_control_error: (
+        Karya::WorkerSupervisor::InvalidRuntimeStateFileError | Karya::WorkerSupervisor::RuntimeControlUnavailableError error
+      ) -> void
+    end
+  end
+end

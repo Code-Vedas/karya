@@ -1,0 +1,16 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module FrameworkRuntimeIdentity
+      def self.parse_queues: (String | Array[Karya::state_name] value) -> Array[String]
+      def self.worker_name: (queues: String | Array[Karya::state_name], ?name: Karya::state_name?) -> String
+      def self.worker_id: (framework_name: String, queues: String | Array[Karya::state_name], ?name: Karya::state_name?) -> String
+      def self.state_file: (root_path: String, queues: String | Array[Karya::state_name], ?name: Karya::state_name?) -> String
+      def self.ensure_state_directory!: (String path) -> String
+    end
+  end
+end

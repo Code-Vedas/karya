@@ -1,0 +1,704 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module Operations
+        module WorkflowEnqueueSupport
+          private
+
+          def build_registration: (
+            definition: Workflow::Definition,
+            binding: Workflow::ExecutionBinding,
+            step_job_ids: Hash[Symbol, String]
+          ) -> WorkflowRuntimeSupport::WorkflowRegistration
+          def build_workflow_batch: (
+            namespace: String,
+            batch_id: String,
+            queued_jobs: Array[Job],
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            now: Time
+          ) -> row
+          def build_workflow_step_rows: (
+            namespace: String,
+            batch_id: String,
+            queued_jobs: Array[Job],
+            registration: WorkflowRuntimeSupport::WorkflowRegistration
+          ) -> row_group
+          def build_workflow_registration_history_rows: (
+            rows: runtime_rows,
+            namespace: String,
+            batch_id: String,
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            occurred_at: Time
+          ) -> row_group
+          def flow_report: (
+            action: Symbol,
+            now: Time,
+            requested_job_ids: Array[String],
+            changed_jobs: Array[Job],
+            skipped_jobs: row_group
+          ) -> QueueStore::Internal::BulkMutationReport
+          def workflow_step_job_ids: (Workflow::Definition, Array[Job]) -> Hash[Symbol, String]
+          def workflow_binding_for: (Workflow::Definition) -> Workflow::ExecutionBinding
+          def enqueue_workflow_result: (
+            now: Time,
+            action: Symbol,
+            queued_jobs: Array[Job],
+            inserts: rows
+          ) -> OperationResult
+          def queue_job_inserts: (String, Array[Job], row_group) -> rows
+        end
+
+        module WorkflowRuntimeContextSupport
+          private
+
+          def workflow_runtime_context: (OperationContext, now: Time, ?recover: bool) -> [runtime_rows, runtime_rows]
+          def apply_recovery_to_workflow_rows: (runtime_rows, Array[Job]) -> runtime_rows
+          def workflow_target: (String, runtime_rows, Time) -> [Workflow::Batch, WorkflowRuntimeSupport::WorkflowRegistration, Workflow::Snapshot]
+          def terminal_workflow_control!: (Workflow::Snapshot, String, String) -> void
+          def workflow_control_row: (
+            rows: runtime_rows,
+            namespace: String,
+            batch_id: String,
+            entry: Workflow::HistoryEntry
+          ) -> row
+        end
+
+        class WorkflowControlEntryBuilder
+          def initialize: (
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            batch_id: String,
+            kind: Symbol,
+            action: Symbol,
+            occurred_at: Time,
+            ?step_id: Symbol | String,
+            ?job_id: String,
+            ?child_batch_id: String,
+            ?details: Hash[String | Symbol, durable_value]
+          ) -> void
+          def build: () -> Workflow::HistoryEntry
+        end
+
+        class ChildWorkflowPayload
+          attr_reader definition: Workflow::Definition
+          attr_reader binding: Workflow::ExecutionBinding
+          attr_reader queued_jobs: Array[Job]
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+
+          def initialize: (
+            definition: Workflow::Definition,
+            binding: Workflow::ExecutionBinding,
+            queued_jobs: Array[Job],
+            registration: WorkflowRuntimeSupport::WorkflowRegistration
+          ) -> void
+        end
+
+        class ChildWorkflowParentContext
+          attr_reader batch_id: String
+          attr_reader step_id: String
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader job_id: String
+
+          def initialize: (
+            batch_id: String,
+            step_id: String,
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            job_id: String
+          ) -> void
+          def relationship_payload: () -> Hash[Symbol, String]
+        end
+
+        class ChildWorkflowRequest
+          attr_reader now: Time
+          attr_reader rows: runtime_rows
+          attr_reader workflow: ChildWorkflowPayload
+          attr_reader parent: ChildWorkflowParentContext
+
+          def initialize: (
+            now: Time,
+            rows: runtime_rows,
+            workflow: ChildWorkflowPayload,
+            parent: ChildWorkflowParentContext
+          ) -> void
+
+          def definition: () -> Workflow::Definition
+          def binding: () -> Workflow::ExecutionBinding
+          def queued_jobs: () -> Array[Job]
+          def registration: () -> WorkflowRuntimeSupport::WorkflowRegistration
+        end
+
+        class ChildWorkflowRequestBuilder
+          def initialize: (operation: Operation, context: OperationContext) -> void
+          def build: () -> ChildWorkflowRequest
+        end
+
+        class ChildWorkflowHistoryDetails
+          def initialize: (parent: ChildWorkflowParentContext, definition: Workflow::Definition) -> void
+          def to_h: () -> Hash[String, String]
+        end
+
+        class WorkflowInteractionRequest
+          attr_reader namespace: String
+          attr_reader now: Time
+          attr_reader batch_id: String
+          attr_reader rows: runtime_rows
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader snapshot: Workflow::Snapshot
+          attr_reader interaction: Workflow::InteractionSnapshot
+
+          def initialize: (
+            namespace: String,
+            now: Time,
+            batch_id: String,
+            rows: runtime_rows,
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            snapshot: Workflow::Snapshot,
+            interaction: Workflow::InteractionSnapshot
+          ) -> void
+
+          def name: () -> String
+          def with_history_row: (row) -> WorkflowInteractionRequest
+        end
+
+        class WorkflowInteractionRequestBuilder
+          def initialize: (operation: Operation, context: OperationContext, kind: Symbol) -> void
+          def build: () -> WorkflowInteractionRequest
+        end
+
+        class WorkflowInteractionHistoryBuilder
+          def initialize: (operation: Operation, interaction_request: WorkflowInteractionRequest, kind: Symbol) -> void
+          def build: () -> row
+        end
+
+        class WorkflowControlRequest
+          attr_reader namespace: String
+          attr_reader now: Time
+          attr_reader batch_id: String
+          attr_reader rows: runtime_rows
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader snapshot: Workflow::Snapshot
+
+          def initialize: (
+            namespace: String,
+            now: Time,
+            batch_id: String,
+            rows: runtime_rows,
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            snapshot: Workflow::Snapshot
+          ) -> void
+        end
+
+        class WorkflowControlRequestBuilder
+          def initialize: (operation: Operation, context: OperationContext, control_verb: String, ?recover: bool) -> void
+          def build: () -> WorkflowControlRequest
+        end
+
+        class PauseWorkflowMutationBuilder
+          def initialize: (operation: Operation, control_request: WorkflowControlRequest, recovery_plan: MutationPlan) -> void
+          def build: () -> MutationPlan
+        end
+
+        class ResumeWorkflowMutationBuilder
+          def initialize: (operation: Operation, control_request: WorkflowControlRequest) -> void
+          def build: () -> MutationPlan
+        end
+
+        class WorkflowSignalApprovalRows
+          attr_reader policy_rows: row_group
+          attr_reader history_rows: row_group
+
+          def initialize: (
+            policy_rows: row_group,
+            history_rows: row_group
+          ) -> void
+        end
+
+        class WorkflowSignalApprovalBuilder
+          def initialize: (operation: Operation, interaction_request: WorkflowInteractionRequest) -> void
+          def build: () -> WorkflowSignalApprovalRows
+        end
+
+        class WorkflowEnqueueRequest
+          attr_reader namespace: String
+          attr_reader definition: Workflow::Definition
+          attr_reader now: Time
+          attr_reader batch_id: String
+          attr_reader rows: runtime_rows
+          attr_reader queued_jobs: Array[Job]
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+
+          def initialize: (
+            namespace: String,
+            definition: Workflow::Definition,
+            now: Time,
+            batch_id: String,
+            rows: runtime_rows,
+            queued_jobs: Array[Job],
+            registration: WorkflowRuntimeSupport::WorkflowRegistration
+          ) -> void
+        end
+
+        class WorkflowEnqueueRequestBuilder
+          def initialize: (operation: Operation, context: OperationContext) -> void
+          def build: () -> WorkflowEnqueueRequest
+        end
+
+        class WorkflowRegistrationBuilder
+          def self.step_job_ids_for: (Workflow::Definition, Array[Job]) -> Hash[Symbol, String]
+
+          def initialize: (
+            operation: Operation,
+            definition: Workflow::Definition,
+            binding: Workflow::ExecutionBinding,
+            queued_jobs: Array[Job]
+          ) -> void
+          def build: () -> WorkflowRuntimeSupport::WorkflowRegistration
+        end
+
+        class WorkflowQueueJobInsertBuilder
+          def initialize: (
+            namespace: String,
+            queued_jobs: Array[Job],
+            existing_queue_entries: row_group
+          ) -> void
+          def build: () -> rows
+        end
+
+        class WorkflowFlowReportBuilder
+          def initialize: (
+            action: Symbol,
+            now: Time,
+            requested_job_ids: Array[String],
+            changed_jobs: Array[Job],
+            skipped_jobs: row_group
+          ) -> void
+          def build: () -> QueueStore::Internal::BulkMutationReport
+        end
+
+        class WorkflowEnqueueResultBuilder
+          def initialize: (
+            now: Time,
+            action: Symbol,
+            queued_jobs: Array[Job],
+            inserts: rows
+          ) -> void
+          def build: () -> OperationResult
+        end
+
+        class WorkflowInteractionResultBuilder
+          def initialize: (
+            action: Symbol,
+            interaction_row: row,
+            history_row: row,
+            approval_rows: WorkflowSignalApprovalRows,
+            interaction_request: WorkflowInteractionRequest
+          ) -> void
+          def build: () -> OperationResult
+        end
+
+        class SyncChildTransition
+          attr_reader parent_job: Job?
+          attr_reader mutated_job: Job?
+          attr_reader action: Symbol?
+          attr_reader details: Hash[String, durable_value]?
+          attr_reader child_batch_id: String?
+
+          def initialize: (
+            ?parent_job: Job?,
+            ?mutated_job: Job?,
+            ?action: Symbol?,
+            ?details: Hash[String, durable_value]?,
+            ?child_batch_id: String?
+          ) -> void
+        end
+
+        class SyncChildWorkflowRequest
+          attr_reader namespace: String
+          attr_reader context: OperationContext
+          attr_reader rows: runtime_rows
+          attr_reader parent_batch_id: String
+          attr_reader parent_registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader relationships: Array[WorkflowRuntimeSupport::WorkflowChildRelationship]
+          attr_reader now: Time
+
+          def initialize: (
+            namespace: String,
+            context: OperationContext,
+            rows: runtime_rows,
+            parent_batch_id: String,
+            parent_registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            relationships: Array[WorkflowRuntimeSupport::WorkflowChildRelationship],
+            now: Time
+          ) -> void
+        end
+
+        class SyncChildWorkflowRequestBuilder
+          def initialize: (operation: Operation, context: OperationContext) -> void
+          def build: () -> SyncChildWorkflowRequest
+        end
+
+        class SyncChildWorkflowTransitionBuilder
+          def initialize: (operation: Operation, rows: runtime_rows, job_id: String, now: Time) -> void
+          def build: () -> SyncChildTransition
+        end
+
+        class SyncChildWorkflowAccumulator
+          attr_reader rows: runtime_rows
+          attr_reader plans: Array[MutationPlan]
+          attr_reader history_rows: row_group
+          attr_reader changed_jobs: Array[Job]
+
+          def initialize: (operation: Operation, rows: runtime_rows) -> void
+          def skip: (row_group, SyncChildTransition, String) -> runtime_rows
+          def apply_change: (SyncChildWorkflowHistoryRequest, Array[Job], String, SyncChildTransition) -> runtime_rows
+        end
+
+        class SyncChildWorkflowHistoryRequest
+          attr_reader context: OperationContext
+          attr_reader namespace: String
+          attr_reader parent_batch_id: String
+          attr_reader parent_registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader now: Time
+
+          def initialize: (
+            context: OperationContext,
+            namespace: String,
+            parent_batch_id: String,
+            parent_registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            now: Time
+          ) -> void
+        end
+
+        class SyncChildWorkflowHistoryContext
+          attr_reader rows: runtime_rows
+          attr_reader history_rows: row_group
+          attr_reader request: SyncChildWorkflowHistoryRequest
+
+          def initialize: (
+            rows: runtime_rows,
+            history_rows: row_group,
+            request: SyncChildWorkflowHistoryRequest
+          ) -> void
+        end
+
+        class SyncChildWorkflowHistoryRowBuilder
+          def initialize: (
+            operation: Operation,
+            context: SyncChildWorkflowHistoryContext,
+            job_id: String,
+            transition: SyncChildTransition
+          ) -> void
+          def build: () -> row
+        end
+
+        class SyncChildWorkflowMutationPlanBuilder
+          def initialize: (base_plan: MutationPlan, history_rows: row_group) -> void
+          def build: () -> MutationPlan
+        end
+
+        class SyncChildWorkflowReportBuilder
+          def initialize: (operation: Operation, request: SyncChildWorkflowRequest, accumulator: SyncChildWorkflowAccumulator) -> void
+          def build: () -> [QueueStore::Internal::BulkMutationReport, bool]
+        end
+
+        class SyncChildWorkflowResultBuilder
+          def initialize: (operation: Operation, request: SyncChildWorkflowRequest) -> void
+          def build: () -> [QueueStore::Internal::BulkMutationReport, MutationPlan, bool]
+        end
+
+        class RejectionCheckpointRequest
+          attr_reader context: OperationContext
+          attr_reader batch_id: String
+          attr_reader rows: runtime_rows
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader snapshot: Workflow::Snapshot
+          attr_reader job_ids: Array[String]
+          attr_reader now: Time
+          attr_reader reason: String
+
+          def initialize: (
+            context: OperationContext,
+            batch_id: String,
+            rows: runtime_rows,
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            snapshot: Workflow::Snapshot,
+            job_ids: Array[String],
+            now: Time,
+            reason: String
+          ) -> void
+        end
+
+        class RejectionCheckpointRequestBuilder
+          def initialize: (operation: Operation, context: OperationContext) -> void
+          def build: () -> RejectionCheckpointRequest
+        end
+
+        class RejectionCheckpointAccumulator
+          attr_reader changed_jobs: Array[Job]
+          attr_reader plans: Array[MutationPlan]
+          attr_reader history_rows: row_group
+
+          def initialize: () -> void
+          def apply_change: (Array[Job], Job, MutationPlan, row) -> void
+        end
+
+        class RejectionCheckpointProcessor
+          def initialize: (
+            operation: Operation,
+            request: RejectionCheckpointRequest,
+            accumulator: RejectionCheckpointAccumulator
+          ) -> void
+          def process: (
+            rows: runtime_rows,
+            job_id: String,
+            report_changed_jobs: Array[Job],
+            report_skipped_jobs: row_group
+          ) -> runtime_rows
+        end
+
+        class RejectionCheckpointPlanBuilder
+          def initialize: (
+            operation: Operation,
+            request: RejectionCheckpointRequest,
+            accumulator: RejectionCheckpointAccumulator
+          ) -> void
+          def build: () -> MutationPlan
+        end
+
+        class RejectionCheckpointResultBuilder
+          def initialize: (operation: Operation, request: RejectionCheckpointRequest) -> void
+          def build: () -> [QueueStore::Internal::BulkMutationReport, MutationPlan, bool]
+        end
+
+        class WorkflowStepBulkRequest
+          attr_reader context: OperationContext
+          attr_reader action: Symbol
+          attr_reader now: Time
+          attr_reader batch_id: String
+          attr_reader rows: runtime_rows
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader job_ids: Array[String]
+
+          def initialize: (
+            context: OperationContext,
+            action: Symbol,
+            now: Time,
+            batch_id: String,
+            rows: runtime_rows,
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            job_ids: Array[String]
+          ) -> void
+        end
+
+        class WorkflowStepBulkRequestBuilder
+          def initialize: (
+            operation: Operation,
+            context: OperationContext,
+            action: Symbol,
+            now: Time
+          ) -> void
+          def build: () -> WorkflowStepBulkRequest
+        end
+
+        class WorkflowStepBulkAccumulator
+          attr_reader changed_jobs: Array[Job]
+          attr_reader plans: Array[MutationPlan]
+          attr_reader history_rows: row_group
+
+          def initialize: () -> void
+          def apply_change: (Array[Job], Job, MutationPlan, row) -> void
+        end
+
+        class WorkflowStepBulkHistoryRowBuilder
+          def initialize: (
+            operation: Operation,
+            request: WorkflowStepBulkRequest,
+            rows: runtime_rows,
+            job_id: String,
+            accumulator: WorkflowStepBulkAccumulator
+          ) -> void
+          def build: () -> row
+        end
+
+        class WorkflowStepBulkMutationBuilder
+          def self.build: (
+            rows: runtime_rows,
+            job_id: String,
+            skipped_jobs: row_group
+          ) -> WorkflowStepBulkOperation::WorkflowBulkMutation
+        end
+
+        class WorkflowStepBulkPlanBuilder
+          def initialize: (operation: Operation, accumulator: WorkflowStepBulkAccumulator) -> void
+          def build: () -> MutationPlan
+        end
+
+        class WorkflowStepBulkReportBuilder
+          def initialize: (
+            operation: Operation,
+            request: WorkflowStepBulkRequest,
+            accumulator: WorkflowStepBulkAccumulator,
+            transition_block: ^(WorkflowStepBulkOperation::WorkflowBulkMutation) -> Job?
+          ) -> void
+          def build: () -> [QueueStore::Internal::BulkMutationReport, bool]
+        end
+
+        class WorkflowStepSkippedJobBuilder
+          def self.build: (
+            mutation: WorkflowStepBulkOperation::WorkflowBulkMutation,
+            reason: Symbol
+          ) -> nil
+        end
+
+        class WorkflowStepUniquenessConflictGuard
+          def initialize: (
+            operation: Operation,
+            mutation: WorkflowStepBulkOperation::WorkflowBulkMutation,
+            job: Job,
+            now: Time
+          ) -> void
+          def skip_conflict?: () -> bool
+        end
+
+        class RetryWorkflowStepTransitionBuilder
+          def initialize: (
+            operation: Operation,
+            mutation: WorkflowStepBulkOperation::WorkflowBulkMutation,
+            now: Time
+          ) -> void
+          def build: () -> Job?
+        end
+
+        class DeadLetterWorkflowStepTransitionBuilder
+          def initialize: (
+            mutation: WorkflowStepBulkOperation::WorkflowBulkMutation,
+            now: Time,
+            reason: String
+          ) -> void
+          def build: () -> Job?
+        end
+
+        class ReplayWorkflowStepTransitionBuilder
+          def initialize: (
+            operation: Operation,
+            mutation: WorkflowStepBulkOperation::WorkflowBulkMutation,
+            now: Time
+          ) -> void
+          def build: () -> Job?
+        end
+
+        class RetryDeadLetterWorkflowStepTransitionBuilder
+          def initialize: (
+            operation: Operation,
+            mutation: WorkflowStepBulkOperation::WorkflowBulkMutation,
+            now: Time,
+            next_retry_at: Time
+          ) -> void
+          def build: () -> Job?
+        end
+
+        class DiscardWorkflowStepTransitionBuilder
+          def initialize: (
+            mutation: WorkflowStepBulkOperation::WorkflowBulkMutation,
+            now: Time
+          ) -> void
+          def build: () -> Job?
+        end
+
+        class WorkflowEnqueueInsertBuilder
+          def initialize: (
+            operation: Operation,
+            enqueue_request: WorkflowEnqueueRequest
+          ) -> void
+          def build: () -> rows
+        end
+
+        class RollbackRequest
+          attr_reader now: Time
+          attr_reader batch_id: String
+          attr_reader rows: runtime_rows
+          attr_reader rollback_plan: RollbackPlan
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader rollback_batch_id: String
+          attr_reader rollback_step_ids: Array[Symbol]
+          attr_reader queued_jobs: Array[Job]
+          attr_reader reason: String
+
+          def initialize: (
+            now: Time,
+            batch_id: String,
+            rows: runtime_rows,
+            rollback_plan: RollbackPlan
+          ) -> void
+        end
+
+        class RollbackPlan
+          attr_reader registration: WorkflowRuntimeSupport::WorkflowRegistration
+          attr_reader rollback_batch_id: String
+          attr_reader rollback_step_ids: Array[Symbol]
+          attr_reader queued_jobs: Array[Job]
+          attr_reader reason: String
+
+          def initialize: (
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            rollback_batch_id: String,
+            rollback_step_ids: Array[Symbol],
+            queued_jobs: Array[Job],
+            reason: String
+          ) -> void
+        end
+
+        class RollbackJobsBuilder
+          def initialize: (
+            snapshot: Workflow::Snapshot,
+            registration: WorkflowRuntimeSupport::WorkflowRegistration
+          ) -> void
+          def build: () -> Array[[Symbol, Job]]
+        end
+
+        class RollbackRequestBuilder
+          def initialize: (operation: Operation, context: OperationContext) -> void
+          def build: () -> RollbackRequest
+        end
+
+        class RollbackRegistrationBuilder
+          def initialize: (
+            registration: WorkflowRuntimeSupport::WorkflowRegistration,
+            rollback_step_ids: Array[Symbol],
+            queued_jobs: Array[Job]
+          ) -> void
+          def build: () -> WorkflowRuntimeSupport::WorkflowRegistration
+        end
+
+        class RollbackHistoryDetails
+          def initialize: (queued_jobs: Array[Job]) -> void
+          def to_h: () -> Hash[String, durable_value]
+        end
+
+        class RollbackInsertBuilder
+          def initialize: (operation: Operation, namespace: String, rollback_request: RollbackRequest) -> void
+          def build: () -> rows
+        end
+
+        class ChildWorkflowInsertBuilder
+          def initialize: (operation: Operation, namespace: String, child_request: ChildWorkflowRequest) -> void
+          def build: () -> rows
+        end
+
+        module WorkflowOperationSupport
+          include WorkflowEnqueueSupport
+          include WorkflowRuntimeContextSupport
+
+          private
+
+          def normalized_workflow_now: () -> Time
+          def normalized_workflow_batch_id: (?field_name: Symbol) -> String
+        end
+      end
+    end
+  end
+end

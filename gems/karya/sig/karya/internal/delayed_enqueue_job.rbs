@@ -1,0 +1,28 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    class DelayedEnqueueJob
+      def self.perform: (String payload) -> Job
+      def self.serialize_request: (
+        queue: String,
+        handler: String,
+        arguments: Karya::job_arguments,
+        job_id: String,
+        created_at: Time,
+        scheduled_at: Time
+      ) -> String
+      def self.deserialize_request: (String payload) -> {
+        "queue" => String,
+        "handler" => String,
+        "arguments" => Karya::job_arguments,
+        "job_id" => String,
+        "created_at" => Time,
+        "scheduled_at" => Time
+      }
+    end
+  end
+end

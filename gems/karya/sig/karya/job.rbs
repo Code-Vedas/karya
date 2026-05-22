@@ -1,0 +1,273 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  # Raised when a canonical job attribute is invalid.
+  class InvalidJobAttributeError < Error
+  end
+
+  # Immutable value object for the canonical queued job model.
+  class Job
+    type lifecycle_extensions_snapshot = {
+      state_names: Karya::normalized_state_name_array,
+      terminal_state_names: Karya::normalized_state_name_array,
+      transitions: Karya::normalized_transition_map
+    }
+    type identifier_input = String | Symbol
+
+    type marshaled_attributes = {
+      id: String,
+      queue: String,
+      handler: String,
+      arguments: Karya::job_arguments,
+      priority: Integer,
+      concurrency_scope: Backpressure::Scope?,
+      rate_limit_scope: Backpressure::Scope?,
+      retry_policy: RetryPolicy?,
+      execution_timeout: Numeric?,
+      expires_at: Time?,
+      idempotency_key: String?,
+      uniqueness_key: String?,
+      uniqueness_scope: Karya::uniqueness_scope?,
+      lifecycle_extensions: lifecycle_extensions_snapshot,
+      state: Karya::state_name,
+      attempt: Integer,
+      created_at: Time,
+      enqueued_at: Time,
+      updated_at: Time,
+      next_retry_at: Time?,
+      failure_classification: Karya::failure_classification?,
+      dead_letter_reason: String?,
+      dead_lettered_at: Time?,
+      dead_letter_source_state: Karya::state_name?
+    }
+
+    module MarshalSupport
+      class LifecycleExtensionsSnapshot
+        @state_names: Karya::normalized_state_name_array
+        @terminal_state_names: Karya::normalized_state_name_array
+        @transitions: Karya::normalized_transition_map
+
+        def initialize: (
+          state_names: Karya::normalized_state_name_array,
+          terminal_state_names: Karya::normalized_state_name_array,
+          transitions: Karya::normalized_transition_map
+        ) -> void
+
+        def self.dump: (Karya::JobLifecycle::Registry lifecycle) -> lifecycle_extensions_snapshot
+        def self.load: (lifecycle_extensions_snapshot snapshot) -> Karya::JobLifecycle::Registry
+        def to_h: () -> lifecycle_extensions_snapshot
+        def restore: () -> Karya::JobLifecycle::Registry
+
+        private
+
+        attr_reader state_names: Karya::normalized_state_name_array
+        attr_reader terminal_state_names: Karya::normalized_state_name_array
+        attr_reader transitions: Karya::normalized_transition_map
+
+        def register_states: (Karya::JobLifecycle::Registry registry) -> Array[Karya::normalized_state_name]
+        def register_transitions: (Karya::JobLifecycle::Registry registry) -> Hash[Karya::normalized_state_name, Karya::normalized_state_name_array]
+        def register_transition_targets: (Karya::JobLifecycle::Registry registry, Karya::normalized_state_name from_state) -> Karya::normalized_state_name_array
+      end
+
+      private
+
+      def marshal_dump: () -> marshaled_attributes
+      def marshal_load: (marshaled_attributes attributes) -> void
+      def lifecycle_extensions_snapshot: () -> lifecycle_extensions_snapshot
+    end
+
+    class Identity
+      @id: String
+      @queue: String
+      @handler: String
+      @arguments: job_arguments
+
+      attr_reader id: String
+      attr_reader queue: String
+      attr_reader handler: String
+      attr_reader arguments: job_arguments
+    end
+
+    class Scheduling
+      @priority: Integer
+      @concurrency_scope: Backpressure::Scope?
+      @rate_limit_scope: Backpressure::Scope?
+      @retry_policy: RetryPolicy?
+      @execution_timeout: Numeric?
+      @expires_at: Time?
+      @idempotency_key: String?
+      @uniqueness_key: String?
+      @uniqueness_scope: uniqueness_scope?
+
+      attr_reader priority: Integer
+      attr_reader concurrency_scope: Backpressure::Scope?
+      attr_reader rate_limit_scope: Backpressure::Scope?
+      attr_reader retry_policy: RetryPolicy?
+      attr_reader execution_timeout: Numeric?
+      attr_reader expires_at: Time?
+      attr_reader idempotency_key: String?
+      attr_reader uniqueness_key: String?
+      attr_reader uniqueness_scope: uniqueness_scope?
+    end
+
+    class LifecycleState
+      @state: state_name
+      @attempt: Integer
+      @created_at: Time
+      @enqueued_at: Time
+      @updated_at: Time
+      @next_retry_at: Time?
+      @failure_classification: failure_classification?
+      @dead_letter_reason: String?
+      @dead_lettered_at: Time?
+      @dead_letter_source_state: state_name?
+      @lifecycle: JobLifecycle::Registry
+
+      attr_reader state: state_name
+      attr_reader attempt: Integer
+      attr_reader created_at: Time
+      attr_reader enqueued_at: Time
+      attr_reader updated_at: Time
+      attr_reader next_retry_at: Time?
+      attr_reader failure_classification: failure_classification?
+      attr_reader dead_letter_reason: String?
+      attr_reader dead_lettered_at: Time?
+      attr_reader dead_letter_source_state: state_name?
+      attr_reader lifecycle: JobLifecycle::Registry
+    end
+
+    class TransitionOverrides
+      ALLOWED_KEYS: Array[Symbol]
+
+      def initialize: (Job job, Hash[Symbol, String? | Time? | state_name? | Numeric?] overrides) -> void
+
+      def to_h: () -> {
+        dead_letter_reason: String?,
+        dead_lettered_at: Time?,
+        dead_letter_source_state: state_name?,
+        execution_timeout: Numeric?,
+        expires_at: Time?
+      }
+
+      private
+
+      attr_reader job: Job
+      attr_reader overrides: Hash[Symbol, String? | Time? | state_name? | Numeric?]
+    end
+
+    class Components
+      @attributes: Hash[Symbol, Karya::job_attribute_value]
+
+      def initialize: (Hash[Symbol, Karya::job_attribute_value] attributes) -> void
+      def identity: () -> Identity
+      def scheduling: () -> Scheduling
+      def lifecycle_state: () -> LifecycleState
+
+      private
+
+      attr_reader attributes: Hash[Symbol, Karya::job_attribute_value]
+    end
+
+    @identity: Identity
+    @scheduling: Scheduling
+    @lifecycle_state: LifecycleState
+
+    attr_reader arguments: job_arguments
+
+    attr_reader attempt: Integer
+    attr_reader concurrency_key: String?
+    attr_reader concurrency_scope: Backpressure::Scope?
+
+    attr_reader created_at: Time
+    attr_reader enqueued_at: Time
+
+    attr_reader handler: String
+
+    attr_reader id: String
+    attr_reader priority: Integer
+
+    attr_reader queue: String
+    attr_reader rate_limit_key: String?
+    attr_reader rate_limit_scope: Backpressure::Scope?
+    attr_reader retry_policy: RetryPolicy?
+    attr_reader execution_timeout: Numeric?
+    attr_reader expires_at: Time?
+    attr_reader idempotency_key: String?
+    attr_reader uniqueness_key: String?
+    attr_reader uniqueness_scope: uniqueness_scope?
+
+    attr_reader state: state_name
+
+    attr_reader updated_at: Time
+    attr_reader next_retry_at: Time?
+    attr_reader failure_classification: failure_classification?
+    attr_reader dead_letter_reason: String?
+    attr_reader dead_lettered_at: Time?
+    attr_reader dead_letter_source_state: state_name?
+
+    def initialize: (
+      id: identifier_input,
+      queue: identifier_input,
+      handler: identifier_input,
+      ?arguments: Hash[state_name, job_argument],
+      ?priority: Integer,
+      ?concurrency_scope: Karya::backpressure_scope_input?,
+      ?rate_limit_scope: Karya::backpressure_scope_input?,
+      ?concurrency_key: state_name?,
+      ?rate_limit_key: state_name?,
+      ?retry_policy: Karya::retry_policy_reference?,
+      ?retry_policies: Karya::retry_policy_set_input?,
+      ?execution_timeout: Numeric?,
+      ?expires_at: Time?,
+      ?idempotency_key: job_attribute_value?,
+      ?uniqueness_key: job_attribute_value?,
+      ?uniqueness_scope: uniqueness_scope_input?,
+      state: state_name,
+      ?attempt: Integer,
+      created_at: Time,
+      ?enqueued_at: Time,
+      ?lifecycle: JobLifecycle::Registry,
+      ?updated_at: Time,
+      ?next_retry_at: Time?,
+      ?failure_classification: failure_classification_input?,
+      ?dead_letter_reason: String?,
+      ?dead_lettered_at: Time?,
+      ?dead_letter_source_state: state_name?
+    ) -> void
+
+    def can_transition_to?: (state_name next_state) -> bool
+
+    def transition_to: (
+      state_name next_state,
+      updated_at: Time,
+      ?attempt: Integer,
+      ?retry_policy: RetryPolicy?,
+      ?next_retry_at: Time?,
+      ?failure_classification: failure_classification_input?,
+      ?dead_letter_reason: String?,
+      ?dead_lettered_at: Time?,
+      ?dead_letter_source_state: state_name?,
+      ?enqueued_at: Time?,
+      ?execution_timeout: Numeric?,
+      ?expires_at: Time?
+    ) -> Job
+
+    def expire: (updated_at: Time) -> Job
+
+    def terminal?: () -> bool
+
+    private
+
+    attr_reader identity: Identity
+    attr_reader scheduling: Scheduling
+    attr_reader lifecycle_state: LifecycleState
+
+    def lifecycle: () -> JobLifecycle::Registry
+
+    def marshal_dump: () -> marshaled_attributes
+    def marshal_load: (marshaled_attributes attributes) -> void
+  end
+end

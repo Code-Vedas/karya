@@ -26,6 +26,10 @@ detectors:
     max_instance_variables: 10
   DataClump:
     enabled: false
+  UtilityFunction:
+    enabled: true
+    exclude:
+      - Karya::Hanami::CLI::Install#call
 exclude_paths:
   - spec/**/*
   - db/**/*

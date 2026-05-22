@@ -1,0 +1,81 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module Operations
+        class UniquenessDecision < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class UniquenessSnapshot < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class PauseQueue < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ResumeQueue < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class BatchSnapshot < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class BatchSnapshotValueBuilder
+          def initialize: (rows: rows, batch_id: String, captured_at: Time) -> void
+          def build: () -> Workflow::BatchSnapshot
+        end
+
+        class BackpressureSnapshotValueBuilder
+          def initialize: (
+            store: persisted_store,
+            rows: runtime_rows,
+            jobs: Hash[String, Job],
+            now: Time,
+            operation: Operation
+          ) -> void
+          def build: () -> Hash[Symbol, durable_value]
+        end
+
+        class CircuitBreakerSnapshotBuilder
+          def initialize: (
+            store: persisted_store,
+            rows: runtime_rows,
+            jobs: Hash[String, Job],
+            now: Time,
+            operation: Operation
+          ) -> void
+          def to_h: () -> Hash[String, Hash[Symbol, durable_value]]
+        end
+
+        class StuckJobRecoveryMerger
+          def initialize: (
+            rows: runtime_rows,
+            recovered_running_jobs: Array[Job],
+            now: Time
+          ) -> void
+          def merge: () -> runtime_rows
+        end
+
+        class BackpressureSnapshot < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ReliabilitySnapshot < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class Unsupported < Operation
+          def initialize: (operation_name: Symbol, store: persisted_store, request: request) -> void
+          def call: (context: OperationContext) -> OperationResult
+        end
+      end
+    end
+  end
+end

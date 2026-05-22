@@ -1,0 +1,39 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module WorkflowRuntimeSupport
+        module RollbackBatchIdentifier
+          private
+
+          def rollback_batch_id_for: (String) -> String
+        end
+
+        module RollbackEligibility
+          private
+
+          def validate_rollback_snapshot: (Workflow::Snapshot, Hash[String, Array[String]]) -> void
+          def rollback_runnable_waiting_job?: (Job, Hash[String, Array[String]], Array[Job]) -> bool
+          def rollback_eligible_snapshot?: (Workflow::Snapshot, Hash[String, Array[String]]) -> bool
+          def rollback_rejection_message: (Workflow::Snapshot, Hash[String, Array[String]]) -> String
+        end
+
+        class RollbackSnapshotEligibility
+          def initialize: (snapshot: Workflow::Snapshot, dependency_job_ids_by_job_id: Hash[String, Array[String]]) -> void
+          def eligible?: () -> bool
+          def rejection_message: () -> String
+          def runnable_waiting_job?: (Job) -> bool
+        end
+
+        module RollbackSupport
+          include RollbackBatchIdentifier
+          include RollbackEligibility
+        end
+      end
+    end
+  end
+end

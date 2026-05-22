@@ -149,7 +149,7 @@ run_cmd_env() {
 
 ruby_suites() {
   cat <<'EOF'
-core/karya
+gems/karya
 gems/karya-dashboard
 gems/karya-hanami
 gems/karya-rails

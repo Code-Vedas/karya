@@ -1,0 +1,20 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    class Redis
+      module Internal
+        class DurableStateStore
+          def initialize: (redis: ::Redis, namespace: String) -> void
+          def fetch_metadata: (namespace: String) -> Karya::Internal::DurableQueueStore::metadata
+          def fetch_rows_for_operation: (operation_name: Symbol, namespace: String, request: Karya::Internal::DurableQueueStore::request) -> Karya::Internal::DurableQueueStore::rows
+          def lock_rows_for_operation: (operation_name: Symbol, namespace: String, request: Karya::Internal::DurableQueueStore::request, metadata: Karya::Internal::DurableQueueStore::metadata, rows: Karya::Internal::DurableQueueStore::rows) -> nil
+          def apply_mutation_plan: (plan: Karya::Internal::DurableQueueStore::MutationPlan, namespace: String) -> nil
+        end
+      end
+    end
+  end
+end

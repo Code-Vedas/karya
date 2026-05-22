@@ -6,4 +6,4 @@
 # LICENSE file in the root directory of this source tree.
 require_relative 'app'
 
-run KaryaHanamiDummyApp
+run karya_hanami_dummy_app

@@ -24,4 +24,15 @@ Dir[File.expand_path('../../../spec/support/**/*.rb', __dir__)].each { |file| re
 RSpec.configure do |config|
   config.disable_monkey_patching!
   config.expect_with(:rspec) { |c| c.syntax = :expect }
+
+  config.around do |example|
+    original_global_authorizer = Karya.operator_authorizer if Karya.instance_variable_defined?(:@operator_authorizer)
+    original_framework_authorizer = Karya::Hanami.operator_authorizer
+    example.run
+  ensure
+    Karya::Hooks.reset!
+    Karya.configure_operator_authorizer(original_global_authorizer)
+    Karya::Hanami.configure_operator_authorizer(original_framework_authorizer)
+    Karya::FrameworkRuntime.reset_shared_runtime!
+  end
 end

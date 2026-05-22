@@ -1,0 +1,40 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module WorkflowRuntimeSupport
+        class RegistrationBuilder
+          def initialize: (batch_row: row, step_rows: row_group) -> void
+          def build: () -> WorkflowRegistration
+        end
+
+        class RegistrationMapsBuilder
+          def initialize: (step_rows: row_group) -> void
+          def to_h: () -> Hash[Symbol, durable_value]
+        end
+
+        class InteractionSupportedKeysBuilder
+          def initialize: (
+            approval_requirements_by_job_id: workflow_requirement_map,
+            interaction_requirements_by_job_id: workflow_requirement_map
+          ) -> void
+          def to_h: () -> Hash[workflow_interaction_key, bool]
+        end
+
+        module RegistrationLoader
+          private
+
+          def registration_for_batch: (rows, String) -> WorkflowRegistration
+          def interaction_supported_keys: (
+            workflow_requirement_map,
+            workflow_requirement_map
+          ) -> Hash[workflow_interaction_key, bool]
+        end
+      end
+    end
+  end
+end

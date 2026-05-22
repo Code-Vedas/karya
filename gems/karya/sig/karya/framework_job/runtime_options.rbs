@@ -1,0 +1,22 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module FrameworkJob
+    module RuntimeOptions
+      def self.compact: (Karya::framework_worker_options options) -> Karya::framework_worker_options
+      def self.from_env: (?Hash[String, String] env) -> Karya::framework_worker_options
+      def self.boolean_value: (Karya::framework_runtime_value value) -> bool?
+      def self.integer_value: (Karya::framework_runtime_value value) -> Integer?
+      def self.float_value: (Karya::framework_runtime_value value) -> Float?
+      def self.string_value: (Karya::framework_runtime_value value) -> String?
+      def self.raw_env_value: (Hash[String, String] env, Symbol key) -> String?
+      def self.boolean_env_value: (Hash[String, String] env, Symbol key) -> bool?
+      def self.integer_env_value: (Hash[String, String] env, Symbol key) -> Integer?
+      def self.float_env_value: (Hash[String, String] env, Symbol key) -> Float?
+      def self.string_env_value: (Hash[String, String] env, Symbol key) -> String?
+    end
+  end
+end

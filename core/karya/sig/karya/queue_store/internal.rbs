@@ -1,6 +1,0 @@
-module Karya
-  module QueueStore
-    module Internal
-    end
-  end
-end

@@ -20,6 +20,8 @@ module KaryaRodaDummyAppSupport
       FileUtils.copy_entry(DUMMY_SOURCE, app_root)
       app, = Rack::Builder.parse_file(File.join(app_root, 'config.ru'))
       yield app_root, app
+    ensure
+      FileUtils.rm_rf(File.join(app_root, 'tmp', 'karya')) if defined?(app_root)
     end
   end
 end

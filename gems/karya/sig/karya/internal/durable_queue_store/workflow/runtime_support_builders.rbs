@@ -1,0 +1,121 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module WorkflowRuntimeSupport
+        class WorkflowHistoryBuilder
+          def initialize: (host: Karya::Internal::DurableQueueStore::Operation, rows: runtime_rows) -> void
+          def snapshot: (batch_id: String, now: Time) -> Workflow::HistorySnapshot
+          def entries: (String) -> Array[Workflow::HistoryEntry]
+          def interactions: (String) -> Array[Workflow::InteractionSnapshot]
+          def history_row: (namespace: String, batch_id: String, entry: Workflow::HistoryEntry) -> row
+          def interaction_row: (namespace: String, batch_id: String, interaction: Workflow::InteractionSnapshot) -> row
+        end
+
+        class WorkflowRowMutator
+          def initialize: (host: Karya::Internal::DurableQueueStore::Operation, store: persisted_store, rows: runtime_rows) -> void
+          def batch_row: (String) -> row?
+          def batch_from_rows: (String) -> Workflow::Batch
+          def step_rows_for_batch: (String) -> row_group
+          def step_rows_for_job: (String) -> row_group
+          def row_updates_for_job: (context: OperationContext, replacement_job: Job) -> rows
+          def update_rows_with_job: (String, Job) -> runtime_rows
+          def history_rows_for_job: (namespace: String, replacement_job: Job, ?from_state: Symbol?) -> row_group
+        end
+
+        class WorkflowStepBindings
+          def initialize: (
+            ?definition: Workflow::Definition,
+            ?step_job_ids: Hash[Symbol, String],
+            ?binding: Workflow::ExecutionBinding,
+            ?registration: WorkflowRegistration,
+            ?step_ids: Array[String | Symbol]
+          ) -> void
+          def rows: () -> Hash[Symbol, workflow_requirement_map | Hash[Symbol, String]]
+          def control_job_ids: () -> Array[String]
+        end
+
+        class WorkflowEnqueueValidator
+          def initialize: (rows: runtime_rows, now: Time) -> void
+          def validate: (Array[Job]) -> Array[Job]
+        end
+
+        class WorkflowDependencyTarget
+          attr_reader registration: WorkflowRegistration
+          attr_reader batch_id: String
+
+          def initialize: (registration: WorkflowRegistration, batch_id: String) -> void
+        end
+
+        class WorkflowDependencyEvaluator
+          def initialize: (
+            host: Karya::Internal::DurableQueueStore::Operation,
+            rows: runtime_rows,
+            job: Job,
+            now: Time,
+            ?target: WorkflowDependencyTarget?
+          ) -> void
+          def satisfied?: () -> bool
+          def paused?: () -> bool
+          def interaction_satisfied?: () -> bool
+          def approval_satisfied?: () -> bool
+          def child_satisfied?: () -> bool
+        end
+
+        class WorkflowHistoryEntryDecoder
+          def initialize: (row: row, batch_id: String) -> void
+          def decode: () -> Workflow::HistoryEntry
+        end
+
+        class WorkflowInteractionSnapshotDecoder
+          def initialize: (row: row) -> void
+          def decode: () -> Workflow::InteractionSnapshot
+        end
+
+        class WorkflowChildRelationships
+          def initialize: (host: Karya::Internal::DurableQueueStore::Operation, rows: runtime_rows) -> void
+          def parent_snapshot: (batch_id: String, now: Time, cache: Hash[String, Symbol], visiting: Hash[String, bool]) -> Workflow::ChildWorkflowSnapshot?
+          def snapshots_for_parent_batch: (batch_id: String, now: Time, cache: Hash[String, Symbol], visiting: Hash[String, bool]) -> Array[Workflow::ChildWorkflowSnapshot]
+          def for_parent_batch: (String) -> Array[WorkflowChildRelationship]
+          def for_parent_job: (String) -> WorkflowChildRelationship?
+          def for_parent_step: (String, String) -> WorkflowChildRelationship?
+          def for_child_batch: (String) -> WorkflowChildRelationship?
+        end
+
+        class ChildRelationshipPolicyRow
+          POLICY_KIND: String
+
+          def initialize: (row: row) -> void
+          def matches?: (scope_kind: String, scope_value: String) -> bool
+          def parent_scope?: (String) -> bool
+          def to_relationship: () -> WorkflowChildRelationship
+        end
+
+        class ChildWorkflowSnapshotContext
+          attr_reader host: Karya::Internal::DurableQueueStore::Operation
+          attr_reader rows: runtime_rows
+          attr_reader now: Time
+          attr_reader cache: Hash[String, Symbol]
+          attr_reader visiting: Hash[String, bool]
+
+          def initialize: (
+            host: Karya::Internal::DurableQueueStore::Operation,
+            rows: runtime_rows,
+            now: Time,
+            cache: Hash[String, Symbol],
+            visiting: Hash[String, bool]
+          ) -> void
+        end
+
+        class ChildWorkflowSnapshotBuilder
+          def initialize: (snapshot_context: ChildWorkflowSnapshotContext, relationship: WorkflowChildRelationship) -> void
+          def build: () -> Workflow::ChildWorkflowSnapshot
+        end
+      end
+    end
+  end
+end

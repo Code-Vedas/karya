@@ -1,0 +1,84 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module Operations
+        class JobRow
+          def initialize: (row: row) -> void
+          def to_job: () -> Job
+          def attributes: () -> Hash[Symbol, Karya::job_attribute_value]
+        end
+
+        class JobRuntimeRows
+          def initialize: (namespace: String, rows: runtime_rows) -> void
+          def job_for: (String job_id) -> Job?
+          def deletes_for: (job_id: String, delete_queue_entries: bool, delete_reservations: bool) -> rows
+          def queue_entry_insert_groups_for: (Job job) -> rows
+          def enqueue_insert_groups_for: (Job job) -> rows
+          def append_enqueued: (Job job) -> runtime_rows
+          def replace: (job_id: String, replacement_job: Job) -> runtime_rows
+        end
+
+        class PolicyStateRow
+          def initialize: (row: row?) -> void
+          def payload: (?default: durable_value) -> durable_value
+        end
+
+        class LeaseContext
+          attr_reader job: Job
+          attr_reader now: Time
+          attr_reader reservation_row: row
+          attr_reader reservation_token: String
+
+          def initialize: (job: Job, now: Time, reservation_row: row, reservation_token: String) -> void
+        end
+
+        class RowIndex
+          class ReservationRow
+            def initialize: (row: row) -> void
+            def job_id: () -> String
+            def worker_id: () -> String
+            def reservation_token: () -> String
+            def to_job: (Hash[String, row] jobs_by_id) -> Job
+          end
+
+          def initialize: (rows: rows | runtime_rows) -> void
+          def jobs_by_id: () -> Hash[String, row]
+          def queue_entries_for: (String job_id) -> row_group
+          def reservations_for: (String job_id, ?worker_id: String?) -> row_group
+          def reservation_to_job_map: () -> Hash[String, Job]
+        end
+
+        class ActiveConcurrencyCounter
+          def initialize: (rows: runtime_rows, scope_key: String) -> void
+          def count: () -> Integer
+        end
+
+        class ScopeKeySet
+          def initialize: (job: Job, explicit_scope: Karya::Backpressure::Scope?) -> void
+          def to_a: () -> Array[String]
+        end
+
+        class QueueEntrySequence
+          def initialize: (queue_entries: row_group, queue: String) -> void
+          def next_value: () -> Integer
+        end
+
+        class WorkflowBatchBuilder
+          def initialize: (rows: rows, batch_id: String) -> void
+          def build: () -> Workflow::Batch
+        end
+
+        class WorkflowJobEffects
+          def initialize: (operation: Operation, context: OperationContext, job: Job) -> void
+          def workflow_updates: () -> rows
+          def workflow_history_rows: () -> row_group
+        end
+      end
+    end
+  end
+end

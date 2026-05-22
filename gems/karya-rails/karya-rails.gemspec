@@ -33,6 +33,7 @@ Gem::Specification.new do |spec|
     Dir['{app,bin,config,lib,sig}/**/*', 'LICENSE', 'Rakefile', 'README.md']
   end
   spec.require_paths = ['lib']
+  spec.add_dependency 'kaal-rails', '~> 0.6.0'
   spec.add_dependency 'karya', "= #{version}"
   spec.add_dependency 'karya-dashboard', "= #{version}"
   spec.add_dependency 'rails', '>= 7.1', '< 9.0'

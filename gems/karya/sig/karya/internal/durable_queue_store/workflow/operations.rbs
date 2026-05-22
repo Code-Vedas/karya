@@ -1,0 +1,100 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module Operations
+        class EnqueueWorkflow < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class WorkflowSnapshot < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class WorkflowHistory < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class QueryWorkflow < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class DeliverWorkflowSignal < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class DeliverWorkflowEvent < DeliverWorkflowSignal
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class PauseWorkflow < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ResumeWorkflow < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ApproveWorkflowCheckpoints < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class RejectWorkflowCheckpoints < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class EnqueueChildWorkflow < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class SyncChildWorkflows < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class RollbackWorkflow < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class WorkflowStepBulkOperation < Operation
+          class WorkflowBulkMutation
+            attr_reader job: Job
+            attr_reader rows: runtime_rows
+            attr_reader skipped_jobs: row_group
+            attr_reader job_id: String
+
+            def initialize: (
+              job: Job,
+              rows: runtime_rows,
+              skipped_jobs: row_group,
+              job_id: String
+            ) -> void
+          end
+        end
+
+        class RetryWorkflowSteps < WorkflowStepBulkOperation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class DeadLetterWorkflowSteps < WorkflowStepBulkOperation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ReplayWorkflowSteps < WorkflowStepBulkOperation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class RetryDeadLetterWorkflowSteps < WorkflowStepBulkOperation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class DiscardWorkflowSteps < WorkflowStepBulkOperation
+          def call: (context: OperationContext) -> OperationResult
+        end
+      end
+    end
+  end
+end

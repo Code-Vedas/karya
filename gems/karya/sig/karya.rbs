@@ -1,0 +1,516 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  interface _Lifecycle
+    def normalize_state: (state_name state) -> state_name
+    def validate_state!: (state_name state) -> state_name
+    def valid_transition?: (from: state_name, to: state_name) -> bool
+    def validate_transition!: (from: state_name, to: state_name) -> state_name
+    def terminal?: (state_name state) -> bool
+  end
+
+  interface _CallableValue
+    def call: (*callable_argument args) -> callable_result
+  end
+
+  interface _OutboundEventDispatcher
+    def call: (String event, context_payload payload) -> (callable_result | OutboundEvents::Delivery)
+  end
+
+  interface _OutboundEventDeliveryHandler
+    def call: (OutboundEvents::Delivery delivery) -> callable_result
+  end
+
+  interface _FrameworkMigrationInstaller
+    def call: (target_dir: String, migration_name: String) -> String
+  end
+
+  interface _FrameworkOperatorAuthorizer
+    def call: (callable_argument request_context) -> bool?
+  end
+
+  interface _FrameworkWorkflowSource
+    def karya_workflow_definitions: () -> Array[Internal::FrameworkWorkflow::Definition]
+  end
+
+  interface _Forker
+    def call: [A] () { () -> A } -> Integer
+  end
+
+  type lifecycle = _Lifecycle
+  type callable_argument = nil | bool | Numeric | String | Symbol | Time | context_payload | signal_handler | Array[String]
+  type callable_result = nil | bool | Numeric | String | Symbol | Time | signal_restorer | context_payload | Array[String]
+  type callable_value = Method | Proc | _CallableValue
+  type outbound_event_delivery_handler = Method | Proc | _OutboundEventDeliveryHandler
+  type state_name = Symbol | String
+  type state_name_array = Array[state_name]
+  type normalized_state_name = String
+  type normalized_state_name_array = Array[normalized_state_name]
+  type normalized_transition_map = Hash[normalized_state_name, normalized_state_name_array]
+  type child_workflow_snapshot_attribute_value = state_name | Karya::workflow_state
+  type interaction_kind = :signal | :event
+  type interaction_kind_input = state_name
+  type workflow_history_kind = :workflow | :step | :interaction | :control | :rollback | :child_workflow
+  type workflow_history_kind_input = state_name
+  type workflow_query = "state" | "current-step" | "current-steps"
+  type workflow_query_value = workflow_state | String? | Array[String]
+  type workflow_query_input_value = workflow_state | state_name? | Array[state_name]
+  type approval_state = :approved | :rejected
+  type approval_state_input = state_name
+  type approval_requirement = { name: String }
+  type approval_requirement_input = { name: state_name }
+  type approval_decision = { state: approval_state, decided_at: Time } | { state: approval_state, decided_at: Time, reason: String }
+  type approval_decision_input =
+    { state: approval_state_input, decided_at: Time } |
+    { state: approval_state_input, decided_at: Time, reason: String }
+  type interaction_requirement = { kind: interaction_kind, name: String }
+  type interaction_requirement_input = { kind: interaction_kind_input, name: state_name }
+  type interaction_payload_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Array[interaction_payload_value] |
+    Hash[String, interaction_payload_value]
+  type interaction_payload = Hash[String, interaction_payload_value]
+  type interaction_snapshot_attribute_value = interaction_kind_input | state_name | interaction_payload | Time
+  type history_entry_attribute_value =
+    workflow_history_kind_input |
+    state_name |
+    Time |
+    interaction_payload |
+    nil
+  type history_snapshot_attribute_value =
+    state_name |
+    Time |
+    Array[Workflow::HistoryEntry]
+  type step_snapshot_attribute_value =
+    state_name |
+    Job |
+    Array[state_name] |
+    Hash[state_name, state_name?] |
+    interaction_kind_input |
+    approval_state_input |
+    Workflow::ChildWorkflowSnapshot |
+    String |
+    Time |
+    nil
+  type workflow_snapshot_attribute_value =
+    state_name |
+    Time |
+    Hash[state_name, state_name] |
+    Hash[state_name, state_name_array] |
+    Hash[state_name, approval_requirement_input] |
+    Hash[state_name, approval_decision_input] |
+    Hash[state_name, interaction_requirement_input] |
+    Hash[state_name, Time] |
+    Array[Job] |
+    Array[Workflow::ChildWorkflowSnapshot] |
+    Array[Workflow::InteractionSnapshot] |
+    Workflow::ChildWorkflowSnapshot |
+    Workflow::InteractionSnapshot |
+    Workflow::RollbackSnapshot |
+    nil
+  type handler_parameter = [Symbol, Symbol?]
+  type handler_parameters = Array[handler_parameter]
+  type handler_dispatch_mode = :none | :positional_hash | :keywords
+  type job_argument = nil | Numeric | String | Symbol | bool | Time | Array[job_argument] | Hash[String, job_argument]
+  type job_argument_graph = job_argument | Hash[state_name, job_argument]
+  type delayed_enqueue_receipt = Kaal::delayed_enqueue_receipt
+  type worker_continue_running = singleton(::Karya::Worker::ContinueRunning)
+  type worker_lease_lost = singleton(::Karya::Worker::LeaseLost)
+  type worker_no_work_available = singleton(::Karya::Worker::NoWorkAvailable)
+  type worker_idle_result = worker_lease_lost | worker_no_work_available
+  type worker_iteration_result = Job | worker_idle_result
+  type worker_loop_result = Job | worker_continue_running | nil
+  type lease_duration_value = Integer | Float | Rational | BigDecimal
+  type fairness_strategy = :round_robin | :strict_order | "round_robin" | "strict_order"
+  type normalized_fairness_strategy = :round_robin | :strict_order
+  type retry_policy = RetryPolicy
+  type retry_policy_reference = RetryPolicy | state_name
+  type retry_policy_symbol_required_attributes = {
+    max_attempts: Numeric,
+    base_delay: Numeric,
+    multiplier: Numeric
+  }
+  type retry_policy_string_required_attributes = {
+    "max_attempts" => Numeric,
+    "base_delay" => Numeric,
+    "multiplier" => Numeric
+  }
+  type retry_policy_required_attributes =
+    retry_policy_symbol_required_attributes |
+    retry_policy_string_required_attributes |
+    { max_attempts: Numeric, base_delay: Numeric, "multiplier" => Numeric } |
+    { max_attempts: Numeric, "base_delay" => Numeric, multiplier: Numeric } |
+    { max_attempts: Numeric, "base_delay" => Numeric, "multiplier" => Numeric } |
+    { "max_attempts" => Numeric, base_delay: Numeric, multiplier: Numeric } |
+    { "max_attempts" => Numeric, base_delay: Numeric, "multiplier" => Numeric } |
+    { "max_attempts" => Numeric, "base_delay" => Numeric, multiplier: Numeric }
+  type retry_policy_optional_attributes =
+    {} |
+    { max_delay: Numeric? } |
+    { "max_delay" => Numeric? } |
+    { jitter_strategy: retry_jitter_strategy } |
+    { "jitter_strategy" => retry_jitter_strategy } |
+    { escalate_on: Array[failure_classification_input] } |
+    { "escalate_on" => Array[failure_classification_input] } |
+    { max_delay: Numeric?, jitter_strategy: retry_jitter_strategy } |
+    { max_delay: Numeric?, "jitter_strategy" => retry_jitter_strategy } |
+    { "max_delay" => Numeric?, jitter_strategy: retry_jitter_strategy } |
+    { "max_delay" => Numeric?, "jitter_strategy" => retry_jitter_strategy } |
+    { max_delay: Numeric?, escalate_on: Array[failure_classification_input] } |
+    { max_delay: Numeric?, "escalate_on" => Array[failure_classification_input] } |
+    { "max_delay" => Numeric?, escalate_on: Array[failure_classification_input] } |
+    { "max_delay" => Numeric?, "escalate_on" => Array[failure_classification_input] } |
+    { jitter_strategy: retry_jitter_strategy, escalate_on: Array[failure_classification_input] } |
+    { jitter_strategy: retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] } |
+    { "jitter_strategy" => retry_jitter_strategy, escalate_on: Array[failure_classification_input] } |
+    { "jitter_strategy" => retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] } |
+    { max_delay: Numeric?, jitter_strategy: retry_jitter_strategy, escalate_on: Array[failure_classification_input] } |
+    { max_delay: Numeric?, jitter_strategy: retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] } |
+    { max_delay: Numeric?, "jitter_strategy" => retry_jitter_strategy, escalate_on: Array[failure_classification_input] } |
+    { max_delay: Numeric?, "jitter_strategy" => retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] } |
+    { "max_delay" => Numeric?, jitter_strategy: retry_jitter_strategy, escalate_on: Array[failure_classification_input] } |
+    { "max_delay" => Numeric?, jitter_strategy: retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] } |
+    { "max_delay" => Numeric?, "jitter_strategy" => retry_jitter_strategy, escalate_on: Array[failure_classification_input] } |
+    { "max_delay" => Numeric?, "jitter_strategy" => retry_jitter_strategy, "escalate_on" => Array[failure_classification_input] }
+  type retry_policy_attributes = retry_policy_required_attributes & retry_policy_optional_attributes
+  type retry_policy_set_input = RetryPolicySet | Hash[state_name, RetryPolicy | retry_policy_attributes]
+  type backpressure_scope_kind = :queue | :handler | :tenant | :workflow | :custom | "queue" | "handler" | "tenant" | "workflow" | "custom"
+  type normalized_backpressure_scope_kind = :queue | :handler | :tenant | :workflow | :custom
+  type backpressure_scope_symbol_input = { kind: backpressure_scope_kind, value: state_name }
+  type backpressure_scope_string_input = { "kind" => backpressure_scope_kind, "value" => state_name }
+  type backpressure_scope_mixed_input =
+    { kind: backpressure_scope_kind, "value" => state_name } |
+    { "kind" => backpressure_scope_kind, value: state_name }
+  type backpressure_scope_hash_input =
+    backpressure_scope_symbol_input |
+    backpressure_scope_string_input |
+    backpressure_scope_mixed_input
+  type backpressure_scope_input = Backpressure::Scope | backpressure_scope_hash_input | state_name
+  type circuit_breaker_scope_kind = :queue | :handler | "queue" | "handler"
+  type circuit_breaker_scope_symbol_input = { kind: circuit_breaker_scope_kind, value: state_name }
+  type circuit_breaker_scope_string_input = { "kind" => circuit_breaker_scope_kind, "value" => state_name }
+  type circuit_breaker_scope_mixed_input =
+    { kind: circuit_breaker_scope_kind, "value" => state_name } |
+    { "kind" => circuit_breaker_scope_kind, value: state_name }
+  type circuit_breaker_scope_hash_input =
+    circuit_breaker_scope_symbol_input |
+    circuit_breaker_scope_string_input |
+    circuit_breaker_scope_mixed_input
+  type circuit_breaker_scope_input = Backpressure::Scope | circuit_breaker_scope_hash_input | state_name
+  type concurrency_policy_symbol_attributes = { limit: Integer }
+  type concurrency_policy_string_attributes = { "limit" => Integer }
+  type concurrency_policy_attributes =
+    concurrency_policy_symbol_attributes |
+    concurrency_policy_string_attributes |
+    { limit: Integer, "limit" => Integer }
+  type rate_limit_policy_symbol_attributes = { limit: Integer, period: lease_duration_value }
+  type rate_limit_policy_string_attributes = { "limit" => Integer, "period" => lease_duration_value }
+  type rate_limit_policy_mixed_attributes =
+    { limit: Integer, "period" => lease_duration_value } |
+    { "limit" => Integer, period: lease_duration_value }
+  type rate_limit_policy_attributes =
+    rate_limit_policy_symbol_attributes |
+    rate_limit_policy_string_attributes |
+    rate_limit_policy_mixed_attributes
+  type circuit_breaker_policy_symbol_required_attributes = {
+    failure_threshold: Integer,
+    window: lease_duration_value,
+    cooldown: lease_duration_value
+  }
+  type circuit_breaker_policy_symbol_optional_attributes =
+    {} |
+    { half_open_limit: Integer }
+  type circuit_breaker_policy_symbol_attributes =
+    circuit_breaker_policy_symbol_required_attributes &
+    circuit_breaker_policy_symbol_optional_attributes
+  type circuit_breaker_policy_string_required_attributes = {
+    "failure_threshold" => Integer,
+    "window" => lease_duration_value,
+    "cooldown" => lease_duration_value
+  }
+  type circuit_breaker_policy_string_optional_attributes =
+    {} |
+    { "half_open_limit" => Integer }
+  type circuit_breaker_policy_string_attributes =
+    circuit_breaker_policy_string_required_attributes &
+    circuit_breaker_policy_string_optional_attributes
+  type circuit_breaker_policy_mixed_required_attributes =
+    { failure_threshold: Integer, window: lease_duration_value, "cooldown" => lease_duration_value } |
+    { failure_threshold: Integer, "window" => lease_duration_value, cooldown: lease_duration_value } |
+    { failure_threshold: Integer, "window" => lease_duration_value, "cooldown" => lease_duration_value } |
+    { "failure_threshold" => Integer, window: lease_duration_value, cooldown: lease_duration_value } |
+    { "failure_threshold" => Integer, window: lease_duration_value, "cooldown" => lease_duration_value } |
+    { "failure_threshold" => Integer, "window" => lease_duration_value, cooldown: lease_duration_value }
+  type circuit_breaker_policy_mixed_optional_attributes =
+    {} |
+    { half_open_limit: Integer } |
+    { "half_open_limit" => Integer }
+  type circuit_breaker_policy_mixed_attributes =
+    circuit_breaker_policy_mixed_required_attributes &
+    circuit_breaker_policy_mixed_optional_attributes
+  type circuit_breaker_policy_attributes =
+    circuit_breaker_policy_symbol_attributes |
+    circuit_breaker_policy_string_attributes |
+    circuit_breaker_policy_mixed_attributes
+  type retry_decision_action = :retry | :stop | :escalate
+  type retry_decision_reason = :classification_escalated | :retry_exhausted
+  type retry_jitter_strategy = :none | :full | :equal | "none" | "full" | "equal"
+  type uniqueness_scope = :queued | :active | :until_terminal
+  type uniqueness_scope_input = uniqueness_scope | "queued" | "active" | "until_terminal"
+  type uniqueness_decision_action = :accept | :reject
+  type uniqueness_decision_result = :accepted | :duplicate_job_id | :duplicate_idempotency_key | :duplicate_uniqueness_key
+  type uniqueness_decision_key_type = :job_id | :idempotency_key | :uniqueness_key
+  type bulk_mutation_action =
+    :enqueue_many |
+    :retry_jobs |
+    :cancel_jobs |
+    :dead_letter_jobs |
+    :replay_dead_letter_jobs |
+    :retry_dead_letter_jobs |
+        :discard_dead_letter_jobs |
+        :deliver_workflow_signal |
+        :deliver_workflow_event |
+        :pause_workflow |
+        :resume_workflow |
+        :approve_workflow_checkpoints |
+        :reject_workflow_checkpoints |
+        :enqueue_child_workflow |
+    :rollback_workflow |
+    :sync_child_workflows |
+    :retry_workflow_steps |
+    :dead_letter_workflow_steps |
+    :replay_workflow_steps |
+    :retry_dead_letter_workflow_steps |
+    :discard_workflow_steps
+  type queue_control_action = :pause_queue | :resume_queue
+  type bulk_skip_reason = :not_found | :ineligible_state | :duplicate_request | :uniqueness_conflict
+  type batch_aggregate_state = :failed | :running | :succeeded | :cancelled | :completed
+  type workflow_state = :pending | :running | :paused | :awaiting_approval | :blocked | :succeeded | :failed | :cancelled
+  type bulk_skipped_job = {
+    job_id: String,
+    reason: bulk_skip_reason,
+    state: state_name?
+  }
+  type uniqueness_decision = {
+    captured_at: Time,
+    job_id: String,
+    action: uniqueness_decision_action,
+    result: uniqueness_decision_result,
+    key_type: uniqueness_decision_key_type?,
+    key: String?,
+    conflicting_job_id: String?,
+    uniqueness_scope: uniqueness_scope?
+  }
+  type dead_letter_snapshot_entry = {
+    job_id: String,
+    queue: String,
+    handler: String,
+    state: state_name,
+    attempt: Integer,
+    failure_classification: failure_classification?,
+    dead_letter_reason: String?,
+    dead_lettered_at: Time?,
+    dead_letter_source_state: state_name?,
+    available_actions: Array[Symbol]
+  }
+  type dead_letter_snapshot = {
+    captured_at: Time,
+    dead_letters: Array[dead_letter_snapshot_entry]
+  }
+  type failure_classification = :error | :timeout | :expired
+  type failure_classification_input = failure_classification | "error" | "timeout" | "expired"
+  type circuit_breaker_state = :closed | :open | :half_open
+  type circuit_breaker_runtime_state = { state: circuit_breaker_state, cooldown_until: Time? }
+  type stuck_job_recovery = { recovery_count: Integer, last_recovered_at: Time, last_recovery_reason: String }
+  type circuit_breaker_snapshot = {
+    scope: Backpressure::Scope,
+    state: circuit_breaker_state,
+    failure_count: Integer,
+    failure_threshold: Integer,
+    window: lease_duration_value,
+    cooldown: lease_duration_value,
+    blocked_count: Integer,
+    cooldown_until: Time?,
+    probe_slots_remaining: Integer?
+  }
+  type stuck_job_snapshot = {
+    job_id: String,
+    queue: String,
+    handler: String,
+    state: state_name,
+    attempt: Integer,
+    recovery_count: Integer,
+    last_recovered_at: Time,
+    last_recovery_reason: String
+  }
+  type reliability_snapshot = {
+    captured_at: Time,
+    circuit_breakers: Hash[String, circuit_breaker_snapshot],
+    stuck_jobs: Hash[String, stuck_job_snapshot]
+  }
+  type idempotency_key_snapshot = {
+    key: String,
+    job_id: String,
+    queue: String,
+    handler: String,
+    state: state_name,
+    created_at: Time,
+    updated_at: Time?
+  }
+  type uniqueness_key_snapshot = {
+    key: String,
+    job_id: String,
+    queue: String,
+    handler: String,
+    state: state_name,
+    effective_state: state_name,
+    uniqueness_scope: uniqueness_scope,
+    blocked_incoming_scopes: Array[uniqueness_scope]
+  }
+  type uniqueness_snapshot = {
+    captured_at: Time,
+    idempotency_keys: Hash[String, idempotency_key_snapshot],
+    uniqueness_keys: Hash[String, Array[uniqueness_key_snapshot]]
+  }
+  type backpressure_concurrency_snapshot = { scope: Backpressure::Scope, limit: Integer, active_count: Integer, blocked_count: Integer }
+  type backpressure_rate_limit_snapshot = {
+    scope: Backpressure::Scope,
+    limit: Integer,
+    period: lease_duration_value,
+    window_count: Integer,
+    blocked_count: Integer
+  }
+  type backpressure_snapshot = {
+    captured_at: Time,
+    concurrency: Hash[String, backpressure_concurrency_snapshot],
+    rate_limits: Hash[String, backpressure_rate_limit_snapshot]
+  }
+  type context_payload_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Symbol |
+    Time |
+    Array[context_payload_value] |
+    Hash[Symbol | String, context_payload_value]
+  type context_payload = Hash[Symbol | String, context_payload_value]
+  type outbound_event_string_input = nil | bool | Numeric | String | Symbol | Time
+  type outbound_event_scalar_input = nil | bool | Numeric | String | Symbol
+  type outbound_event_input_value =
+    outbound_event_scalar_input |
+    Array[outbound_event_input_value] |
+    Hash[Symbol | String, outbound_event_input_value]
+  type outbound_event_input_payload = Hash[Symbol | String, outbound_event_input_value]
+  type outbound_event_payload_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Array[outbound_event_payload_value] |
+    Hash[String, outbound_event_payload_value]
+  type outbound_event_payload = Hash[String, outbound_event_payload_value]
+  type outbound_event_schema_definition =
+    {
+      event_type: String,
+      schema_version: String,
+      required_keys: Array[String],
+      string_keys: Array[String],
+      source_prefix: String
+    } |
+    {
+      event_type: String,
+      schema_version: String,
+      required_keys: Array[String],
+      string_keys: Array[String],
+      source_prefix: String,
+      subject_key: String
+    }
+  type webhook_headers = Hash[String, String]
+  type webhook_header_input_value = nil | bool | Numeric | String | Symbol
+  type webhook_headers_input = Hash[Symbol | String, webhook_header_input_value]
+  type webhook_verifier_input =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Symbol |
+    Time |
+    Array[webhook_verifier_input] |
+    Hash[Symbol | String, webhook_verifier_input]
+  type outbound_event_attributes = Hash[String, String | outbound_event_payload]
+  type json_generate_option_value = nil | bool | Integer | String
+  type json_generate_state_input = nil | ::JSON::State | Hash[Symbol | String, json_generate_option_value]
+  type handler_mapping = ::Hash[String, Worker::_Handler]
+  type framework_backend_kind = :postgres | :mysql | :sqlite
+  type framework_backend_kind_input = framework_backend_kind | "postgres" | "mysql" | "sqlite"
+  type framework_job_keyword_arguments = Hash[String, job_argument]
+  type framework_job_keyword_arguments_input = Hash[Symbol | String, job_argument]
+  type framework_job_argument_payload = job_arguments
+  type framework_job_argument_value = FrameworkJob::Base::Arguments | framework_job_argument_payload
+  type framework_job_step_arguments = Hash[state_name, framework_job_argument_value]
+  type framework_job_result = callable_result | job_argument | Array[job_argument] | job_arguments
+  type framework_migration_installer = Method | Proc | _FrameworkMigrationInstaller
+  type framework_operator_authorizer = Method | Proc | _FrameworkOperatorAuthorizer
+  type framework_root_path_resolver = ^() -> String
+  type framework_runtime_command_response = Hash[String, bool]
+  type framework_runtime_payload = WorkerSupervisor::RuntimeStateStore::runtime_payload
+  type framework_runtime_value = nil | bool | Numeric | String | Symbol
+  type framework_time_input = Time | Numeric
+  type framework_worker_option_value = nil | bool | Integer | Float | String
+  type framework_worker_options = Hash[Symbol, framework_worker_option_value]
+  type framework_workflow_control_result = QueueStore::Internal::BulkMutationReport
+  type framework_workflow_definition_input = Internal::FrameworkWorkflow::Definition | state_name
+  type framework_workflow_source = _FrameworkWorkflowSource
+  type framework_workflow_sources = Array[framework_workflow_source]
+  type forker = Method | Proc | _Forker
+  type option_value = nil | bool | Numeric | String | Symbol | logger | instrumenter | outbound_event_dispatcher | forker | QueueStore::Base | lifecycle | retry_policy | retry_policy_set_input | Worker::Configuration | Worker::Runtime | WorkerSupervisor::Configuration | WorkerSupervisor::Runtime | Worker::HandlerRegistry | handler_mapping | Array[String] | callable_value | singleton(Worker) | Backend::Base
+  type backend_option_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Symbol |
+    Class |
+    callable_value |
+    QueueStore::Base |
+    Backpressure::PolicySet |
+    CircuitBreaker::PolicySet |
+    Fairness::Policy |
+    Array[backend_option_value] |
+    Hash[Symbol | String, backend_option_value]
+  type symbol_options = ::Hash[Symbol, option_value]
+  type mixed_options = ::Hash[Symbol | String, option_value]
+  type job_arguments = ::Hash[String, job_argument]
+  type error_class = singleton(StandardError)
+  type logger = Internal::_Logger
+  type instrumenter = ^(String, context_payload) -> nil
+  type outbound_event_dispatcher = Method | Proc | _OutboundEventDispatcher
+  type signal_handler = ^() -> nil
+  type signal_restorer = ^() -> nil
+  type cli_defaults = Hash[Symbol, Integer]
+  type cli_option_scalar = nil | bool | Numeric | String | Symbol
+  type cli_option_value = cli_option_scalar | Array[String]
+  type cli_options = Hash[Symbol | String, cli_option_value]
+  type cli_env_prefix_normalizer = ^(Symbol) -> String?
+  type cli_optional_integer_coercer = ^(Symbol) -> Integer?
+  type cli_positive_integer_resolver = ^(Symbol, env_prefix: String?, defaults: cli_defaults) -> Integer
+  type job_attribute_value =
+    job_argument |
+    Integer |
+    Time |
+    retry_policy |
+    retry_policy_set_input |
+    lifecycle |
+    state_name |
+    uniqueness_scope_input |
+    failure_classification_input |
+    backpressure_scope_input
+  type reservation_attribute_value = state_name | Integer | Time
+end

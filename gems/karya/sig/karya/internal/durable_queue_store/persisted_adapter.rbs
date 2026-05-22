@@ -1,0 +1,19 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module PersistedAdapter
+        include Karya::QueueStore::Base
+
+        DEFAULT_EXPIRED_TOMBSTONE_LIMIT: Integer
+        DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: Integer
+        DEFAULT_MAX_BATCH_SIZE: Integer
+        RESERVE_QUEUES_ERROR_MESSAGE: String
+      end
+    end
+  end
+end

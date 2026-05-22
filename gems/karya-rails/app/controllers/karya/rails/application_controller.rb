@@ -10,6 +10,18 @@ module Karya
     # Base controller for the mounted Karya Rails engine.
     class ApplicationController < ActionController::Base
       protect_from_forgery with: :exception
+
+      before_action :authorize_operator_request
+
+      private
+
+      def authorize_operator_request
+        return if Karya::Rails.operator_access_authorized?(self)
+
+        head :forbidden
+      end
+
+      alias authorize_operator_request! authorize_operator_request
     end
   end
 end

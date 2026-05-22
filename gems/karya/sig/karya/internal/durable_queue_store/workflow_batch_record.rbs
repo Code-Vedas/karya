@@ -1,0 +1,20 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class WorkflowBatchRecord
+        def initialize: (
+          namespace: String,
+          batch: ::Karya::Workflow::Batch,
+          registration: ::Karya::QueueStore::Internal::StoreState::WorkflowRegistration,
+          jobs_by_id: Hash[String, ::Karya::Job]
+        ) -> void
+        def to_h: () -> durable_symbol_row
+      end
+    end
+  end
+end

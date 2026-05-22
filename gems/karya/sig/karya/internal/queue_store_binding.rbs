@@ -1,0 +1,23 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module QueueStoreBinding
+      class Snapshot < Struct[bool | Karya::QueueStore::Base?]
+        @defined: bool
+        @queue_store: Karya::QueueStore::Base?
+
+        attr_accessor defined: bool
+        attr_accessor queue_store: Karya::QueueStore::Base?
+
+        def initialize: (?defined: bool, ?queue_store: Karya::QueueStore::Base?) -> void
+      end
+
+      def self.capture: () -> Snapshot
+      def self.restore: (Snapshot? snapshot) -> void
+    end
+  end
+end

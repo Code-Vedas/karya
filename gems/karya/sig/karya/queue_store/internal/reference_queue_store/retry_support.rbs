@@ -1,0 +1,21 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    module Internal
+      module ReferenceQueueStore
+        module Internal
+          module RetrySupport
+            private
+
+            def promote_due_retry_pending_jobs: (Time now) -> bool
+            def retry_pending_job: (Job running_job, Time now, RetryPolicy retry_policy, Karya::failure_classification failure_classification, Time next_retry_at) -> Job
+          end
+        end
+      end
+    end
+  end
+end

@@ -3,7 +3,7 @@
 `karya-sinatra` provides the Sinatra host integration for Karya and composes the
 core runtime with Sequel integration. It can also include the optional
 `karya-dashboard` addon for hosts that want the robust operator UI, the
-dashboard-owned internal API surface, and Kaal-facing operator workflows.
+dashboard-owned internal API surface, and the shared operator workflows.
 
 ## Use This Package When
 
@@ -20,12 +20,12 @@ participates in the documented contracts for:
 - framework-parity dashboard mounting and asset delivery when the addon is
   included
 - operator APIs, runtime controls, and session-aware dashboard use
-- recurring scheduling exposure through the shared Kaal-backed model
 - Sequel-backed backend integration
+- composition with `kaal-sinatra` when the host also needs scheduled jobs
 
 ## Recommended Pairings
 
-- `core/karya`
+- `gems/karya`
 - `Karya::Sequel`
 - `gems/karya-dashboard` when the host includes the optional dashboard addon
 - `Postgres` as the default production backend recommendation

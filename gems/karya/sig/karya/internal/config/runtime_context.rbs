@@ -1,0 +1,24 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module Config
+      class RuntimeContext
+        DEFAULT_ENVIRONMENT_NAME: String
+        ENVIRONMENT_KEYS: Array[String]
+
+        attr_reader root_path: Pathname
+        attr_reader environment_name: String
+
+        def self.default: (?env: Hash[String, String], ?root_path: String) -> RuntimeContext
+        def self.environment_name_from: (Hash[String, String] env) -> String
+
+        def initialize: (root_path: String, environment_name: String) -> void
+        def resolve_path: (String path) -> String
+      end
+    end
+  end
+end

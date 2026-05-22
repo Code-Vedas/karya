@@ -1,0 +1,172 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module FrameworkWorkflow
+      module Source
+        def workflow: (
+          Karya::state_name id,
+          ?workflow_family: Karya::state_name?,
+          ?workflow_version: Karya::state_name?,
+          ?default_version: bool
+        ) ?{ -> void } -> Definition
+        def karya_workflow_definitions: () -> Array[Definition]
+      end
+
+      class Definition
+        attr_reader core_definition: Karya::Workflow::Definition
+        attr_reader job_classes_by_step_id: Hash[String, singleton(Karya::FrameworkJob::Base)]
+        attr_reader step_arguments_by_step_id: Hash[String, Karya::framework_job_argument_payload]
+        attr_reader compensation_job_classes_by_step_id: Hash[String, singleton(Karya::FrameworkJob::Base)]
+        attr_reader compensation_arguments_by_step_id: Hash[String, Karya::framework_job_argument_payload]
+
+        def initialize: (
+          core_definition: Karya::Workflow::Definition,
+          job_classes_by_step_id: Hash[String, singleton(Karya::FrameworkJob::Base)],
+          step_arguments_by_step_id: Hash[String, Karya::framework_job_argument_payload],
+          compensation_job_classes_by_step_id: Hash[String, singleton(Karya::FrameworkJob::Base)],
+          compensation_arguments_by_step_id: Hash[String, Karya::framework_job_argument_payload]
+        ) -> void
+        def id: () -> String
+        def workflow_family: () -> String
+        def workflow_version: () -> String
+        def default_version?: () -> bool
+        def steps: () -> Array[Karya::Workflow::Step]
+      end
+
+      class Catalog
+        attr_reader core_catalog: Karya::Workflow::Catalog
+        attr_reader definitions: Hash[String, Definition]
+
+        def initialize: (definitions: Array[Definition]) -> void
+        def fetch: (Karya::state_name workflow_id) -> Definition
+        def fetch_version: (workflow_family: Karya::state_name, workflow_version: Karya::state_name) -> Definition
+        def resolve: (workflow_family: Karya::state_name) -> Definition
+      end
+
+      class DefinitionBuilder
+        def initialize: (
+          Karya::state_name id,
+          ?workflow_family: Karya::state_name?,
+          ?workflow_version: Karya::state_name?,
+          ?default_version: bool
+        ) -> void
+        def step: (
+          Karya::state_name id,
+          job: singleton(Karya::FrameworkJob::Base),
+          ?arguments: Karya::framework_job_argument_value,
+          ?depends_on: (Karya::state_name | Array[Karya::state_name] | nil),
+          ?compensate_with: singleton(Karya::FrameworkJob::Base)?,
+          ?compensation_arguments: Karya::framework_job_argument_value,
+          ?child_workflow: Karya::state_name?,
+          ?wait_for_approval: Karya::state_name?,
+          ?wait_for_signal: Karya::state_name?,
+          ?wait_for_event: Karya::state_name?
+        ) -> void
+        def to_definition: () -> Definition
+      end
+
+      class Facade
+        def initialize: (
+          configuration_provider: ^() -> Karya::Internal::FrameworkConfiguration,
+          ?queue_store: QueueStoreFacade
+        ) -> void
+        def define: (
+          Karya::state_name id,
+          ?workflow_family: Karya::state_name?,
+          ?workflow_version: Karya::state_name?,
+          ?default_version: bool
+        ) ?{ (DefinitionBuilder builder) -> void } -> Definition
+        def catalog: () -> Catalog
+        def start: (
+          definition: Karya::framework_workflow_definition_input,
+          batch_id: Karya::state_name,
+          step_arguments: Karya::framework_job_step_arguments,
+          ?now: Karya::framework_time_input,
+          ?compensation_step_arguments: Karya::framework_job_step_arguments
+        ) -> Karya::framework_workflow_control_result
+        def batch: (batch_id: Karya::state_name, ?now: Karya::framework_time_input) -> Karya::Workflow::BatchSnapshot
+        def snapshot: (batch_id: Karya::state_name, ?now: Karya::framework_time_input) -> Karya::Workflow::Snapshot
+        def history: (batch_id: Karya::state_name, ?now: Karya::framework_time_input) -> Karya::Workflow::HistorySnapshot
+        def query: (batch_id: Karya::state_name, query: Karya::state_name, ?now: Karya::framework_time_input) -> Karya::Workflow::QueryResult
+        def signal: (
+          batch_id: Karya::state_name,
+          signal: Karya::state_name,
+          payload: Karya::interaction_payload,
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def event: (
+          batch_id: Karya::state_name,
+          event: Karya::state_name,
+          payload: Karya::interaction_payload,
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def pause: (batch_id: Karya::state_name, ?now: Karya::framework_time_input) -> Karya::framework_workflow_control_result
+        def resume: (batch_id: Karya::state_name, ?now: Karya::framework_time_input) -> Karya::framework_workflow_control_result
+        def approve: (
+          batch_id: Karya::state_name,
+          step_ids: Array[Karya::state_name],
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def reject: (
+          batch_id: Karya::state_name,
+          step_ids: Array[Karya::state_name],
+          reason: String,
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def retry_steps: (
+          batch_id: Karya::state_name,
+          step_ids: Array[Karya::state_name],
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def dead_letter_steps: (
+          batch_id: Karya::state_name,
+          step_ids: Array[Karya::state_name],
+          reason: String,
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def replay_steps: (
+          batch_id: Karya::state_name,
+          step_ids: Array[Karya::state_name],
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def retry_dead_letter_steps: (
+          batch_id: Karya::state_name,
+          step_ids: Array[Karya::state_name],
+          next_retry_at: Time,
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def discard_steps: (
+          batch_id: Karya::state_name,
+          step_ids: Array[Karya::state_name],
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def rollback: (
+          batch_id: Karya::state_name,
+          reason: String,
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+        def enqueue_child: (
+          parent_batch_id: Karya::state_name,
+          parent_step_id: Karya::state_name,
+          definition: Karya::framework_workflow_definition_input,
+          batch_id: Karya::state_name,
+          step_arguments: Karya::framework_job_step_arguments,
+          ?now: Karya::framework_time_input,
+          ?compensation_step_arguments: Karya::framework_job_step_arguments
+        ) -> Karya::framework_workflow_control_result
+        def sync_children: (
+          parent_batch_id: Karya::state_name,
+          ?now: Karya::framework_time_input
+        ) -> Karya::framework_workflow_control_result
+      end
+
+      class QueueStoreFacade
+        def initialize: (?queue_store: Karya::QueueStore::Base) -> void
+      end
+    end
+  end
+end

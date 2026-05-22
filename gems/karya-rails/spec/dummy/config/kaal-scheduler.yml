@@ -1,0 +1,6 @@
+defaults:
+  jobs:
+    - key: "rails:heartbeat"
+      cron: "* * * * *"
+      job_class: "Karya::RailsDummyJob"
+      enabled: true
