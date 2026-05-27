@@ -38,7 +38,7 @@ module FrameworkE2ESupport
   end
 
   def run_framework_worker_for_e2e(queue:, handlers:, max_iterations:)
-    if [Karya::Backend::InMemory, Karya::Backend::SQLite].include?(Karya.backend_class)
+    if [Karya::Backend::InMemory, Karya::Backend::SQLite, Karya::Backend::MySQL].include?(Karya.backend_class)
       Karya::Worker.new(
         queue_store: framework_worker_queue_store,
         queues: [queue],

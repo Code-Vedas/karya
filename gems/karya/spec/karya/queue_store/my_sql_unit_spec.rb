@@ -65,4 +65,32 @@ RSpec.describe Karya::QueueStore::MySQL do
     end.to raise_error(StandardError, 'boom')
     expect(connection).to have_received(:close)
   end
+
+  it 'initializes the persisted adapter and schema on a live connection' do
+    stub_const('Mysql2', Module.new) unless defined?(Mysql2)
+    client_class = Class.new
+    stub_const('Mysql2::Client', client_class)
+    connection = instance_double(client_class, query: nil, close: nil)
+    persistence_mutex = instance_double(Karya::QueueStore::MySQL::Internal::PersistenceMutex, ensure_schema: nil)
+    store = described_class.allocate
+
+    allow(Karya::QueueStore::MySQL::Internal::DependencyLoader).to receive(:require_mysql2!)
+    allow(store).to receive(:configure_persisted_queue_store) do |**options|
+      expect(options.fetch(:token_generator).call).to be_a(String)
+    end
+    allow(Mysql2::Client).to receive(:new)
+      .with(username: 'root', host: '127.0.0.1', port: 3306, database: 'karya', encoding: 'utf8mb4')
+      .and_return(connection)
+    allow(Karya::QueueStore::MySQL::Internal::PersistenceMutex).to receive(:new)
+      .with(connection:, owner: store)
+      .and_return(persistence_mutex)
+
+    store.send(:initialize, url: 'mysql2://root@127.0.0.1:3306/karya')
+
+    expect(connection).to have_received(:query).with("SET time_zone = '+00:00'")
+    expect(store.connection).to equal(connection)
+    expect(store.mutex).to equal(persistence_mutex)
+    expect(store.persistence_mutex).to equal(persistence_mutex)
+    expect(persistence_mutex).to have_received(:ensure_schema)
+  end
 end

@@ -5,12 +5,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require 'fileutils'
-require 'socket'
-require 'tmpdir'
-require 'timeout'
+require 'securerandom'
 
-RSpec.describe Karya::QueueStore::Redis do
+RSpec.describe Karya::QueueStore::Redis, :integration do
   def submission_job(id:, created_at:, queue: 'billing', handler: 'ProcessInvoice', arguments: {}, **attributes)
     Karya::Job.new(
       id:,
@@ -23,49 +20,25 @@ RSpec.describe Karya::QueueStore::Redis do
     )
   end
 
-  def unused_tcp_port
-    TCPServer.open('127.0.0.1', 0) { |server| server.addr[1] }
+  def delete_redis_namespace(redis_url:, namespace:)
+    client = Redis.new(url: redis_url)
+    keys = client.scan_each(match: "#{namespace}:*").to_a
+    client.del(*keys) unless keys.empty?
+  ensure
+    client&.close
   end
 
-  def wait_for_redis(port)
-    Timeout.timeout(10) do
-      loop do
-        client = Redis.new(url: "redis://127.0.0.1:#{port}/15")
-        return client if client.ping == 'PONG'
-      rescue StandardError
-        sleep 0.05
-      end
-    end
-  end
-
-  let(:tmpdir) { Dir.mktmpdir }
-  let(:port) { unused_tcp_port }
-  let(:redis_pid) do
-    Process.spawn(
-      'redis-server',
-      '--save', '',
-      '--appendonly', 'no',
-      '--port', port.to_s,
-      '--dir', tmpdir,
-      out: File.join(tmpdir, 'redis.out'),
-      err: File.join(tmpdir, 'redis.err')
-    )
-  end
-  let(:redis_url) { "redis://127.0.0.1:#{port}/15" }
-  let(:store) { described_class.new(url: redis_url, namespace: 'spec') }
+  let(:redis_url) { ENV.fetch('KARYA_REDIS_URL') { ENV.fetch('REDIS_URL', 'redis://127.0.0.1:6379/0') } }
+  let(:namespace) { "queue_store_redis_spec_#{SecureRandom.hex(6)}" }
+  let(:store) { described_class.new(url: redis_url, namespace:) }
   let(:created_at) { Time.utc(2026, 5, 23, 12, 0, 0) }
 
   before do
-    redis_pid
-    wait_for_redis(port)
+    delete_redis_namespace(redis_url:, namespace:)
   end
 
   after do
-    Process.kill('TERM', redis_pid)
-    Process.wait(redis_pid)
-    FileUtils.rm_rf(tmpdir)
-  rescue Errno::ESRCH, Errno::ECHILD
-    FileUtils.rm_rf(tmpdir)
+    delete_redis_namespace(redis_url:, namespace:)
   end
 
   it 'enqueues, reserves, and completes execution through durable Redis rows' do
@@ -135,14 +108,16 @@ RSpec.describe Karya::QueueStore::Redis do
     end.to raise_error(Karya::InvalidQueueStoreOperationError, /non-empty String/)
 
     store.instance_variable_set(:@url, redis_url)
-    store.instance_variable_set(:@namespace, 'spec')
+    store.instance_variable_set(:@namespace, namespace)
     redis_client = instance_double(Redis)
     allow(Redis).to receive(:new).with(url: redis_url).and_return(redis_client)
+    allow(redis_client).to receive(:scan_each).with(match: "#{namespace}:*").and_return([])
+    allow(redis_client).to receive(:close)
 
     expect(store.send(:redis_client)).to equal(redis_client)
     expect(store.send(:redis_client)).to equal(redis_client)
-    expect(store.send(:lock_key)).to eq('spec:queue_store:lock')
-    expect(store.send(:version_key)).to eq('spec:queue_store:version')
+    expect(store.send(:lock_key)).to eq("#{namespace}:queue_store:lock")
+    expect(store.send(:version_key)).to eq("#{namespace}:queue_store:version")
   end
 
   it 'rejects token_generator overrides before building the durable store' do

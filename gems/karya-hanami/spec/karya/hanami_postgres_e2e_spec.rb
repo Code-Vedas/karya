@@ -25,7 +25,12 @@ RSpec.describe Karya::Hanami, :dashboard_manifest_fixture, :integration do
       Dir.mktmpdir('karya-hanami-migrations-') do |migration_dir|
         Karya::Sequel.install_postgres_migration(target_dir: migration_dir)
         db = Sequel.connect(database_url)
-        Sequel::Migrator.run(db, migration_dir)
+        run_sequel_migrations(
+          database: db,
+          migration_dir:,
+          table_name: 'hanami_postgres',
+          sentinel_table: :karya_queue_store_states
+        )
         install_kaal_schema!(backend_name: 'postgres', database_url:)
         KaryaHanamiDummyAppSupport.with_dummy_app do |app_root, rack_app|
           self.current_app_root = app_root

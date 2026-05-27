@@ -57,4 +57,37 @@ RSpec.describe Karya::QueueStore::Postgres do
     end.to raise_error(StandardError, 'boom')
     expect(connection).to have_received(:close)
   end
+
+  it 'initializes the persisted adapter and schema on a live connection' do
+    stub_const('PG', Module.new) unless defined?(PG)
+    connection_class = Class.new do
+      attr_accessor :type_map_for_results
+
+      def close; end
+    end
+    stub_const('PG::Connection', connection_class) unless defined?(PG::Connection)
+    stub_const('PG::BasicTypeMapForResults', Class.new) unless defined?(PG::BasicTypeMapForResults)
+
+    connection = instance_double(connection_class, close: nil)
+    persistence_mutex = instance_double(Karya::QueueStore::Postgres::Internal::PersistenceMutex, ensure_schema: nil)
+    store = described_class.allocate
+
+    allow(Karya::QueueStore::Postgres::Internal::DependencyLoader).to receive(:require_pg!)
+    allow(store).to receive(:configure_persisted_queue_store) do |**options|
+      expect(options.fetch(:token_generator).call).to be_a(String)
+    end
+    allow(PG).to receive(:connect).with('postgres://postgres@127.0.0.1:5432/karya').and_return(connection)
+    allow(PG::BasicTypeMapForResults).to receive(:new).with(connection).and_return(:type_map)
+    allow(connection).to receive(:type_map_for_results=).with(:type_map)
+    allow(Karya::QueueStore::Postgres::Internal::PersistenceMutex).to receive(:new)
+      .with(connection:, owner: store)
+      .and_return(persistence_mutex)
+
+    store.send(:initialize, url: 'postgres://postgres@127.0.0.1:5432/karya')
+
+    expect(store.connection).to equal(connection)
+    expect(store.mutex).to equal(persistence_mutex)
+    expect(store.persistence_mutex).to equal(persistence_mutex)
+    expect(persistence_mutex).to have_received(:ensure_schema)
+  end
 end

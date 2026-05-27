@@ -5,12 +5,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require 'fileutils'
-require 'socket'
-require 'tmpdir'
-require 'timeout'
+require 'securerandom'
 
-RSpec.describe Karya::QueueStore::MySQL do
+RSpec.describe Karya::QueueStore::MySQL, :integration do
   def submission_job(id:, created_at:, queue: 'billing', handler: 'ProcessInvoice', arguments: {}, **attributes)
     Karya::Job.new(
       id:,
@@ -23,80 +20,19 @@ RSpec.describe Karya::QueueStore::MySQL do
     )
   end
 
-  def unused_tcp_port
-    TCPServer.open('127.0.0.1', 0) { |server| server.addr[1] }
-  end
-
-  def run_command(*command)
-    success = system(*command, out: File::NULL, err: File::NULL)
-    raise "command failed: #{command.join(' ')}" unless success
-  end
-
-  def wait_for_mysql(port)
-    Timeout.timeout(20) do
-      loop do
-        return if system('mysqladmin', '--host=127.0.0.1', '--port', port.to_s, '--user=root', 'ping', '--silent',
-                         out: File::NULL, err: File::NULL)
-
-        sleep 0.05
-      end
-    end
-  end
-
-  def mysql_basedir
-    File.expand_path('../..', File.realpath(`which mysqld`.strip))
-  end
-
   def close_store_connection(store)
     store.connection.close
   rescue StandardError
     nil
   end
 
-  let(:tmpdir) { Dir.mktmpdir }
-  let(:mysql_data_dir) { File.join(tmpdir, 'mysql') }
-  let(:mysql_socket) { File.join(tmpdir, 'mysql.sock') }
-  let(:mysql_pid_file) { File.join(tmpdir, 'mysql.pid') }
-  let(:port) { unused_tcp_port }
-  let(:database_name) { 'karya_queue_store_spec' }
-  let(:mysql_pid) do
-    FileUtils.mkdir_p(mysql_data_dir)
-    run_command('mysqld', '--initialize-insecure', "--datadir=#{mysql_data_dir}", "--basedir=#{mysql_basedir}")
-    Process.spawn(
-      'mysqld',
-      "--datadir=#{mysql_data_dir}",
-      "--basedir=#{mysql_basedir}",
-      "--socket=#{mysql_socket}",
-      "--port=#{port}",
-      '--bind-address=127.0.0.1',
-      '--skip-networking=0',
-      '--mysqlx=0',
-      "--pid-file=#{mysql_pid_file}",
-      out: File.join(tmpdir, 'mysql.out'),
-      err: File.join(tmpdir, 'mysql.err')
-    )
-  end
-  let(:url) { "mysql2://root@127.0.0.1:#{port}/#{database_name}" }
-  let(:store) { described_class.new(url:, namespace: 'spec') }
+  let(:url) { ENV.fetch('MYSQL_DATABASE_URL', 'mysql2://root:rootROOT!1@127.0.0.1:3306/mysql') }
+  let(:namespace) { "queue_store_mysql_spec_#{SecureRandom.hex(6)}" }
+  let(:store) { described_class.new(url:, namespace:) }
   let(:created_at) { Time.utc(2026, 5, 23, 12, 0, 0) }
-
-  before do
-    mysql_pid
-    wait_for_mysql(port)
-    run_command('mysql', '--host=127.0.0.1', '--port', port.to_s, '--user=root', '-e', "CREATE DATABASE #{database_name}")
-  end
 
   after do
     close_store_connection(store)
-    Process.kill('TERM', File.read(mysql_pid_file).to_i)
-    Timeout.timeout(5) { Process.wait(mysql_pid) }
-  rescue Timeout::Error
-    Process.kill('KILL', File.read(mysql_pid_file).to_i)
-    Process.wait(mysql_pid)
-  rescue Errno::ENOENT, Errno::ESRCH, Errno::ECHILD
-    nil
-  ensure
-    FileUtils.rm_rf(tmpdir)
   end
 
   it 'runs the durable lifecycle through persisted MySQL rows' do

@@ -39,7 +39,12 @@ RSpec.describe Karya::Sinatra, :dashboard_manifest_fixture, :integration do
       Dir.mktmpdir('karya-sinatra-mysql-migrations-') do |migration_dir|
         Karya::Sequel.install_mysql_migration(target_dir: migration_dir)
         db = Sequel.connect(database_url)
-        Sequel::Migrator.run(db, migration_dir)
+        run_sequel_migrations(
+          database: db,
+          migration_dir:,
+          table_name: 'sinatra_mysql',
+          sentinel_table: :karya_queue_store_states
+        )
         install_kaal_schema!(backend_name: 'mysql', database_url:)
         with_dummy_app(source_dir) do |app_root, rack_app|
           self.current_app_root = app_root

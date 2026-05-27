@@ -10,16 +10,18 @@ require 'fileutils'
 RSpec.describe Karya::FrameworkJob::Discovery do
   around do |example|
     original_entries = []
-    original_entries = Karya::Internal::FrameworkJobRegistry.entries.dup
-    Karya::Internal::FrameworkJobRegistry.reset!
-    example.run
-  ensure
-    Karya::Internal::FrameworkJobRegistry.reset!
-    original_entries.each do |entry|
-      Karya::Internal::FrameworkJobRegistry.register(
-        entry.klass,
-        source_path: entry.source_path
-      )
+    begin
+      original_entries = Karya::Internal::FrameworkJobRegistry.entries.dup
+      Karya::Internal::FrameworkJobRegistry.reset!
+      example.run
+    ensure
+      Karya::Internal::FrameworkJobRegistry.reset!
+      original_entries.each do |entry|
+        Karya::Internal::FrameworkJobRegistry.register(
+          entry.klass,
+          source_path: entry.source_path
+        )
+      end
     end
   end
 

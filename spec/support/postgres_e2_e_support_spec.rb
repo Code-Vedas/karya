@@ -5,39 +5,32 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require 'pg'
 require_relative 'postgres_e2e_support'
 
 RSpec.describe PostgresE2ESupport do
-  it 'treats InvalidCatalogName as a missing database' do
-    error = PG::InvalidCatalogName.new('missing database')
-    allow(error).to receive(:result).and_return(nil)
-
-    expect(described_class.missing_database_error?(error)).to be(true)
+  around do |example|
+    original_value = ENV['PG_DATABASE_URL']
+    example.run
+  ensure
+    original_value.nil? ? ENV.delete('PG_DATABASE_URL') : ENV['PG_DATABASE_URL'] = original_value
   end
 
-  it 'treats sqlstate 3D000 as a missing database' do
-    result = instance_double(PG::Result, error_field: described_class::UNDEFINED_DATABASE_SQLSTATE)
-    error = PG::ConnectionBad.new('missing database')
-    allow(error).to receive(:result).and_return(result)
+  it 'uses PG_DATABASE_URL when configured' do
+    ENV['PG_DATABASE_URL'] = 'postgresql://user:secret@localhost:5432/karya'
 
-    expect(described_class.missing_database_error?(error)).to be(true)
+    expect(described_class.database_url).to eq('postgresql://user:secret@localhost:5432/karya')
   end
 
-  it 'does not treat unrelated Postgres errors as a missing database' do
-    result = instance_double(PG::Result, error_field: '08006')
-    error = PG::ConnectionBad.new('connection failed')
-    allow(error).to receive(:result).and_return(result)
+  it 'falls back to the default postgres database url' do
+    ENV.delete('PG_DATABASE_URL')
 
-    expect(described_class.missing_database_error?(error)).to be(false)
+    expect(described_class.database_url).to eq(described_class::DEFAULT_DATABASE_URL)
   end
 
-  it 'prefers the admin database before the target database from the env url' do
-    candidates = described_class.connection_params_candidates(
-      'postgresql://user:secret@localhost:5432/karya',
-      default_database_name: 'postgres'
-    )
+  it 'yields the configured database url without provisioning a temporary database' do
+    ENV['PG_DATABASE_URL'] = 'postgresql://user:secret@localhost:5432/karya'
 
-    expect(candidates.map { |params| params.fetch(:dbname) }).to eq(%w[postgres karya])
+    expect { |block| described_class.with_postgres_database(prefix: 'ignored', &block) }
+      .to yield_with_args('postgresql://user:secret@localhost:5432/karya')
   end
 end

@@ -5,12 +5,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require 'fileutils'
-require 'socket'
-require 'tmpdir'
-require 'timeout'
+require 'securerandom'
 
-RSpec.describe Karya::QueueStore::Postgres do
+RSpec.describe Karya::QueueStore::Postgres, :integration do
   def submission_job(id:, created_at:, queue: 'billing', handler: 'ProcessInvoice', arguments: {}, **attributes)
     Karya::Job.new(
       id:,
@@ -23,73 +20,19 @@ RSpec.describe Karya::QueueStore::Postgres do
     )
   end
 
-  def unused_tcp_port
-    TCPServer.open('127.0.0.1', 0) { |server| server.addr[1] }
-  end
-
-  def run_command(*command)
-    success = system(*command, out: File::NULL, err: File::NULL)
-    raise "command failed: #{command.join(' ')}" unless success
-  end
-
-  def wait_for_postgres(port)
-    Timeout.timeout(15) do
-      loop do
-        return if system('pg_isready', '-h', '127.0.0.1', '-p', port.to_s, '-U', 'postgres', out: File::NULL, err: File::NULL)
-
-        sleep 0.05
-      end
-    end
-  end
-
   def close_store_connection(store)
     store.connection.close
   rescue StandardError
     nil
   end
 
-  let(:tmpdir) { Dir.mktmpdir }
-  let(:port) { unused_tcp_port }
-  let(:database_name) { 'karya_queue_store_spec' }
-  let(:postgres_pid) do
-    run_command('initdb', '-D', postgres_data_dir, '-A', 'trust', '--username', 'postgres')
-    Process.spawn(
-      'postgres',
-      '-D', postgres_data_dir,
-      '-h', '127.0.0.1',
-      '-k', tmpdir,
-      '-p', port.to_s,
-      out: File.join(tmpdir, 'postgres.out'),
-      err: File.join(tmpdir, 'postgres.err')
-    )
-  end
-  let(:postgres_data_dir) { File.join(tmpdir, 'postgres') }
-  let(:url) { "postgres://postgres@127.0.0.1:#{port}/#{database_name}" }
-  let(:store) { described_class.new(url:, namespace: 'spec') }
+  let(:url) { ENV.fetch('PG_DATABASE_URL', 'postgres://postgres:postgres@127.0.0.1:5432/postgres') }
+  let(:namespace) { "queue_store_postgres_spec_#{SecureRandom.hex(6)}" }
+  let(:store) { described_class.new(url:, namespace:) }
   let(:created_at) { Time.utc(2026, 5, 23, 12, 0, 0) }
-
-  before do
-    postgres_pid
-    wait_for_postgres(port)
-    run_command('createdb', '-h', '127.0.0.1', '-p', port.to_s, '-U', 'postgres', database_name)
-  end
 
   after do
     close_store_connection(store)
-    Process.kill('TERM', postgres_pid)
-    Timeout.timeout(5) { Process.wait(postgres_pid) }
-  rescue Timeout::Error
-    Process.kill('KILL', postgres_pid)
-    Process.wait(postgres_pid)
-    FileUtils.rm_rf(tmpdir)
-  rescue PG::Error
-    Process.kill('TERM', postgres_pid)
-    Timeout.timeout(5) { Process.wait(postgres_pid) }
-    FileUtils.rm_rf(tmpdir)
-  rescue Errno::ESRCH, Errno::ECHILD
-    FileUtils.rm_rf(tmpdir)
-  ensure
-    FileUtils.rm_rf(tmpdir)
   end
 
   it 'runs the durable lifecycle through persisted Postgres rows' do

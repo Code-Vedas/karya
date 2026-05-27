@@ -8,13 +8,15 @@
 RSpec.describe Karya::Internal::FrameworkJobRegistry do
   around do |example|
     original_entries = []
-    original_entries = described_class.entries
-    described_class.reset!
-    example.run
-  ensure
-    described_class.reset!
-    original_entries.each do |entry|
-      described_class.register(entry.klass, source_path: entry.source_path)
+    begin
+      original_entries = described_class.entries
+      described_class.reset!
+      example.run
+    ensure
+      described_class.reset!
+      original_entries.each do |entry|
+        described_class.register(entry.klass, source_path: entry.source_path)
+      end
     end
   end
 

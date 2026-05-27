@@ -31,8 +31,10 @@ RSpec.describe Karya::Rails, :dashboard_manifest_fixture, :integration do
         migration_class_name = Karya::ActiveRecord.normalize_migration_name(migration_name)
         ActiveRecord::Base.establish_connection(database_url)
         ActiveRecord::Migration.verbose = false
-        load migration_path
-        Object.const_get(migration_class_name).migrate(:up)
+        unless ActiveRecord::Base.connection.data_source_exists?(:karya_queue_store_states)
+          load migration_path
+          Object.const_get(migration_class_name).migrate(:up)
+        end
         install_kaal_schema!(backend_name: 'mysql', database_url:)
         Kaal.reset_configuration!
         Kaal.load_config_file!(

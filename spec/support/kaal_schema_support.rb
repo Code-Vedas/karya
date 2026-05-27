@@ -24,7 +24,12 @@ module KaalSchemaSupport
       end
 
       database = Sequel.connect(sequel_database_url_for(database_url))
-      Sequel::Migrator.run(database, migration_dir)
+      run_sequel_migrations(
+        database:,
+        migration_dir:,
+        table_name: "kaal_#{backend_name}",
+        sentinel_table: :kaal_dispatches
+      )
     ensure
       database&.disconnect
     end

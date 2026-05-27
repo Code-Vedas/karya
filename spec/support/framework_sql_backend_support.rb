@@ -26,6 +26,7 @@ module FrameworkSQLBackendSupport
     Karya::FrameworkRuntime.reset_shared_runtime!
     Kaal.reset_registry!
     Kaal.reset_coordinator!
+    restore_backend_ivar(:@queue_store, UNDEFINED)
     yield
   ensure
     Karya::FrameworkRuntime.reset_shared_runtime!
@@ -40,9 +41,10 @@ module FrameworkSQLBackendSupport
 
   def with_postgres_backend(prefix:, namespace:)
     preserve_backend_configuration do
+      resolved_namespace = "#{namespace}_#{SecureRandom.hex(6)}"
       with_postgres_database(prefix:) do |database_url|
-        with_framework_config_env(backend: 'postgres', database_url:, namespace:) do
-          Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace:)
+        with_framework_config_env(backend: 'postgres', database_url:, namespace: resolved_namespace) do
+          Karya.configure_backend(Karya::Backend::Postgres, url: database_url, namespace: resolved_namespace)
           yield database_url
         end
       end
@@ -51,9 +53,10 @@ module FrameworkSQLBackendSupport
 
   def with_mysql_backend(prefix:, namespace:)
     preserve_backend_configuration do
+      resolved_namespace = "#{namespace}_#{SecureRandom.hex(6)}"
       with_mysql_database(prefix:) do |database_url|
-        with_framework_config_env(backend: 'mysql', database_url:, namespace:) do
-          Karya.configure_backend(Karya::Backend::MySQL, url: database_url, namespace:)
+        with_framework_config_env(backend: 'mysql', database_url:, namespace: resolved_namespace) do
+          Karya.configure_backend(Karya::Backend::MySQL, url: database_url, namespace: resolved_namespace)
           yield database_url
         end
       end
@@ -118,23 +121,25 @@ module FrameworkSQLBackendSupport
 
   def with_framework_config_env(backend:, database_url:, namespace:)
     previous_values = {}
-    kaal_backend = backend == 'in_memory' ? 'memory' : backend
-    kaal_database_url = if backend == 'sqlite' && database_url
-                          database_url.sub(/\Asqlite3:\/\//, 'sqlite://')
-                        else
-                          database_url
-                        end
-    previous_values = FRAMEWORK_E2E_ENV_KEYS.to_h { |key| [key, ENV[key]] }
-    ENV['KARYA_FRAMEWORK_E2E_BACKEND'] = backend
-    database_url.nil? ? ENV.delete('KARYA_FRAMEWORK_E2E_DATABASE_URL') : ENV['KARYA_FRAMEWORK_E2E_DATABASE_URL'] = database_url
-    ENV['KARYA_FRAMEWORK_E2E_NAMESPACE'] = namespace
-    ENV['KARYA_FRAMEWORK_E2E_KAAL_BACKEND'] = kaal_backend
-    kaal_database_url.nil? ? ENV.delete('KARYA_FRAMEWORK_E2E_KAAL_DATABASE_URL') : ENV['KARYA_FRAMEWORK_E2E_KAAL_DATABASE_URL'] = kaal_database_url
-    ENV['KARYA_FRAMEWORK_E2E_KAAL_NAMESPACE'] = namespace
-    yield
-  ensure
-    previous_values.each do |key, value|
-      value.nil? ? ENV.delete(key) : ENV[key] = value
+    begin
+      kaal_backend = backend == 'in_memory' ? 'memory' : backend
+      kaal_database_url = if backend == 'sqlite' && database_url
+                            database_url.sub(/\Asqlite3:\/\//, 'sqlite://')
+                          else
+                            database_url
+                          end
+      previous_values = FRAMEWORK_E2E_ENV_KEYS.to_h { |key| [key, ENV[key]] }
+      ENV['KARYA_FRAMEWORK_E2E_BACKEND'] = backend
+      database_url.nil? ? ENV.delete('KARYA_FRAMEWORK_E2E_DATABASE_URL') : ENV['KARYA_FRAMEWORK_E2E_DATABASE_URL'] = database_url
+      ENV['KARYA_FRAMEWORK_E2E_NAMESPACE'] = namespace
+      ENV['KARYA_FRAMEWORK_E2E_KAAL_BACKEND'] = kaal_backend
+      kaal_database_url.nil? ? ENV.delete('KARYA_FRAMEWORK_E2E_KAAL_DATABASE_URL') : ENV['KARYA_FRAMEWORK_E2E_KAAL_DATABASE_URL'] = kaal_database_url
+      ENV['KARYA_FRAMEWORK_E2E_KAAL_NAMESPACE'] = namespace
+      yield
+    ensure
+      previous_values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
     end
   end
   private :with_framework_config_env

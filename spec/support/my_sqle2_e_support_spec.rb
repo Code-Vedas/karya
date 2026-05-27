@@ -5,28 +5,32 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require 'mysql2'
 require_relative 'mysql_e2e_support'
 
 RSpec.describe MySQLE2ESupport do
-  it 'treats ER_BAD_DB_ERROR as a missing database' do
-    error = instance_double(Mysql2::Error, error_number: described_class::ER_BAD_DB_ERROR)
-
-    expect(described_class.missing_database_error?(error)).to be(true)
+  around do |example|
+    original_value = ENV['MYSQL_DATABASE_URL']
+    example.run
+  ensure
+    original_value.nil? ? ENV.delete('MYSQL_DATABASE_URL') : ENV['MYSQL_DATABASE_URL'] = original_value
   end
 
-  it 'does not treat other MySQL errors as a missing database' do
-    error = instance_double(Mysql2::Error, error_number: 2002)
+  it 'uses MYSQL_DATABASE_URL when configured' do
+    ENV['MYSQL_DATABASE_URL'] = 'mysql2://root:secret@localhost:3306/karya'
 
-    expect(described_class.missing_database_error?(error)).to be(false)
+    expect(described_class.database_url).to eq('mysql2://root:secret@localhost:3306/karya')
   end
 
-  it 'prefers the admin database before the target database from the env url' do
-    candidates = described_class.connection_params_candidates(
-      'mysql2://root:secret@localhost:3306/karya',
-      default_database_name: 'mysql'
-    )
+  it 'falls back to the default mysql database url' do
+    ENV.delete('MYSQL_DATABASE_URL')
 
-    expect(candidates.map { |params| params.fetch(:database) }).to eq(%w[mysql karya])
+    expect(described_class.database_url).to eq(described_class::DEFAULT_DATABASE_URL)
+  end
+
+  it 'yields the configured database url without provisioning a temporary database' do
+    ENV['MYSQL_DATABASE_URL'] = 'mysql2://root:secret@localhost:3306/karya'
+
+    expect { |block| described_class.with_mysql_database(prefix: 'ignored', &block) }
+      .to yield_with_args('mysql2://root:secret@localhost:3306/karya')
   end
 end

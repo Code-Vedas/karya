@@ -27,7 +27,12 @@ RSpec.describe Karya::Roda, :dashboard_manifest_fixture, :integration do
       Dir.mktmpdir('karya-roda-sqlite-migrations-') do |migration_dir|
         Karya::Sequel.install_sqlite_migration(target_dir: migration_dir)
         db = Sequel.connect(sequel_database_url_for(database_url))
-        Sequel::Migrator.run(db, migration_dir)
+        run_sequel_migrations(
+          database: db,
+          migration_dir:,
+          table_name: 'roda_sqlite',
+          sentinel_table: :karya_queue_store_states
+        )
         install_kaal_schema!(backend_name: 'sqlite', database_url:)
         KaryaRodaDummyAppSupport.with_dummy_app do |app_root, rack_app|
           self.current_app_root = app_root
