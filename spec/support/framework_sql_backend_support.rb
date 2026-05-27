@@ -117,6 +117,7 @@ module FrameworkSQLBackendSupport
   private :delete_redis_namespace
 
   def with_framework_config_env(backend:, database_url:, namespace:)
+    previous_values = {}
     kaal_backend = backend == 'in_memory' ? 'memory' : backend
     kaal_database_url = if backend == 'sqlite' && database_url
                           database_url.sub(/\Asqlite3:\/\//, 'sqlite://')

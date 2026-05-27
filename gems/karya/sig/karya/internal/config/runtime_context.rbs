@@ -10,7 +10,7 @@ module Karya
         DEFAULT_ENVIRONMENT_NAME: String
         ENVIRONMENT_KEYS: Array[String]
 
-        attr_reader root_path: Pathname
+        attr_reader root_path: String
         attr_reader environment_name: String
 
         def self.default: (?env: Hash[String, String], ?root_path: String) -> RuntimeContext

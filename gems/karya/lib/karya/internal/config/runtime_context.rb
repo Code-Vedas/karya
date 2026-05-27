@@ -5,8 +5,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-require 'pathname'
-
 module Karya
   module Internal
     module Config
@@ -31,14 +29,15 @@ module Karya
         end
 
         def initialize(root_path:, environment_name:)
-          @root_path = Pathname.new(root_path)
+          @root_path = root_path.to_s
           @environment_name = environment_name.to_s
         end
 
         def resolve_path(path)
-          return path.to_s if Pathname.new(path).absolute?
+          resolved_path = path.to_s
+          return resolved_path if resolved_path.start_with?('/')
 
-          root_path.join(path).to_s
+          File.join(root_path, resolved_path)
         end
       end
     end

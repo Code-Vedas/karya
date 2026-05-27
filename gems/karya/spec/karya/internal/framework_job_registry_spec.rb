@@ -7,6 +7,7 @@
 
 RSpec.describe Karya::Internal::FrameworkJobRegistry do
   around do |example|
+    original_entries = []
     original_entries = described_class.entries
     described_class.reset!
     example.run
