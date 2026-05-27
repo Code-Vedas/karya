@@ -1,0 +1,31 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module FrameworkInstaller
+      def self.install!: (
+        framework_class_name: String,
+        root_path: String,
+        backend: Karya::framework_backend_kind_input,
+        migration_kind: Karya::framework_backend_kind,
+        migration_target_dir: String,
+        migration_installer: Karya::framework_migration_installer
+      ) -> String
+      def self.migration_kind: (Karya::framework_backend_kind_input backend) -> Karya::framework_backend_kind
+      def self.install_migrations!: (
+        migration_kind: Karya::framework_backend_kind,
+        migration_target_dir: String,
+        migration_installer: Karya::framework_migration_installer
+      ) -> String
+      def self.active_record_migration_installer: (Karya::framework_backend_kind migration_kind) -> Karya::framework_migration_installer
+      def self.sequel_migration_installer: (Karya::framework_backend_kind migration_kind) -> Karya::framework_migration_installer
+      def self.create_initializer: (root_path: String, framework_class_name: String, backend: Karya::framework_backend_kind_input) -> void
+      def self.create_application_job: (root_path: String, framework_class_name: String) -> void
+      def self.create_workflow_source: (root_path: String, framework_class_name: String) -> void
+      def self.default_migration_name: (Karya::framework_backend_kind migration_kind) -> String
+    end
+  end
+end

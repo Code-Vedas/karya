@@ -1,0 +1,13 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module FrameworkJob
+    module WorkerRunner
+      def self.run: (queues: Array[Karya::state_name], handlers: Karya::handler_mapping, **Karya::framework_worker_option_value options) -> Integer
+      def self.resolve_backend: () -> [Karya::Backend::Base?, Karya::QueueStore::Base]
+    end
+  end
+end

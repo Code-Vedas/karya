@@ -1,0 +1,20 @@
+<%
+backend = ENV.fetch('KARYA_FRAMEWORK_E2E_KAAL_BACKEND', ENV.fetch('KARYA_FRAMEWORK_E2E_BACKEND', 'sqlite'))
+default_database_url = "sqlite://#{File.expand_path('../storage/test.sqlite3', __dir__)}"
+database_url = ENV['KARYA_FRAMEWORK_E2E_KAAL_DATABASE_URL'] || ENV['KARYA_FRAMEWORK_E2E_DATABASE_URL'] || default_database_url
+namespace = ENV.fetch('KARYA_FRAMEWORK_E2E_KAAL_NAMESPACE', 'karya-sinatra-dummy')
+%>
+defaults:
+  backend: <%= backend %>
+  namespace: <%= namespace %>
+  scheduler_config_path: config/kaal-scheduler.yml
+<% if backend == 'memory' %>
+  backend_config: {}
+<% else %>
+  backend_config:
+    url: <%= database_url %>
+<% end %>
+
+development: {}
+test: {}
+production: {}

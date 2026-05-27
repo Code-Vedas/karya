@@ -1,0 +1,20 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class QueueEntryRows
+        def initialize: (
+          namespace: String,
+          jobs_by_id: Hash[String, ::Karya::Job],
+          queued_job_ids_by_queue: Hash[String, Array[String]],
+          retry_pending_job_ids: Array[String]
+        ) -> void
+        def to_a: () -> durable_symbol_rows
+      end
+    end
+  end
+end

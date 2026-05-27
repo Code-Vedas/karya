@@ -1,0 +1,61 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module FrameworkRuntime
+    class MissingBackendError < Error
+    end
+
+    class HostRuntime
+      DEFAULT_LEASE_DURATION: Integer
+
+      type health_payload = Hash[String, String]
+      type readiness_payload = Hash[String, String | Integer]
+      type operator_payload = Hash[String, String | Array[String]]
+      type runtime_probe_payload = Hash[String, String]
+
+      @backend: Backend::Base?
+      @queue_store: QueueStore::Base?
+
+      def initialize: (
+        backend_class: singleton(Backend::Base),
+        backend_options: Hash[Symbol, String | Numeric | bool | nil]
+      ) -> void
+
+      attr_reader backend: Backend::Base?
+      attr_reader queue_store: QueueStore::Base?
+
+      def start: () -> HostRuntime
+      def stop: () -> nil
+      def started?: () -> bool
+      def health_payload: () -> health_payload
+      def readiness_payload: () -> readiness_payload
+      def operator_payload: (?mount_path: String?) -> operator_payload
+      def runtime_probe_payload: (
+        job_prefix: String,
+        worker_id: String,
+        ?mount_path: String?,
+        ?queue: String,
+        ?lease_duration: Integer,
+        ?now: Time
+      ) -> runtime_probe_payload
+    end
+
+    def self.build: (
+      ?backend_class: singleton(Backend::Base)?,
+      ?backend_options: Hash[Symbol, String | Numeric | bool | nil]
+    ) -> HostRuntime
+    def self.with_started_runtime: [A] (
+      ?backend_class: singleton(Backend::Base)?,
+      ?backend_options: Hash[Symbol, String | Numeric | bool | nil]
+    ) { (HostRuntime runtime) -> A } -> A
+    def self.shared_runtime: (
+      ?backend_class: singleton(Backend::Base)?,
+      ?backend_options: Hash[Symbol, String | Numeric | bool | nil]
+    ) -> HostRuntime
+    def self.current_runtime: () -> HostRuntime?
+    def self.reset_shared_runtime!: () -> void
+  end
+end

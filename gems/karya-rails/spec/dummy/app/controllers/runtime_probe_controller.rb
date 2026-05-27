@@ -9,23 +9,24 @@ require 'securerandom'
 
 class RuntimeProbeController < ApplicationController
   def show
-    backend = Karya.backend_class.new(**Karya.backend_options)
-    queue_store = backend.build_queue_store
-    now = Time.now.utc
-    job = Karya::Job.new(
-      id: "rails-probe-#{SecureRandom.uuid}",
-      queue: 'dashboard',
-      handler: 'dashboard_probe',
-      state: :submission,
-      created_at: now
-    )
-    queue_store.enqueue(job:, now:)
-    reservation = queue_store.reserve(queue: 'dashboard', worker_id: 'rails-probe-worker', lease_duration: 60, now: now + 1)
+    render json: Karya::Rails.runtime_probe_payload
+  end
 
+  def kaal
+    runtime_context = Kaal::Runtime::RuntimeContext.new(
+      root_path: Rails.root,
+      environment_name: Rails.env
+    )
+    Kaal.load_scheduler_file!(runtime_context:)
     render json: {
-      backend: backend.identifier,
-      job_id: reservation.job_id,
-      mount_path: '/karya'
+      'backend' => Kaal.configuration.backend.class.name,
+      'registered' => Kaal.registered?(key: 'rails:heartbeat')
     }
+  end
+
+  def active_job
+    Karya::RailsDummyJob.queue_adapter = Karya::Rails.active_job_queue_adapter
+    Karya::RailsDummyJob.perform_later('hello from active job')
+    render json: { 'adapter' => Karya::Rails.active_job_queue_adapter.class.name }
   end
 end

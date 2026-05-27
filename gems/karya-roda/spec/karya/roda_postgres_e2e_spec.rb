@@ -1,5 +1,10 @@
 # frozen_string_literal: true
 
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 require 'spec_helper'
 require 'json'
 require 'tmpdir'
@@ -13,20 +18,33 @@ RSpec.describe Karya::Roda, :dashboard_manifest_fixture, :integration do
   end
 
   around do |example|
-    KaryaRodaDummyAppSupport.with_dummy_app do |_app_root, rack_app|
-      self.current_rack_app = rack_app
-      with_postgres_backend(prefix: 'karya_roda_e2e', namespace: 'roda_e2e') do |database_url|
-        Dir.mktmpdir('karya-roda-migrations-') do |migration_dir|
-          described_class.install_postgres_migration(target_dir: migration_dir)
-          db = Sequel.connect(database_url)
-          Sequel::Migrator.run(db, migration_dir)
+    original_framework_authorizer = described_class.operator_authorizer
+    original_global_authorizer = Karya.operator_authorizer if Karya.instance_variable_defined?(:@operator_authorizer)
+    described_class.configure_operator_authorizer(->(_request_context) { true })
+    with_postgres_backend(prefix: 'karya_roda_e2e', namespace: 'roda_e2e') do |database_url|
+      Dir.mktmpdir('karya-roda-migrations-') do |migration_dir|
+        Karya::Sequel.install_postgres_migration(target_dir: migration_dir)
+        db = Sequel.connect(database_url)
+        run_sequel_migrations(
+          database: db,
+          migration_dir:,
+          table_name: 'roda_postgres',
+          sentinel_table: :karya_queue_store_states
+        )
+        install_kaal_schema!(backend_name: 'postgres', database_url:)
+        KaryaRodaDummyAppSupport.with_dummy_app do |app_root, rack_app|
+          self.current_app_root = app_root
+          self.current_rack_app = rack_app
           example.run
-        ensure
-          db&.disconnect
         end
+      ensure
+        db&.disconnect
       end
     end
   ensure
+    Karya.configure_operator_authorizer(original_global_authorizer)
+    described_class.configure_operator_authorizer(original_framework_authorizer)
+    self.current_app_root = nil
     self.current_rack_app = nil
   end
 
@@ -49,4 +67,18 @@ RSpec.describe Karya::Roda, :dashboard_manifest_fixture, :integration do
     expect(payload.fetch('backend')).to eq('postgres')
     expect(payload.fetch('job_id')).to start_with('roda-probe-')
   end
+
+  it 'exposes health, readiness, and operator payloads through the Roda host routes' do
+    get '/karya/health'
+    expect(JSON.parse(last_response.body)).to include('status' => 'ok', 'backend' => 'postgres')
+
+    get '/karya/readiness'
+    expect(JSON.parse(last_response.body)).to include('status' => 'ready', 'backend' => 'postgres')
+
+    get '/karya/operator-probe'
+    expect(JSON.parse(last_response.body)).to include('backend' => 'postgres', 'mount_path' => '/karya')
+  end
+
+  it_behaves_like 'framework workflow worker e2e', backend_identifier: 'postgres'
+  it_behaves_like 'framework delayed scheduling e2e', backend_identifier: 'postgres'
 end

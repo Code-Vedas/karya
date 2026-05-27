@@ -2,10 +2,10 @@
 
 Use this file as the repo-root coding baseline.
 
-- `core/karya` owns canonical runtime semantics. Shared behavior lands there
+- `gems/karya` owns canonical runtime semantics. Shared behavior lands there
   first.
-- Backend adapters under `core/` and framework packages under `gems/` should
-  follow `core/karya` vocabulary and contracts.
+- Backend adapters under `gems/` and framework packages under `gems/` should
+  follow `gems/karya` vocabulary and contracts.
 - Keep public API small. Internal helpers, support modules, and constants
   should stay private unless they are intentional extension points.
 - Prefer composition over inheritance.
@@ -28,7 +28,7 @@ Use this file as the repo-root coding baseline.
 - RBS must be 100% true to Ruby behavior. Mirror ownership, visibility,
   optionality, arguments, and return types. Remove stale signatures when code
   moves or disappears.
-- RBS is whole-implementation for `core/karya`: shared internal helpers live
+- RBS is whole-implementation for `gems/karya`: shared internal helpers live
   under `Karya::Internal`, with Ruby files in `lib/karya/internal/**` and
   signatures in `sig/karya/internal/**`. These constants are visible for
   implementation wiring but unsupported as public API.
@@ -48,10 +48,10 @@ Use this file as the repo-root coding baseline.
   behavior only. Do not use owner-private setup or assertions there via
   `instance_variable_get`, direct internal constant reach-in, or private state
   helpers that inspect implementation storage.
-- For `core/karya` work, normally run:
+- For `gems/karya` work, normally run:
 
 ```bash
-cd core/karya
+cd gems/karya
 bin/reek
 bin/rubocop
 bin/rspec-unit

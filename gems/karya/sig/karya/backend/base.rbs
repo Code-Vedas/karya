@@ -1,0 +1,15 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Backend
+    module Base
+      def identifier: () -> String
+      def build_queue_store: () -> QueueStore::Base
+      def before_start: (queue_store: QueueStore::Base) -> nil
+      def after_stop: (queue_store: QueueStore::Base) -> nil
+    end
+  end
+end

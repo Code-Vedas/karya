@@ -1,0 +1,51 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module BackendConfiguration
+      interface _CallableValue
+        def call: (*Karya::Hooks::payload_value args) -> String?
+      end
+
+      type generic_backend_option_value =
+        nil |
+        bool |
+        Numeric |
+        String |
+        Symbol |
+        Class |
+        QueueStore::Base |
+        Backpressure::PolicySet |
+        CircuitBreaker::PolicySet |
+        Fairness::Policy |
+        Method |
+        Proc |
+        _CallableValue |
+        Array[Karya::backend_option_value] |
+        Hash[Symbol | String, Karya::backend_option_value]
+
+      def self.configure: (
+        owner: singleton(::Karya),
+        backend_class: ::Karya::Backend::backend_class,
+        options: Hash[Symbol, ::Karya::backend_option_value],
+        load_backend_support: ^() -> true,
+        synchronize_kaal_backend: ^(backend_class: ::Karya::Backend::backend_class, backend_options: Hash[Symbol, ::Karya::backend_option_value]) -> ::Kaal::backend?
+      ) -> ::Karya::Backend::backend_class
+
+      def self.backend_class: (
+        owner: singleton(::Karya),
+        load_backend_support: ^() -> true
+      ) -> ::Karya::Backend::backend_class?
+
+      def self.backend_options: (
+        owner: singleton(::Karya),
+        load_backend_support: ^() -> true
+      ) -> Hash[Symbol, ::Karya::backend_option_value]
+
+      def self.generic_backend_option?: (Symbol name, generic_backend_option_value value) -> bool
+    end
+  end
+end

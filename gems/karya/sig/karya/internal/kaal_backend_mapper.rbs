@@ -1,0 +1,28 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module KaalBackendMapper
+      def self.synchronize!: (
+        backend_class: singleton(::Karya::Backend::Base),
+        backend_options: Hash[Symbol, ::Karya::backend_option_value],
+        ?configuration: ::Kaal::Configuration
+      ) -> ::Kaal::backend
+      def self.build: (
+        backend_class: singleton(::Karya::Backend::Base),
+        backend_options: Hash[Symbol, ::Karya::backend_option_value]
+      ) -> ::Kaal::backend?
+      def self.namespace_for: (Hash[Symbol, ::Karya::backend_option_value] backend_options) -> String
+      def self.url_for: (Hash[Symbol, ::Karya::backend_option_value] backend_options) -> String
+      def self.build_redis_backend: (Hash[Symbol, ::Karya::backend_option_value] backend_options) -> ::Kaal::Backend::RedisAdapter
+      def self.build_sql_backend: ((singleton(::Kaal::Backend::SQLite) | singleton(::Kaal::Backend::Postgres) | singleton(::Kaal::Backend::MySQL)) backend_class, Hash[Symbol, ::Karya::backend_option_value] backend_options) -> (::Kaal::Backend::SQLite | ::Kaal::Backend::Postgres | ::Kaal::Backend::MySQL)
+      def self.kaal_configuration: () -> ::Kaal::Configuration
+      def self.require_kaal!: () -> true
+      def self.require_redis!: () -> true
+      def self.require_sequel!: () -> true
+    end
+  end
+end

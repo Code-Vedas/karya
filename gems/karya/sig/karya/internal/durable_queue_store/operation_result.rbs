@@ -1,0 +1,19 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class OperationResult
+        def initialize: (value: value, mutation_plan: MutationPlan, persist: bool) -> void
+
+        attr_reader value: value
+        attr_reader mutation_plan: MutationPlan
+
+        def persist?: () -> bool
+      end
+    end
+  end
+end

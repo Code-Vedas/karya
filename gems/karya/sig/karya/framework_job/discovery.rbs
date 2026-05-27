@@ -1,0 +1,23 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module FrameworkJob
+    class Discovery
+      DEFAULT_BOOT_FILES: Array[String]
+      DEFAULT_JOB_PATHS: Array[String]
+
+      def initialize: (
+        root_path: String,
+        job_base: singleton(Base),
+        ?job_paths: Array[String],
+        ?boot_files: Array[String],
+        ?extra_handlers: Karya::handler_mapping,
+        ?eager_load: Karya::callable_value?
+      ) -> void
+      def handlers: () -> Karya::handler_mapping
+    end
+  end
+end

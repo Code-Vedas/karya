@@ -1,0 +1,35 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Hooks
+    type event =
+      :runtime_build |
+      :runtime_start |
+      :runtime_stop |
+      :operator_authorization |
+      :active_job_enqueue |
+      :active_job_execute
+    type payload_value =
+      String |
+      Numeric |
+      bool |
+      Symbol |
+      Time |
+      Karya::job_argument |
+      _RequestContext |
+      Array[payload_value] |
+      Hash[String, payload_value]
+
+    interface _RequestContext
+    end
+
+    def self.register: (event event, Karya::callable_value hook) -> Karya::callable_value
+    def self.listeners: (event event) -> Array[Karya::callable_value]
+    def self.dispatch: (event event, payload: Hash[String, payload_value]) -> nil
+    def self.dispatch_authorization: (payload: Hash[String, payload_value], default: bool) -> bool
+    def self.reset!: () -> void
+  end
+end

@@ -1,0 +1,22 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module PG
+  class Connection
+  end
+end
+
+module Mysql2
+  class Client
+  end
+end
+
+module SQLite3
+  class Database
+  end
+end
+
+class Redis
+end

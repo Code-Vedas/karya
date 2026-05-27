@@ -1,0 +1,46 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    class FrameworkSupport
+      def initialize: (
+        framework_name: String,
+        job_base: singleton(Karya::FrameworkJob::Base),
+        root_path_resolver: Karya::framework_root_path_resolver,
+        ?environment_name_resolver: ^() -> String
+      ) -> void
+      def configure: () { (FrameworkConfiguration configuration) -> void } -> FrameworkConfiguration
+      def load_config_file: (?path: String) -> FrameworkConfiguration
+      def load_config_file!: (?path: String) -> FrameworkConfiguration
+      def configuration: () -> FrameworkConfiguration
+      def operator_authorizer: () -> Karya::framework_operator_authorizer?
+      def configure_operator_authorizer: (?Karya::framework_operator_authorizer authorizer) -> Karya::framework_operator_authorizer?
+      def operator_access_authorized?: (
+        Karya::callable_argument request_context,
+        ?authorizer: Karya::framework_operator_authorizer?
+      ) -> bool
+      def normalize_queues: (String | Array[Karya::state_name] value) -> Array[String]
+      def framework_root_path: () -> String
+      def worker_handlers: (
+        ?root_path: String,
+        ?extra_handlers: Karya::handler_mapping,
+        ?eager_load: Karya::callable_value?
+      ) -> Karya::handler_mapping
+      def run_worker: (
+        queues: String | Array[Karya::state_name],
+        ?name: Karya::state_name?,
+        ?root_path: String,
+        ?extra_handlers: Karya::handler_mapping,
+        ?eager_load: Karya::callable_value?,
+        **Karya::framework_worker_option_value options
+      ) -> Integer
+      def runtime_state_file: (queues: String | Array[Karya::state_name], ?name: Karya::state_name?, ?root_path: String) -> String
+      def runtime_inspect: (queues: String | Array[Karya::state_name], ?name: Karya::state_name?, ?root_path: String) -> Karya::framework_runtime_payload
+      def runtime_drain: (queues: String | Array[Karya::state_name], ?name: Karya::state_name?, ?root_path: String) -> Karya::framework_runtime_command_response
+      def runtime_force_stop: (queues: String | Array[Karya::state_name], ?name: Karya::state_name?, ?root_path: String) -> Karya::framework_runtime_command_response
+    end
+  end
+end

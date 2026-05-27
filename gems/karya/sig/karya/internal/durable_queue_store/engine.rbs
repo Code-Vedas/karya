@@ -1,0 +1,19 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class Engine
+        READ_ONLY_OPERATIONS: Array[Symbol]
+        RESERVE_OPERATIONS: Array[Symbol]
+        OPERATION_CLASS_NAMES: Hash[Symbol, Symbol]
+
+        def initialize: (store: persisted_store) -> void
+        def execute: (operation_name: Symbol, request: request) -> value
+      end
+    end
+  end
+end

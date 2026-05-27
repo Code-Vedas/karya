@@ -34,6 +34,7 @@ Gem::Specification.new do |spec|
   end
   spec.require_paths = ['lib']
   spec.add_dependency 'hanami', '>= 2.0', '< 3.0'
+  spec.add_dependency 'kaal-hanami', '~> 0.6.0'
   spec.add_dependency 'karya', "= #{version}"
   spec.add_dependency 'karya-dashboard', "= #{version}"
   spec.add_dependency 'rack', '>= 2.2'

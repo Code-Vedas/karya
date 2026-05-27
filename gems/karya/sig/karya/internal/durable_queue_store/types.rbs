@@ -1,0 +1,34 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      type persisted_store = Karya::QueueStore::SQLite | Karya::QueueStore::Postgres | Karya::QueueStore::MySQL | Karya::QueueStore::Redis
+      type scalar = String | Integer | Float | Symbol | bool | Time | nil
+      type value =
+        scalar |
+        Karya::Job |
+        Karya::Reservation |
+        Karya::QueueStore::Internal::BulkMutationReport |
+        Karya::QueueStore::Internal::QueueControlResult |
+        Karya::QueueStore::Internal::RecoveryReport |
+        Karya::Workflow::Batch |
+        Karya::Workflow::BatchSnapshot |
+        Array[value] |
+        Hash[Symbol, value] |
+        Hash[String, value]
+      type request = Hash[Symbol, value]
+      type metadata = Hash[Symbol, value]
+      type row = Hash[Symbol, value]
+      type row_group = Array[row]
+      type rows = Hash[Symbol, row_group]
+      type runtime_rows = Hash[Symbol, String | row_group]
+      type workflow_requirement = Hash[Symbol | String, durable_value]
+      type workflow_requirement_map = Hash[String, workflow_requirement]
+      type workflow_interaction_key = [Symbol, String]
+    end
+  end
+end

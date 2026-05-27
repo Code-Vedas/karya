@@ -29,7 +29,7 @@ multiple tools into one platform:
 
 ### Core Packages
 
-- `core/karya`: canonical runtime, CLI, execution model, operator contracts,
+- `gems/karya`: canonical runtime, CLI, execution model, operator contracts,
   workflow engine, Postgres/Redis/MySQL/SQLite/`InMemory` backend support, and
   shared SQL integration surfaces including Active Record and Sequel migration
   support

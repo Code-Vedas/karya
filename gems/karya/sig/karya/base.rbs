@@ -1,0 +1,94 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+# Karya module serves as the namespace for all classes and modules related to the Karya gem.
+module Karya
+  interface _OperatorAuthorizer
+    def call: (*Karya::Hooks::payload_value args) -> bool
+  end
+
+  type operator_authorizer = Method | Proc | _OperatorAuthorizer
+  type enqueue_timestamp = Time | Numeric
+
+  self.@instrumenter: instrumenter?
+  self.@outbound_event_dispatcher: outbound_event_dispatcher?
+
+  self.@logger: logger
+
+  self.@queue_store: QueueStore::Base?
+  self.@backend_class: Backend::backend_class?
+  self.@backend_options: Hash[Symbol, backend_option_value]?
+  self.@operator_authorizer: operator_authorizer?
+
+  # Internal implementation namespace. Constants here are not part of the supported public API.
+  module Internal
+    interface _Logger
+      def debug: (?String message, **String context) -> nil
+      def info: (?String message, **String context) -> nil
+      def warn: (?String message, **String context) -> nil
+      def error: (?String message, **String context) -> nil
+    end
+  end
+
+  # Error is the base class for all exceptions raised by Karya.
+  class Error < StandardError
+  end
+
+  # Raised when runtime code requires a configured queue store but none has been set.
+  class MissingQueueStoreConfigurationError < Error
+  end
+
+  class InvalidFrameworkConfigurationError < Error
+  end
+
+  class UnsupportedSchedulingError < Error
+  end
+
+  class InvalidOutboundEventError < Error
+  end
+
+  class UnsupportedOutboundEventError < Error
+  end
+
+  class InvalidWebhookSignatureError < Error
+  end
+
+  attr_reader self.instrumenter: instrumenter?
+  attr_reader self.outbound_event_dispatcher: outbound_event_dispatcher?
+
+  def self.configure_instrumenter: (instrumenter? instrumenter) -> instrumenter?
+  def self.configure_outbound_event_dispatcher: (outbound_event_dispatcher? outbound_event_dispatcher) -> outbound_event_dispatcher?
+
+  def self.configure_logger: (logger logger) -> logger
+
+  def self.configure_queue_store: (QueueStore::Base? queue_store) -> QueueStore::Base?
+  def self.configure_operator_authorizer: (operator_authorizer? operator_authorizer) -> operator_authorizer?
+  def self.configure_backend: (Backend::backend_class backend_class, **backend_option_value options) -> Backend::backend_class
+
+  def self.logger: () -> logger
+  def self.backend_class: () -> Backend::backend_class?
+  def self.backend_options: () -> Hash[Symbol, backend_option_value]
+  def self.operator_authorizer: () -> operator_authorizer?
+
+  def self.queue_store: () -> QueueStore::Base
+  def self._resolve_queue_store: () -> QueueStore::Base
+  def self.enqueue: (
+    queue: String,
+    handler: String,
+    ?arguments: Hash[String | Symbol, Karya::job_argument],
+    ?now: enqueue_timestamp,
+    ?job_id: String,
+    ?created_at: enqueue_timestamp,
+    ?enqueued_at: enqueue_timestamp
+  ) -> Job
+  def self.enqueue_at: (
+    queue: String,
+    handler: String,
+    ?arguments: Hash[String | Symbol, Karya::job_argument],
+    at: enqueue_timestamp,
+    ?now: enqueue_timestamp,
+    ?job_id: String
+  ) -> (Job | delayed_enqueue_receipt)
+end

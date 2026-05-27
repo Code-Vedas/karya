@@ -1,27 +1,95 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 module Karya
   module Sinatra
+    type backend_options = Hash[Symbol, String | Numeric | bool | nil]
+    type health_payload = Hash[String, String]
+    type readiness_payload = Hash[String, String | Integer]
+    type operator_payload = Hash[String, String | Array[String]]
+    type runtime_probe_payload = Hash[String, String]
+
+    interface _HostRuntime
+    end
+
+    interface _OperatorRequestContext
+    end
+
+    interface _OperatorAuthorizer
+      def call: (_OperatorRequestContext request_context) -> bool
+    end
+
     DEFAULT_MOUNT_PATH: String
 
-    def self.install_postgres_migration: (
-      target_dir: String,
-      ?migration_name: String
-    ) -> String
-    def self.install_mysql_migration: (
-      target_dir: String,
-      ?migration_name: String
-    ) -> String
-    def self.install_sqlite_migration: (
-      target_dir: String,
-      ?migration_name: String
-    ) -> String
+    class Job < Karya::FrameworkJob::Base
+    end
 
-    def self.render_dashboard_page: (
-      ?scope: String?,
-      ?title: String,
-      ?asset_prefix: String?,
-      ?name: String
-    ) -> String
+    module Workflow
+      module Source
+        include Karya::Internal::FrameworkWorkflow::Source
+      end
 
+      def self.define: (
+        Karya::state_name id,
+        ?workflow_family: Karya::state_name?,
+        ?workflow_version: Karya::state_name?,
+        ?default_version: bool
+      ) ?{ (Karya::Internal::FrameworkWorkflow::DefinitionBuilder builder) -> void } -> Karya::Internal::FrameworkWorkflow::Definition
+      def self.catalog: () -> Karya::Internal::FrameworkWorkflow::Catalog
+      def self.start: (
+        definition: Karya::framework_workflow_definition_input,
+        batch_id: Karya::state_name,
+        step_arguments: Karya::framework_job_step_arguments,
+        ?now: Karya::framework_time_input,
+        ?compensation_step_arguments: Karya::framework_job_step_arguments
+      ) -> Karya::framework_workflow_control_result
+      def self.batch: (batch_id: Karya::state_name, ?now: Time | Numeric) -> Karya::Workflow::BatchSnapshot
+      def self.snapshot: (batch_id: Karya::state_name, ?now: Time | Numeric) -> Karya::Workflow::Snapshot
+      def self.history: (batch_id: Karya::state_name, ?now: Time | Numeric) -> Karya::Workflow::HistorySnapshot
+      def self.query: (batch_id: Karya::state_name, query: Karya::state_name, ?now: Time | Numeric) -> Karya::Workflow::QueryResult
+      def self.signal: (batch_id: Karya::state_name, signal: Karya::state_name, payload: Karya::interaction_payload, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.event: (batch_id: Karya::state_name, event: Karya::state_name, payload: Karya::interaction_payload, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.pause: (batch_id: Karya::state_name, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.resume: (batch_id: Karya::state_name, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.approve: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.reject: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], reason: String, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.retry_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.dead_letter_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], reason: String, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.replay_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.retry_dead_letter_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], next_retry_at: Time, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.discard_steps: (batch_id: Karya::state_name, step_ids: Array[Karya::state_name], ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.rollback: (batch_id: Karya::state_name, reason: String, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+      def self.enqueue_child: (
+        parent_batch_id: Karya::state_name,
+        parent_step_id: Karya::state_name,
+        definition: Karya::framework_workflow_definition_input,
+        batch_id: Karya::state_name,
+        step_arguments: Karya::framework_job_step_arguments,
+        ?now: Karya::framework_time_input,
+        ?compensation_step_arguments: Karya::framework_job_step_arguments
+      ) -> Karya::framework_workflow_control_result
+      def self.sync_children: (parent_batch_id: Karya::state_name, ?now: Time | Numeric) -> Karya::framework_workflow_control_result
+    end
+
+    def self.configuration: () -> Karya::Internal::FrameworkConfiguration
+    def self.load_config_file!: (?path: String) -> Karya::Internal::FrameworkConfiguration
+    def self.register_workflows: (*Karya::Internal::FrameworkWorkflow::Source sources) -> Array[Karya::Internal::FrameworkWorkflow::Source]
+    def self.build_host_runtime: (?backend_class: Class?, ?backend_options: backend_options) -> _HostRuntime
+    def self.with_host_runtime: [A] (?backend_class: Class?, ?backend_options: backend_options) { (_HostRuntime runtime) -> A } -> A
+    def self.render_dashboard_page: (?scope: String?, ?title: String, ?asset_prefix: String?, ?name: String) -> String
     def self.mount_path: (?scope: String?) -> String
+    def self.health_payload: (?backend_class: Class?, ?backend_options: backend_options) -> health_payload
+    def self.readiness_payload: (?backend_class: Class?, ?backend_options: backend_options) -> readiness_payload
+    def self.operator_payload: (?backend_class: Class?, ?backend_options: backend_options, ?scope: String?) -> operator_payload
+    def self.runtime_probe_payload: (?backend_class: Class?, ?backend_options: backend_options, ?scope: String?) -> runtime_probe_payload
+    def self.configure_operator_authorizer: ((Method | Proc | _OperatorAuthorizer)? authorizer) -> (Method | Proc | _OperatorAuthorizer)?
+    def self.operator_access_authorized?: (_OperatorRequestContext request_context, ?authorizer: (Method | Proc | _OperatorAuthorizer)?) -> bool
+    def self.operator_authorizer: () -> (Method | Proc | _OperatorAuthorizer)?
+    def self.framework_root_path: () -> String
+    def self.runtime_inspect: (queues: Array[Karya::state_name], ?name: Karya::state_name?) -> Karya::framework_runtime_payload
+    def self.runtime_drain: (queues: Array[Karya::state_name], ?name: Karya::state_name?) -> Karya::framework_runtime_command_response
+    def self.runtime_force_stop: (queues: Array[Karya::state_name], ?name: Karya::state_name?) -> Karya::framework_runtime_command_response
   end
 end

@@ -1,0 +1,301 @@
+---
+detectors:
+  UncommunicativeVariableName:
+    accept:
+      - e
+      - t
+      - _
+  TooManyStatements:
+    enabled: true
+    max_statements: 25
+    exclude:
+      - Karya::QueueStore::Internal::StoreState#initialize
+  TooManyMethods:
+    enabled: true
+    max_methods: 30
+    exclude:
+      - Karya::Kaal::Store
+      - Karya::Internal::DurableQueueStore::SqlStateStore
+      - Karya::Job
+  BooleanParameter:
+    enabled: false
+  ControlParameter:
+    enabled: false
+  TooManyConstants:
+    enabled: true
+    max_constants: 30
+  LongParameterList:
+    enabled: true
+    max_params: 10
+    exclude:
+      - Karya::Worker::Configuration#initialize
+      - Karya::FrameworkJob::Discovery#initialize
+      - Karya::Internal::FrameworkWorkflow::StepBinding#initialize
+  TooManyInstanceVariables:
+    enabled: true
+    max_instance_variables: 10
+    exclude:
+      - Karya::QueueStore::Internal::StoreState
+      - Karya::WorkerSupervisor::Configuration
+  DataClump:
+    enabled: false
+  FeatureEnvy:
+    enabled: true
+    exclude:
+      - Karya::Internal::Config::FileLoader#apply_path_option
+      - Karya::Internal::Config::FileLoader#resolve_backend_class
+      - Karya::Internal::Config::FileLoader#validate_known_keys
+      - Karya::WorkerSupervisor#reap_tracked_children
+      - Karya::JobLifecycle::StateManager#merge_extension_transitions
+      - Karya::WorkerSupervisor::ChildProcessRunner#mark_thread_stopped
+      - Karya::RetryPolicy#normalize_attempt
+      - Karya::RetryPolicy#normalize_max_attempts
+      - Karya::RetryPolicy#normalize_multiplier
+      - Karya::RetryPolicy#normalize_non_negative_numeric
+      - Karya::Worker#execute_handler
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ExecutionSupport#finalized_execution_job
+      - Karya::QueueStore::Internal::ReferenceQueueStore#store_and_requeue_if_needed
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::UniquenessSupport#effective_retry_pending_uniqueness_job
+      - Karya::Kaal::Store#normalize_hash_key
+      - Karya::Kaal::Store#normalize_string
+      - Karya::Kaal::Store#parse_time
+      - Karya::Kaal::Registry#normalize_hash_key
+      - Karya::Kaal::Registry#normalize_string
+      - Karya::FrameworkJob::Discovery#discovered_framework_handlers
+      - Karya::FrameworkJob::Discovery#normalize_extra_handlers
+      - Karya::Internal::FrameworkWorkflow::Catalog#build_default_family_index
+      - Karya::Internal::FrameworkWorkflow::Catalog#versions_for_family
+      - Karya::Internal::FrameworkWorkflow::Facade#resolve_definition
+      - Karya::Internal::FrameworkWorkflow::StepRegistry#job_classes
+      - Karya::Internal::FrameworkWorkflow::StepRegistry#default_arguments
+      - Karya::Internal::FrameworkWorkflow::StepRegistry#compensation_job_classes
+      - Karya::Internal::FrameworkWorkflow::StepRegistry#compensation_arguments
+      - Karya::QueueStore::Postgres::Internal::DurableStateStore#insert_row
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#insert_row
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#normalize_row
+      - Karya::Internal::DurableQueueStore::Engine#persist_result
+      - Karya::Internal::DurableQueueStore::Engine#runner_for
+      - Karya::Internal::DurableQueueStore::SqlStateStore#orphan_rows
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#rejection_for
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#snapshot_idempotency_keys
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#snapshot_uniqueness_keys
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#replace_runtime_rows
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#storeable_plan_for_job
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#storeable_inserts_for
+      - Karya::Internal::DurableQueueStore::Operations::Enqueue#insert_rows_for
+      - Karya::Internal::DurableQueueStore::Operations::ExpireReservations#call
+      - Karya::Internal::DurableQueueStore::Operations::FailExecution#dead_letter_job
+      - Karya::Internal::DurableQueueStore::Operations::FailExecution#failed_job_mutation_plan
+      - Karya::Internal::DurableQueueStore::Operations::RecoverInFlight#call
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#breaker_state
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#delete_policy_payload?
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#write_breaker_policy_row
+      - Karya::QueueStore::MySQL::Internal::DurableStateStore#normalize_value
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#fetch_metadata
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#orphan_rows
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#select_rows
+      - Karya::Internal::DurableQueueStore::SqlStateStore#reserve_rows
+      - Karya::Internal::DurableQueueStore::SqlStateStore#lease_rows
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#reserve_rows
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#lease_rows
+  UtilityFunction:
+    enabled: true
+    exclude:
+      - Karya::Internal::Config::FileLoader#blank_backend_name?
+      - Karya::JobLifecycle::StateManager#initialize_base_transitions
+      - Karya::JobLifecycle::StateManager#canonical_state?
+      - Karya::Worker::Configuration#normalize_default_execution_timeout
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ExpirationSupport#job_expired?
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ExpirationSupport#build_expired_job
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ExecutionSupport#collect_expired_leases
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::UniquenessSupport#uniqueness_scope_blocks_state?
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::UniquenessSupport#incoming_uniqueness_state
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::UniquenessSupport#reentry_conflict_job
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::UniquenessSupport#lease_expired_for_uniqueness?
+      - Karya::CircuitBreaker::PolicySet#policy_for_scope
+      - Karya::Kaal::Store#scheduler_jobs
+      - Karya::Kaal::Store#job_key
+      - Karya::Kaal::Store#unsupported_every_error
+      - Karya::Kaal::Store#ruby_string_literal
+      - Karya::Worker::FrameworkJobExecution::PerformDispatcher#symbolize_keyword_arguments
+      - Karya::Internal::FrameworkSupport#normalize_queues
+      - Karya::Internal::FrameworkWorkflow::Facade#define
+      - Karya::Internal::FrameworkWorkflow::Facade#step_bindings_for
+      - Karya::Internal::FrameworkWorkflow::StepRegistry#resolved_payload
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#bind_value
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#delete_sql
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#metadata_select_sql
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#select_sql
+      - Karya::Internal::DurableQueueStore::MutationPlan#normalize_groups
+      - Karya::Internal::DurableQueueStore::SqlStateStore#apply_group
+      - Karya::Internal::DurableQueueStore::SqlStateStore#default_metadata
+      - Karya::Internal::DurableQueueStore::SqlStateStore#job_ids_from_rows
+      - Karya::Internal::DurableQueueStore::SqlStateStore#values_for_columns
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#incoming_uniqueness_state
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#skipped_job_id?
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#uniqueness_scope_blocks_state?
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#combine_groups
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#report_for
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#uniqueness_conflict?
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#update_rows_with_job
+      - Karya::Internal::DurableQueueStore::Operations::DeadLetterRecoverySupport#recover_dead_letter_job
+      - Karya::Internal::DurableQueueStore::Operations::FailExecution#failed_job
+      - Karya::Internal::DurableQueueStore::Operations::PauseQueue#paused_queue_row
+      - Karya::Internal::DurableQueueStore::Operations::RecoverySupport#expire_job
+      - Karya::Internal::DurableQueueStore::Operations::RecoverySupport#expired_reservations
+      - Karya::Internal::DurableQueueStore::Operations::RecoverySupport#job_expired?
+      - Karya::Internal::DurableQueueStore::Operations::RecoverySupport#policy_plan
+      - Karya::Internal::DurableQueueStore::Operations::RecoverySupport#recover_expired_execution
+      - Karya::Internal::DurableQueueStore::Operations::RecoverySupport#recover_expired_reservation
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#active_probe_tokens
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#counted_breaker_failure?
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#next_failure_transition
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#policy_rows_by_kind
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#policy_scope_key
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#reservation_token_for_half_open
+      - Karya::Internal::DurableQueueStore::Operations::RetryJobs#retried_job_for
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#normalize_binds
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#normalize_value
+      - Karya::QueueStore::Postgres::Internal::DurableStateStore#normalize_value
+      - Karya::QueueStore::MySQL::Internal::DurableStateStore#utc_wall_clock_time
+      - Karya::QueueStore::MySQL::Internal::PersistenceMutex#duplicate_index_error?
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#apply_group
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#default_metadata
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#group_field
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#stringify_row_keys
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#symbolize_row_keys
+      - Karya::Internal::DurableQueueStore::WorkflowRuntimeSupport
+      - Karya::Internal::DurableQueueStore::Operations::CompleteExecution#completed_execution_job
+      - Karya::Internal::DurableQueueStore::Operations::CompleteExecution#completed_execution_updates
+      - Karya::Internal::DurableQueueStore::Operations::CompleteExecution#completed_execution_inserts
+      - Karya::Internal::DurableQueueStore::Operations::CompleteExecution#completed_execution_deletes
+  DuplicateMethodCall:
+    exclude:
+      - Karya::Internal::Config::FileLoader#transform_value
+      - Karya::Worker#execute_handler
+      - Karya::Kaal::Store#save
+      - Karya::Kaal::Store#render_backend_template
+      - Karya::Kaal::Store#cron_from_every
+      - Karya::Kaal::Store#deep_dup
+      - Karya::Worker::FrameworkJobExecution::PerformDispatcher#normalized_keyword_arguments
+      - Karya::Internal::FrameworkWorkflow::Facade#step_bindings_for
+      - Karya::Internal::FrameworkWorkflow::StepRegistry#compensation_job_classes
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#decision_for
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#duplicate_idempotency_job
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator#duplicate_uniqueness_job
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#combine_groups
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#storeable_plan_for_job
+      - Karya::Internal::DurableQueueStore::Operations::DeadLetterJobs#call
+      - Karya::Internal::DurableQueueStore::Operations::DeadLetterRecoverySupport#recover_dead_letters
+      - Karya::Internal::DurableQueueStore::Operations::DiscardDeadLetterJobs#call
+      - Karya::Internal::DurableQueueStore::Operations::Enqueue#call
+      - Karya::Internal::DurableQueueStore::Operations::FailExecution#call
+      - Karya::Internal::DurableQueueStore::Operations::FailExecution#failed_job_mutation_plan
+      - Karya::Internal::DurableQueueStore::Operations::FailExecution#finalize_failed_job
+      - Karya::Internal::DurableQueueStore::Operations::RecoverInFlight#call
+      - Karya::Internal::DurableQueueStore::Operations::Release#call
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#next_failure_transition
+      - Karya::Internal::DurableQueueStore::Operations::ReliabilityPolicySupport#stuck_job_policy_rows
+      - Karya::Internal::DurableQueueStore::Operations::RetryJobs#call
+      - Karya::QueueStore::Postgres::Internal::DurableStateStore#normalize_value
+      - Karya::QueueStore::MySQL::Internal::DurableStateStore#normalize_value
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#apply_mutation_plan
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#reserve_rows
+  RepeatedConditional:
+    exclude:
+      - Karya::FrameworkRuntime::HostRuntime
+      - Karya::Internal::DurableQueueStore::UniquenessEvaluator
+  MissingSafeMethod:
+    exclude:
+      - Karya::Internal::Config::FileLoader#validate_known_keys
+  NestedIterators:
+    exclude:
+      - Karya::QueueStore::Internal::ReferenceQueueStore::Internal::ExpirationSupport#expire_queued_jobs
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#combine_groups
+      - Karya::Internal::DurableQueueStore::SqlStateStore#apply_group
+      - Karya::QueueStore::MySQL::Internal::DurableStateStore#select_all
+      - Karya::QueueStore::Postgres::Internal::DurableStateStore#select_all
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#apply_group
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#select_rows
+  LongYieldList:
+    enabled: true
+    exclude:
+      - Karya::Internal::DurableQueueStore::StoreStateRehydrator::WorkflowRestorer#grouped_workflow_step_rows
+      - Karya::Internal::DurableQueueStore::SqlStateStore#apply_group
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#combine_groups
+      - Karya::QueueStore::Postgres::Internal::DurableStateStore#select_all
+      - Karya::QueueStore::MySQL::Internal::DurableStateStore#select_all
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#apply_group
+      - Karya::QueueStore::Redis::Internal::DurableStateStore#select_rows
+  NilCheck:
+    exclude:
+      - Karya::Internal::Config::FileLoader#array_section
+      - Karya::Internal::Config::FileLoader#blank_backend_name?
+      - Karya::Internal::Config::FileLoader#hash_section
+      - Karya::Internal::RetryPolicyResolver#normalize
+      - Karya::Internal::RetryPolicyResolver#self.normalize_policy_set
+      - Karya::RetryPolicySet#policy_for
+      - Karya::Kaal::Registry#normalize_schedule
+      - Karya::Kaal::Store#normalize_schedule
+      - Karya::FrameworkJob::Base#abstract?
+      - Karya::FrameworkJob::Base#queue_as
+      - Karya::FrameworkJob::Base#karya_handler
+      - Karya::FrameworkJob::RuntimeOptions#boolean_value
+      - Karya::FrameworkJob::RuntimeOptions#compact
+      - Karya::FrameworkJob::RuntimeOptions#float_value
+      - Karya::FrameworkJob::RuntimeOptions#integer_value
+      - Karya::FrameworkJob::RuntimeOptions#string_value
+      - Karya::Worker::FrameworkJobExecution::PerformDispatcher#validate_positional_arguments
+      - Karya::QueueStore::Postgres::Internal::DurableStateStore#normalize_value
+      - Karya::QueueStore::MySQL::Internal::DurableStateStore#normalize_value
+      - Karya::QueueStore::MySQL::Internal::DurableStateStore#sql_literal
+      - Karya::QueueStore::SQLite::Internal::DurableStateStore#normalize_value
+      - Karya::Internal::DurableQueueStore::PersistedDriver#durable_reserve_direct_selection?
+      - Karya::Internal::DurableQueueStore::SqlStateStore#fetch_metadata
+      - Karya::Internal::DurableQueueStore::Operations::BulkMutationSupport#uniqueness_conflict?
+      - Karya::Internal::DurableQueueStore::Operations::PauseQueue#call
+      - Karya::Internal::DurableQueueStore::Operations::ResumeQueue#call
+  MissingSafeMethod:
+    exclude:
+      - Karya::Kaal::Store#materialize_support_files!
+      - Karya::FrameworkJob::Base#abstract!
+      - Karya::FrameworkJob::Base#ensure_enqueueable!
+  UnusedParameters:
+    enabled: true
+    exclude:
+      - Karya::Internal::DurableQueueStore::Operation#call
+      - Karya::Internal::DurableQueueStore::Operations::Unsupported#call
+  Attribute:
+    exclude:
+      - Karya::Internal::FrameworkConfiguration#operator_authorizer
+  InstanceVariableAssumption:
+    exclude:
+      - Karya::FrameworkJob::Base
+      - Karya::Internal::FrameworkSupport
+  ManualDispatch:
+    exclude:
+      - Karya::FrameworkJob::Base#queue_name
+      - Karya::FrameworkJob::Base#configured_or_inherited_value
+      - Karya::FrameworkJob::Base#inherited_metadata_block
+      - Karya::Internal::FrameworkConfiguration#register_workflows
+      - Karya::Internal::FrameworkWorkflow::Normalization#payload
+      - Karya::WorkerSupervisor#prepare_queue_store_for_fork
+      - Karya::QueueStore::Postgres::Internal::PersistenceMutex#build_driver
+      - Karya::QueueStore::Postgres::Internal::PersistenceMutex#fallback_driver
+      - Karya::QueueStore::Postgres::Internal::PersistenceMutex#persist_snapshot_if_needed
+      - Karya::QueueStore::MySQL::Internal::PersistenceMutex#build_driver
+      - Karya::QueueStore::MySQL::Internal::PersistenceMutex#fallback_driver
+      - Karya::QueueStore::MySQL::Internal::PersistenceMutex#persist_snapshot_if_needed
+      - Karya::QueueStore::SQLite::Internal::PersistenceMutex#build_driver
+      - Karya::QueueStore::SQLite::Internal::PersistenceMutex#fallback_driver
+      - Karya::QueueStore::SQLite::Internal::PersistenceMutex#persist_snapshot_if_needed
+      - Karya::QueueStore::Redis::Internal::PersistenceMutex#build_driver
+      - Karya::QueueStore::Redis::Internal::PersistenceMutex#fallback_driver
+      - Karya::QueueStore::Redis::Internal::PersistenceMutex#persist_snapshot_if_needed
+      - Karya::QueueStore::Redis::Internal::PersistenceMutex#persist_inputs
+exclude_paths:
+  - spec/**/*
+  - db/**/*
+  - bin/*
+  - config/**/*
+  - vendor/**/*

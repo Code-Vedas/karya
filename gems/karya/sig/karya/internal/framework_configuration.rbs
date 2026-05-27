@@ -1,0 +1,31 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    class FrameworkConfiguration
+      DEFAULT_JOB_PATHS: Array[String]
+      DEFAULT_BOOT_FILES: Array[String]
+
+      attr_reader backend_class: singleton(Karya::Backend::Base)?
+      attr_reader backend_options: Hash[Symbol, Karya::backend_option_value]?
+      attr_reader boot_files: Array[String]
+      attr_reader job_paths: Array[String]
+      attr_reader operator_authorizer: Karya::framework_operator_authorizer?
+      attr_reader outbound_event_dispatcher: Karya::callable_value?
+      attr_reader queue_store: Karya::QueueStore::Base?
+      attr_reader workflow_sources: Karya::framework_workflow_sources
+
+      def initialize: () -> void
+      def backend: (?singleton(Karya::Backend::Base) backend_class, **Karya::backend_option_value options) -> singleton(Karya::Backend::Base)?
+      def queue_store=: (Karya::QueueStore::Base? queue_store) -> Karya::QueueStore::Base?
+      def outbound_event_dispatcher=: (Karya::callable_value? dispatcher) -> Karya::callable_value?
+      def operator_authorizer=: (Karya::framework_operator_authorizer? authorizer) -> Karya::framework_operator_authorizer?
+      def job_paths=: (Array[String] paths) -> Array[String]
+      def boot_files=: (Array[String] paths) -> Array[String]
+      def register_workflows: (*Karya::framework_workflow_source sources) -> Karya::framework_workflow_sources
+    end
+  end
+end

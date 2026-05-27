@@ -1,0 +1,20 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class SqlStateStore
+        PRIMARY_KEYS: Hash[Symbol, Array[Symbol]]
+
+        def initialize: (table_names: Hash[Symbol, String]) -> void
+        def fetch_metadata: (namespace: String) -> metadata
+        def fetch_rows_for_operation: (operation_name: Symbol, namespace: String, request: request) -> rows
+        def lock_rows_for_operation: (operation_name: Symbol, namespace: String, request: request, metadata: metadata, rows: rows) -> nil
+        def apply_mutation_plan: (plan: MutationPlan, namespace: String) -> nil
+      end
+    end
+  end
+end

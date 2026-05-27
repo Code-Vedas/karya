@@ -2,6 +2,7 @@ plugins:
   - rubocop-performance
   - rubocop-rake
   - rubocop-rspec
+  - rubocop-sequel
 
 AllCops:
   NewCops: enable
@@ -34,7 +35,7 @@ Metrics/AbcSize:
   Max: 35
 
 Metrics/CyclomaticComplexity:
-  Max: 12
+  Max: 15
 
 Metrics/PerceivedComplexity:
   Max: 16

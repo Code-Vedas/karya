@@ -1,0 +1,22 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStoreCatalog
+      SCHEMA_VERSION: Integer
+
+      def self.schema_version: () -> Integer
+      def self.table_name: (Symbol name) -> String
+      def self.table_names: () -> Hash[Symbol, String]
+      def self.postgres_create_statements: () -> Array[String]
+      def self.mysql_create_statements: () -> Array[String]
+      def self.sqlite_create_statements: () -> Array[String]
+      def self.postgres_schema_sql: () -> String
+      def self.mysql_schema_sql: () -> String
+      def self.sqlite_schema_sql: () -> String
+    end
+  end
+end

@@ -1,0 +1,45 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    class MySQL
+      include Karya::Internal::DurableQueueStore::PersistedAdapter
+
+      DEFAULT_NAMESPACE: String
+      DEFAULT_EXPIRED_TOMBSTONE_LIMIT: Integer
+      DEFAULT_COMPLETED_BATCH_RETENTION_LIMIT: Integer
+      DEFAULT_MAX_BATCH_SIZE: Integer
+      MAX_NAMESPACE_CHARACTERS: Integer
+      RESERVE_QUEUES_ERROR_MESSAGE: String
+
+      class PresentString
+        def initialize: (String? value) -> void
+        def normalize: () -> String?
+      end
+
+      class ConnectionOptions
+        def self.build: (url: String, present_string_class: singleton(Karya::QueueStore::MySQL::PresentString)) -> Hash[Symbol, String | Integer]
+      end
+
+      def initialize: (
+        url: String,
+        ?namespace: String,
+        ?expired_tombstone_limit: Integer,
+        ?completed_batch_retention_limit: Integer,
+        ?max_batch_size: Integer,
+        ?policy_set: Backpressure::PolicySet,
+        ?circuit_breaker_policy_set: CircuitBreaker::PolicySet,
+        ?fairness_policy: Fairness::Policy
+      ) -> void
+
+      attr_reader connection: ::Mysql2::Client
+      attr_reader mutex: Karya::QueueStore::MySQL::Internal::PersistenceMutex
+      attr_reader namespace: String
+      attr_reader persistence_mutex: Karya::QueueStore::MySQL::Internal::PersistenceMutex
+      attr_reader url: String
+    end
+  end
+end

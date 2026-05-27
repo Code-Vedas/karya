@@ -1,0 +1,27 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class WorkflowStepRecord
+        class Context
+          def initialize: (registration: ::Karya::QueueStore::Internal::StoreState::WorkflowRegistration, state: ::Karya::QueueStore::Internal::StoreState) -> void
+          attr_reader registration: ::Karya::QueueStore::Internal::StoreState::WorkflowRegistration
+          attr_reader state: ::Karya::QueueStore::Internal::StoreState
+        end
+
+        def initialize: (
+          namespace: String,
+          batch_id: String,
+          step_id: String,
+          job: ::Karya::Job,
+          context: Context
+        ) -> void
+        def to_h: () -> durable_symbol_row
+      end
+    end
+  end
+end

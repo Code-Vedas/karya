@@ -1,0 +1,50 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module Operations
+        class Enqueue < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class EnqueueMany < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class Reserve < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class Release < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ReleaseResultBuilder
+          def initialize: (operation: Operation, context: OperationContext, lease: LeaseContext) -> void
+          def build: () -> OperationResult
+        end
+
+        class StartExecution < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class StartExecutionResultBuilder
+          def initialize: (operation: Operation, context: OperationContext, lease: LeaseContext) -> void
+          def build: () -> OperationResult
+        end
+
+        class CompleteExecution < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class FailExecution < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+      end
+    end
+  end
+end

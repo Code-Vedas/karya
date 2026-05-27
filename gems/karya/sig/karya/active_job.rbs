@@ -1,0 +1,30 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module ActiveJob
+    module Handler
+      NAME: String
+
+      def self.call: (job_data: Hash[String, Karya::job_argument]) -> void
+    end
+
+    class QueueAdapter
+      def enqueue: (_ActiveJobBase job) -> void
+      def enqueue_after_transaction_commit?: () -> bool
+      def enqueue_at: (_ActiveJobBase job, Time | Numeric timestamp) -> void
+    end
+
+    interface _ActiveJobBase
+      def job_id: () -> String
+      def queue_name: () -> String
+      def serialize: () -> Hash[String, Karya::job_argument]
+    end
+
+    def self.queue_adapter: () -> QueueAdapter
+    def self.handler: () -> Method
+    def self.handler_name: () -> String
+  end
+end

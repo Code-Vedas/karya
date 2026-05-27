@@ -1,0 +1,25 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    class KaalDelayedScheduler
+      def self.schedule: (
+        queue: String,
+        handler: String,
+        arguments: Karya::job_arguments,
+        job_id: String,
+        created_at: Time,
+        scheduled_at: Time
+      ) -> Karya::delayed_enqueue_receipt
+
+      private
+
+      def self.configured_kaal_backend: () -> Kaal::backend?
+      def self.delayed_enqueue_job_class: () -> singleton(Karya::Internal::DelayedEnqueueJob)
+      def self.unsupported_scheduler_error?: (StandardError error) -> bool
+    end
+  end
+end

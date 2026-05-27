@@ -1,7 +1,7 @@
 {
   "folders": [
     { "name": "docs", "path": "docs" },
-    { "name": "karya", "path": "core/karya" },
+    { "name": "karya", "path": "gems/karya" },
     { "name": "karya-dashboard", "path": "gems/karya-dashboard" },
     { "name": "karya-hanami", "path": "gems/karya-hanami" },
     { "name": "karya-rails", "path": "gems/karya-rails" },

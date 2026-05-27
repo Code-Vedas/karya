@@ -1,0 +1,65 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  type state_name = Symbol | String
+  type job_argument = nil | Numeric | String | Symbol | bool | Time | Array[job_argument] | Hash[String, job_argument]
+  type framework_job_argument_payload = Hash[String, job_argument]
+  type framework_job_argument_value = FrameworkJob::Base::Arguments | framework_job_argument_payload
+  type framework_job_step_arguments = Hash[state_name, framework_job_argument_value]
+  type framework_runtime_payload = Hash[String, String | Integer | Array[String] | Hash[String, String | Integer]]
+  type framework_runtime_command_response = Hash[String, bool]
+  type framework_time_input = Time | Numeric
+  type framework_workflow_control_result = Hash[String, bool | Integer | String]
+  type framework_workflow_definition_input = Internal::FrameworkWorkflow::Definition | state_name
+  type interaction_payload_value =
+    nil |
+    bool |
+    Numeric |
+    String |
+    Array[interaction_payload_value] |
+    Hash[String, interaction_payload_value]
+  type interaction_payload = Hash[String, interaction_payload_value]
+
+  module FrameworkJob
+    class Base
+      class Arguments
+      end
+    end
+  end
+
+  module Internal
+    class FrameworkConfiguration
+    end
+
+    module FrameworkWorkflow
+      module Source
+      end
+
+      class Definition
+      end
+
+      class DefinitionBuilder
+      end
+
+      class Catalog
+      end
+    end
+  end
+
+  module Workflow
+    class BatchSnapshot
+    end
+
+    class Snapshot
+    end
+
+    class HistorySnapshot
+    end
+
+    class QueryResult
+    end
+  end
+end

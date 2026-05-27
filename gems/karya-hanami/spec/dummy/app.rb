@@ -4,36 +4,68 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+require 'json'
 require 'hanami'
 require 'karya/hanami'
-require 'securerandom'
+require 'kaal/hanami'
 
-KaryaHanamiDummyApp = proc do |env|
-  if env['PATH_INFO'] == '/karya/runtime-probe'
-    backend = Karya.backend_class.new(**Karya.backend_options)
-    queue_store = backend.build_queue_store
-    now = Time.now.utc
-    job = Karya::Job.new(
-      id: "hanami-probe-#{SecureRandom.uuid}",
-      queue: 'dashboard',
-      handler: 'dashboard_probe',
-      state: :submission,
-      created_at: now
-    )
-    queue_store.enqueue(job:, now:)
-    reservation = queue_store.reserve(queue: 'dashboard', worker_id: 'hanami-probe-worker', lease_duration: 60, now: now + 1)
-    [
-      200,
-      { 'content-type' => 'application/json; charset=utf-8' },
-      [%({"backend":"#{backend.identifier}","job_id":"#{reservation.job_id}"})]
-    ]
-  elsif env['PATH_INFO'] == '/karya'
-    [
-      200,
-      { 'content-type' => 'text/html; charset=utf-8' },
-      [Karya::Hanami.render_dashboard_page]
-    ]
-  else
-    [404, { 'content-type' => 'text/plain' }, ['not found']]
+class ExampleHeartbeatJob
+  def self.perform(*); end
+end
+
+def karya_hanami_kaal_app
+  Class.new do
+    config = Struct.new(:root, :env, :middleware).new(File.expand_path(__dir__), :test, nil)
+    define_singleton_method(:config) { config }
   end
+end
+
+Kaal::Hanami.register!(karya_hanami_kaal_app, namespace: 'karya-hanami-dummy')
+
+def karya_hanami_dummy_app
+  proc do |env|
+    authorize_operator_request = lambda do
+      next nil if Karya::Hanami.operator_access_authorized?(env)
+
+      [
+        403,
+        { 'content-type' => 'application/json; charset=utf-8' },
+        [JSON.generate('error' => 'forbidden')]
+      ]
+    end
+
+    case env['PATH_INFO']
+    when '/karya/runtime-probe' then json_response(Karya::Hanami.runtime_probe_payload)
+    when '/kaal/probe' then kaal_probe_response
+    when '/karya/health' then json_response(Karya::Hanami.health_payload)
+    when '/karya/readiness' then json_response(Karya::Hanami.readiness_payload)
+    when '/karya/operator-probe'
+      denied_response = authorize_operator_request.call
+      next denied_response if denied_response
+
+      json_response(Karya::Hanami.operator_payload)
+    when '/karya'
+      denied_response = authorize_operator_request.call
+      next denied_response if denied_response
+
+      html_response(Karya::Hanami.render_dashboard_page)
+    else
+      [404, { 'content-type' => 'text/plain' }, ['not found']]
+    end
+  end
+end
+
+def kaal_probe_response
+  json_response(
+    'backend' => Kaal.configuration.backend.class.name,
+    'registered' => Kaal.registered?(key: 'hanami:heartbeat')
+  )
+end
+
+def json_response(payload)
+  [200, { 'content-type' => 'application/json; charset=utf-8' }, [JSON.generate(payload)]]
+end
+
+def html_response(body)
+  [200, { 'content-type' => 'text/html; charset=utf-8' }, [body]]
 end

@@ -1,0 +1,16 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    class SQLite
+      module Internal
+        module DependencyLoader
+          def self.require_sqlite3!: () -> void
+        end
+      end
+    end
+  end
+end

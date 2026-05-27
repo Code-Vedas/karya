@@ -1,0 +1,124 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module FrameworkJob
+    class Base
+      DEFAULT_QUEUE: String
+
+      class Arguments
+        @payload: Karya::framework_job_argument_payload
+
+        def initialize: (args: Array[Karya::job_argument], kwargs: Karya::framework_job_keyword_arguments_input) -> void
+        def to_payload: () -> Karya::framework_job_argument_payload
+
+        private
+
+        attr_reader payload: Karya::framework_job_argument_payload
+      end
+
+      class EnqueueRequest
+        @job_class: singleton(Base)
+        @queue: String?
+        @job_options: {
+          job_id: String?,
+          idempotency_key: String?,
+          uniqueness_key: String?,
+          uniqueness_scope: String?
+        }
+
+        def initialize: (
+          job_class: singleton(Base),
+          ?queue: Karya::state_name?,
+          ?job_id: String?,
+          ?idempotency_key: String?,
+          ?uniqueness_key: String?,
+          ?uniqueness_scope: Karya::state_name?
+        ) -> void
+        def perform_later: (*Karya::job_argument args, **Karya::job_argument kwargs) -> Karya::Job
+
+        private
+
+        attr_reader job_class: singleton(Base)
+        attr_reader job_options: {
+          job_id: String?,
+          idempotency_key: String?,
+          uniqueness_key: String?,
+          uniqueness_scope: String?
+        }
+        attr_reader queue: String?
+      end
+
+      def self.inherited: (singleton(Base) subclass) -> void
+      def self.abstract!: () -> bool
+      def self.abstract: () -> bool
+      def self.abstract?: () -> bool
+      def self.queue_as: (?Karya::state_name name) -> String
+      def self.karya_handler: (?Karya::state_name name) -> String
+      def self.queue_name: () -> String
+      def self.handler_name: () -> String
+      def self.set: (
+        ?queue: Karya::state_name?,
+        ?job_id: String?,
+        ?idempotency_key: String?,
+        ?uniqueness_key: String?,
+        ?uniqueness_scope: Karya::state_name?
+      ) -> EnqueueRequest
+      def self.arguments: (*Karya::job_argument args, **Karya::job_argument kwargs) -> Arguments
+      def self.retry_with: (Karya::retry_policy_reference policy) -> Karya::RetryPolicy
+      def self.idempotent_by: () { (*Karya::job_argument args, **Karya::job_argument kwargs) -> String? } -> Proc
+      def self.unique_by: (scope: Karya::state_name) { (*Karya::job_argument args, **Karya::job_argument kwargs) -> String? } -> Proc
+      def self.perform_later: (*Karya::job_argument args, **Karya::job_argument kwargs) -> Karya::Job
+      def self.perform_now: (*Karya::job_argument args, **Karya::job_argument kwargs) -> Karya::framework_job_result
+      def self.build_job: (
+        arguments_payload: Karya::framework_job_argument_payload,
+        ?now: Karya::framework_time_input,
+        ?queue: Karya::state_name?,
+        ?job_id: String?,
+        ?idempotency_key: String?,
+        ?uniqueness_key: String?,
+        ?uniqueness_scope: Karya::state_name?
+      ) -> Karya::Job
+      def self.enqueue_job: (
+        args: Array[Karya::job_argument],
+        kwargs: Karya::framework_job_keyword_arguments_input,
+        ?queue: Karya::state_name?,
+        ?now: Karya::framework_time_input,
+        ?job_id: String?,
+        ?idempotency_key: String?,
+        ?uniqueness_key: String?,
+        ?uniqueness_scope: Karya::state_name?
+      ) -> Karya::Job
+      def self.retry_policy: () -> Karya::RetryPolicy?
+      def self.default_uniqueness_scope: () -> String?
+      def perform: (*Karya::job_argument args, **Karya::job_argument kwargs) -> Karya::framework_job_result
+
+      private
+
+      def self.validate_enqueueable: () -> String
+      def self.normalize_identifier: (Symbol field_name, Karya::state_name value) -> String
+      def self.normalize_enqueue_block: (
+        Symbol name,
+        Proc? block
+      ) -> Proc
+      def self.derive_idempotency_key: (
+        Array[Karya::job_argument] positional_arguments,
+        Karya::framework_job_keyword_arguments keyword_arguments
+      ) -> String?
+      def self.derive_uniqueness_key: (
+        Array[Karya::job_argument] positional_arguments,
+        Karya::framework_job_keyword_arguments keyword_arguments
+      ) -> String?
+      def self.derive_metadata_value: (
+        Symbol name,
+        Array[Karya::job_argument] positional_arguments,
+        Karya::framework_job_keyword_arguments keyword_arguments
+      ) -> String?
+      def self.metadata_block_for: (Symbol name) -> Proc?
+      def self.configured_or_inherited_value: (Symbol instance_variable_name, Symbol inherited_method_name) -> (Karya::RetryPolicy | String | nil)
+      def self.inherited_metadata_block: (Symbol name) -> Proc?
+    end
+  end
+end

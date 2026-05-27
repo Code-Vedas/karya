@@ -1,0 +1,19 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      type durable_scalar = String | Integer | Float | bool | nil | Time
+      type durable_value = durable_scalar | Array[durable_value] | Hash[String, durable_value] | Hash[Symbol, durable_value]
+      type durable_symbol_row = Hash[Symbol, durable_value]
+      type durable_string_row = Hash[String, durable_value]
+      type durable_symbol_rows = Array[durable_symbol_row]
+      type durable_string_rows = Array[durable_string_row]
+      type projected_rows = Hash[Symbol, durable_symbol_rows]
+      type sql_param = String | Integer | Float | bool | Time | nil
+    end
+  end
+end

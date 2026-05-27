@@ -1,0 +1,52 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      module Operations
+        class RetryJobs < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class CancelJobs < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class DeadLetterJobs < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ReplayDeadLetterJobs < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class RetryDeadLetterJobs < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class DiscardDeadLetterJobs < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class RecoverOrphanedJobs < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class RecoverInFlight < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ExpireReservations < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+
+        class ExpireJobs < Operation
+          def call: (context: OperationContext) -> OperationResult
+        end
+      end
+    end
+  end
+end

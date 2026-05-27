@@ -1,0 +1,25 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module FrameworkJobRegistry
+      class Entry < Struct[singleton(Karya::FrameworkJob::Base) | String?]
+        @klass: singleton(Karya::FrameworkJob::Base)
+        @source_path: String?
+
+        attr_accessor klass: singleton(Karya::FrameworkJob::Base)
+        attr_accessor source_path: String?
+
+        def initialize: (?klass: singleton(Karya::FrameworkJob::Base), ?source_path: String?) -> void
+        def framework_job_class?: (singleton(Karya::FrameworkJob::Base) job_base) -> bool
+      end
+
+      def self.register: (singleton(Karya::FrameworkJob::Base) klass, source_path: String?) -> singleton(Karya::FrameworkJob::Base)
+      def self.entries: () -> Array[Entry]
+      def self.reset!: () -> void
+    end
+  end
+end

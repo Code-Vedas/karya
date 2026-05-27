@@ -1,10 +1,85 @@
 <link rel="icon" href="/assets/images/favicon.svg" type="image/svg+xml" />
+<style>
+  :root {
+    --vql-tabs-surface: #fff;
+    --vql-tabs-muted-surface: #f5f6fa;
+    --vql-tabs-border: #eeebee;
+    --vql-tabs-text: #5c5962;
+    --vql-tabs-heading: #27262b;
+    --vql-tabs-accent: #7253ed;
+  }
+
+  :root[data-theme="dark"] {
+    --vql-tabs-surface: #27262b;
+    --vql-tabs-muted-surface: #302d36;
+    --vql-tabs-border: #44434d;
+    --vql-tabs-text: #e6e1e8;
+    --vql-tabs-heading: #f5f6fa;
+    --vql-tabs-accent: #5ea1fb;
+  }
+
+  .vql-tabs {
+    margin: 1.5rem 0;
+    border: 1px solid var(--vql-tabs-border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--vql-tabs-surface);
+    color: var(--vql-tabs-text);
+  }
+
+  .vql-tabs__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border-bottom: 1px solid var(--vql-tabs-border);
+    background: var(--vql-tabs-muted-surface);
+  }
+
+  .vql-tabs__tab {
+    flex: auto;
+    appearance: none;
+    border: 0;
+    border-right: 1px solid var(--vql-tabs-border);
+    background: transparent;
+    color: var(--vql-tabs-text);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    padding: 0.8rem 1rem;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .vql-tabs__tab:hover,
+  .vql-tabs__tab:focus-visible {
+    background: var(--vql-tabs-surface);
+    color: var(--vql-tabs-heading);
+    outline: none;
+  }
+
+  .vql-tabs__tab[aria-selected="true"] {
+    background: var(--vql-tabs-surface);
+    color: var(--vql-tabs-heading);
+    box-shadow: inset 0 -2px 0 var(--vql-tabs-accent);
+  }
+
+  .vql-tabs__panel {
+    padding: 1rem 1rem 0.25rem;
+    background: var(--vql-tabs-surface);
+  }
+
+  .vql-tabs__panel> :first-child {
+    margin-top: 0;
+  }
+</style>
 <script>
   (function () {
     var STORAGE_KEY = "jtd-theme";
     var mediaQuery = "(prefers-color-scheme: dark)";
 
     function apply(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
       if (
         (theme === "dark" || theme === "light") &&
         window.jtd &&

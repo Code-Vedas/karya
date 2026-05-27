@@ -1,0 +1,17 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module Internal
+    module DurableQueueStore
+      class DuplicateKeySummary
+        MAX_PREVIEW_LENGTH: Integer
+
+        def initialize: (String key) -> void
+        def to_s: () -> String
+      end
+    end
+  end
+end

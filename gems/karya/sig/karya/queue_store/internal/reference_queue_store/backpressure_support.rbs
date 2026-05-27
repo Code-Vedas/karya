@@ -1,0 +1,34 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    module Internal
+      module ReferenceQueueStore
+        module Internal
+        module BackpressureSupport
+          QUEUE_SCOPE_KEY_PREFIX: String
+          HANDLER_SCOPE_KEY_PREFIX: String
+
+          def self.each_scope_key: (Job job, Backpressure::Scope? explicit_scope) { (String scope_key) -> void } -> nil
+          def self.build_scope_key: (String prefix, String value) -> String
+
+          private
+
+          def record_rate_limit_admission: (Job job, Time now) -> Array[Time]?
+          def prune_stale_rate_limit_admissions: (Time now) -> bool
+          def build_reserve_scan_state: () -> Internal::ReserveScanState
+          def prune_rate_limit_admissions: (
+            String rate_limit_key,
+            Backpressure::RateLimitPolicy policy,
+            Time now,
+            delete_empty: bool
+          ) -> { admissions: Array[Time], changed: bool }
+        end
+      end
+    end
+  end
+end
+end

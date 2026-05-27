@@ -6,4 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 Karya::Rails::Engine.routes.draw do
   root to: 'dashboard#show'
+  get 'health', to: 'runtime#health'
+  get 'readiness', to: 'runtime#readiness'
+  get 'operator', to: 'runtime#operator'
 end

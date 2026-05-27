@@ -1,0 +1,183 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  module QueueStore
+    module Internal
+      module ReferenceQueueStore
+        module Internal
+        module WorkflowSupport
+          private
+
+          class Rollback
+            @workflow_batch_id: String
+            @rollback_batch_id: String
+            @batch: Karya::Workflow::Batch?
+            @plan: RollbackPlan::Plan
+
+            def initialize: (String workflow_batch_id, String rollback_batch_id, Karya::Workflow::Batch? batch, RollbackPlan::Plan plan) -> void
+            attr_reader workflow_batch_id: String
+            attr_reader rollback_batch_id: String
+            attr_reader batch: Karya::Workflow::Batch?
+            attr_reader plan: RollbackPlan::Plan
+          end
+
+          class RollbackBatchId
+            @batch_id: String
+
+            def initialize: (String batch_id) -> void
+            def to_s: () -> String
+
+          private
+
+            attr_reader batch_id: String
+          end
+
+          class RollbackPlan
+            @registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
+            @jobs_by_id: Hash[String, Job]
+
+            def initialize: (registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration, jobs: Array[Job]) -> void
+            def to_plan: () -> RollbackPlan::Plan
+
+          private
+
+            attr_reader registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
+            attr_reader jobs_by_id: Hash[String, Job]
+            def ordered_compensation_jobs: () -> Array[Job]
+
+            class Plan
+              @jobs: Array[Job]
+              @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+
+              def initialize: (Array[Job] jobs, Hash[String, Array[String]] dependency_job_ids_by_job_id) -> void
+              attr_reader jobs: Array[Job]
+              attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            end
+          end
+
+          class RollbackDependencies
+            @jobs: Array[Job]
+
+            def initialize: (Array[Job] jobs) -> void
+            def to_h: () -> Hash[String, Array[String]]
+
+          private
+
+            attr_reader jobs: Array[Job]
+          end
+
+          class StepJobIds
+            @definition: Karya::Workflow::Definition
+            @jobs: Array[Job]
+
+            def initialize: (definition: Karya::Workflow::Definition, jobs: Array[Job]) -> void
+            def to_h: () -> Hash[String, String]
+
+          private
+
+            attr_reader definition: Karya::Workflow::Definition
+            attr_reader jobs: Array[Job]
+          end
+
+          class WorkflowStepIds
+            @step_ids: Array[Karya::state_name]
+
+            def initialize: (Array[Karya::state_name] step_ids) -> void
+            def to_a: () -> Array[String]
+
+          private
+
+            attr_reader step_ids: Array[Karya::state_name]
+            def normalize_step_ids: () -> Array[String]
+          end
+
+          class WorkflowControlTargets
+            @registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
+            @step_ids: Array[String]
+
+            def initialize: (registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration, step_ids: Array[Karya::state_name]) -> void
+            def job_ids: () -> Array[String]
+
+          private
+
+            attr_reader registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
+            attr_reader step_ids: Array[String]
+            def step_job_ids: () -> Hash[String, String]
+          end
+
+          class WorkflowSnapshotBuilder
+            @batch: Karya::Workflow::Batch
+            @registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
+            @jobs: Array[Job]
+            @now: Time
+            @state: Karya::QueueStore::Internal::StoreState
+
+            def initialize: (
+              batch: Karya::Workflow::Batch,
+              registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration,
+              jobs: Array[Job],
+              now: Time,
+              state: Karya::QueueStore::Internal::StoreState
+            ) -> void
+            def to_snapshot: () -> Karya::Workflow::Snapshot
+
+          private
+
+            attr_reader batch: Karya::Workflow::Batch
+            attr_reader registration: Karya::QueueStore::Internal::StoreState::WorkflowRegistration
+            attr_reader jobs: Array[Job]
+            attr_reader now: Time
+            attr_reader state: Karya::QueueStore::Internal::StoreState
+            def rollback_snapshot: () -> Karya::Workflow::RollbackSnapshot?
+            def child_workflow_snapshots: () -> Array[Karya::Workflow::ChildWorkflowSnapshot]
+            def interaction_snapshots: () -> Array[Karya::Workflow::InteractionSnapshot]
+            def approval_decisions_by_job_id: () -> Hash[String, Karya::approval_decision]
+            def interaction_received_at_by_job_id: () -> Hash[String, Time]
+            def parent_snapshot: () -> Karya::Workflow::ChildWorkflowSnapshot?
+            def child_state_resolver: () -> Karya::QueueStore::Internal::ReferenceQueueStore::Internal::WorkflowChildState
+          end
+
+          class WorkflowRegistrationPayload
+            @definition: Karya::Workflow::Definition
+            @binding: Karya::Workflow::ExecutionBinding
+            @workflow_batch_id: String
+            @step_job_ids: Hash[String, String]
+            @dependency_job_ids_by_job_id: Hash[String, Array[String]]
+
+            def initialize: (
+              definition: Karya::Workflow::Definition,
+              binding: Karya::Workflow::ExecutionBinding,
+              workflow_batch_id: String,
+              step_job_ids: Hash[String, String],
+              dependency_job_ids_by_job_id: Hash[String, Array[String]]
+            ) -> void
+            def to_h: () -> {
+              batch_id: String,
+              workflow_id: String,
+              workflow_family: String,
+              workflow_version: String,
+              step_job_ids: Hash[String, String],
+              dependency_job_ids_by_job_id: Hash[String, Array[String]],
+              approval_requirements_by_job_id: Hash[String, Karya::approval_requirement],
+              interaction_requirements_by_job_id: Hash[String, Karya::interaction_requirement],
+              compensation_jobs_by_step_id: Hash[String, Job],
+              child_workflow_ids_by_step_id: Hash[String, String]
+            }
+
+          private
+
+            attr_reader definition: Karya::Workflow::Definition
+            attr_reader binding: Karya::Workflow::ExecutionBinding
+            attr_reader workflow_batch_id: String
+            attr_reader step_job_ids: Hash[String, String]
+            attr_reader dependency_job_ids_by_job_id: Hash[String, Array[String]]
+          end
+        end
+      end
+    end
+  end
+end
+end

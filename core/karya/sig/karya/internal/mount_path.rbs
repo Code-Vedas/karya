@@ -1,8 +1,0 @@
-module Karya
-  module Internal
-    module MountPath
-      def self.build: (String default_mount_path, ?scope: String?) -> String
-      def self.normalize_scope: (String? value) -> String?
-    end
-  end
-end

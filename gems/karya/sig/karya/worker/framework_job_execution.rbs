@@ -1,0 +1,13 @@
+# Copyright Codevedas Inc. 2025-present
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+module Karya
+  class Worker
+    class FrameworkJobExecution
+      def initialize: (singleton(Karya::FrameworkJob::Base) handler) -> void
+      def call: (arguments: Karya::job_arguments) -> Karya::framework_job_result
+    end
+  end
+end

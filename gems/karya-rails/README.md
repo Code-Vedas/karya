@@ -24,7 +24,7 @@ and participates in the documented contracts for:
 
 ## Recommended Pairings
 
-- `core/karya`
+- `gems/karya`
 - `Karya::ActiveRecord`
 - `gems/karya-dashboard` when the host includes the optional dashboard addon
 - `Postgres` as the default production backend recommendation
