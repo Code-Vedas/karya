@@ -9,30 +9,209 @@ updates:
     directory: /danger
     schedule:
       interval: daily
+    groups:
+      danger-runtime:
+        patterns:
+          - danger
+          - danger-*
+      http-client:
+        patterns:
+          - faraday*
   - package-ecosystem: bundler
-    directory: /core/karya
+    directory: /gems/karya
     schedule:
       interval: daily
+    groups:
+      code-quality:
+        patterns:
+          - rubocop*
+          - reek
+      test-coverage:
+        patterns:
+          - rspec*
+          - simplecov
+      data-stores:
+        patterns:
+          - activerecord
+          - mysql2
+          - pg
+          - redis
+          - sequel
+          - sqlite3
+      cli-runtime:
+        patterns:
+          - thor
   - package-ecosystem: bundler
     directory: /gems/karya-dashboard
     schedule:
       interval: daily
+    groups:
+      code-quality:
+        patterns:
+          - rubocop*
+          - reek
+      test-coverage:
+        patterns:
+          - rspec*
+          - simplecov
+  - package-ecosystem: bundler
+    directory: /gems/karya-hanami
+    schedule:
+      interval: daily
+    groups:
+      framework-runtime:
+        patterns:
+          - hanami*
+          - kaal-hanami
+      code-quality:
+        patterns:
+          - rubocop*
+          - reek
+      test-coverage:
+        patterns:
+          - rspec*
+          - simplecov
+          - rack-test
+      data-stores:
+        patterns:
+          - mysql2
+          - pg
+          - redis
+          - sequel
+          - sqlite3
   - package-ecosystem: bundler
     directory: /gems/karya-rails
     schedule:
       interval: daily
+    groups:
+      framework-runtime:
+        patterns:
+          - rails*
+          - kaal-rails
+      code-quality:
+        patterns:
+          - rubocop*
+          - reek
+      test-coverage:
+        patterns:
+          - rspec*
+          - simplecov
+          - rack-test
+      data-stores:
+        patterns:
+          - mysql2
+          - pg
+          - redis
+          - sequel
+          - sqlite3
+  - package-ecosystem: bundler
+    directory: /gems/karya-roda
+    schedule:
+      interval: daily
+    groups:
+      framework-runtime:
+        patterns:
+          - roda
+          - kaal-roda
+          - rack
+      code-quality:
+        patterns:
+          - rubocop*
+          - reek
+      test-coverage:
+        patterns:
+          - rspec*
+          - simplecov
+          - rack-test
+      data-stores:
+        patterns:
+          - mysql2
+          - pg
+          - redis
+          - sequel
+          - sqlite3
   - package-ecosystem: bundler
     directory: /gems/karya-sinatra
     schedule:
       interval: daily
+    groups:
+      framework-runtime:
+        patterns:
+          - sinatra
+          - kaal-sinatra
+          - rack
+      code-quality:
+        patterns:
+          - rubocop*
+          - reek
+      test-coverage:
+        patterns:
+          - rspec*
+          - simplecov
+          - rack-test
+      data-stores:
+        patterns:
+          - mysql2
+          - pg
+          - redis
+          - sequel
+          - sqlite3
   - package-ecosystem: npm
     directory: /gems/karya-dashboard
     schedule:
       interval: daily
+    groups:
+      react-runtime:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      typescript-toolchain:
+        patterns:
+          - typescript
+          - typescript-eslint
+          - "@typescript-eslint/*"
+          - "@types/node"
+      lint-toolchain:
+        patterns:
+          - eslint
+          - "@eslint/*"
+          - eslint-plugin-*
+          - stylelint
+          - stylelint-*
+      build-toolchain:
+        patterns:
+          - vite
+          - "@vitejs/*"
+          - tailwindcss
+          - "@tailwindcss/*"
+          - postcss
+          - autoprefixer
+          - sass
+      browser-tests:
+        patterns:
+          - playwright
+          - "@playwright/*"
   - package-ecosystem: bundler
     directory: /docs
     schedule:
       interval: daily
+    groups:
+      docs-runtime:
+        patterns:
+          - github-pages
+          - just-the-docs
+          - jekyll*
+          - minima
+      markdown-rendering:
+        patterns:
+          - kramdown*
+      platform-support:
+        patterns:
+          - tzinfo*
+          - wdm
+          - http_parser.rb
   - package-ecosystem: github-actions
     directory: /
     schedule:
