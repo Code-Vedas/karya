@@ -29,7 +29,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.5.3",
     "eslint": "^10.7.0",
-    "eslint-plugin-simple-import-sort": "^13.0.0",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
     "globals": "^17.7.0",
     "postcss": "^8.5.19",
     "sass": "^1.101.0",
