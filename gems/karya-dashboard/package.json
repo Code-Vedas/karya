@@ -17,7 +17,7 @@
     "react-dom": "^19.2.8"
   },
   "resolutions": {
-    "postcss": "^8.5.23"
+    "postcss": "^8.5.24"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -31,7 +31,7 @@
     "eslint": "^10.7.0",
     "eslint-plugin-simple-import-sort": "^14.0.0",
     "globals": "^17.7.0",
-    "postcss": "^8.5.23",
+    "postcss": "^8.5.24",
     "sass": "^1.102.0",
     "semver": "^7.8.5",
     "stylelint": "^17.14.1",
