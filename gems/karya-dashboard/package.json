@@ -30,7 +30,7 @@
     "autoprefixer": "^10.5.4",
     "eslint": "^10.7.0",
     "eslint-plugin-simple-import-sort": "^14.0.0",
-    "globals": "^17.7.0",
+    "globals": "^17.8.0",
     "postcss": "^8.5.23",
     "sass": "^1.102.0",
     "semver": "^7.8.5",
