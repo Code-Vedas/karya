@@ -1841,10 +1841,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"globals@npm:^17.8.0":
-  version: 17.8.0
-  resolution: "globals@npm:17.8.0"
-  checksum: 10c0/e31b36cef3befd446487674dc6ca7b8f8e62a3b76aadd975dbf80ffa732366b3ac58df8941999eb6b1406d97480103711db85d2a49c955da47ff5ec688bee9b5
+"globals@npm:^17.11.0":
+  version: 17.11.0
+  resolution: "globals@npm:17.11.0"
+  checksum: 10c0/5e1be3d816e04d4d0d01b1cdd40e46b5fb6b5e9f15aece9a5919b060e0fb1b3f1b9e7327dce97ef19e05513a6d65872e0834999ddea251557556dddd0f5fde30
   languageName: node
   linkType: hard
 
@@ -2149,7 +2149,7 @@ __metadata:
     autoprefixer: "npm:^10.5.4"
     eslint: "npm:^10.9.1"
     eslint-plugin-simple-import-sort: "npm:^14.0.0"
-    globals: "npm:^17.8.0"
+    globals: "npm:^17.11.0"
     postcss: "npm:^8.5.26"
     react: "npm:^19.2.8"
     react-dom: "npm:^19.2.8"
