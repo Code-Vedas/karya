@@ -168,7 +168,11 @@ module FrameworkRuntimeControlE2ESupport
   def wait_for_framework_runtime_start(state_file, process)
     wait_until do
       unless process.alive?
-        process.wait_for_output
+        begin
+          process.wait_for_output
+        rescue KaryaSpecSupport::E2ESubprocess::OutputTimeout
+          raise "worker exited before runtime control started and output remained open:\n#{process.output}"
+        end
         raise "worker exited before runtime control started:\n#{process.output}"
       end
 
@@ -183,8 +187,6 @@ module FrameworkRuntimeControlE2ESupport
       payload
     rescue Errno::ENOENT, JSON::ParserError, KeyError
       next
-    rescue Timeout::Error
-      raise "worker exited before runtime control started and output remained open:\n#{process.output}"
     end
   end
 

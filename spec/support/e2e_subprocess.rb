@@ -11,6 +11,7 @@ require 'timeout'
 module KaryaSpecSupport
   class E2ESubprocess
     class CleanupError < StandardError; end
+    class OutputTimeout < Timeout::Error; end
 
     DEFAULT_TIMEOUT = 30
     TERMINATION_TIMEOUT = 2
@@ -74,7 +75,7 @@ module KaryaSpecSupport
     end
 
     def wait_for_output(timeout: TERMINATION_TIMEOUT)
-      Timeout.timeout(timeout) do
+      Timeout.timeout(timeout, OutputTimeout) do
         @stdout_reader.value
         @stderr_reader.value
       end
