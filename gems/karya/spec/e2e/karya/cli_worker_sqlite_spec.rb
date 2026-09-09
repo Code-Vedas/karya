@@ -7,6 +7,7 @@
 
 require_relative '../spec_helper'
 require File.expand_path('../../../../../spec/support/sqlite_e2e_support', __dir__)
+require File.expand_path('../../../../../spec/support/e2e_subprocess', __dir__)
 
 RSpec.describe Karya::CLI, :e2e, :integration do
   def sqlite_boot_file(sqlite_url:, namespace:, marker_file:)
@@ -50,7 +51,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
 
         File.write(boot_file, sqlite_boot_file(sqlite_url: database_url, namespace:, marker_file:))
 
-        stdout, stderr, status = Open3.capture3(
+        stdout, stderr, status = E2ESubprocess.capture(
           *karya_command(
             'worker',
             'billing',

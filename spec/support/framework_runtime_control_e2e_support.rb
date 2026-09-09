@@ -12,6 +12,7 @@ require 'rbconfig'
 require 'securerandom'
 require 'timeout'
 require 'tmpdir'
+require_relative 'e2e_subprocess'
 
 module FrameworkRuntimeControlE2ESupport
   def framework_runtime_control_env(framework:, framework_gem_root:, database_url:, namespace:, worker_name:, worker: false)
@@ -165,11 +166,11 @@ module FrameworkRuntimeControlE2ESupport
     end
   end
 
-  def wait_for_framework_runtime_start(state_file, wait_thr, stdout_and_stderr)
+  def wait_for_framework_runtime_start(state_file, process)
     wait_until do
-      if wait_thr.join(0)
-        output = stdout_and_stderr.read
-        raise "worker exited before runtime control started:\n#{output}"
+      unless process.alive?
+        process.wait_for_output
+        raise "worker exited before runtime control started:\n#{process.output}"
       end
 
       next unless File.exist?(state_file)
@@ -204,18 +205,12 @@ module FrameworkRuntimeControlE2ESupport
     end
   end
 
-  def cleanup_framework_worker_process(wait_thr)
-    return unless wait_thr.alive?
-
-    Process.kill('TERM', wait_thr.pid)
-    Timeout.timeout(2) do
-      wait_thr.join
-    end
-    Process.kill('KILL', wait_thr.pid) if wait_thr.alive?
-  rescue Timeout::Error
-    Process.kill('KILL', wait_thr.pid) if wait_thr.alive?
-  rescue Errno::ESRCH
-    nil
+  def run_framework_runtime_command(framework:, action:, queue:, worker_name:, env:)
+    E2ESubprocess.capture(
+      env,
+      *framework_runtime_command(framework:, action:, queue:, worker_name:),
+      chdir: current_app_root
+    )
   end
 
   def request_framework_force_stop(supervisor_pid:, draining_marker_path:)
@@ -316,68 +311,75 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
           worker: true
       )
 
-      Open3.popen2e(
+      process = E2ESubprocess.new(
         command_env,
         *framework_worker_command(framework:, queue:, worker_name:),
         chdir: current_app_root
-      ) do |_stdin, stdout_and_stderr, wait_thr|
-        begin
-          wait_for_framework_runtime_start(state_file, wait_thr, stdout_and_stderr)
+      )
+      begin
+          wait_for_framework_runtime_start(state_file, process)
 
-          inspect_stdout, inspect_stderr, inspect_status = Open3.capture3(
+          inspect_stdout, inspect_stderr, inspect_status = run_framework_runtime_command(
+            framework:,
+            action: :inspect,
+            queue:,
+            worker_name:,
+            env:
             framework_runtime_control_env(
               framework:,
               framework_gem_root:,
               database_url:,
               namespace:,
               worker_name:
-            ),
-            *framework_runtime_command(framework:, action: :inspect, queue:, worker_name:),
-            chdir: current_app_root
+            )
           )
           inspect_payload = parse_framework_runtime_json(inspect_stdout)
 
           expect(inspect_status.exitstatus).to eq(0), -> { "stderr:\n#{inspect_stderr}" }
           expect(inspect_payload.fetch('snapshot').fetch('phase')).to match(/\A(?:starting|running|draining)\z/)
 
-          drain_stdout, drain_stderr, drain_status = Open3.capture3(
+          drain_stdout, drain_stderr, drain_status = run_framework_runtime_command(
+            framework:,
+            action: :drain,
+            queue:,
+            worker_name:,
+            env:
             framework_runtime_control_env(
               framework:,
               framework_gem_root:,
               database_url:,
               namespace:,
               worker_name:
-            ),
-            *framework_runtime_command(framework:, action: :drain, queue:, worker_name:),
-            chdir: current_app_root
+            )
           )
 
           expect(drain_status.exitstatus).to eq(0), -> { "stdout:\n#{drain_stdout}\n\nstderr:\n#{drain_stderr}" }
           expect(wait_for_framework_runtime_phase(state_file, 'draining')).to include('phase' => 'draining')
 
-          force_stop_stdout, force_stop_stderr, force_stop_status = Open3.capture3(
+          force_stop_stdout, force_stop_stderr, force_stop_status = run_framework_runtime_command(
+            framework:,
+            action: :force_stop,
+            queue:,
+            worker_name:,
+            env:
             framework_runtime_control_env(
               framework:,
               framework_gem_root:,
               database_url:,
               namespace:,
               worker_name:
-            ),
-            *framework_runtime_command(framework:, action: :force_stop, queue:, worker_name:),
-            chdir: current_app_root
+            )
           )
 
           expect(force_stop_status.exitstatus).to eq(0), -> { "stdout:\n#{force_stop_stdout}\n\nstderr:\n#{force_stop_stderr}" }
           runtime_phase = wait_for_framework_runtime_phase(state_file, 'force_stopping', 'stopped').fetch('phase')
           expect(runtime_phase).to match(/\A(?:force_stopping|stopped)\z/)
         rescue Timeout::Error
-          output = wait_thr.join(0) ? stdout_and_stderr.read : '(worker still running)'
           state_payload = File.exist?(state_file) ? File.read(state_file) : '(missing state file)'
-          raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{output}"
+          raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{process.output}"
         ensure
-          cleanup_framework_worker_process(wait_thr)
+          process.close
         end
-      end
     end
   end
 
@@ -400,25 +402,28 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
           worker: true
       )
 
-      Open3.popen2e(
+      process = E2ESubprocess.new(
         worker_env,
         *framework_worker_command(framework:, queue:, worker_name:),
         chdir: current_app_root
-      ) do |_stdin, stdout_and_stderr, wait_thr|
-        begin
-          wait_for_framework_runtime_start(state_file, wait_thr, stdout_and_stderr)
+      )
+      begin
+          wait_for_framework_runtime_start(state_file, process)
           write_stale_runtime_state_file!(live_state_file: state_file, stale_state_file:)
 
-          command_stdout, command_stderr, command_status = Open3.capture3(
+          command_stdout, command_stderr, command_status = run_framework_runtime_command(
+            framework:,
+            action: :drain,
+            queue:,
+            worker_name: stale_worker_name,
+            env:
             framework_runtime_control_env(
               framework:,
               framework_gem_root:,
               database_url:,
               namespace:,
               worker_name: stale_worker_name
-            ),
-            *framework_runtime_command(framework:, action: :drain, queue:, worker_name: stale_worker_name),
-            chdir: current_app_root
+            )
           )
 
           combined_output = "#{command_stdout}\n#{command_stderr}"
@@ -438,14 +443,12 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
           }
           expect(combined_output).to include('runtime control token does not match the running supervisor')
         rescue Timeout::Error
-          output = wait_thr.join(0) ? stdout_and_stderr.read : '(worker still running)'
           state_payload = File.exist?(state_file) ? File.read(state_file) : '(missing state file)'
-          raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{output}"
+          raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{process.output}"
         ensure
           File.delete(stale_state_file) if File.exist?(stale_state_file)
-          cleanup_framework_worker_process(wait_thr)
+          process.close
         end
-      end
     end
   end
 end
