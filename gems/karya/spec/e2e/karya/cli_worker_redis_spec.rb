@@ -59,7 +59,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
 
       File.write(boot_file, redis_boot_file(redis_url:, namespace:, marker_file:))
 
-      stdout, stderr, status = E2ESubprocess.capture(
+      stdout, stderr, status = KaryaSpecSupport::E2ESubprocess.capture(
         *karya_command(
           'worker',
           'billing',

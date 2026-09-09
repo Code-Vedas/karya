@@ -183,6 +183,8 @@ module FrameworkRuntimeControlE2ESupport
       payload
     rescue Errno::ENOENT, JSON::ParserError, KeyError
       next
+    rescue Timeout::Error
+      raise "worker exited before runtime control started and output remained open:\n#{process.output}"
     end
   end
 
@@ -205,7 +207,7 @@ module FrameworkRuntimeControlE2ESupport
   end
 
   def run_framework_runtime_command(framework:, action:, queue:, worker_name:, env:)
-    E2ESubprocess.capture(
+    KaryaSpecSupport::E2ESubprocess.capture(
       env,
       *framework_runtime_command(framework:, action:, queue:, worker_name:),
       chdir: current_app_root
@@ -310,7 +312,7 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
         worker: true
       )
 
-      process = E2ESubprocess.new(
+      process = KaryaSpecSupport::E2ESubprocess.new(
         command_env,
         *framework_worker_command(framework:, queue:, worker_name:),
         chdir: current_app_root
@@ -398,7 +400,7 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
         worker: true
       )
 
-      process = E2ESubprocess.new(
+      process = KaryaSpecSupport::E2ESubprocess.new(
         worker_env,
         *framework_worker_command(framework:, queue:, worker_name:),
         chdir: current_app_root

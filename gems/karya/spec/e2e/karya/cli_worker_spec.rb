@@ -10,7 +10,7 @@ require File.expand_path('../../../../../spec/support/e2e_subprocess', __dir__)
 
 RSpec.describe Karya::CLI, :e2e, :integration do
   def run_cli(*args)
-    E2ESubprocess.capture(*karya_command(*args), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
+    KaryaSpecSupport::E2ESubprocess.capture(*karya_command(*args), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
   end
 
   def wait_for_runtime_phase(state_file, *phases)
@@ -42,7 +42,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
   end
 
   def with_force_stop_worker(boot_file:, state_file:, &)
-    process = E2ESubprocess.new(*karya_command(
+    process = KaryaSpecSupport::E2ESubprocess.new(*karya_command(
       'worker',
       'billing',
       '--require',
@@ -75,7 +75,11 @@ RSpec.describe Karya::CLI, :e2e, :integration do
 
   def expect_force_stopped_worker(process:, state_file:, marker_file:)
     process_status = process.wait(timeout: 10)
-    process.wait_for_output
+    begin
+      process.wait_for_output
+    rescue Timeout::Error
+      raise Timeout::Error, "force-stopped worker output remained open:\n#{process.output}"
+    end
     runtime_state = wait_for_runtime_phase(state_file, 'stopped', 'force_stopping')
 
     expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{process.output}" }
@@ -163,7 +167,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
       draining_marker_file = File.join(directory, 'draining.txt')
       boot_file = build_force_stop_boot_file(directory:, marker_file:, draining_marker_file:)
 
-      with_force_stop_worker(boot_file:, state_file:) do |process|
+      with_force_stop_worker(boot_file:, state_file:) do
         expect(wait_until { File.exist?(marker_file) && File.exist?(state_file) }).to be(true)
 
         inspect_stdout, inspect_stderr, inspect_status = run_cli('runtime', 'inspect', '--state-file', state_file)
@@ -182,7 +186,6 @@ RSpec.describe Karya::CLI, :e2e, :integration do
         expect(force_stop_status.exitstatus).to eq(0), -> { "stdout:\n#{force_stop_stdout}\n\nstderr:\n#{force_stop_stderr}" }
         runtime_phase = wait_for_runtime_phase(state_file, 'force_stopping', 'stopped').fetch('phase')
         expect(runtime_phase).to match(/\A(?:force_stopping|stopped)\z/)
-        process.close
       end
     end
   end

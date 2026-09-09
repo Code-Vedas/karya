@@ -51,7 +51,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
 
         File.write(boot_file, sqlite_boot_file(sqlite_url: database_url, namespace:, marker_file:))
 
-        stdout, stderr, status = E2ESubprocess.capture(
+        stdout, stderr, status = KaryaSpecSupport::E2ESubprocess.capture(
           *karya_command(
             'worker',
             'billing',

@@ -8,7 +8,7 @@
 require_relative '../spec_helper'
 require File.expand_path('../../../../../spec/support/e2e_subprocess', __dir__)
 
-RSpec.describe E2ESubprocess, :e2e, :integration do
+RSpec.describe KaryaSpecSupport::E2ESubprocess, :e2e, :integration do
   it 'bounds capture when a forked descendant retains an output pipe' do
     command = [
       RbConfig.ruby,

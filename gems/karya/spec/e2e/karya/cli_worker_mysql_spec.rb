@@ -53,7 +53,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
 
         File.write(boot_file, mysql_boot_file(mysql_url: database_url, namespace:, marker_file:))
 
-        stdout, stderr, status = E2ESubprocess.capture(
+        stdout, stderr, status = KaryaSpecSupport::E2ESubprocess.capture(
           *karya_command(
             'worker',
             'billing',
