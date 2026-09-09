@@ -7,7 +7,6 @@
 
 require 'json'
 require 'fileutils'
-require 'open3'
 require 'rbconfig'
 require 'securerandom'
 require 'timeout'
@@ -307,8 +306,8 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
         framework_gem_root:,
         database_url:,
         namespace:,
-          worker_name:,
-          worker: true
+        worker_name:,
+        worker: true
       )
 
       process = E2ESubprocess.new(
@@ -317,69 +316,66 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
         chdir: current_app_root
       )
       begin
-          wait_for_framework_runtime_start(state_file, process)
+        wait_for_framework_runtime_start(state_file, process)
 
-          inspect_stdout, inspect_stderr, inspect_status = run_framework_runtime_command(
+        inspect_stdout, inspect_stderr, inspect_status = run_framework_runtime_command(
+          framework:,
+          action: :inspect,
+          queue:,
+          worker_name:,
+          env: framework_runtime_control_env(
             framework:,
-            action: :inspect,
-            queue:,
-            worker_name:,
-            env:
-            framework_runtime_control_env(
-              framework:,
-              framework_gem_root:,
-              database_url:,
-              namespace:,
-              worker_name:
-            )
+            framework_gem_root:,
+            database_url:,
+            namespace:,
+            worker_name:
           )
-          inspect_payload = parse_framework_runtime_json(inspect_stdout)
+        )
+        inspect_payload = parse_framework_runtime_json(inspect_stdout)
 
-          expect(inspect_status.exitstatus).to eq(0), -> { "stderr:\n#{inspect_stderr}" }
-          expect(inspect_payload.fetch('snapshot').fetch('phase')).to match(/\A(?:starting|running|draining)\z/)
+        expect(inspect_status.exitstatus).to eq(0), -> { "stderr:\n#{inspect_stderr}" }
+        expect(inspect_payload.fetch('snapshot').fetch('phase')).to match(/\A(?:starting|running|draining)\z/)
 
-          drain_stdout, drain_stderr, drain_status = run_framework_runtime_command(
+        drain_stdout, drain_stderr, drain_status = run_framework_runtime_command(
+          framework:,
+          action: :drain,
+          queue:,
+          worker_name:,
+          env: framework_runtime_control_env(
             framework:,
-            action: :drain,
-            queue:,
-            worker_name:,
-            env:
-            framework_runtime_control_env(
-              framework:,
-              framework_gem_root:,
-              database_url:,
-              namespace:,
-              worker_name:
-            )
+            framework_gem_root:,
+            database_url:,
+            namespace:,
+            worker_name:
           )
+        )
 
-          expect(drain_status.exitstatus).to eq(0), -> { "stdout:\n#{drain_stdout}\n\nstderr:\n#{drain_stderr}" }
-          expect(wait_for_framework_runtime_phase(state_file, 'draining')).to include('phase' => 'draining')
+        expect(drain_status.exitstatus).to eq(0), -> { "stdout:\n#{drain_stdout}\n\nstderr:\n#{drain_stderr}" }
+        expect(wait_for_framework_runtime_phase(state_file, 'draining')).to include('phase' => 'draining')
 
-          force_stop_stdout, force_stop_stderr, force_stop_status = run_framework_runtime_command(
+        force_stop_stdout, force_stop_stderr, force_stop_status = run_framework_runtime_command(
+          framework:,
+          action: :force_stop,
+          queue:,
+          worker_name:,
+          env: framework_runtime_control_env(
             framework:,
-            action: :force_stop,
-            queue:,
-            worker_name:,
-            env:
-            framework_runtime_control_env(
-              framework:,
-              framework_gem_root:,
-              database_url:,
-              namespace:,
-              worker_name:
-            )
+            framework_gem_root:,
+            database_url:,
+            namespace:,
+            worker_name:
           )
+        )
 
-          expect(force_stop_status.exitstatus).to eq(0), -> { "stdout:\n#{force_stop_stdout}\n\nstderr:\n#{force_stop_stderr}" }
-          runtime_phase = wait_for_framework_runtime_phase(state_file, 'force_stopping', 'stopped').fetch('phase')
-          expect(runtime_phase).to match(/\A(?:force_stopping|stopped)\z/)
-        rescue Timeout::Error
-          state_payload = File.exist?(state_file) ? File.read(state_file) : '(missing state file)'
-          raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{process.output}"
-        ensure
-          process.close
-        end
+        expect(force_stop_status.exitstatus).to eq(0), -> { "stdout:\n#{force_stop_stdout}\n\nstderr:\n#{force_stop_stderr}" }
+        runtime_phase = wait_for_framework_runtime_phase(state_file, 'force_stopping', 'stopped').fetch('phase')
+        expect(runtime_phase).to match(/\A(?:force_stopping|stopped)\z/)
+      rescue Timeout::Error
+        state_payload = File.exist?(state_file) ? File.read(state_file) : '(missing state file)'
+        raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{process.output}"
+      ensure
+        process.close
+      end
     end
   end
 
@@ -398,8 +394,8 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
         framework_gem_root:,
         database_url:,
         namespace:,
-          worker_name:,
-          worker: true
+        worker_name:,
+        worker: true
       )
 
       process = E2ESubprocess.new(
@@ -408,47 +404,46 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
         chdir: current_app_root
       )
       begin
-          wait_for_framework_runtime_start(state_file, process)
-          write_stale_runtime_state_file!(live_state_file: state_file, stale_state_file:)
+        wait_for_framework_runtime_start(state_file, process)
+        write_stale_runtime_state_file!(live_state_file: state_file, stale_state_file:)
 
-          command_stdout, command_stderr, command_status = run_framework_runtime_command(
+        command_stdout, command_stderr, command_status = run_framework_runtime_command(
+          framework:,
+          action: :drain,
+          queue:,
+          worker_name: stale_worker_name,
+          env: framework_runtime_control_env(
             framework:,
-            action: :drain,
-            queue:,
-            worker_name: stale_worker_name,
-            env:
-            framework_runtime_control_env(
-              framework:,
-              framework_gem_root:,
-              database_url:,
-              namespace:,
-              worker_name: stale_worker_name
-            )
+            framework_gem_root:,
+            database_url:,
+            namespace:,
+            worker_name: stale_worker_name
           )
+        )
 
-          combined_output = "#{command_stdout}\n#{command_stderr}"
-          expect(command_status.exitstatus).not_to eq(0), lambda {
-            stale_state_payload = File.exist?(stale_state_file) ? File.read(stale_state_file) : '(missing state file)'
-            <<~TEXT
-              expected stale-token runtime command to fail
-              stdout:
-              #{command_stdout}
+        combined_output = "#{command_stdout}\n#{command_stderr}"
+        expect(command_status.exitstatus).not_to eq(0), lambda {
+          stale_state_payload = File.exist?(stale_state_file) ? File.read(stale_state_file) : '(missing state file)'
+          <<~TEXT
+            expected stale-token runtime command to fail
+            stdout:
+            #{command_stdout}
 
-              stderr:
-              #{command_stderr}
+            stderr:
+            #{command_stderr}
 
-              state:
-              #{stale_state_payload}
-            TEXT
-          }
-          expect(combined_output).to include('runtime control token does not match the running supervisor')
-        rescue Timeout::Error
-          state_payload = File.exist?(state_file) ? File.read(state_file) : '(missing state file)'
-          raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{process.output}"
-        ensure
-          File.delete(stale_state_file) if File.exist?(stale_state_file)
-          process.close
-        end
+            state:
+            #{stale_state_payload}
+          TEXT
+        }
+        expect(combined_output).to include('runtime control token does not match the running supervisor')
+      rescue Timeout::Error
+        state_payload = File.exist?(state_file) ? File.read(state_file) : '(missing state file)'
+        raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{process.output}"
+      ensure
+        File.delete(stale_state_file) if File.exist?(stale_state_file)
+        process.close
+      end
     end
   end
 end

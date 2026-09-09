@@ -15,9 +15,10 @@ class E2ESubprocess
   attr_reader :pid
 
   def self.capture(*command, timeout: DEFAULT_TIMEOUT, **options)
+    deadline = monotonic_time + timeout
     process = new(*command, **options)
-    status = process.wait(timeout:)
-    process.wait_for_output(timeout: TERMINATION_TIMEOUT)
+    status = process.wait(timeout: remaining_time(deadline))
+    process.wait_for_output(timeout: remaining_time(deadline))
     [process.stdout, process.stderr, status]
   rescue Timeout::Error
     raise Timeout::Error, "subprocess timed out after #{timeout}s:\n#{process&.output}"
@@ -25,8 +26,21 @@ class E2ESubprocess
     process&.close
   end
 
+  def self.monotonic_time
+    Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  end
+  private_class_method :monotonic_time
+
+  def self.remaining_time(deadline)
+    remaining = deadline - monotonic_time
+    raise Timeout::Error unless remaining.positive?
+
+    remaining
+  end
+  private_class_method :remaining_time
+
   def initialize(*command, **options)
-    @stdin, @stdout_io, @stderr_io, @wait_thread = Open3.popen3(*command, **options, pgroup: true)
+    @stdin, @stdout_io, @stderr_io, @wait_thread = Open3.popen3(*command, **options.merge(pgroup: true))
     @pid = @wait_thread.pid
     @stdout = +''
     @stderr = +''

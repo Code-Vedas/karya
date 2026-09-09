@@ -22,7 +22,9 @@ RSpec.describe E2ESubprocess, :e2e, :integration do
     ]
 
     expect do
-      described_class.capture(*command, timeout: 0.5)
+      Timeout.timeout(5) do
+        described_class.capture(*command, timeout: 0.5)
+      end
     end.to raise_error(Timeout::Error, /subprocess timed out after 0.5s/)
   end
 end
