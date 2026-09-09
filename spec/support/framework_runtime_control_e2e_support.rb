@@ -378,7 +378,7 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
         state_payload = File.exist?(state_file) ? File.read(state_file) : '(missing state file)'
         raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{process.output}"
       ensure
-        process.close
+        KaryaSpecSupport::E2ESubprocess.close_preserving_failure(process)
       end
     end
   end
@@ -446,7 +446,7 @@ RSpec.shared_examples 'framework runtime control e2e' do |framework:, framework_
         raise "worker runtime control timed out:\nstate:\n#{state_payload}\n\noutput:\n#{process.output}"
       ensure
         File.delete(stale_state_file) if File.exist?(stale_state_file)
-        process.close
+        KaryaSpecSupport::E2ESubprocess.close_preserving_failure(process)
       end
     end
   end

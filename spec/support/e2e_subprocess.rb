@@ -42,6 +42,14 @@ module KaryaSpecSupport
       result
     end
 
+    def self.close_preserving_failure(process, active_exception: $!)
+      process&.close
+    rescue CleanupError => error
+      raise error unless active_exception
+
+      warn "#{error.class}: #{error.message}"
+    end
+
     def self.monotonic_time
       Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
@@ -94,7 +102,7 @@ module KaryaSpecSupport
     end
 
     def close(deadline: monotonic_time + TERMINATION_TIMEOUT)
-      terminate_process_group(deadline) if alive? || output_readers_alive?
+      terminate_process_group(deadline) unless shutdown_complete?
       close_output_streams
       join_until(@wait_thread, deadline)
       join_until(@stdout_reader, deadline)
@@ -128,7 +136,7 @@ module KaryaSpecSupport
       signal_process_group('TERM')
       grace_deadline = monotonic_time + (remaining_time(deadline) / 2.0)
       join_until(@wait_thread, grace_deadline)
-      return unless alive? || output_readers_alive?
+      return if shutdown_complete?
 
       signal_process_group('KILL')
     end

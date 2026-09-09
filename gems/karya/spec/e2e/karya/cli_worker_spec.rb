@@ -62,7 +62,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
     ), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
     yield process
   ensure
-    process&.close
+    KaryaSpecSupport::E2ESubprocess.close_preserving_failure(process)
   end
 
   def request_force_stop(supervisor_pid:, draining_marker_file:)
