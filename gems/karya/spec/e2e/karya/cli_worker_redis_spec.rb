@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative '../spec_helper'
+require File.expand_path('../../../../../spec/support/e2e_subprocess', __dir__)
 
 RSpec.describe Karya::CLI, :e2e, :integration do
   def delete_redis_namespace(redis_url:, namespace:)
@@ -58,7 +59,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
 
       File.write(boot_file, redis_boot_file(redis_url:, namespace:, marker_file:))
 
-      stdout, stderr, status = Open3.capture3(
+      stdout, stderr, status = KaryaSpecSupport::E2ESubprocess.capture(
         *karya_command(
           'worker',
           'billing',

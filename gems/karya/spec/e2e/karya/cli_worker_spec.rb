@@ -6,10 +6,11 @@
 # LICENSE file in the root directory of this source tree.
 
 require_relative '../spec_helper'
+require File.expand_path('../../../../../spec/support/e2e_subprocess', __dir__)
 
 RSpec.describe Karya::CLI, :e2e, :integration do
   def run_cli(*args)
-    Open3.capture3(*karya_command(*args), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
+    KaryaSpecSupport::E2ESubprocess.capture(*karya_command(*args), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
   end
 
   def wait_for_runtime_phase(state_file, *phases)
@@ -41,7 +42,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
   end
 
   def with_force_stop_worker(boot_file:, state_file:, &)
-    Open3.popen2e(*karya_command(
+    process = KaryaSpecSupport::E2ESubprocess.new(*karya_command(
       'worker',
       'billing',
       '--require',
@@ -58,7 +59,10 @@ RSpec.describe Karya::CLI, :e2e, :integration do
       '0',
       '--state-file',
       state_file
-    ), chdir: KaryaE2EHelpers::PACKAGE_ROOT, &)
+    ), chdir: KaryaE2EHelpers::PACKAGE_ROOT)
+    yield process
+  ensure
+    KaryaSpecSupport::E2ESubprocess.close_preserving_failure(process)
   end
 
   def request_force_stop(supervisor_pid:, draining_marker_file:)
@@ -69,39 +73,27 @@ RSpec.describe Karya::CLI, :e2e, :integration do
     nil
   end
 
-  def cleanup_worker_process(wait_thr)
-    return unless wait_thr.alive?
-
-    Process.kill('TERM', wait_thr.pid)
-    sleep(0.1)
-    Process.kill('KILL', wait_thr.pid) if wait_thr.alive?
-  rescue Errno::ESRCH
-    nil
-  end
-
-  def expect_force_stopped_worker(wait_thr:, stdout_and_stderr:, state_file:, marker_file:)
-    process_status = Timeout.timeout(10) { wait_thr.value }
-    output = stdout_and_stderr.read
+  def expect_force_stopped_worker(process:, state_file:, marker_file:)
+    process_status = process.wait(timeout: 10)
+    begin
+      process.wait_for_output
+    rescue Timeout::Error
+      raise Timeout::Error, "force-stopped worker output remained open:\n#{process.output}"
+    end
     runtime_state = wait_for_runtime_phase(state_file, 'stopped', 'force_stopping')
 
-    expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{output}" }
+    expect(process_status.exitstatus).to eq(1), -> { "worker output:\n#{process.output}" }
     expect(File.read(marker_file).strip).not_to be_empty
     expect(runtime_state.fetch('phase')).to match(/\A(?:stopped|force_stopping)\z/)
   end
 
-  def with_force_stop_cleanup(wait_thr:, stdout_and_stderr:, state_file:, marker_file:)
+  def with_force_stop_cleanup(process:, state_file:, marker_file:)
     yield
     expect_force_stopped_worker(
-      wait_thr:,
-      stdout_and_stderr:,
+      process:,
       state_file:,
       marker_file:
     )
-  rescue Timeout::Error, RSpec::Expectations::ExpectationNotMetError
-    cleanup_worker_process(wait_thr)
-    raise
-  ensure
-    cleanup_worker_process(wait_thr)
   end
 
   it 'executes a queued job end-to-end through exe/karya worker' do
@@ -154,10 +146,9 @@ RSpec.describe Karya::CLI, :e2e, :integration do
       draining_marker_file = File.join(directory, 'draining.txt')
       boot_file = build_force_stop_boot_file(directory:, marker_file:, draining_marker_file:)
 
-      with_force_stop_worker(boot_file:, state_file:) do |_stdin, stdout_and_stderr, wait_thr|
+      with_force_stop_worker(boot_file:, state_file:) do |process|
         with_force_stop_cleanup(
-          wait_thr:,
-          stdout_and_stderr:,
+          process:,
           state_file:,
           marker_file:
         ) do
@@ -176,7 +167,7 @@ RSpec.describe Karya::CLI, :e2e, :integration do
       draining_marker_file = File.join(directory, 'draining.txt')
       boot_file = build_force_stop_boot_file(directory:, marker_file:, draining_marker_file:)
 
-      with_force_stop_worker(boot_file:, state_file:) do |_stdin, stdout_and_stderr, wait_thr|
+      with_force_stop_worker(boot_file:, state_file:) do
         expect(wait_until { File.exist?(marker_file) && File.exist?(state_file) }).to be(true)
 
         inspect_stdout, inspect_stderr, inspect_status = run_cli('runtime', 'inspect', '--state-file', state_file)
@@ -195,8 +186,6 @@ RSpec.describe Karya::CLI, :e2e, :integration do
         expect(force_stop_status.exitstatus).to eq(0), -> { "stdout:\n#{force_stop_stdout}\n\nstderr:\n#{force_stop_stderr}" }
         runtime_phase = wait_for_runtime_phase(state_file, 'force_stopping', 'stopped').fetch('phase')
         expect(runtime_phase).to match(/\A(?:force_stopping|stopped)\z/)
-        cleanup_worker_process(wait_thr)
-        stdout_and_stderr.read
       end
     end
   end
